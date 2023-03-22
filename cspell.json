@@ -1,0 +1,21 @@
+{
+    "version": "0.2",
+    "ignorePaths": [],
+    "dictionaryDefinitions": [],
+    "dictionaries": [],
+    "words": [
+        "Activatable",
+        "Fody",
+        "Maxlength",
+        "memoria",
+        "Newtonsoft",
+        "Noteid",
+        "Rowid",
+        "serilog",
+        "Subviews",
+        "Taskpool",
+        "ustring"
+    ],
+    "ignoreWords": [],
+    "import": []
+}

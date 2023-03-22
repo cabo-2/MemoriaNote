@@ -39,12 +39,54 @@ namespace MemoriaNote
                         _id = NoteKeyValue.Get(db, NoteKeyValue.Noteid);
                     }
 
-                    if (!_id.Equals(value))
+                    if (_id != value)
                     {
                         this.RaiseAndSetIfChanged(ref _id, value);
                         if (db == null)
                             db = new NoteDbContext(DataSource);
                         NoteKeyValue.Set(db, NoteKeyValue.Noteid, _id);
+                    }
+                }
+                finally
+                {
+                    if (db != null)
+                    {
+                        db.Dispose();
+                        db = null;
+                    }
+                }
+            }
+        }
+
+        string _name = null;
+        public string Name
+        {
+            get
+            {
+                if (_name == null)
+                {
+                    using (NoteDbContext db = new NoteDbContext(DataSource))
+                        _name = NoteKeyValue.Get(db, NoteKeyValue.Name);
+                }
+                return _name;
+            }
+            set
+            {
+                NoteDbContext db = null;
+                try
+                {
+                    if (_name == null)
+                    {
+                        db = new NoteDbContext(DataSource);
+                        _name = NoteKeyValue.Get(db, NoteKeyValue.Name);
+                    }
+
+                    if (_name != value)
+                    {
+                        this.RaiseAndSetIfChanged(ref _name, value);
+                        if (db == null)
+                            db = new NoteDbContext(DataSource);
+                        NoteKeyValue.Set(db, NoteKeyValue.Name, _name);
                     }
                 }
                 finally
@@ -81,7 +123,7 @@ namespace MemoriaNote
                         _title = NoteKeyValue.Get(db, NoteKeyValue.Title);
                     }
 
-                    if (!_title.Equals(value))
+                    if (_title != value)
                     {
                         this.RaiseAndSetIfChanged(ref _title, value);
                         if (db == null)
@@ -123,7 +165,7 @@ namespace MemoriaNote
                         _version = NoteKeyValue.Get(db, NoteKeyValue.Version);
                     }
 
-                    if (!_version.Equals(value))
+                    if (_version != value)
                     {
                         this.RaiseAndSetIfChanged(ref _version, value);
                         if (db == null)
@@ -164,7 +206,7 @@ namespace MemoriaNote
                         db = new NoteDbContext(DataSource);
                         _description = NoteKeyValue.Get(db, NoteKeyValue.Description);
                     }
-                    if (!_description.Equals(value))
+                    if (_description != value)
                     {
                         this.RaiseAndSetIfChanged(ref _description, value);
                         if (db == null)
@@ -204,7 +246,7 @@ namespace MemoriaNote
                         db = new NoteDbContext(DataSource);
                         _author = NoteKeyValue.Get(db, NoteKeyValue.Author);
                     }
-                    if (!_author.Equals(value))
+                    if (_author != value)
                     {
                         this.RaiseAndSetIfChanged(ref _author, value);
                         if (db == null)
@@ -254,7 +296,7 @@ namespace MemoriaNote
                         db = new NoteDbContext(DataSource);
                         _readOnly = NoteKeyValue.Get(db, NoteKeyValue.ReadOnly);
                     }
-                    if (!_readOnly.Equals(value))
+                    if (_readOnly != value)
                     {
                         this.RaiseAndSetIfChanged(ref _readOnly, value);
                         if (db == null)
@@ -307,7 +349,7 @@ namespace MemoriaNote
                         db = new NoteDbContext(DataSource);
                         _tags = NoteKeyValue.Get(db, NoteKeyValue.Tags);
                     }
-                    if (!_tags.Equals(value))
+                    if (_tags != value)
                     {
                         this.RaiseAndSetIfChanged(ref _tags, value);
                         if (db == null)
@@ -371,7 +413,7 @@ namespace MemoriaNote
                     using (NoteDbContext db = new NoteDbContext(DataSource))
                         _iconImage = NoteKeyValue.Get(db, NoteKeyValue.IconImage);
                 }
-                if (_iconImage.GetHashCode() != value.GetHashCode()) 
+                if (_iconImage?.GetHashCode() != value?.GetHashCode()) 
                 {
                     this.RaiseAndSetIfChanged(ref _iconImage, value);
                     NoteKeyValue.SetAsync(DataSource, NoteKeyValue.IconImage, _iconImage);
@@ -421,7 +463,7 @@ namespace MemoriaNote
                         db = new NoteDbContext(DataSource);
                         _externalLinkUrl = NoteKeyValue.Get(db, NoteKeyValue.ExternalLinkUrl);
                     }
-                    if (!_externalLinkUrl.Equals(value))
+                    if (_externalLinkUrl != value)
                     {
                         this.RaiseAndSetIfChanged(ref _externalLinkUrl, value);
                         if (db == null)
@@ -504,6 +546,7 @@ namespace MemoriaNote
         }
 
         public static string Noteid => nameof(Noteid);
+        public static string Name => nameof(Name);
         public static string Title => nameof(Title);
         public static string Version => nameof(Version);
         public static string ReadOnly => nameof(ReadOnly);

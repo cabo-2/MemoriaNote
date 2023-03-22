@@ -6,7 +6,6 @@ project.lock.json
 
 # Visual Studio Code
 .vscode
-cspell.json
 
 # User-specific files
 *.suo

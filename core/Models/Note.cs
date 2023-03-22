@@ -18,7 +18,7 @@ namespace MemoriaNote
             DataSource = dataSource;
         }
 
-        public static Note Create (string title, string dataSource) {
+        public static Note Create (string name, string title, string dataSource) {
             if (File.Exists (dataSource))
                 throw new ArgumentException ("File exists");
 
@@ -26,6 +26,7 @@ namespace MemoriaNote
                 context.Database.Migrate();
 
                 var tp = new TitlePage (context.DataSource);
+                tp.Name = name;
                 tp.Title = title;
                 tp.Version = NoteDbContext.CurrentVersion;
                 tp.Noteid = title.CalculateHash();
@@ -36,6 +37,9 @@ namespace MemoriaNote
 
         public static Note Migrate(string dataSource)
         {
+            if (!File.Exists (dataSource))
+                throw new ArgumentException ("File does not exists");
+
             using (NoteDbContext context = new NoteDbContext(dataSource))
             {
                 context.Database.Migrate();
@@ -61,6 +65,9 @@ namespace MemoriaNote
             using (NoteDbContext db = new NoteDbContext(DataSource))
                 return db.PageClient.Read(guid);
         }
+    
+        public Page Read (IContent content) => Read(content.Guid);
+
 
         public IEnumerable<Page> Read(string title)
         {

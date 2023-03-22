@@ -65,4 +65,30 @@ namespace MemoriaNote
             return buffer.ToString();
         }
     }
+
+    public static class EnumExtensions
+    {
+        public static string ToDisplayString(this SearchRangeType range)
+        {
+            switch (range)
+            {             
+                case SearchRangeType.Note:
+                    return "A note";
+                case SearchRangeType.Workgroup:   
+                default:
+                    return "All notes";
+            }
+        }
+        public static string ToDisplayString(this SearchMethodType method)
+        {
+            switch (method)
+            {             
+                case SearchMethodType.Headline:
+                    return "Heading search";
+                case SearchMethodType.FullText:   
+                default:
+                    return "Full text search";
+            }
+        }
+    }
 }

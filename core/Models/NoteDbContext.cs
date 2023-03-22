@@ -1,5 +1,12 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Serilog.Extensions.Logging;
+using Serilog.Extensions.Hosting;
+using Serilog.AspNetCore;
+using Serilog;
 
 namespace MemoriaNote
 {
@@ -102,8 +109,8 @@ namespace MemoriaNote
                 return LoggerFactory.Create(builder => {
                     builder.AddFilter("Microsoft", LogLevel.Warning)                       
                         .AddFilter("System", LogLevel.Warning)
-                        .AddFilter("Memoria", LogLevel.Debug)
-                        .AddConsole();
+                        .AddFilter("MemoriaNote", LogLevel.Debug)     
+                        .AddSerilog(Log.Logger);
                     }
                 );
             }

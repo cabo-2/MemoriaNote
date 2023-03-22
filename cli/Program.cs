@@ -13,125 +13,237 @@ namespace MemoriaNote.Cli
      Description = "Memoria Note CLI - A simple, .NET Terminal.Gui based, Text viewer and editor")]
     [Subcommand(
         typeof(EditCommand),
+        typeof(NewCommand),
         typeof(SearchCommand),
-        typeof(BranchCommand),
+        typeof(WorkCommand),
         typeof(ListCommand),
         typeof(GetCommand),
         typeof(PostCommand))]
-    class Program : CommandBase
+    [HelpOption("--help")]
+    class Program
     {
         public static void Main(string[] args) => CommandLineApplication.Execute<Program>(args);
-
-        public MemoriaNoteViewModel ViewModel { get; set; }
-
-        [Option("--conf <path>", Description = "config json path" )]
-        [FileExists]
-        public string ConfigJsonPath { get; set; }
-
-        protected override int OnExecute(CommandLineApplication app)
+        
+        protected int OnExecute(CommandLineApplication app)
         {
-            Console.WriteLine("No selected"); 
-            app.ShowHint();               
-            return 0;
-        }
-    }
-
-    [Command("edit", "e", Description = "edit item")]
-    class EditCommand : SubcommandBase
-    {
-        [Argument(0, Name = "title", Description = "page title")]
-        public string Title { get; set; }
-
-        [Option("--uuid=<uuid>", Description = "page uuid" )]
-        public (bool hasValue, string value) Uuid { get; set; }
-
-        protected override int OnExecute(CommandLineApplication app)
-        {
-            Console.WriteLine("Editor was selected");    
-            // config setup
+            // setup config
+            Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
 
             // generate view model
-            Parent.ViewModel = new MemoriaNoteViewModel();   
+            var vm = new MemoriaNoteViewModel();
+            //vm.OnActivate();
 
-            Application.Init();
-            RxApp.MainThreadScheduler = TerminalScheduler.Default;
-            RxApp.TaskpoolScheduler = TaskPoolScheduler.Default;
-            //Application.Run(new LoginView(new LoginViewModel()));
-            Application.Run(new MemoriaNoteWindow());
-            Application.Shutdown();
+            //ViewModel.Archive.Migrate();
+            //ViewModel.Archive.Load();
+
+            Console.WriteLine(vm.Workgroup.SelectedNote);
+
+            foreach (var bg in vm.Workgroup.Notes)
+                Console.WriteLine(bg);
+
+            Configuration.Instance.Save();
 
             return 0;
         }
-    }
 
-    [Command("search", "s", Description = "search items")]
-    class SearchCommand : SubcommandBase
-    {
-        [Argument(0, Name = "title", Description = "page title")]
-        public string Title { get; set; }
-
-        [Option("--uuid=<uuid>", Description = "page uuid" )]
-        public (bool hasValue, string value) Uuid { get; set; }
-
-        protected override int OnExecute(CommandLineApplication app)
+        [Command("edit", "e", Description = "edit item")]
+        [HelpOption("--help")]
+        class EditCommand
         {
-            Console.WriteLine("Search was selected");
+            [Argument(0, Name = "title", Description = "page title")]
+            public string Title { get; set; }
 
-            return 0;
+            [Option("--uuid=<uuid>", Description = "page uuid")]
+            public (bool hasValue, string value) Uuid { get; set; }
+
+            protected int OnExecute(CommandLineApplication app)
+            {
+                Console.WriteLine("Editor was selected");
+                // setup config
+                Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
+
+                // generate view model
+                var vm = new MemoriaNoteViewModel();
+                vm.SearchEntry = Title;
+
+                Application.Init();
+                RxApp.MainThreadScheduler = TerminalScheduler.Default;
+                RxApp.TaskpoolScheduler = TaskPoolScheduler.Default;
+                Application.Run(new MemoriaNoteView(vm));
+                Application.Shutdown();
+
+                // save config
+                Configuration.Instance.Save();
+
+                return 0;
+            }
         }
-    }
 
-    [Command("branch", "b", Description = "list and change note")]
-    class BranchCommand : SubcommandBase
-    {
-        [Argument(0)]
-        public string Note { get; set; }
-
-        protected override int OnExecute(CommandLineApplication app)
+        [Command("new", Description = "new item")]
+        [HelpOption("--help")]
+        class NewCommand
         {
-            Console.WriteLine("Change was selected");
-            return 0;
-        }
-    }
+            [Argument(0, Name = "name", Description = "create text name")]
+            public string Name { get; set; }
 
-    [Command("list", "ls", Description = "list items")]
-    class ListCommand : SubcommandBase
-    {
-        protected override int OnExecute(CommandLineApplication app)
+            protected int OnExecute(CommandLineApplication app)
+            {
+                Console.WriteLine("New was selected");
+
+                //TerminalEditor editor = new TerminalEditor(this.Name);
+                var editor = TerminalEditorFactory.Create(this.Name);
+                editor.Edit();
+
+                Console.WriteLine("Text: " + editor.Text);
+                
+                return 0;
+            }
+        }
+
+        [Command("search", "s", Description = "search items")]
+        [HelpOption("--help")]
+        class SearchCommand
         {
-            Console.WriteLine("List was selected");
-            return 0;
-        }
-    }
+            [Argument(0, Name = "word", Description = "search word")]
+            public string Word { get; set; }
 
-    [Command("get", "g", Description = "get item")]
-    class GetCommand : SubcommandBase
-    {
-        protected override int OnExecute(CommandLineApplication app)
+            [Argument(1, Name = "title", Description = "page title")]
+            public string Title { get; set; }
+
+            [Option("--uuid=<uuid>", Description = "page uuid")]
+            public (bool hasValue, string value) Uuid { get; set; }
+
+            protected int OnExecute(CommandLineApplication app)
+            {
+                Console.WriteLine("Search was selected");
+
+
+                return 0;
+            }
+        }
+
+        [Command("work", "w", "branch", Description = "list, change and manage note options",
+                AllowArgumentSeparator = true,
+                UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
+        [Subcommand(typeof(WorkListCommand))]
+        [HelpOption("--help")]
+        class WorkCommand
         {
-            Console.WriteLine("Get was selected");
-            return 0;
-        }
-    }
+            [Argument(0)]
+            public string Note { get; set; }
 
-    [Command("post", "p", Description = "post item")]
-    class PostCommand : SubcommandBase
-    {
-        protected override int OnExecute(CommandLineApplication app)
+            protected int OnExecute(CommandLineApplication app)
+            {
+                Console.WriteLine("Work was selected");
+                return 0;
+            }
+
+            [Command("list", "ls", Description = "list notes",
+                UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
+            private class WorkListCommand
+            {
+                [Option(Description = "Show all containers (default shows just running)")]
+                public bool All { get; }
+
+                protected IReadOnlyList<string> RemainingArguments { get; }
+
+                protected void OnExecute(IConsole console)
+                {
+                    console.WriteLine(string.Join("\n",
+                        "IMAGES",
+                        "--------------------",
+                        "microsoft/dotnet:2.0"));
+                }
+            }
+        }
+
+        [Command("list", "ls", Description = "list items")]
+        [HelpOption("--help")]
+        class ListCommand
         {
-            Console.WriteLine("Post was selected");
-            return 0;
+            protected int OnExecute(CommandLineApplication app)
+            {
+                Console.WriteLine("List was selected");
+                return 0;
+            }
         }
-    }
 
-    abstract class SubcommandBase : CommandBase
-    {
-        protected Program Parent { get; set; }
-    }
+        [Command("get", "g", Description = "get item")]
+        [HelpOption("--help")]
+        class GetCommand
+        {
 
-    [HelpOption("--help")]
-    abstract class CommandBase
-    {
-        protected abstract int OnExecute(CommandLineApplication app);
+            [Argument(1, "word", "search word")]
+            public (bool hasValue, string value) Word { get; set; }
+
+            [Option("--uuid=<uuid>", Description = "page uuid")]
+            public (bool hasValue, string value) Uuid { get; set; }
+
+            protected int OnExecute(CommandLineApplication app)
+            {
+                Console.WriteLine("Get was selected");
+
+                // setup config
+                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+
+                // generate view model
+                var vm = new MemoriaNoteViewModel();
+                //vm.OnActivate();
+
+                //ViewModel.Archive.Migrate();
+                //ViewModel.Archive.Load();
+                if (Word.hasValue)
+                {
+                    Console.WriteLine("word:" + Word.value);
+                }
+                else
+                {
+                    Console.Error.WriteLine("Error:No search word");
+                    return -1;
+                }
+
+                int skipCount = 0;
+                int takeCount = Configuration.Instance.Search.MaxViewResultCount;
+
+                var wg = vm.Workgroup;
+                var result = wg.SearchContents(Word.value, skipCount, takeCount, SearchRangeType.Note);
+
+                Console.WriteLine(result.ToString());
+                foreach (var content in result.Contents)
+                {
+                    Console.WriteLine(content.Title);
+                    var page = wg.SelectedNote.Read(content.Guid);
+                    Console.WriteLine(page.Text);
+                    //Console.WriteLine(content.)
+                    break;
+                }
+
+                Configuration.Instance.Save();
+
+                return 0;
+            }
+        }
+
+        [Command("post", "p", Description = "post item")]
+        [HelpOption("--help")]
+        class PostCommand
+        {
+            protected int OnExecute(CommandLineApplication app)
+            {
+                Console.WriteLine("Post was selected");
+                return 0;
+            }
+        }
+
+        [Command("config", Description = "manage configuration options")]
+        [HelpOption("--help")]
+        class ConfigCommand
+        {
+            protected int OnExecute(CommandLineApplication app)
+            {
+                Console.WriteLine("List was selected");
+                return 0;
+            }
+        }
     }
 }

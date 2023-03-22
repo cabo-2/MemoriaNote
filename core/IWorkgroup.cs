@@ -2,11 +2,10 @@
 
 namespace MemoriaNote
 {
-    public interface IBookGroup
+    public interface IWorkgroup
     {
         string Name { get; set; }
-        SearchRangeType SearchRange { get; set; }
-        bool IsAutoEnabled { get; set; }
+        string SelectedNoteName { get; }
         List<string> UseDataSources { get; }
     }
 }
