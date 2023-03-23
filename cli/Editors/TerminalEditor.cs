@@ -3,15 +3,12 @@ using System.Text;
 using System.IO;
 using System.Diagnostics;
 
-namespace MemoriaNote.Cli
+namespace MemoriaNote.Cli.Editors
 {
     public class TerminalEditor : ITerminalEditor
     {
-        public TerminalEditor() { }
-        public TerminalEditor(string name) : this()
-        {
-            this.Name = name;
-        }
+        public TerminalEditor()
+        {}
 
         public bool Edit()
         {
@@ -52,7 +49,7 @@ namespace MemoriaNote.Cli
             }
         }
         
-        public CreateProcessCommand CreateCommand { get; set; }        
+        public Func<string, ProcessStartInfo> CreateCommand { get; set; }        
         public string Name { get; set; }
         public string Text { get; set; }
     }

@@ -73,7 +73,7 @@ namespace MemoriaNote
 
         public int GetLastIndex(string title)
         {
-            var last = DbContext.Pages.LastOrDefault(m => m.Title == title);
+            var last = DbContext.Pages.OrderBy(p => p.Title).LastOrDefault(m => m.Title == title);
             return last != null ? last.Index : 0;
         }
 

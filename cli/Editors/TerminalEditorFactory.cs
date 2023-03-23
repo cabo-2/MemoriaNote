@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Diagnostics;
 
-namespace MemoriaNote.Cli
+namespace MemoriaNote.Cli.Editors
 {
     public static class TerminalEditorFactory
     {
@@ -51,9 +51,9 @@ namespace MemoriaNote.Cli
         static ProcessStartInfo ExecuteCommand(string exec, string filePath)
                          => new ProcessStartInfo() { FileName = $"{exec}", Arguments = $"\"{filePath}\"" };
 
-        public static ITerminalEditor Create(string name = null)
+        public static ITerminalEditor Create()
         {
-            return new TerminalEditor(name) {
+            return new TerminalEditor() {
                 CreateCommand = (filePath) => ExecuteCommand("nano", filePath)
             };
         }

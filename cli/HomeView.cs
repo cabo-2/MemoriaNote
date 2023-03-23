@@ -2,71 +2,73 @@ using System;
 using System.Text;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Linq;
-
-using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
-using NStack;
 using ReactiveUI;
-using DynamicData.List;
-using ReactiveUI.Fody.Helpers;
 using Terminal.Gui;
 using ReactiveMarbles.ObservableEvents;
-using DynamicData;
-using DynamicData.Binding;
-using DynamicData.Diagnostics;
+using System.Reactive.Concurrency;
 
-namespace MemoriaNote.Cli {
+namespace MemoriaNote.Cli
+{
 
-	public class MemoriaNoteView : Toplevel, IViewFor<MemoriaNoteViewModel>, IDisposable
-	{
-        readonly CompositeDisposable _disposable = new CompositeDisposable();
-
-		protected FrameView _navigation;
-		protected FrameView _contentsFrame;
-		protected FrameView _editorFrame;
-        protected ColorScheme _colorScheme;
-
-		const int NotesLabelWidth = 6;
-		const int NotesWidth = 35;
-        const int SearchTextLabelWidth = 8;
-		const int SearchTextWidth = 20;
-		const int SearchRangeLabelWidth = 15;
-        const int NotificationLabelWidth = 15;
-        const int NotificationWidth = 30;
-		const int ContentPosX = 4;
-		const int ContentWidth = 25;  
-        const int EditorPosX = ContentWidth;     
-
-		static readonly StringBuilder aboutMessage;  
-        static MemoriaNoteView()
+    public class HomeView : Toplevel, IViewFor<MemoriaNoteViewModel>, ITerminalScreen, IDisposable
+    {
+        public static void Run(ScreenController sc, MemoriaNoteViewModel vm)
         {
-			aboutMessage = new StringBuilder();
-			aboutMessage.AppendLine (@"");
-			aboutMessage.AppendLine (@" __  __                           _       ");
-			aboutMessage.AppendLine (@"|  \/  | ___ _ __ ___   ___  _ __(_) __ _ ");
-			aboutMessage.AppendLine (@"| |\/| |/ _ \ '_ ` _ \ / _ \| '__| |/ _` |");
-			aboutMessage.AppendLine (@"| |  | |  __/ | | | | | (_) | |  | | (_| |");
-			aboutMessage.AppendLine (@"|_|  |_|\___|_| |_| |_|\___/|_|  |_|\__,_|");
-			aboutMessage.AppendLine (@"  _   _       _           ____ _     ___  ");
-			aboutMessage.AppendLine (@" | \ | | ___ | |_ ___    / ___| |   |_ _| ");
-			aboutMessage.AppendLine (@" |  \| |/ _ \| __/ _ \  | |   | |    | |  ");
-			aboutMessage.AppendLine (@" | |\  | (_) | ||  __/  | |___| |___ | |  ");
-			aboutMessage.AppendLine (@" |_| \_|\___/ \__\___|   \____|_____|___| ");
-			aboutMessage.AppendLine (@"");
-			aboutMessage.AppendLine (@"https://github.com/gui-cs/Terminal.Gui");
+            Application.Init();
+            RxApp.MainThreadScheduler = TerminalScheduler.Default;
+            RxApp.TaskpoolScheduler = TaskPoolScheduler.Default;
+            Application.Run(new HomeView(sc, vm));
+            Application.Shutdown();
         }
 
-		public MemoriaNoteView (MemoriaNoteViewModel viewModel)
-		{
-            ViewModel = viewModel;         
+        readonly CompositeDisposable _disposable = new CompositeDisposable();
+
+        protected FrameView _navigation;
+        protected FrameView _contentsFrame;
+        protected FrameView _editorFrame;
+        protected ColorScheme _colorScheme;
+
+        const int NotesLabelWidth = 6;
+        const int NotesWidth = 35;
+        const int SearchTextLabelWidth = 8;
+        const int SearchTextWidth = 20;
+        const int SearchRangeLabelWidth = 15;
+        const int NotificationLabelWidth = 15;
+        const int NotificationWidth = 30;
+        const int ContentPosX = 4;
+        const int ContentWidth = 25;
+        const int EditorPosX = ContentWidth;
+
+        static readonly StringBuilder aboutMessage;
+        static HomeView()
+        {
+            aboutMessage = new StringBuilder();
+            aboutMessage.AppendLine(@"");
+            aboutMessage.AppendLine(@" __  __                           _       ");
+            aboutMessage.AppendLine(@"|  \/  | ___ _ __ ___   ___  _ __(_) __ _ ");
+            aboutMessage.AppendLine(@"| |\/| |/ _ \ '_ ` _ \ / _ \| '__| |/ _` |");
+            aboutMessage.AppendLine(@"| |  | |  __/ | | | | | (_) | |  | | (_| |");
+            aboutMessage.AppendLine(@"|_|  |_|\___|_| |_| |_|\___/|_|  |_|\__,_|");
+            aboutMessage.AppendLine(@"  _   _       _           ____ _     ___  ");
+            aboutMessage.AppendLine(@" | \ | | ___ | |_ ___    / ___| |   |_ _| ");
+            aboutMessage.AppendLine(@" |  \| |/ _ \| __/ _ \  | |   | |    | |  ");
+            aboutMessage.AppendLine(@" | |\  | (_) | ||  __/  | |___| |___ | |  ");
+            aboutMessage.AppendLine(@" |_| \_|\___/ \__\___|   \____|_____|___| ");
+            aboutMessage.AppendLine(@"");
+            aboutMessage.AppendLine(@"https://github.com/gui-cs/Terminal.Gui");
+        }
+
+        public HomeView(ScreenController controller, MemoriaNoteViewModel viewModel)
+        {
+            Controller = controller;
+            ViewModel = viewModel;
 
             CreateMenuBar();
             _navigation = CreateNavigation();
             _contentsFrame = CreateContentsFrame();
             _editorFrame = CreateEditorFrame();
-            CreateStatusBar();            
+            CreateStatusBar();
 
             Add(MenuBar);
             Add(_navigation);
@@ -77,8 +79,8 @@ namespace MemoriaNote.Cli {
             this.Events()
                 .Loaded
                 .InvokeCommand(ViewModel, vm => vm.Activate)
-                .DisposeWith(_disposable);  
-		}
+                .DisposeWith(_disposable);
+        }
 
         protected MenuBar CreateMenuBar()
         {
@@ -90,7 +92,7 @@ namespace MemoriaNote.Cli {
                     new MenuBarItem ("_Theme", CreateColorSchemeMenuItems()),
                     new MenuBarItem ("_Help", new MenuItem [] {
                         new MenuItem ("_About...",
-                            "About", () =>  MessageBox.Query ("About", aboutMessage.ToString(), "_Ok"), null, null, Key.CtrlMask | Key.A) 
+                            "About", () =>  MessageBox.Query ("About", aboutMessage.ToString(), "_Ok"), null, null, Key.CtrlMask | Key.A)
                     }),
                 });
             return MenuBar;
@@ -104,6 +106,7 @@ namespace MemoriaNote.Cli {
             };
             StatusBar.Items = new StatusItem[] {
                     new StatusItem(Key.Q | Key.CtrlMask, "~CTRL-Q~ Quit", () => {
+
                         Application.RequestStop ();
                     }),
                     new StatusItem(Key.F10, "~F10~ Status Bar", () => {
@@ -116,7 +119,7 @@ namespace MemoriaNote.Cli {
                 };
             return StatusBar;
         }
-       
+
         protected FrameView CreateNavigation()
         {
             var navigation = new FrameView("Navigation")
@@ -141,7 +144,7 @@ namespace MemoriaNote.Cli {
                 Width = NotesWidth,
                 Height = 1,
                 CanFocus = false
-            };    
+            };
             notesView.SetSource(ViewModel.Notes);
             notesView.SelectedItem = ViewModel.SelectedNoteIndex;
 
@@ -159,16 +162,34 @@ namespace MemoriaNote.Cli {
                 Width = SearchTextWidth,
                 Height = 1,
                 CanFocus = true,
-                Shortcut = Key.CtrlMask | Key.S
+                Shortcut = Key.CtrlMask | Key.N
             };
             ViewModel
                 .WhenAnyValue(vm => vm.SearchEntry)
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(searchTextField, x => x.Text)
                 .DisposeWith(_disposable);
-            searchTextField.TextChanged += (e) => {                
+            searchTextField.TextChanged += (e) =>
+            {
                 ViewModel.SearchEntry = searchTextField.Text.ToString();
                 ViewModel.SearchContents();
+            };
+            searchTextField.ShortcutAction = () => 
+            {
+                Log.Logger.Debug("New test : " + ViewModel.Contents?.Count.ToString() ?? "null");
+                if (ViewModel.Contents.Count == 0)
+                {
+                    ViewModel.EditingState = EditingState.Create;
+                    ViewModel.EditingTitle = searchTextField.Text;
+                    ViewModel.EditingText = null;
+                    Controller.RequestHome();
+                    Controller.RequestEditor();
+                    this.RequestStop();
+                }
+                else
+                {
+                    ViewModel.Notification = "Duplicate registration is not allowed";
+                }
             };
 
             navigation.Add(notesLabel);
@@ -185,7 +206,7 @@ namespace MemoriaNote.Cli {
                 .WhenAnyValue(vm => vm.SearchMethodsInfo)
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(searchMethodLabel, x => x.Text)
-                .DisposeWith(_disposable);        
+                .DisposeWith(_disposable);
             navigation.Add(searchTextLabel, searchTextField);
             navigation.Add(searchMethodLabel);
 
@@ -195,26 +216,26 @@ namespace MemoriaNote.Cli {
                 Y = 0,
                 Width = NotificationLabelWidth,
                 Height = 1
-            };            
-            var notificationField = new Label() 
+            };
+            var notificationField = new Label()
             {
                 X = Pos.Right(notificationLabel),
                 Y = 0,
                 Width = NotificationWidth,
                 Height = 1,
-                CanFocus = false                                
+                CanFocus = false
             };
             ViewModel
                 .WhenAnyValue(vm => vm.Notification)
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(notificationField, x => x.Text)
-                .DisposeWith(_disposable);            
+                .DisposeWith(_disposable);
             navigation.Add(notificationLabel, notificationField);
 
             return navigation;
         }
 
-        protected FrameView CreateContentsFrame() 
+        protected FrameView CreateContentsFrame()
         {
             var contentsFrame = new FrameView("List")
             {
@@ -248,7 +269,7 @@ namespace MemoriaNote.Cli {
                 Width = 7,
                 Height = 1,
                 CanFocus = false
-            };            
+            };
             var pageNextButton = new Button(" >>> ")
             {
                 X = ContentWidth - 7 - 4,
@@ -270,11 +291,12 @@ namespace MemoriaNote.Cli {
                 AllowsMarking = false,
                 CanFocus = true,
             };
-            contentsListView.SelectedItemChanged += (e) => {
+            contentsListView.SelectedItemChanged += (e) =>
+            {
                 ViewModel.ContentsViewPageIndex = (ViewModel.ContentsViewPageIndex.Item1, e.Item);
                 ViewModel.OpenText();
-            };        
-            contentsListView.SetSource(ViewModel.ContentViewItems);     
+            };
+            contentsListView.SetSource(ViewModel.ContentViewItems);
             contentsFrame.Add(contentsListView);
 
             var scrollBar = new ScrollBarView(contentsListView, true);
@@ -326,7 +348,9 @@ namespace MemoriaNote.Cli {
                 X = 0,
                 Y = 0,
                 Width = Dim.Fill(),
-                Height = 1
+                Height = 1,
+                CanFocus = false,
+                ReadOnly = true
             };
             ViewModel
                 .WhenAnyValue(vm => vm.EditingTitle)
@@ -351,7 +375,20 @@ namespace MemoriaNote.Cli {
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(textEditor, x => x.Text)
                 .DisposeWith(_disposable);
-			editorFrame.Add(textEditor);
+            textEditor.ShortcutAction = () =>
+            {
+                if (ViewModel.OpenedPage != null) 
+                {
+                    Log.Logger.Debug("Request editor");
+                    ViewModel.EditingState = EditingState.Update;
+                    ViewModel.EditingTitle = titleField.Text;
+                    ViewModel.EditingText = textEditor.Text;
+                    this.Controller.RequestHome();
+                    this.Controller.RequestEditor();
+                    this.RequestStop();
+                }
+            };
+            editorFrame.Add(textEditor);
 
             var scrollBar = new ScrollBarView(textEditor, true);
             scrollBar.ChangedPosition += () =>
@@ -409,40 +446,44 @@ namespace MemoriaNote.Cli {
 
             return editorFrame;
         }
-        
-		MenuItem [] CreateColorSchemeMenuItems ()
-		{
-			List<MenuItem> menuItems = new List<MenuItem> ();
-			foreach (var sc in Colors.ColorSchemes) {
-				var item = new MenuItem ();
-				item.Title = $"_{sc.Key}";
-				item.Shortcut = Key.AltMask | (Key)sc.Key.Substring (0, 1) [0];
-				item.CheckType |= MenuItemCheckStyle.Radio;
-				item.Checked = sc.Value == _colorScheme;
-				item.Action += () => {
-					ColorScheme = _colorScheme = sc.Value;
-					SetNeedsDisplay ();
-					foreach (var menuItem in menuItems) {
-						menuItem.Checked = menuItem.Title.Equals ($"_{sc.Key}") && sc.Value == _colorScheme;
-					}
-				};
-				menuItems.Add (item);
-			}
-			return menuItems.ToArray ();
-		}
 
+        MenuItem[] CreateColorSchemeMenuItems()
+        {
+            List<MenuItem> menuItems = new List<MenuItem>();
+            foreach (var sc in Colors.ColorSchemes)
+            {
+                var item = new MenuItem();
+                item.Title = $"_{sc.Key}";
+                item.Shortcut = Key.AltMask | (Key)sc.Key.Substring(0, 1)[0];
+                item.CheckType |= MenuItemCheckStyle.Radio;
+                item.Checked = sc.Value == _colorScheme;
+                item.Action += () =>
+                {
+                    ColorScheme = _colorScheme = sc.Value;
+                    SetNeedsDisplay();
+                    foreach (var menuItem in menuItems)
+                    {
+                        menuItem.Checked = menuItem.Title.Equals($"_{sc.Key}") && sc.Value == _colorScheme;
+                    }
+                };
+                menuItems.Add(item);
+            }
+            return menuItems.ToArray();
+        }
+
+        public ScreenController Controller { get; set; }
         public MemoriaNoteViewModel ViewModel { get; set; }
 
         protected override void Dispose(bool disposing)
         {
             _disposable.Dispose();
             base.Dispose(disposing);
-        }        
+        }
 
         object IViewFor.ViewModel
         {
             get => ViewModel;
             set => ViewModel = (MemoriaNoteViewModel)value;
         }
-	}
+    }
 }

@@ -96,7 +96,6 @@ namespace MemoriaNote.Cli
             this.Notification = ustring.Make(result.ToString());
             OnSelectedContextsIndexChanged();
             Log.Logger.Information(result.ToString());
-            Log.Logger.Information($"ContentsCount: {result.Count} Contents:{result.Contents.Count}");
         }
 
         protected void OnSelectedContextsIndexChanged()
@@ -159,6 +158,10 @@ namespace MemoriaNote.Cli
         [Reactive, DataMember] public ustring EditingTitle { get; set; } = "";
 
         [Reactive, DataMember] public ustring TextEditor { get; set; } = "";
+
+        [Reactive, DataMember] public ustring EditingText { get; set; }
+
+        [Reactive, DataMember] public EditingState EditingState { get; set; }
 
         [Reactive, DataMember] public SearchRangeType SearchRange { get; set; }
 

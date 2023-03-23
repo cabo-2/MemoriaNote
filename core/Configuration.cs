@@ -58,8 +58,12 @@ namespace MemoriaNote
         public virtual T Load<T>() where T : Configuration, new()
         {
             var path = ConfigurationPath;
-            if(!File.Exists(path))
-                return new T().GetDefault<T>(); 
+            if(!File.Exists(path)) 
+            {
+                var value = new T().GetDefault<T>(); 
+                value.Save();
+                return value;
+            }
             
             try
             {                

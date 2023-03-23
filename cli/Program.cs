@@ -14,7 +14,7 @@ namespace MemoriaNote.Cli
     [Subcommand(
         typeof(EditCommand),
         typeof(NewCommand),
-        typeof(SearchCommand),
+        typeof(ConfigCommand),
         typeof(WorkCommand),
         typeof(ListCommand),
         typeof(GetCommand),
@@ -26,52 +26,44 @@ namespace MemoriaNote.Cli
         
         protected int OnExecute(CommandLineApplication app)
         {
-            // setup config
             Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
 
-            // generate view model
             var vm = new MemoriaNoteViewModel();
-            //vm.OnActivate();
+            var sc = new ScreenController();
 
-            //ViewModel.Archive.Migrate();
-            //ViewModel.Archive.Load();
-
-            Console.WriteLine(vm.Workgroup.SelectedNote);
-
-            foreach (var bg in vm.Workgroup.Notes)
-                Console.WriteLine(bg);
+            
 
             Configuration.Instance.Save();
 
             return 0;
         }
 
-        [Command("edit", "e", Description = "edit item")]
+        [Command("edit", "e", Description = "Edit, browse and search text commands")]
         [HelpOption("--help")]
         class EditCommand
         {
-            [Argument(0, Name = "title", Description = "page title")]
-            public string Title { get; set; }
+            [Argument(0, Name = "name", Description = "text name")]
+            public string Name { get; set; }
 
-            [Option("--uuid=<uuid>", Description = "page uuid")]
+            [Option("--uuid=<uuid>", Description = "uuid")]
             public (bool hasValue, string value) Uuid { get; set; }
 
             protected int OnExecute(CommandLineApplication app)
             {
                 Console.WriteLine("Editor was selected");
+
                 // setup config
                 Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
 
                 // generate view model
                 var vm = new MemoriaNoteViewModel();
-                vm.SearchEntry = Title;
+                vm.SearchEntry = Name;
 
-                Application.Init();
-                RxApp.MainThreadScheduler = TerminalScheduler.Default;
-                RxApp.TaskpoolScheduler = TaskPoolScheduler.Default;
-                Application.Run(new MemoriaNoteView(vm));
-                Application.Shutdown();
+                var sc = new ScreenController();
+                sc.RequestHome();
 
+                sc.Start(vm);
+                
                 // save config
                 Configuration.Instance.Save();
 
@@ -79,30 +71,41 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("new", Description = "new item")]
+        [Command("new", Description = "Create text command")]
         [HelpOption("--help")]
         class NewCommand
         {
-            [Argument(0, Name = "name", Description = "create text name")]
+            [Argument(0, Name = "name", Description = "text name")]
             public string Name { get; set; }
 
             protected int OnExecute(CommandLineApplication app)
             {
                 Console.WriteLine("New was selected");
 
-                //TerminalEditor editor = new TerminalEditor(this.Name);
-                var editor = TerminalEditorFactory.Create(this.Name);
-                editor.Edit();
+                // setup config
+                Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
 
-                Console.WriteLine("Text: " + editor.Text);
+                // generate view model
+                var vm = new MemoriaNoteViewModel();
+                vm.EditingTitle = Name;
+                vm.EditingState = EditingState.Create;
+
+                var sc = new ScreenController();
+                sc.RequestHome();
+                sc.RequestEditor();
+
+                sc.Start(vm);
+
+                // save config
+                Configuration.Instance.Save();
                 
                 return 0;
             }
         }
 
-        [Command("search", "s", Description = "search items")]
+        [Command("config", Description = "Manage configuration options")]
         [HelpOption("--help")]
-        class SearchCommand
+        class ConfigCommand
         {
             [Argument(0, Name = "word", Description = "search word")]
             public string Word { get; set; }
@@ -122,7 +125,7 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("work", "w", "branch", Description = "list, change and manage note options",
+        [Command("work", "w", "branch", Description = "List, change and manage note options",
                 AllowArgumentSeparator = true,
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
         [Subcommand(typeof(WorkListCommand))]
@@ -138,7 +141,7 @@ namespace MemoriaNote.Cli
                 return 0;
             }
 
-            [Command("list", "ls", Description = "list notes",
+            [Command("list", "ls", Description = "List notes",
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkListCommand
             {
@@ -157,7 +160,7 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("list", "ls", Description = "list items")]
+        [Command("list", "ls", Description = "List text")]
         [HelpOption("--help")]
         class ListCommand
         {
@@ -231,17 +234,6 @@ namespace MemoriaNote.Cli
             protected int OnExecute(CommandLineApplication app)
             {
                 Console.WriteLine("Post was selected");
-                return 0;
-            }
-        }
-
-        [Command("config", Description = "manage configuration options")]
-        [HelpOption("--help")]
-        class ConfigCommand
-        {
-            protected int OnExecute(CommandLineApplication app)
-            {
-                Console.WriteLine("List was selected");
                 return 0;
             }
         }
