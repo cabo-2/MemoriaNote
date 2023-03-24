@@ -30,35 +30,6 @@ namespace MemoriaNote.Cli
         protected FrameView _editorFrame;
         protected ColorScheme _colorScheme;
 
-        const int NotesLabelWidth = 6;
-        const int NotesWidth = 30;
-        const int SearchTextLabelWidth = 8;
-        const int SearchTextWidth = 20;
-        const int NotifyLabelWidth = 8;
-        const int NotifyWidth = 30;
-        const int ContentPosX = 4;
-        const int ContentWidth = 25;
-        const int EditorPosX = ContentWidth;
-
-        static readonly StringBuilder aboutMessage;
-        static HomeView()
-        {
-            aboutMessage = new StringBuilder();
-            aboutMessage.AppendLine(@"");
-            aboutMessage.AppendLine(@" __  __                           _       ");
-            aboutMessage.AppendLine(@"|  \/  | ___ _ __ ___   ___  _ __(_) __ _ ");
-            aboutMessage.AppendLine(@"| |\/| |/ _ \ '_ ` _ \ / _ \| '__| |/ _` |");
-            aboutMessage.AppendLine(@"| |  | |  __/ | | | | | (_) | |  | | (_| |");
-            aboutMessage.AppendLine(@"|_|  |_|\___|_| |_| |_|\___/|_|  |_|\__,_|");
-            aboutMessage.AppendLine(@"  _   _       _           ____ _     ___  ");
-            aboutMessage.AppendLine(@" | \ | | ___ | |_ ___    / ___| |   |_ _| ");
-            aboutMessage.AppendLine(@" |  \| |/ _ \| __/ _ \  | |   | |    | |  ");
-            aboutMessage.AppendLine(@" | |\  | (_) | ||  __/  | |___| |___ | |  ");
-            aboutMessage.AppendLine(@" |_| \_|\___/ \__\___|   \____|_____|___| ");
-            aboutMessage.AppendLine(@"");
-            aboutMessage.AppendLine(@"https://github.com/gui-cs/Terminal.Gui");
-        }
-
         public HomeView(ScreenController controller, MemoriaNoteViewModel viewModel)
         {
             Controller = controller;
@@ -93,7 +64,7 @@ namespace MemoriaNote.Cli
                     new MenuBarItem ("_Theme", CreateColorSchemeMenuItems()),
                     new MenuBarItem ("_Help", new MenuItem [] {
                         new MenuItem ("_About...",
-                            "About", () =>  MessageBox.Query ("About", aboutMessage.ToString(), "_Ok"), null, null, Key.CtrlMask | Key.A)
+                            "About", () =>  MessageBox.Query ("About", ViewHelper.AboutMessage, "_Ok"), null, null, Key.CtrlMask | Key.A)
                     }),
                 });
             return MenuBar;
@@ -112,7 +83,7 @@ namespace MemoriaNote.Cli
                     Title = notes[i].ToString(),
                     Help = "",                    
                     Checked = isCurrent,
-                    Shortcut = NumberToKey(i) | Key.CtrlMask | Key.AltMask,
+                    Shortcut = ViewHelper.NumberToKey(i) | Key.CtrlMask | Key.AltMask,
                     Action = () => {
                         Log.Logger.Debug("Push NoteItem: " + notes[i].ToString());
                     }
@@ -120,22 +91,6 @@ namespace MemoriaNote.Cli
                 items.Add(item);
             }
             return items.ToArray();
-        }
-
-        static Key NumberToKey(int number) {           
-            switch(number) {
-                case 0: return Key.D0;
-                case 1: return Key.D1;
-                case 2: return Key.D2;
-                case 3: return Key.D3;
-                case 4: return Key.D4;
-                case 5: return Key.D5;
-                case 6: return Key.D6;
-                case 7: return Key.D7;
-                case 8: return Key.D8;
-                case 9: return Key.D9;
-                default: throw new ArgumentException(nameof(number));
-            }
         }
 
         protected StatusBar CreateStatusBar()
@@ -204,39 +159,14 @@ namespace MemoriaNote.Cli
                 Height = 3,
                 CanFocus = false
             };
-            var notesLabel = new Label("Note:")
-            {
-                X = 1,
-                Y = 0,
-                Width = NotesLabelWidth,
-                Height = 1
-            };
-            var notesView = new ListView()
-            {
-                X = Pos.Right(notesLabel),
-                Y = 0,
-                Width = NotesWidth,
-                Height = 1,
-                CanFocus = false
-            };
+            
+            var notesLabel = ViewHelper.CreateNoteLabel();
+            var notesView = ViewHelper.CreateNoteView(notesLabel);
             notesView.SetSource(ViewModel.Notes);
             notesView.SelectedItem = ViewModel.SelectedNoteIndex;
 
-            var searchTextLabel = new Label("Search:")
-            {
-                X = Pos.Right(notesView) + 2,
-                Y = 0,
-                Width = SearchTextLabelWidth,
-                Height = 1
-            };
-            var searchTextField = new TextField(ViewModel.SearchEntry ?? "")
-            {
-                X = Pos.Right(searchTextLabel),
-                Y = 0,
-                Width = SearchTextWidth,
-                Height = 1,
-                CanFocus = true,
-            };
+            var searchTextLabel = ViewHelper.CreateSearchTextLabel(notesView, "Search:");
+            var searchTextField = ViewHelper.CreateSearchTextField(searchTextLabel, ViewModel.SearchEntry ?? "");
             ViewModel
                 .WhenAnyValue(vm => vm.SearchEntry)
                 .ObserveOn(RxApp.MainThreadScheduler)
@@ -246,7 +176,7 @@ namespace MemoriaNote.Cli
             {
                 ViewModel.SearchEntry = searchTextField.Text.ToString();
                 Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.Search); 
-            };
+            };            
             searchTextField.ShortcutAction = () =>
             {
                 Log.Logger.Debug("New test : " + ViewModel.Contents?.Count.ToString() ?? "null");
@@ -270,21 +200,8 @@ namespace MemoriaNote.Cli
 
             navigation.Add(searchTextLabel, searchTextField);
 
-            var notifyLabel = new Label("Notify:")
-            {
-                X = Pos.Right(searchTextField) + 3,
-                Y = 0,
-                Width = NotifyLabelWidth,
-                Height = 1
-            };
-            var notifyField = new Label()
-            {
-                X = Pos.Right(notifyLabel),
-                Y = 0,
-                Width = NotifyWidth,
-                Height = 1,
-                CanFocus = false
-            };
+            var notifyLabel = ViewHelper.CreateNotifyLabel(searchTextField);
+            var notifyField = ViewHelper.CreateNoteView(notifyLabel);
             ViewModel
                 .WhenAnyValue(vm => vm.Notification)
                 .ObserveOn(RxApp.MainThreadScheduler)
@@ -300,47 +217,26 @@ namespace MemoriaNote.Cli
             var contentsFrame = new FrameView("List")
             {
                 X = 0,
-                Y = ContentPosX,
-                Width = ContentWidth,
+                Y = ViewHelper.ContentPosX,
+                Width = ViewHelper.ContentWidth,
                 Height = Dim.Fill(1),
                 CanFocus = false,
             };
 
-            var contentsLabel = new Label()
-            {
-                X = 0,
-                Y = 0,
-                Width = ContentWidth,
-                Height = 1,
-                TextAlignment = TextAlignment.Centered
-            };
+            var contentsLabel = ViewHelper.CreateContentsLabel();
             ViewModel
                 .WhenAnyValue(vm => vm.PlaceHolder)
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(contentsLabel, x => x.Text)
                 .DisposeWith(_disposable);
 
-            var pagePrevButton = new Button(" <<< ")
-            {
-                X = 0,
-                Y = 1,
-                Width = 7,
-                Height = 1,
-                CanFocus = false
-            };
+            var pagePrevButton = ViewHelper.CreatePagePrevButton(contentsLabel);
 			pagePrevButton
 				.Events ()
 				.Clicked
 				.InvokeCommand (ViewModel, x => x.PagePrev)
 				.DisposeWith (_disposable);
-            var pageNextButton = new Button(" >>> ")
-            {
-                X = ContentWidth - 7 - 4,
-                Y = 1,
-                Width = 7,
-                Height = 1,
-                CanFocus = false
-            };
+            var pageNextButton = ViewHelper.CreatePageNextButton(pagePrevButton);
 			pageNextButton
 				.Events ()
 				.Clicked
@@ -348,17 +244,9 @@ namespace MemoriaNote.Cli
 				.DisposeWith (_disposable);                
             contentsFrame.Add(contentsLabel);
             contentsFrame.Add(pagePrevButton);
-            contentsFrame.Add(pageNextButton);
+            contentsFrame.Add(pageNextButton);        
 
-            var contentsListView = new ListView()
-            {
-                X = 0,
-                Y = 2,
-                Width = Dim.Fill(0),
-                Height = Dim.Fill(0),
-                AllowsMarking = false,
-                CanFocus = true,
-            };
+            var contentsListView = ViewHelper.CreateContentsListView(pageNextButton);
             contentsListView.SelectedItemChanged += (e) =>
             {
                 ViewModel.ContentsViewPageIndex = (ViewModel.ContentsViewPageIndex.Item1, e.Item);
@@ -366,35 +254,8 @@ namespace MemoriaNote.Cli
             };
             contentsListView.SetSource(ViewModel.ContentViewItems);
             contentsFrame.Add(contentsListView);
-
-            var scrollBar = new ScrollBarView(contentsListView, true);
-            scrollBar.ChangedPosition += () =>
-            {
-                contentsListView.TopItem = scrollBar.Position;
-                if (contentsListView.TopItem != scrollBar.Position)
-                {
-                    scrollBar.Position = contentsListView.TopItem;
-                }
-                contentsListView.SetNeedsDisplay();
-            };
-            scrollBar.OtherScrollBarView.ChangedPosition += () =>
-            {
-                contentsListView.LeftItem = scrollBar.OtherScrollBarView.Position;
-                if (contentsListView.LeftItem != scrollBar.OtherScrollBarView.Position)
-                {
-                    scrollBar.OtherScrollBarView.Position = contentsListView.LeftItem;
-                }
-                contentsListView.SetNeedsDisplay();
-            };
-            contentsListView.DrawContent += (e) =>
-            {
-                scrollBar.Size = contentsListView.Source.Count - 1;
-                scrollBar.Position = contentsListView.TopItem;
-                scrollBar.OtherScrollBarView.Size = contentsListView.Maxlength - 1;
-                scrollBar.OtherScrollBarView.Position = contentsListView.LeftItem;
-                scrollBar.Refresh();
-            };
-
+            ViewHelper.CreateContentsScrollBar(contentsListView);
+            
             return contentsFrame;
         }
 
@@ -402,39 +263,21 @@ namespace MemoriaNote.Cli
         {
             var editorFrame = new FrameView("Text")
             {
-                X = ContentWidth,
-                Y = ContentPosX,
+                X = ViewHelper.ContentWidth,
+                Y = ViewHelper.ContentPosX,
                 Width = Dim.Fill(),
                 Height = Dim.Fill(1),
                 CanFocus = true,
             };
 
-            var titleField = new TextField()
-            {
-                X = 0,
-                Y = 0,
-                Width = Dim.Fill(),
-                Height = 1,
-                CanFocus = false,
-                ReadOnly = true
-            };
+            var titleField = ViewHelper.CreateTitleField();
             ViewModel
                 .WhenAnyValue(vm => vm.EditingTitle)
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(titleField, x => x.Text)
                 .DisposeWith(_disposable);
             editorFrame.Add(titleField);
-            var textEditor = new TextEditor()
-            {
-                X = 0,
-                Y = 1,
-                Width = Dim.Fill(),
-                Height = Dim.Fill(),
-                BottomOffset = 1,
-                RightOffset = 1,
-                CanFocus = true,
-                ReadOnly = true,
-            };
+            var textEditor = ViewHelper.CreateTextEditor();
             ViewModel
                 .WhenAnyValue(vm => vm.TextEditor)
                 .ObserveOn(RxApp.MainThreadScheduler)
@@ -454,60 +297,7 @@ namespace MemoriaNote.Cli
                 }
             };
             editorFrame.Add(textEditor);
-
-            var scrollBar = new ScrollBarView(textEditor, true);
-            scrollBar.ChangedPosition += () =>
-            {
-                textEditor.TopRow = scrollBar.Position;
-                if (textEditor.TopRow != scrollBar.Position)
-                {
-                    scrollBar.Position = textEditor.TopRow;
-                }
-                textEditor.SetNeedsDisplay();
-            };
-            scrollBar.OtherScrollBarView.ChangedPosition += () =>
-            {
-                textEditor.LeftColumn = scrollBar.OtherScrollBarView.Position;
-                if (textEditor.LeftColumn != scrollBar.OtherScrollBarView.Position)
-                {
-                    scrollBar.OtherScrollBarView.Position = textEditor.LeftColumn;
-                }
-                textEditor.SetNeedsDisplay();
-            };
-            scrollBar.VisibleChanged += () =>
-            {
-                if (scrollBar.Visible && textEditor.RightOffset == 0)
-                {
-                    textEditor.RightOffset = 1;
-                }
-                else if (!scrollBar.Visible && textEditor.RightOffset == 1)
-                {
-                    textEditor.RightOffset = 0;
-                }
-            };
-            scrollBar.OtherScrollBarView.VisibleChanged += () =>
-            {
-                if (scrollBar.OtherScrollBarView.Visible && textEditor.BottomOffset == 0)
-                {
-                    textEditor.BottomOffset = 1;
-                }
-                else if (!scrollBar.OtherScrollBarView.Visible && textEditor.BottomOffset == 1)
-                {
-                    textEditor.BottomOffset = 0;
-                }
-            };
-            textEditor.DrawContent += (e) =>
-            {
-                scrollBar.Size = textEditor.Lines;
-                scrollBar.Position = textEditor.TopRow;
-                if (scrollBar.OtherScrollBarView != null)
-                {
-                    scrollBar.OtherScrollBarView.Size = textEditor.Maxlength;
-                    scrollBar.OtherScrollBarView.Position = textEditor.LeftColumn;
-                }
-                scrollBar.LayoutSubviews();
-                scrollBar.Refresh();
-            };
+            ViewHelper.CreateTextEditorScrollBar(textEditor);
 
             return editorFrame;
         }
