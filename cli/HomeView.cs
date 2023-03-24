@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Collections.Generic;
@@ -30,12 +31,11 @@ namespace MemoriaNote.Cli
         protected ColorScheme _colorScheme;
 
         const int NotesLabelWidth = 6;
-        const int NotesWidth = 35;
+        const int NotesWidth = 30;
         const int SearchTextLabelWidth = 8;
         const int SearchTextWidth = 20;
-        const int SearchRangeLabelWidth = 15;
-        const int NotificationLabelWidth = 15;
-        const int NotificationWidth = 30;
+        const int NotifyLabelWidth = 8;
+        const int NotifyWidth = 30;
         const int ContentPosX = 4;
         const int ContentWidth = 25;
         const int EditorPosX = ContentWidth;
@@ -89,6 +89,7 @@ namespace MemoriaNote.Cli
                     new MenuBarItem ("_File", new MenuItem [] {
                         new MenuItem ("_Quit", "Exit", () => RequestStop(), null, null, Key.Q | Key.CtrlMask)
                     }),
+                    new MenuBarItem ("_Work", CreateNoteMenuItems()),
                     new MenuBarItem ("_Theme", CreateColorSchemeMenuItems()),
                     new MenuBarItem ("_Help", new MenuItem [] {
                         new MenuItem ("_About...",
@@ -98,23 +99,96 @@ namespace MemoriaNote.Cli
             return MenuBar;
         }
 
+        protected MenuItem[] CreateNoteMenuItems()
+        {
+            var items = new List<MenuItem>();            
+            var notes = ViewModel.Workgroup.Notes.ToArray();
+            var index = ViewModel.Workgroup.SelectedNoteIndex;
+            var length = Math.Min(notes.Length, 10);
+
+            for (int i=0; i<length; i++) {
+                var isCurrent = (i == index);
+                var item = new MenuItem() {
+                    Title = notes[i].ToString(),
+                    Help = "",                    
+                    Checked = isCurrent,
+                    Shortcut = NumberToKey(i) | Key.CtrlMask | Key.AltMask,
+                    Action = () => {
+                        Log.Logger.Debug("Push NoteItem: " + notes[i].ToString());
+                    }
+                };
+                items.Add(item);
+            }
+            return items.ToArray();
+        }
+
+        static Key NumberToKey(int number) {           
+            switch(number) {
+                case 0: return Key.D0;
+                case 1: return Key.D1;
+                case 2: return Key.D2;
+                case 3: return Key.D3;
+                case 4: return Key.D4;
+                case 5: return Key.D5;
+                case 6: return Key.D6;
+                case 7: return Key.D7;
+                case 8: return Key.D8;
+                case 9: return Key.D9;
+                default: throw new ArgumentException(nameof(number));
+            }
+        }
+
         protected StatusBar CreateStatusBar()
         {
             StatusBar = new StatusBar()
             {
                 Visible = true,
+                AutoSize = true
             };
             StatusBar.Items = new StatusItem[] {
                     new StatusItem(Key.Q | Key.CtrlMask, "~CTRL-Q~ Quit", () => {
-
                         Application.RequestStop ();
                     }),
-                    new StatusItem(Key.F10, "~F10~ Status Bar", () => {
-                        StatusBar.Visible = !StatusBar.Visible;
-                        _contentsFrame.Height = Dim.Fill(StatusBar.Visible ? 1 : 0);
-                        _editorFrame.Height = Dim.Fill(StatusBar.Visible ? 1 : 0);
-                        LayoutSubviews();
-                        SetChildNeedsDisplay();
+                    new StatusItem(Key.Null," ",() => {}),
+                    new StatusItem(Key.F1, "~F1~ Prev  ", () => {
+                        Log.Logger.Debug("Push F1 Function");
+                        Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.PagePrev);                       
+                    }),
+                    new StatusItem(Key.F2, "~F2~ Next  ", () => {
+                        Log.Logger.Debug("Push F2 Function");
+                        Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.PageNext);
+                    }),
+                    new StatusItem(Key.Null," ",() => {}),
+                    new StatusItem(Key.F5, "~F5~ WildCard  ", () => {                        
+                                               //RegularExp"
+                        Log.Logger.Debug("Push F5 Function");
+                    }),
+                    new StatusItem(Key.F6, "~F6~ " + ViewModel.SearchRangeString, () => {
+                        Log.Logger.Debug("Push F6 Function");                    
+                        if (ViewModel.SearchRange == SearchRangeType.Note)
+                            ViewModel.SearchRange = SearchRangeType.Workgroup;
+                        else
+                            ViewModel.SearchRange = SearchRangeType.Note;
+
+                        Controller.RequestHome();
+                        Application.RequestStop ();
+                        Log.Logger.Debug("Search range changed: " + ViewModel.SearchRangeString); 
+                    }),
+                    new StatusItem(Key.F7, "~F7~ " + ViewModel.SearchMethodString, () => {
+                                               //Full text
+                        Log.Logger.Debug("Push F7 Function");                  
+                        if (ViewModel.SearchMethod == SearchMethodType.Headline)
+                            ViewModel.SearchMethod = SearchMethodType.FullText;
+                        else
+                            ViewModel.SearchMethod = SearchMethodType.Headline;
+                        
+                        Controller.RequestHome();
+                        Application.RequestStop ();
+                        Log.Logger.Debug("Search method changed: " + ViewModel.SearchMethodString); 
+                    }),
+                    new StatusItem(Key.Null," ",() => {}),
+                    new StatusItem(Key.F9, "~F9~ Browse Mode", () => {
+                        Log.Logger.Debug("Push F9 Browse Mode");
                     })
                 };
             return StatusBar;
@@ -162,7 +236,6 @@ namespace MemoriaNote.Cli
                 Width = SearchTextWidth,
                 Height = 1,
                 CanFocus = true,
-                Shortcut = Key.CtrlMask | Key.N
             };
             ViewModel
                 .WhenAnyValue(vm => vm.SearchEntry)
@@ -172,9 +245,9 @@ namespace MemoriaNote.Cli
             searchTextField.TextChanged += (e) =>
             {
                 ViewModel.SearchEntry = searchTextField.Text.ToString();
-                ViewModel.SearchContents();
+                Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.Search); 
             };
-            searchTextField.ShortcutAction = () => 
+            searchTextField.ShortcutAction = () =>
             {
                 Log.Logger.Debug("New test : " + ViewModel.Contents?.Count.ToString() ?? "null");
                 if (ViewModel.Contents.Count == 0)
@@ -195,42 +268,29 @@ namespace MemoriaNote.Cli
             navigation.Add(notesLabel);
             navigation.Add(notesView);
 
-            var searchMethodLabel = new Label()
-            {
-                X = Pos.Right(searchTextField) + 2,
-                Y = 0,
-                Width = SearchRangeLabelWidth,
-                Height = 1
-            };
-            ViewModel
-                .WhenAnyValue(vm => vm.SearchMethodsInfo)
-                .ObserveOn(RxApp.MainThreadScheduler)
-                .BindTo(searchMethodLabel, x => x.Text)
-                .DisposeWith(_disposable);
             navigation.Add(searchTextLabel, searchTextField);
-            navigation.Add(searchMethodLabel);
 
-            var notificationLabel = new Label("Notifications:")
+            var notifyLabel = new Label("Notify:")
             {
-                X = Pos.Right(searchMethodLabel) + 3,
+                X = Pos.Right(searchTextField) + 3,
                 Y = 0,
-                Width = NotificationLabelWidth,
+                Width = NotifyLabelWidth,
                 Height = 1
             };
-            var notificationField = new Label()
+            var notifyField = new Label()
             {
-                X = Pos.Right(notificationLabel),
+                X = Pos.Right(notifyLabel),
                 Y = 0,
-                Width = NotificationWidth,
+                Width = NotifyWidth,
                 Height = 1,
                 CanFocus = false
             };
             ViewModel
                 .WhenAnyValue(vm => vm.Notification)
                 .ObserveOn(RxApp.MainThreadScheduler)
-                .BindTo(notificationField, x => x.Text)
+                .BindTo(notifyField, x => x.Text)
                 .DisposeWith(_disposable);
-            navigation.Add(notificationLabel, notificationField);
+            navigation.Add(notifyLabel, notifyField);
 
             return navigation;
         }
@@ -243,10 +303,8 @@ namespace MemoriaNote.Cli
                 Y = ContentPosX,
                 Width = ContentWidth,
                 Height = Dim.Fill(1),
-                CanFocus = true,
-                Shortcut = Key.CtrlMask | Key.P
+                CanFocus = false,
             };
-            contentsFrame.ShortcutAction = () => contentsFrame.SetFocus();
 
             var contentsLabel = new Label()
             {
@@ -270,6 +328,11 @@ namespace MemoriaNote.Cli
                 Height = 1,
                 CanFocus = false
             };
+			pagePrevButton
+				.Events ()
+				.Clicked
+				.InvokeCommand (ViewModel, x => x.PagePrev)
+				.DisposeWith (_disposable);
             var pageNextButton = new Button(" >>> ")
             {
                 X = ContentWidth - 7 - 4,
@@ -278,6 +341,11 @@ namespace MemoriaNote.Cli
                 Height = 1,
                 CanFocus = false
             };
+			pageNextButton
+				.Events ()
+				.Clicked
+				.InvokeCommand (ViewModel, x => x.PageNext)
+				.DisposeWith (_disposable);                
             contentsFrame.Add(contentsLabel);
             contentsFrame.Add(pagePrevButton);
             contentsFrame.Add(pageNextButton);
@@ -294,7 +362,7 @@ namespace MemoriaNote.Cli
             contentsListView.SelectedItemChanged += (e) =>
             {
                 ViewModel.ContentsViewPageIndex = (ViewModel.ContentsViewPageIndex.Item1, e.Item);
-                ViewModel.OpenText();
+                Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.OpenText); 
             };
             contentsListView.SetSource(ViewModel.ContentViewItems);
             contentsFrame.Add(contentsListView);
@@ -339,9 +407,7 @@ namespace MemoriaNote.Cli
                 Width = Dim.Fill(),
                 Height = Dim.Fill(1),
                 CanFocus = true,
-                Shortcut = Key.CtrlMask | Key.S
             };
-            editorFrame.ShortcutAction = () => editorFrame.SetFocus();
 
             var titleField = new TextField()
             {
@@ -368,7 +434,6 @@ namespace MemoriaNote.Cli
                 RightOffset = 1,
                 CanFocus = true,
                 ReadOnly = true,
-                Shortcut = Key.CtrlMask | Key.E
             };
             ViewModel
                 .WhenAnyValue(vm => vm.TextEditor)
@@ -377,7 +442,7 @@ namespace MemoriaNote.Cli
                 .DisposeWith(_disposable);
             textEditor.ShortcutAction = () =>
             {
-                if (ViewModel.OpenedPage != null) 
+                if (ViewModel.OpenedPage != null)
                 {
                     Log.Logger.Debug("Request editor");
                     ViewModel.EditingState = EditingState.Update;

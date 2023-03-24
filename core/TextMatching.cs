@@ -13,21 +13,21 @@ namespace MemoriaNote
         public static TextMatching Create(string keyword)
         {
             if (string.IsNullOrWhiteSpace(keyword))
-                return new TextMatching("", MatchingType.DoNotMatch);
+                return new TextMatching("", MatchingType.None);
 
             if (keyword.First() == '*')
             {
                 if (keyword.Length > 1 && keyword.Last() == '*')
-                    return new TextMatching(keyword.Replace("*", ""), MatchingType.Contains);
+                    return new TextMatching(keyword.Replace("*", ""), MatchingType.Partial);
                 else
-                    return new TextMatching(keyword.Replace("*", ""), MatchingType.Backward);
+                    return new TextMatching(keyword.Replace("*", ""), MatchingType.Suffix);
             }
             else
             {
                 if (keyword.Length > 1 && keyword.Last() == '*')
-                    return new TextMatching(keyword.Replace("*", ""), MatchingType.Forward);
+                    return new TextMatching(keyword.Replace("*", ""), MatchingType.Prefix);
                 else
-                    return new TextMatching(keyword.Replace("*", ""), MatchingType.Perfect);
+                    return new TextMatching(keyword.Replace("*", ""), MatchingType.Exact);
             }
         }
 
@@ -38,15 +38,15 @@ namespace MemoriaNote
 
             switch (MatchingType)
             {
-                case MatchingType.Forward:
+                case MatchingType.Prefix:
                     return "WHERE " + column + " LIKE '" + Pattern + "%' ";
-                case MatchingType.Backward:
+                case MatchingType.Suffix:
                     return "WHERE " + column + " LIKE '" + "%" + Pattern + "' ";
-                case MatchingType.Contains:
+                case MatchingType.Partial:
                     return "WHERE " + column + " LIKE '" + "%" + Pattern + "%' ";
-                case MatchingType.Perfect:
+                case MatchingType.Exact:
                     return "WHERE " + column + " LIKE '" + Pattern + "' ";
-                case MatchingType.DoNotMatch:
+                case MatchingType.None:
                 default:
                     return "";
             }
@@ -58,10 +58,10 @@ namespace MemoriaNote
 
     public enum MatchingType
     {
-        DoNotMatch,
-        Contains,
-        Forward,
-        Backward,
-        Perfect
+        None,
+        Partial,
+        Prefix,
+        Suffix,
+        Exact
     }
 }

@@ -32,7 +32,7 @@ namespace MemoriaNote
         public class SearchSetting : ConfigurationBase
         {
             [DataMember][Reactive] public int MaxHistoryCount { get; set; } = 10;
-            [DataMember][Reactive] public int MaxViewResultCount { get; set; } = 999;
+            [DataMember][Reactive] public int MaxViewResultCount { get; set; } = 1000;
         }
 
         protected virtual T GetDefault<T>() where T : Configuration, new()

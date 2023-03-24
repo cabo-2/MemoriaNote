@@ -148,7 +148,7 @@ namespace MemoriaNote
                 List<Content> contents = null;
                 int count;
                 TextMatching textMatch = TextMatching.Create(keyword);
-                if (textMatch.MatchingType == MatchingType.Perfect)
+                if (textMatch.MatchingType == MatchingType.Exact)
                 {
                     var countSql =
                         "SELECT p.* FROM Pages p JOIN " +
@@ -169,7 +169,7 @@ namespace MemoriaNote
                               .Select(p => p.GetContent())
                               .ToList();
                 }
-                else if (textMatch.MatchingType == MatchingType.DoNotMatch)
+                else if (textMatch.MatchingType == MatchingType.None)
                 {
                     var sql =
                          "SELECT * FROM Contents " +
@@ -216,7 +216,7 @@ namespace MemoriaNote
                 List<Content> contents = null;
                 int count;
                 TextMatching textMatch = TextMatching.Create(keyword);
-                if (textMatch.MatchingType != MatchingType.DoNotMatch)
+                if (textMatch.MatchingType != MatchingType.None)
                 {
                     var countSql =
                         "SELECT p.* FROM Pages p JOIN " +
@@ -286,7 +286,7 @@ namespace MemoriaNote
                    List<Content> contents = null;
                    int count;
                    TextMatching textMatch = TextMatching.Create(searchEntry);
-                   if (textMatch.MatchingType == MatchingType.Perfect)
+                   if (textMatch.MatchingType == MatchingType.Exact)
                    {
                        var sql =
                            "SELECT p.* FROM Pages p JOIN " +
@@ -303,7 +303,7 @@ namespace MemoriaNote
                                  .Select(p => p.GetContent())
                                  .ToList();
                    }
-                   else if (textMatch.MatchingType == MatchingType.DoNotMatch)
+                   else if (textMatch.MatchingType == MatchingType.None)
                    {
                        var sql =
                             "SELECT * FROM Contents " +
@@ -362,7 +362,7 @@ namespace MemoriaNote
                     List<Content> contents = null;
                     int count;
                     TextMatching textMatch = TextMatching.Create(searchEntry);
-                    if (textMatch.MatchingType != MatchingType.DoNotMatch)
+                    if (textMatch.MatchingType != MatchingType.None)
                     {
                         var countSql =
                             "SELECT p.* FROM Pages p JOIN " +

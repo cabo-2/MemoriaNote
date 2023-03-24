@@ -37,7 +37,7 @@ namespace MemoriaNote.Cli
                 x => x.ContentsViewPageIndex,
                 x => x.ContentsCount,
                 (pi, count) =>
-                    ViewPageIndexToContentsIndex(pi.Item1, pi.Item2) + Configuration.Instance.Search.MaxViewResultCount <= count);
+                    ViewPageIndexToContentsIndex(pi.Item1, pi.Item2) + Configuration.Instance.Search.MaxViewResultCount < count);
 
             PageNext = ReactiveCommand.Create(
                 () => OnSearchContents(SearchEntry, SearchRange, SearchMethod,
@@ -57,7 +57,7 @@ namespace MemoriaNote.Cli
                 canPagePrev
             );
 
-            Open = ReactiveCommand.Create(
+            OpenText = ReactiveCommand.Create(
                 () => OnSelectedContextsIndexChanged()
             );
 
@@ -73,16 +73,23 @@ namespace MemoriaNote.Cli
             _selectedContentsIndex = this
                 .WhenAnyValue(x => x.ContentsViewPageIndex)
                 .Select(x => ViewPageIndexToContentsIndex(x.Item1, x.Item2))
-                .ToProperty(this, x => x.SelectedContentsIndex);              
+                .ToProperty(this, x => x.SelectedContentsIndex);      
 
-            _searchMethodsInfo = this
+            _searchRangeString = this
                 .WhenAnyValue(
                     x => x.SearchRange,
-                    x => x.SearchMethod,
-                    (range, method) =>
-                        ustring.Make(range.ToDisplayString() + ", " + method.ToDisplayString())
+                    (range) =>
+                        range.ToDisplayString()
                 )
-                .ToProperty(this, x => x.SearchMethodsInfo);
+                .ToProperty(this, x => x.SearchMethodString);        
+
+            _searchMethodString = this
+                .WhenAnyValue(
+                    x => x.SearchMethod,
+                    (method) =>
+                        method.ToDisplayString()
+                )
+                .ToProperty(this, x => x.SearchMethodString);
         }
 
         protected void OnSearchResultCallback(SearchResult result, int newContentsIndex)
@@ -121,10 +128,7 @@ namespace MemoriaNote.Cli
         static int ContentsIndexToViewIndex(int contentsIndex) => contentsIndex % Configuration.Instance.Search.MaxViewResultCount; // % is remainder
         static int ContentsIndexToViewPage(int contentsIndex) => (int)(contentsIndex / Configuration.Instance.Search.MaxViewResultCount);
         static int ViewPageIndexToContentsIndex(int page, int index) => (page * Configuration.Instance.Search.MaxViewResultCount) + index;
-
-        public void SearchContents() => OnSearchContents(SearchEntry, SearchRange, SearchMethod, 0, OnSearchResultCallback);
-        public void OpenText() => OnSelectedContextsIndexChanged();
-
+     
         public ReactiveCommand<Unit, Unit> Activate { get; }
 
         public ReactiveCommand<Unit, Unit> Search { get; }
@@ -133,7 +137,7 @@ namespace MemoriaNote.Cli
 
         public ReactiveCommand<Unit, Unit> PagePrev { get; }
 
-        public ReactiveCommand<Unit, Unit> Open { get; }
+        public ReactiveCommand<Unit, Unit> OpenText { get; }
 
         public ReactiveCommand<Unit, Unit> Edit { get; }
 
@@ -164,11 +168,12 @@ namespace MemoriaNote.Cli
         [Reactive, DataMember] public EditingState EditingState { get; set; }
 
         [Reactive, DataMember] public SearchRangeType SearchRange { get; set; }
+        readonly ObservableAsPropertyHelper<string> _searchRangeString;
+        [IgnoreDataMember] public string SearchRangeString => _searchRangeString.Value;
 
         [Reactive, DataMember] public SearchMethodType SearchMethod { get; set; }
-
-        readonly ObservableAsPropertyHelper<ustring> _searchMethodsInfo;
-        [IgnoreDataMember] public ustring SearchMethodsInfo => _searchMethodsInfo.Value;
+        readonly ObservableAsPropertyHelper<string> _searchMethodString;
+        [IgnoreDataMember] public string SearchMethodString => _searchMethodString.Value;
 
         [Reactive, DataMember] public string SearchEntry { get; set; } = "";
 

@@ -73,7 +73,7 @@ namespace MemoriaNote
             switch (range)
             {             
                 case SearchRangeType.Note:
-                    return "A note";
+                    return "A note   ";
                 case SearchRangeType.Workgroup:   
                 default:
                     return "All notes";
@@ -84,10 +84,10 @@ namespace MemoriaNote
             switch (method)
             {             
                 case SearchMethodType.Headline:
-                    return "Heading search";
+                    return "Heading  ";
                 case SearchMethodType.FullText:   
                 default:
-                    return "Full text search";
+                    return "Full text";
             }
         }
     }
