@@ -55,10 +55,26 @@ namespace MemoriaNote.Cli
                 () => OnSearchContents(SearchEntry, SearchRange, SearchMethod,
                         SelectedContentsIndex - Configuration.Instance.Search.MaxViewResultCount, OnSearchResultCallback),
                 canPagePrev
-            );
+            );            
 
             OpenText = ReactiveCommand.Create(
                 () => OnSelectedContextsIndexChanged()
+            );
+
+            CreateText = ReactiveCommand.Create(
+                () => OnCreateText(EditingTitle.ToString(), EditingText.ToString(), OnTextManageResultCallback)
+            );
+
+            EditText = ReactiveCommand.Create(
+                () => OnEditText(OpenedPage?.GetContent(), EditingText.ToString(), OnTextManageResultCallback)
+            );
+
+            RenameText = ReactiveCommand.Create(
+                () => OnRenameText(OpenedPage?.GetContent(), EditingTitle.ToString(), OnTextManageResultCallback)
+            );
+
+            DeleteText = ReactiveCommand.Create(
+                () => OnDeleteText(OpenedPage?.GetContent(), OnTextManageResultCallback)
             );
 
             Workgroup.Notes.ToObservableChangeSet()
@@ -105,6 +121,12 @@ namespace MemoriaNote.Cli
             Log.Logger.Information(result.ToString());
         }
 
+        protected void OnTextManageResultCallback(TextManageResult result)
+        {
+            
+            Log.Logger.Information(result.ToString());
+        }
+
         protected void OnSelectedContextsIndexChanged()
         {
             if (0 < this.Contents.Count)
@@ -139,7 +161,10 @@ namespace MemoriaNote.Cli
 
         public ReactiveCommand<Unit, Unit> OpenText { get; }
 
-        public ReactiveCommand<Unit, Unit> Edit { get; }
+        public ReactiveCommand<Unit, Unit> CreateText { get; }
+        public ReactiveCommand<Unit, Unit> EditText { get; }
+        public ReactiveCommand<Unit, Unit> RenameText { get; }
+        public ReactiveCommand<Unit, Unit> DeleteText { get; }
 
         readonly ReadOnlyObservableCollection<ustring> _noteNames;
         [IgnoreDataMember] public ReadOnlyObservableCollection<ustring> NoteNames => _noteNames;
@@ -166,7 +191,7 @@ namespace MemoriaNote.Cli
 
         [Reactive, DataMember] public ustring EditingText { get; set; }
 
-        [Reactive, DataMember] public EditingState EditingState { get; set; }
+        [Reactive, DataMember] public TextManageType EditingState { get; set; }
 
         [Reactive, DataMember] public SearchRangeType SearchRange { get; set; }
         readonly ObservableAsPropertyHelper<string> _searchRangeString;

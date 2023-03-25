@@ -95,6 +95,34 @@ namespace MemoriaNote
         }
         #endregion
 
+        protected void OnCreateText(string newName, string newText, Action<TextManageResult> result)
+        {
+            var mr = Workgroup.CreateText(newName, newText);
+            if (mr != null)
+                result(mr);
+        }
+
+        protected void OnEditText(Content content, string newText, Action<TextManageResult> result)
+        {
+            var mr = Workgroup.EditText(content, newText);
+            if (mr != null)
+                result(mr);
+        }
+
+        protected void OnRenameText(Content content, string newName, Action<TextManageResult> result)
+        {
+            var mr = Workgroup.RenameText(content, newName);
+            if (mr != null)
+                result(mr);
+        }
+
+        protected void OnDeleteText(Content content, Action<TextManageResult> result)
+        {
+            var mr = Workgroup.DeleteText(content);
+            if (mr != null)
+                result(mr);
+        }
+
         [Reactive] public Workgroup Workgroup { get; set; }
     }
 }

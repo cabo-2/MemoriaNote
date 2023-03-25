@@ -33,18 +33,18 @@ namespace MemoriaNote.Cli
             if (editor.Edit()) 
             {
                 var note = ViewModel.Workgroup.SelectedNote;
-                if (ViewModel.EditingState == EditingState.Create)
+                if (ViewModel.EditingState == TextManageType.Create)
                 {
-                    note.Write(editor.Name, editor.Text);
+                    note.Create(editor.Name, editor.Text);
                     ViewModel.Notification = "Editor text created";
                     Log.Logger.Debug("Editor text created");
                 }
-                else if (ViewModel.EditingState == EditingState.Update)
+                else if (ViewModel.EditingState == TextManageType.Edit)
                 {
                     var page = ViewModel.OpenedPage;
                     if (page != null) {
                         page.Text = editor.Text;
-                        note.Rewrite(page);
+                        note.Update(page);
                         ViewModel.Notification = "Editor text updated";
                         Log.Logger.Debug("Editor text updated");
                     }
@@ -64,7 +64,7 @@ namespace MemoriaNote.Cli
 
             ViewModel.EditingTitle = null;
             ViewModel.EditingText = null;
-            ViewModel.EditingState = EditingState.None;
+            ViewModel.EditingState = TextManageType.None;
         }
 
         public ScreenController Controller { get; set; }

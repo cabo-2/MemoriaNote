@@ -353,6 +353,119 @@ namespace MemoriaNote
             }
             return null;
         }
+
+        public bool ValidateCreateText(string testName, string testText, out List<string> errors)
+        {
+            errors = new List<string>();
+            TextUtil.ValidateNameString(testName, errors);            
+            if (SelectedNote.Read(testName).FirstOrDefault() != null)
+                errors.Add("The text name is already in use.");
+
+            return errors.Count == 0;
+        }
+
+        public bool ValidateEditText(Content content, string testText, out List<string> errors)
+        {
+            errors = new List<string>();
+            return TextUtil.ValidateTextString(testText, errors);
+        }
+
+        public bool ValidateRenameText(Content content, string testName, out List<string> errors)
+        {
+            errors = new List<string>();
+            TextUtil.ValidateNameString(testName, errors);            
+            if (SelectedNote.Read(testName).FirstOrDefault() != null)
+                errors.Add("The text name is already in use.");
+
+            return errors.Count == 0;
+        }
+
+        public bool ValidateDeleteText(Content content, out List<string> errors)
+        {
+            errors = new List<string>();
+            return true;
+        }
+
+        public TextManageResult CreateText(string newName, string newText)
+        {            
+            TextManageResult mr = new TextManageResult() { Operation = TextManageType.Create };
+            List<string> errors;
+            var validate = ValidateCreateText(newName, newText, out errors);
+            mr.Errors = errors;
+            if (validate) {
+                var page = SelectedNote.Create(newName, newText);
+                mr.Content = page.GetContent();             
+                mr.Notification = $"The text created successfully.";
+                mr.Result = true;
+            }
+            else
+            {                
+                mr.Notification = $"Failed to create the text.";
+            }
+            return mr;
+        }
+        
+        public TextManageResult EditText(Content content, string newText)
+        {
+            TextManageResult mr = new TextManageResult() { Operation = TextManageType.Edit };
+            List<string> errors;
+            var validate = ValidateEditText(content, newText, out errors);
+            mr.Errors = errors;
+            if (validate) {
+                var page = SelectedNote.Read(content);
+                page.Text = newText;
+                SelectedNote.Update(page);
+                mr.Content = page.GetContent();
+                mr.Notification = $"The text updated successfully.";
+                mr.Result = true;
+            }
+            else
+            {                
+                mr.Notification = $"Failed to update the text.";
+            }
+            return mr;
+        }
+
+        public TextManageResult RenameText(Content content, string newName)
+        {
+            TextManageResult mr = new TextManageResult() { Operation = TextManageType.Rename };
+            List<string> errors;
+            var validate = ValidateRenameText(content, newName, out errors);
+            mr.Errors = errors;
+            if (validate) {
+                var page = SelectedNote.Read(content);
+                page.Title = newName;
+                SelectedNote.Update(page);
+                mr.Content = page.GetContent();
+                mr.Notification = $"The text renamed successfully.";
+                mr.Result = true;
+            }
+            else
+            {                
+                mr.Notification = $"Failed to rename the text.";
+            }
+            return mr;
+        }
+
+        public TextManageResult DeleteText(Content content)
+        {
+            TextManageResult mr = new TextManageResult() { Operation = TextManageType.Delete };
+            List<string> errors;
+            var validate = ValidateDeleteText(content, out errors);
+            mr.Errors = errors;
+            if (validate) {
+                SelectedNote.Delete(content);
+                mr.Content = null;
+                mr.Notification = $"The text deleted successfully.";
+                mr.Result = true;
+            }
+            else
+            {               
+                mr.Content = content; 
+                mr.Notification = $"Failed to delete the text.";
+            }
+            return mr;
+        }
      
         public ObservableCollectionExtended<Note> Notes => _notes;
         public List<string> UseDataSources => _notes.Select(note => note.DataSource).ToList();

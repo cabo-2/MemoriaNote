@@ -88,7 +88,7 @@ namespace MemoriaNote.Cli
                 // generate view model
                 var vm = new MemoriaNoteViewModel();
                 vm.EditingTitle = Name;
-                vm.EditingState = EditingState.Create;
+                vm.EditingState = TextManageType.Create;
 
                 var sc = new ScreenController();
                 sc.RequestHome();

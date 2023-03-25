@@ -75,7 +75,7 @@ namespace MemoriaNote
                 return db.PageClient.Read(title);
         }
 
-        public Page Write(string title, string text, params string[] tags) {
+        public Page Create(string title, string text, params string[] tags) {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
                 var page = Page.Create(TitlePage.Noteid, title, text, tags);
@@ -87,7 +87,7 @@ namespace MemoriaNote
             }
         }
 
-        public void Rewrite(Page newPage) {
+        public void Update(Page newPage) {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
                 var oldPage = db.Pages.Find(newPage.Rowid);
@@ -124,15 +124,15 @@ namespace MemoriaNote
             }
         }
 
-        public void Erase (Page page) {
+        public void Delete (Content content) {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
-                db.PageClient.Remove(page.Rowid);
+                db.PageClient.Remove(content.Rowid);
                 db.SaveChanges();
             }
         }
 
-        public void Erase (int rowid) {
+        public void Delete (int rowid) {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
                 db.PageClient.Remove(rowid);
