@@ -63,7 +63,7 @@ namespace MemoriaNote.Cli
 
             Workgroup.Notes.ToObservableChangeSet()
                 .Transform(note => ustring.Make(note.ToString()))
-                .Bind(out _notes)
+                .Bind(out _noteNames)
                 .Subscribe();
 
             _selectedNoteIndex = this
@@ -141,10 +141,11 @@ namespace MemoriaNote.Cli
 
         public ReactiveCommand<Unit, Unit> Edit { get; }
 
-        readonly ReadOnlyObservableCollection<ustring> _notes;
-        [IgnoreDataMember] public ReadOnlyObservableCollection<ustring> Notes => _notes;
+        readonly ReadOnlyObservableCollection<ustring> _noteNames;
+        [IgnoreDataMember] public ReadOnlyObservableCollection<ustring> NoteNames => _noteNames;
 
         [Reactive, DataMember] public List<Content> Contents { get; set; }
+
         readonly ObservableAsPropertyHelper<int> _selectedNoteIndex;
         [IgnoreDataMember] public int SelectedNoteIndex => _selectedNoteIndex.Value;
 

@@ -46,6 +46,10 @@ namespace MemoriaNote.Cli
             {        
                 HomeView.Run(sc, vm);
             }
+            else if (type.Equals(typeof(EditView))) 
+            {        
+                EditView.Run(sc, vm);
+            }
             else if (type.Equals(typeof(EditorView)))
             {
                 EditorView.Run(sc, vm);               
@@ -57,7 +61,12 @@ namespace MemoriaNote.Cli
         public void RequestHome()
         {
             views.Push(typeof(HomeView));   
-        }       
+        }     
+
+        public void RequestEdit()
+        {
+            views.Push(typeof(EditView));   
+        }  
 
         public void RequestEditor()
         {         

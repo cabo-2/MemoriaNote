@@ -7,8 +7,7 @@ namespace MemoriaNote.Cli
     public class ViewHelper
     {
         public static int NotesLabelWidth => 6;
-        public static int NotesWidth => 30;
-        public static int SearchTextLabelWidth => 8;
+        public static int NotesWidth => 35;
         public static int SearchTextWidth => 20;
         public static int NotifyLabelWidth => 8;
         public static int NotifyWidth => 30;
@@ -62,26 +61,17 @@ namespace MemoriaNote.Cli
             Height = 1
         };
 
-        public static ListView CreateNoteView(View prev) => new ListView()
+        public static Label CreateNoteName(View prev) => new Label()
         {
             X = Pos.Right(prev),
             Y = 0,
             Width = NotesWidth,
-            Height = 1,
-            CanFocus = false
-        };
-
-        public static View CreateSearchTextLabel(View prev, string name) => new Label(name)
-        {
-            X = Pos.Right(prev) + 2,
-            Y = 0,
-            Width = SearchTextLabelWidth,
             Height = 1
         };
 
         public static TextField CreateSearchTextField(View prev, string name) => new TextField(name)
         {
-            X = Pos.Right(prev),
+            X = Pos.Right(prev) + 3,
             Y = 0,
             Width = SearchTextWidth,
             Height = 1,

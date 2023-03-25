@@ -12,14 +12,14 @@ using System.Reactive.Concurrency;
 namespace MemoriaNote.Cli
 {
 
-    public class HomeView : Toplevel, IViewFor<MemoriaNoteViewModel>, ITerminalScreen, IDisposable
+    public class EditView : Toplevel, IViewFor<MemoriaNoteViewModel>, ITerminalScreen, IDisposable
     {
         public static void Run(ScreenController sc, MemoriaNoteViewModel vm)
         {
             Application.Init();
             RxApp.MainThreadScheduler = TerminalScheduler.Default;
             RxApp.TaskpoolScheduler = TaskPoolScheduler.Default;
-            Application.Run(new HomeView(sc, vm));
+            Application.Run(new EditView(sc, vm));
             Application.Shutdown();
         }
 
@@ -30,7 +30,7 @@ namespace MemoriaNote.Cli
         protected FrameView _editorFrame;
         protected ColorScheme _colorScheme;
 
-        public HomeView(ScreenController controller, MemoriaNoteViewModel viewModel)
+        public EditView(ScreenController controller, MemoriaNoteViewModel viewModel)
         {
             Controller = controller;
             ViewModel = viewModel;
@@ -114,37 +114,23 @@ namespace MemoriaNote.Cli
                         Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.PageNext);
                     }),
                     new StatusItem(Key.Null," ",() => {}),
-                    new StatusItem(Key.F5, "~F5~ WildCard  ", () => {                        
-                                               //RegularExp"
+                    new StatusItem(Key.F5, "~F5~ Edit  ", () => {                        
                         Log.Logger.Debug("Push F5 Function");
                     }),
-                    new StatusItem(Key.F6, "~F6~ " + ViewModel.SearchRangeString, () => {
-                        Log.Logger.Debug("Push F6 Function");                    
-                        if (ViewModel.SearchRange == SearchRangeType.Note)
-                            ViewModel.SearchRange = SearchRangeType.Workgroup;
-                        else
-                            ViewModel.SearchRange = SearchRangeType.Note;
-
-                        Controller.RequestHome();
-                        Application.RequestStop ();
-                        Log.Logger.Debug("Search range changed: " + ViewModel.SearchRangeString); 
+                    new StatusItem(Key.F6, "~F6~ New   ", () => {
+                        Log.Logger.Debug("Push F6 Function");                   
                     }),
-                    new StatusItem(Key.F7, "~F7~ " + ViewModel.SearchMethodString, () => {
+                    new StatusItem(Key.F7, "~F7~ Rename", () => {
                         Log.Logger.Debug("Push F7 Function");                  
-                        if (ViewModel.SearchMethod == SearchMethodType.Headline)
-                            ViewModel.SearchMethod = SearchMethodType.FullText;
-                        else
-                            ViewModel.SearchMethod = SearchMethodType.Headline;
-                        
-                        Controller.RequestHome();
-                        Application.RequestStop ();
-                        Log.Logger.Debug("Search method changed: " + ViewModel.SearchMethodString); 
+                    }),
+                    new StatusItem(Key.F8, "~F8~ Delete", () => {
+                        Log.Logger.Debug("Push F8 Function");                  
                     }),
                     new StatusItem(Key.Null," ",() => {}),
-                    new StatusItem(Key.F12, "~F12~ Browse Mode", () => {
+                    new StatusItem(Key.F12, "~F12~ Edit Mode", () => {
                         Log.Logger.Debug("Push F12 Function");
 
-                        Controller.RequestEdit();
+                        Controller.RequestHome();
                         Application.RequestStop ();
                     })
                 };
@@ -171,7 +157,7 @@ namespace MemoriaNote.Cli
                     (list,index) => list[index] )
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(notesView, x => x.Text)
-                .DisposeWith(_disposable);                
+                .DisposeWith(_disposable);   
 
             var searchTextField = ViewHelper.CreateSearchTextField(notesView, ViewModel.SearchEntry ?? "");
             ViewModel
@@ -184,6 +170,23 @@ namespace MemoriaNote.Cli
                 ViewModel.SearchEntry = searchTextField.Text.ToString();
                 Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.Search); 
             };            
+            /*searchTextField.ShortcutAction = () =>
+            {
+                Log.Logger.Debug("New test : " + ViewModel.Contents?.Count.ToString() ?? "null");
+                if (ViewModel.Contents.Count == 0)
+                {
+                    ViewModel.EditingState = EditingState.Create;
+                    ViewModel.EditingTitle = searchTextField.Text;
+                    ViewModel.EditingText = null;
+                    Controller.RequestHome();
+                    Controller.RequestEditor();
+                    this.RequestStop();
+                }
+                else
+                {
+                    ViewModel.Notification = "Duplicate registration is not allowed";
+                }
+            };*/
             navigation.Add(notesLabel);
             navigation.Add(notesView);
 
@@ -272,6 +275,19 @@ namespace MemoriaNote.Cli
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(textEditor, x => x.Text)
                 .DisposeWith(_disposable);
+            /*textEditor.ShortcutAction = () =>
+            {
+                if (ViewModel.OpenedPage != null)
+                {
+                    Log.Logger.Debug("Request editor");
+                    ViewModel.EditingState = EditingState.Update;
+                    ViewModel.EditingTitle = titleField.Text;
+                    ViewModel.EditingText = textEditor.Text;
+                    this.Controller.RequestHome();
+                    this.Controller.RequestEditor();
+                    this.RequestStop();
+                }
+            };*/
             editorFrame.Add(textEditor);
             ViewHelper.CreateTextEditorScrollBar(textEditor);
 
