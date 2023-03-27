@@ -10,10 +10,9 @@ namespace MemoriaNote
         //
         // Invalid Name Patterns
         //  WindowsFS compatible: \/:*?\<>| COM0-9 LPT0-9 CON PRN AUX NUL CLOCKS$
-        //  Edit comment marker : #
         //
 
-        static readonly char[] invalidChars = new char[] { '\\','/',':','*','?','\"','<','>','|','#' };
+        static readonly char[] invalidChars = new char[] { '\\','/',':','*','?','\"','<','>','|' };
         static readonly string[] invalidStrings = new string[] { "CON", "PRN", "AUX", "NUL", "CLOCKS$" };
         static readonly List<string> invalidNames;
 

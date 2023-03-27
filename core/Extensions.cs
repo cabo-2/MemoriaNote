@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.IO;
 
 namespace MemoriaNote
 {
@@ -89,6 +92,36 @@ namespace MemoriaNote
                 default:
                     return "Full text";
             }
+        }
+    }
+
+    public static class IOExtensions
+    {
+        public static Task TextImporter(this Note note, string importDir)
+        {
+            var token = new CancellationToken();
+            var task = Task.Run(() => {
+                foreach(var file in new DirectoryInfo(importDir).GetFiles("*.txt"))
+                {
+                    using(StreamReader reader = file.OpenText())
+                        note.Create(Path.GetFileNameWithoutExtension(file.Name), reader.ReadToEnd());
+                }
+            }, token);
+            return task;
+        }
+
+        public static Task TextExporter(this Note note, string exportDir)
+        {
+            var token = new CancellationToken();
+            var task = Task.Run(() => {
+                foreach(var page in note.ReadAll())
+                {
+                    var path = Path.Combine(exportDir, $"{page.Title}.txt");
+                    using(StreamWriter writer = new StreamWriter(path))
+                        writer.Write(page.Text);
+                }
+            }, token);
+            return task;
         }
     }
 }

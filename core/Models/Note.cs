@@ -75,6 +75,12 @@ namespace MemoriaNote
                 return db.PageClient.Read(title);
         }
 
+        public IEnumerable<Page> ReadAll ()
+        {
+            using (NoteDbContext db = new NoteDbContext(DataSource))
+                return db.Pages.AsEnumerable();
+        }
+
         public Page Create(string title, string text, params string[] tags) {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {

@@ -18,24 +18,22 @@ namespace MemoriaNote.Cli
         typeof(WorkCommand),
         typeof(ListCommand),
         typeof(GetCommand),
-        typeof(PostCommand))]
+        typeof(ImportCommand),
+        typeof(ExportCommand))]
     [HelpOption("--help")]
     class Program
     {
         public static void Main(string[] args) => CommandLineApplication.Execute<Program>(args);
-        
-        protected int OnExecute(CommandLineApplication app)
+
+        protected bool OnExecute(CommandLineApplication app)
         {
             Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
 
             var vm = new MemoriaNoteViewModel();
             var sc = new ScreenController();
 
-            
-
             Configuration.Instance.Save();
-
-            return 0;
+            return true;
         }
 
         [Command("edit", "e", Description = "Edit, browse and search text commands")]
@@ -50,24 +48,7 @@ namespace MemoriaNote.Cli
 
             protected int OnExecute(CommandLineApplication app)
             {
-                Console.WriteLine("Editor was selected");
-
-                // setup config
-                Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
-
-                // generate view model
-                var vm = new MemoriaNoteViewModel();
-                vm.SearchEntry = Name;
-
-                var sc = new ScreenController();
-                sc.RequestHome();
-
-                sc.Start(vm);
-                
-                // save config
-                Configuration.Instance.Save();
-
-                return 0;
+                return new CommandCenter().Edit(Name);
             }
         }
 
@@ -76,86 +57,166 @@ namespace MemoriaNote.Cli
         class NewCommand
         {
             [Argument(0, Name = "name", Description = "text name")]
-            public string Name { get; set; }
+            public (bool hasValue, string value) Name { get; set; }
 
             protected int OnExecute(CommandLineApplication app)
             {
-                Console.WriteLine("New was selected");
+                if (!Name.hasValue)
+                {
+                    Console.Error.WriteLine("Error: No name");
+                    return -1;
+                }
 
-                // setup config
-                Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
-
-                // generate view model
-                var vm = new MemoriaNoteViewModel();
-                vm.EditingTitle = Name;
-                vm.EditingState = TextManageType.Create;
-
-                var sc = new ScreenController();
-                sc.RequestHome();
-                sc.RequestEditor();
-
-                sc.Start(vm);
-
-                // save config
-                Configuration.Instance.Save();
-                
-                return 0;
+                return new CommandCenter().New(Name.value);
             }
         }
 
         [Command("config", Description = "Manage configuration options")]
+        [Subcommand(typeof(ConfigEditCommand),
+                    typeof(ConfigShowCommand),
+                    typeof(ConfigInitCommand))]
         [HelpOption("--help")]
         class ConfigCommand
         {
-            [Argument(0, Name = "word", Description = "search word")]
-            public string Word { get; set; }
-
-            [Argument(1, Name = "title", Description = "page title")]
-            public string Title { get; set; }
-
-            [Option("--uuid=<uuid>", Description = "page uuid")]
-            public (bool hasValue, string value) Uuid { get; set; }
-
             protected int OnExecute(CommandLineApplication app)
             {
-                Console.WriteLine("Search was selected");
-
-
+                app.ShowHelp();
                 return 0;
+            }
+
+            [Command("edit", Description = "Edit config")]
+            class ConfigEditCommand
+            {
+                protected int OnExecute(CommandLineApplication app)
+                {
+                    return new CommandCenter().ConfigEdit();
+                }
+            }
+
+            [Command("show", Description = "Show config")]
+            class ConfigShowCommand
+            {
+                protected int OnExecute(CommandLineApplication app)
+                {
+                    return new CommandCenter().ConfigShow();
+                }
+            }
+
+            [Command("init", Description = "Init config")]
+            class ConfigInitCommand
+            {
+                protected int OnExecute(CommandLineApplication app)
+                {
+                    return new CommandCenter().ConfigInit();
+                }
             }
         }
 
         [Command("work", "w", "branch", Description = "List, change and manage note options",
                 AllowArgumentSeparator = true,
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
-        [Subcommand(typeof(WorkListCommand))]
+        [Subcommand(typeof(WorkSelectCommand),
+                    typeof(WorkListCommand),
+                    typeof(WorkCreateCommand),
+                    typeof(WorkEditCommand),
+                    typeof(WorkAddCommand),
+                    typeof(WorkRemoveCommand))]
         [HelpOption("--help")]
         class WorkCommand
         {
-            [Argument(0)]
-            public string Note { get; set; }
+            [Argument(0, "name", "select note")]
+            public (bool hasValue, string value) Name { get; set; }
 
             protected int OnExecute(CommandLineApplication app)
             {
-                Console.WriteLine("Work was selected");
-                return 0;
+                return new CommandCenter().Work();
+            }
+
+            [Command("select", "curr", Description = "select note",
+                UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
+            private class WorkSelectCommand
+            {
+                [Argument(0, "name")]
+                public (bool hasValue, string value) Name { get; set; }
+
+                protected IReadOnlyList<string> RemainingArguments { get; }
+
+                protected int OnExecute(IConsole console)
+                {
+                    return new CommandCenter().WorkSelect();
+                }
             }
 
             [Command("list", "ls", Description = "List notes",
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkListCommand
             {
-                [Option(Description = "Show all containers (default shows just running)")]
-                public bool All { get; }
+                protected IReadOnlyList<string> RemainingArguments { get; }
+
+                protected int OnExecute(IConsole console)
+                {
+                    return new CommandCenter().WorkList();
+                }
+            }
+
+            [Command("create", Description = "Create note",
+                UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
+            private class WorkCreateCommand
+            {
+                [Argument(0, "name")]
+                public (bool hasValue, string value) Name { get; set; }
 
                 protected IReadOnlyList<string> RemainingArguments { get; }
 
-                protected void OnExecute(IConsole console)
+                protected int OnExecute(IConsole console)
                 {
-                    console.WriteLine(string.Join("\n",
-                        "IMAGES",
-                        "--------------------",
-                        "microsoft/dotnet:2.0"));
+                    return new CommandCenter().WorkCreate();
+                }
+            }
+
+            [Command("edit", Description = "Edit note",
+                UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
+            private class WorkEditCommand
+            {
+                [Argument(0, "name")]
+                public (bool hasValue, string value) Name { get; set; }
+
+                protected IReadOnlyList<string> RemainingArguments { get; }
+
+                protected int OnExecute(IConsole console)
+                {
+                    return new CommandCenter().WorkEdit();
+                }
+            }
+            [Command("add", Description = "Add note",
+                UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
+            private class WorkAddCommand
+            {
+                [Argument(0, "name")]
+                public (bool hasValue, string value) Name { get; set; }
+
+                protected IReadOnlyList<string> RemainingArguments { get; }
+
+                protected int OnExecute(IConsole console)
+                {
+                    return new CommandCenter().WorkAdd();
+                }
+            }
+            [Command("remove", Description = "Remove note",
+                UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
+            private class WorkRemoveCommand
+            {
+                [Argument(0, "name")]
+                public (bool hasValue, string value) Name { get; set; }
+
+                [Option("--purge", Description = "The note PURGE option *** WARN ***")]
+                public bool IsPurge { get; set; }
+
+                protected IReadOnlyList<string> RemainingArguments { get; }
+
+                protected int OnExecute(IConsole console)
+                {
+                    return new CommandCenter().WorkRemove();
                 }
             }
         }
@@ -166,7 +227,7 @@ namespace MemoriaNote.Cli
         {
             protected int OnExecute(CommandLineApplication app)
             {
-                Console.WriteLine("List was selected");
+                new CommandCenter().List();
                 return 0;
             }
         }
@@ -176,65 +237,65 @@ namespace MemoriaNote.Cli
         class GetCommand
         {
 
-            [Argument(1, "word", "search word")]
-            public (bool hasValue, string value) Word { get; set; }
+            [Argument(1, "name", "text name")]
+            public (bool hasValue, string value) Name { get; set; }
 
-            [Option("--uuid=<uuid>", Description = "page uuid")]
+            [Option("--uuid=<uuid>", Description = "text uuid")]
             public (bool hasValue, string value) Uuid { get; set; }
 
             protected int OnExecute(CommandLineApplication app)
             {
-                Console.WriteLine("Get was selected");
-
-                // setup config
-                Configuration.Instance = Configuration.Create<ConfigurationCli>();
-
-                // generate view model
-                var vm = new MemoriaNoteViewModel();
-                //vm.OnActivate();
-
-                //ViewModel.Archive.Migrate();
-                //ViewModel.Archive.Load();
-                if (Word.hasValue)
+                if (!Name.hasValue)
                 {
-                    Console.WriteLine("word:" + Word.value);
-                }
-                else
-                {
-                    Console.Error.WriteLine("Error:No search word");
+                    Console.Error.WriteLine("Error: No name");
                     return -1;
                 }
 
-                int skipCount = 0;
-                int takeCount = Configuration.Instance.Search.MaxViewResultCount;
-
-                var wg = vm.Workgroup;
-                var result = wg.SearchContents(Word.value, skipCount, takeCount, SearchRangeType.Note);
-
-                Console.WriteLine(result.ToString());
-                foreach (var content in result.Contents)
-                {
-                    Console.WriteLine(content.Title);
-                    var page = wg.SelectedNote.Read(content.Guid);
-                    Console.WriteLine(page.Text);
-                    //Console.WriteLine(content.)
-                    break;
-                }
-
-                Configuration.Instance.Save();
-
-                return 0;
+                return new CommandCenter().Get(Name.value);
             }
         }
 
-        [Command("post", "p", Description = "post item")]
+        [Command("import", Description = "Import text files")]
         [HelpOption("--help")]
-        class PostCommand
+        class ImportCommand
         {
+            [Argument(0, "importDir")]
+            public (bool hasValue, string value) ImportDir { get; set; }
+
+            [Option("--work=<work>", Description = "Note")]
+            public (bool hasValue, string value) Work { get; set; }
+
             protected int OnExecute(CommandLineApplication app)
             {
-                Console.WriteLine("Post was selected");
-                return 0;
+                if (!ImportDir.hasValue)
+                {
+                    app.ShowHelp();
+                    return -1;
+                }
+
+                return new CommandCenter().Import(ImportDir.value);
+            }
+        }
+
+        [Command("export", Description = "Export text files")]
+        [HelpOption("--help")]
+        class ExportCommand
+        {
+            [Argument(0, "exportDir")]
+            public (bool hasValue, string value) ExportDir { get; set; }
+
+            [Option("--work=<work>", Description = "Note")]
+            public (bool hasValue, string value) Work { get; set; }
+
+            protected int OnExecute(CommandLineApplication app)
+            {
+                if (!ExportDir.hasValue)
+                {
+                    app.ShowHelp();
+                    return -1;
+                }
+
+                return new CommandCenter().Export(ExportDir.value);
             }
         }
     }
