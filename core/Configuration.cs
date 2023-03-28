@@ -66,7 +66,7 @@ namespace MemoriaNote
             }
             
             try
-            {                
+            {             
                 return JsonConvert.DeserializeObject<T>
                        (File.ReadAllText(path));
             }
@@ -79,13 +79,12 @@ namespace MemoriaNote
         // Windows: C:\Users\<user>\AppData\Roaming\MemoriaNote\configuration.json
         // Linux:  /home/<user>/.config/MemoriaNote/configuration.json
         public static string ApplicationName => "MemoriaNote";
-        static string ConfigurationFilename => "configuration.json";        
-        public static string ApplicationDataDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ApplicationName);
-        public static string ConfigurationPath { get; private set; } = Path.Combine(ApplicationDataDirectory, ConfigurationFilename);
+        protected virtual string ConfigurationFilename => "configuration.json";        
+        public virtual string ApplicationDataDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ApplicationName);
+        public string ConfigurationPath => Path.Combine(ApplicationDataDirectory, ConfigurationFilename);
 
-        static string DefaultDataSourceName => "Notepad.db";
-        [IgnoreDataMember]
-        public virtual string DefaultDataSourcePath { get; set; } = Path.Combine(ApplicationDataDirectory, DefaultDataSourceName);
+        protected virtual string DefaultDataSourceName => "Notepad.db";
+        public string DefaultDataSourcePath => Path.Combine(ApplicationDataDirectory, DefaultDataSourceName);
 
         [DataMember]
         public string DefaultWorkgroupName { get; set; } = "My Notes";

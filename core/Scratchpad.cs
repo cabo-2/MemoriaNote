@@ -8,15 +8,15 @@ namespace MemoriaNote
 {
     public class Scratchpad
     {
-        public static Scratchpad Singleton { get; } = new Scratchpad();
+        public static Scratchpad Singleton { get; } = new Scratchpad(Configuration.ApplicationName);
 
         string _tempDir;
         protected List<string> _tempFiles;
 
-        Scratchpad()
+        Scratchpad(string name)
         {            
             _tempFiles = new List<string>();
-            _tempDir = Path.Combine(Path.GetTempPath(), Configuration.ApplicationName);
+            _tempDir = Path.Combine(Path.GetTempPath(), name);
         }
 
         static string DefaultExt => ".txt";

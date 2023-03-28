@@ -25,7 +25,7 @@ namespace MemoriaNote.Cli
     {
         public static void Main(string[] args) => CommandLineApplication.Execute<Program>(args);
 
-        protected bool OnExecute(CommandLineApplication app)
+        protected int OnExecute(CommandLineApplication app)
         {
             Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
 
@@ -33,7 +33,7 @@ namespace MemoriaNote.Cli
             var sc = new ScreenController();
 
             Configuration.Instance.Save();
-            return true;
+            return 0;
         }
 
         [Command("edit", "e", Description = "Edit, browse and search text commands")]
