@@ -18,27 +18,29 @@ namespace MemoriaNote
             DataSource = dataSource;
         }
 
-        public static Note Create (string name, string title, string dataSource) {
-            if (File.Exists (dataSource))
-                throw new ArgumentException ("File exists");
+        public static Note Create(string name, string title, string dataSource)
+        {
+            if (File.Exists(dataSource))
+                throw new ArgumentException("File exists");
 
-            using (NoteDbContext context = new NoteDbContext (dataSource)) {
+            using (NoteDbContext context = new NoteDbContext(dataSource))
+            {
                 context.Database.Migrate();
 
-                var tp = new TitlePage (context.DataSource);
+                var tp = new TitlePage(context.DataSource);
                 tp.Name = name;
                 tp.Title = title;
                 tp.Version = NoteDbContext.CurrentVersion;
                 tp.Noteid = title.CalculateHash();
             }
 
-            return new Note (dataSource);
+            return new Note(dataSource);
         }
 
         public static Note Migrate(string dataSource)
         {
-            if (!File.Exists (dataSource))
-                throw new ArgumentException ("File does not exists");
+            if (!File.Exists(dataSource))
+                throw new ArgumentException("File does not exists");
 
             using (NoteDbContext context = new NoteDbContext(dataSource))
             {
@@ -46,7 +48,7 @@ namespace MemoriaNote
                 // application migration code here                
                 var tp = new TitlePage(context.DataSource);
                 if (string.IsNullOrEmpty(tp.Noteid))
-                    tp.Noteid = NoteDbContext.GenerateID(tp.Title);                
+                    tp.Noteid = NoteDbContext.GenerateID(tp.Title);
 
                 tp.Version = NoteDbContext.CurrentVersion;
             }
@@ -55,18 +57,19 @@ namespace MemoriaNote
         }
 
 
-        public Page Read (string title, int index) {
+        public Page Read(string title, int index)
+        {
             using (NoteDbContext db = new NoteDbContext(DataSource))
                 return db.PageClient.Read(title, index);
         }
 
-        public Page Read (Guid guid)
+        public Page Read(Guid guid)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
                 return db.PageClient.Read(guid);
         }
-    
-        public Page Read (IContent content) => Read(content.Guid);
+
+        public Page Read(IContent content) => Read(content.Guid);
 
 
         public IEnumerable<Page> Read(string title)
@@ -75,13 +78,14 @@ namespace MemoriaNote
                 return db.PageClient.Read(title);
         }
 
-        public IEnumerable<Page> ReadAll ()
+        public IEnumerable<Page> ReadAll()
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
                 return db.Pages.AsEnumerable();
         }
 
-        public Page Create(string title, string text, params string[] tags) {
+        public Page Create(string title, string text, params string[] tags)
+        {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
                 var page = Page.Create(TitlePage.Noteid, title, text, tags);
@@ -93,7 +97,8 @@ namespace MemoriaNote
             }
         }
 
-        public void Update(Page newPage) {
+        public void Update(Page newPage)
+        {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
                 var oldPage = db.Pages.Find(newPage.Rowid);
@@ -117,12 +122,15 @@ namespace MemoriaNote
             }
         }
 
-        protected void RelocatePage(string title, NoteDbContext db) {
+        protected void RelocatePage(string title, NoteDbContext db)
+        {
             var pages = db.PageClient.Read(title).ToList()
                         .OrderByDescending(p => p.UpdateTime);
             int index = 1;
-            foreach (var page in pages) {
-                if (page.Index != index) {
+            foreach (var page in pages)
+            {
+                if (page.Index != index)
+                {
                     page.Index = index;
                     db.PageClient.Update(page);
                 }
@@ -130,7 +138,8 @@ namespace MemoriaNote
             }
         }
 
-        public void Delete (Content content) {
+        public void Delete(Content content)
+        {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
                 db.PageClient.Remove(content.Rowid);
@@ -138,7 +147,8 @@ namespace MemoriaNote
             }
         }
 
-        public void Delete (int rowid) {
+        public void Delete(int rowid)
+        {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
                 db.PageClient.Remove(rowid);
@@ -267,14 +277,15 @@ namespace MemoriaNote
         static bool CancelIfRequested(CancellationToken token)
         {
             if (token.IsCancellationRequested)
-            {               
+            {
                 token.ThrowIfCancellationRequested();
             }
             return true;
         }
 
-        static bool IsEmptyKeyword (string keyword) {
-            return string.IsNullOrWhiteSpace (keyword) || keyword == "*";
+        static bool IsEmptyKeyword(string keyword)
+        {
+            return string.IsNullOrWhiteSpace(keyword) || keyword == "*";
         }
 
         public Task<SearchResult> SearchContentsAsync(string searchEntry, CancellationToken token)
@@ -359,7 +370,7 @@ namespace MemoriaNote
         }
         public Task<SearchResult> SearchFullTextAsync(string searchEntry, int skipCount, int takeCount, CancellationToken token)
         {
-            var task = Task.Run( async() =>
+            var task = Task.Run(async () =>
             {
                 DateTime startTime = DateTime.UtcNow;
                 await Task.Yield(); // dummy
@@ -428,6 +439,25 @@ namespace MemoriaNote
             }
         }
 
+        public int Count
+        {
+            get
+            {
+                using (NoteDbContext db = new NoteDbContext(DataSource))
+                    return db.Contents.Count();
+            }
+        }
+
+        public List<Content> GetContents(int skipCount, int takeCount)
+        {
+            using(NoteDbContext db = new NoteDbContext(DataSource))
+                return new ContentClient(db)
+                            .ReadAll()
+                            .Skip(skipCount)
+                            .Take(takeCount)
+                            .ToList();
+        }
+
         public string DataSource
         {
             get => _dataSource;
@@ -448,12 +478,14 @@ namespace MemoriaNote
 
         public TitlePage TitlePage { get; private set; }
 
-        public override string ToString () {
-            if (TitlePage != null) {
+        public override string ToString()
+        {
+            if (TitlePage != null)
+            {
                 return TitlePage.Title;
             }
-            return base.ToString ();
+            return base.ToString();
         }
-   
+
     }
 }

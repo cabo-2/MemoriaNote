@@ -124,4 +124,9 @@ namespace MemoriaNote
             return task;
         }
     }
+
+    public static class GuidExtensions
+    {
+        public static string ToHashId(this Guid guid) => guid.ToString("D").Substring(0, 7);
+    }
 }

@@ -26,6 +26,11 @@ namespace MemoriaNote
         {
             return DbContext.Contents.Where(m => m.Title == title);
         }
+
+        public IEnumerable<Content> ReadAll()
+        {
+            return DbContext.Contents;
+        }
         
         public NoteDbContext DbContext { get; set; }
     }

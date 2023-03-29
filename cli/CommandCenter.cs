@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using System.Linq;
 using System.Reflection;
 using System.Reactive.Concurrency;
@@ -122,8 +123,104 @@ namespace MemoriaNote.Cli
 
         public int List()
         {
-            return 0;
+            try
+            {
+                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                var vm = new MemoriaNoteViewModel();
+               
+                var count = vm.Workgroup.SelectedNote.Count;
+                var contents = vm.Workgroup.SelectedNote.GetContents(0, 1000);
+
+                WriteLineList(contents, count);
+
+                Configuration.Instance.Save();
+                return 0;
+            }
+            catch (Exception e)
+            {
+                Log.Logger.Fatal(e.Message);
+                Log.Logger.Fatal(e.StackTrace);
+                Console.Error.WriteLine($"Fatal: {e.Message}");
+                return -1;
+            }
         }
+
+        static int GetIndexWidth(int viewCount)
+        {
+            int indexWidth = 0;
+            while(viewCount > 0)
+            {
+                viewCount /= 10;      
+                indexWidth++;
+            }
+            return indexWidth;
+        }
+
+        static int GetMaxNameLength(List<Content> list)
+        {
+            int textWidth = 0;
+            foreach(var content in list)
+            {
+                if (content.Title.Length > textWidth)
+                    textWidth = content.Title.Length;
+            }
+            return Math.Min(textWidth, 64);
+        }
+
+        static void AppendBoarder(StringBuilder buffer, int count)
+        {
+            foreach(var num in Enumerable.Range(0, count))
+                buffer.Append("-");
+        }
+
+        static void WriteLineBoarder(int indexWidth, int textWidth)
+        {
+            StringBuilder buffer = new StringBuilder();
+            buffer.Append("+");
+            AppendBoarder(buffer, indexWidth);
+            buffer.Append("-+-");
+            AppendBoarder(buffer, 7);
+            buffer.Append("-+-");
+            AppendBoarder(buffer, textWidth);
+            buffer.Append("-+");
+            Console.WriteLine(buffer.ToString());
+        }
+
+        static void WriteLineList(List<Content> contents, int totalCount)
+        {
+            if (totalCount < 0)
+                throw new ArgumentException(nameof(totalCount));
+
+            int num = 1;
+            int indexWidth = GetIndexWidth(contents.Count);
+            int nameWidth = GetMaxNameLength(contents);
+
+            WriteLineBoarder(indexWidth, nameWidth);           
+            foreach(var content in contents)
+            {
+                var buffer = new StringBuilder();
+                buffer.Append("|");
+                buffer.Append(num.ToString().PadLeft(indexWidth, '0'));
+                buffer.Append(" | ");
+                buffer.Append(content.Guid.ToHashId());
+                buffer.Append(" | ");
+                var name = content.ViewTitle;
+                buffer.Append(name.Substring(0, Math.Min(name.Length, nameWidth)));
+                foreach(var space in Enumerable.Repeat(" ", nameWidth - Math.Min(name.Length, nameWidth)))
+                    buffer.Append(space);
+                buffer.Append(" |");
+                Console.WriteLine(buffer.ToString());   
+
+                if (num >= contents.Count)
+                    break;                    
+                num++;          
+            }
+            WriteLineBoarder(indexWidth, nameWidth);
+            if (contents.Count < totalCount)
+                Console.WriteLine("Number of text messages exceeds 1000");
+            
+            Console.WriteLine("Total count: " + totalCount.ToString());
+        }     
 
         public int Work()
         {
@@ -148,7 +245,31 @@ namespace MemoriaNote.Cli
 
         public int WorkList()
         {
-            return 0;
+            try
+            {
+                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                var vm = new MemoriaNoteViewModel();
+
+                foreach(var note in vm.Workgroup.Notes)
+                {
+                    bool check = note == vm.Workgroup.SelectedNote;
+                    StringBuilder buffer = new StringBuilder();
+                    buffer.Append(" ");
+                    buffer.Append(check ? "*" : " ");
+                    buffer.Append(note.ToString());
+                    Console.WriteLine(buffer.ToString());
+                }
+
+                Configuration.Instance.Save();
+                return 0;
+            }
+            catch (Exception e)
+            {
+                Log.Logger.Fatal(e.Message);
+                Log.Logger.Fatal(e.StackTrace);
+                Console.Error.WriteLine($"Fatal: {e.Message}");
+                return -1;
+            }
         }
 
         public int WorkAdd()

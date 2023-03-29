@@ -33,6 +33,11 @@ namespace MemoriaNote
             return DbContext.Pages.Where(m => m.Title == title);
         }
 
+        public IEnumerable<Page> ReadAll()
+        {
+            return DbContext.Pages;
+        }
+
         public Page Add (string title, string text, string tag) {
             var page = Page.Create (title, text, tag);
             Add (page);
