@@ -482,7 +482,7 @@ namespace MemoriaNote
         {
             if (TitlePage != null)
             {
-                return TitlePage.Title;
+                return TitlePage.Name;
             }
             return base.ToString();
         }

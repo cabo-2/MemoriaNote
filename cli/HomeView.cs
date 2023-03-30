@@ -72,20 +72,32 @@ namespace MemoriaNote.Cli
 
         protected MenuItem[] CreateNoteMenuItems()
         {
-            var items = new List<MenuItem>();            
+            var items = new List<MenuItem>();
             var notes = ViewModel.NoteNames;
             var index = ViewModel.SelectedNoteIndex;
             var maxLen = Math.Min(notes.Count, 10);
 
-            for (int i=0; i<maxLen; i++) {
+            foreach (var i in Enumerable.Range(0, maxLen))
+            {
                 var isCurrent = (i == index);
-                var item = new MenuItem() {
+                var item = new MenuItem()
+                {
                     Title = notes[i],
-                    Help = "",      
+                    Help = "",
                     Checked = isCurrent,
                     Shortcut = ViewHelper.NumberToKey(i) | Key.CtrlMask | Key.AltMask,
-                    Action = () => {
-                        Log.Logger.Debug("Push Note: " + notes[i].ToString());
+                    Action = () =>
+                    {
+                        Log.Logger.Debug($"Push Ctrl+Alt+{i.ToString()}");
+                        if (ViewModel.SelectedNoteIndex != i)
+                        {
+                            Configuration.Instance.Workgroup.SelectedNoteName = ViewModel.NoteNames[i].ToString();
+                            ViewModel.Workgroup.SelectedNote = ViewModel.Workgroup.Notes[i];
+
+                            Log.Logger.Debug($"Selected note changed: {Configuration.Instance.Workgroup.SelectedNoteName}");
+                            Controller.RequestHome();
+                            Application.RequestStop();
+                        }
                     }
                 };
                 items.Add(item);
@@ -107,7 +119,7 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.Null," ",() => {}),
                     new StatusItem(Key.F1, "~F1~ Prev  ", () => {
                         Log.Logger.Debug("Push F1 Function");
-                        Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.PagePrev);                       
+                        Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.PagePrev);
                     }),
                     new StatusItem(Key.F2, "~F2~ Next  ", () => {
                         Log.Logger.Debug("Push F2 Function");
@@ -119,7 +131,7 @@ namespace MemoriaNote.Cli
                         Log.Logger.Debug("Push F5 Function");
                     }),
                     new StatusItem(Key.F6, "~F6~ " + ViewModel.SearchRangeString, () => {
-                        Log.Logger.Debug("Push F6 Function");                    
+                        Log.Logger.Debug("Push F6 Function");
                         if (ViewModel.SearchRange == SearchRangeType.Note)
                             ViewModel.SearchRange = SearchRangeType.Workgroup;
                         else
@@ -127,18 +139,18 @@ namespace MemoriaNote.Cli
 
                         Controller.RequestHome();
                         Application.RequestStop ();
-                        Log.Logger.Debug("Search range changed: " + ViewModel.SearchRangeString); 
+                        Log.Logger.Debug("Search range changed: " + ViewModel.SearchRangeString);
                     }),
                     new StatusItem(Key.F7, "~F7~ " + ViewModel.SearchMethodString, () => {
-                        Log.Logger.Debug("Push F7 Function");                  
+                        Log.Logger.Debug("Push F7 Function");
                         if (ViewModel.SearchMethod == SearchMethodType.Headline)
                             ViewModel.SearchMethod = SearchMethodType.FullText;
                         else
                             ViewModel.SearchMethod = SearchMethodType.Headline;
-                        
+
                         Controller.RequestHome();
                         Application.RequestStop ();
-                        Log.Logger.Debug("Search method changed: " + ViewModel.SearchMethodString); 
+                        Log.Logger.Debug("Search method changed: " + ViewModel.SearchMethodString);
                     }),
                     new StatusItem(Key.Null," ",() => {}),
                     new StatusItem(Key.F12, "~F12~ Browse Mode", () => {
@@ -161,17 +173,17 @@ namespace MemoriaNote.Cli
                 Height = 3,
                 CanFocus = false
             };
-            
+
             var notesLabel = ViewHelper.CreateNoteLabel();
             var notesView = ViewHelper.CreateNoteName(notesLabel);
             ViewModel
                 .WhenAnyValue(
                     vm => vm.NoteNames,
                     vm => vm.SelectedNoteIndex,
-                    (list,index) => list[index] )
+                    (list, index) => list[index])
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(notesView, x => x.Text)
-                .DisposeWith(_disposable);                
+                .DisposeWith(_disposable);
 
             var searchTextField = ViewHelper.CreateSearchTextField(notesView, ViewModel.SearchEntry ?? "");
             ViewModel
@@ -182,8 +194,8 @@ namespace MemoriaNote.Cli
             searchTextField.TextChanged += (e) =>
             {
                 ViewModel.SearchEntry = searchTextField.Text.ToString();
-                Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.Search); 
-            };            
+                Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.Search);
+            };
             navigation.Add(notesLabel);
             navigation.Add(notesView);
 
@@ -220,31 +232,31 @@ namespace MemoriaNote.Cli
                 .DisposeWith(_disposable);
 
             var pagePrevButton = ViewHelper.CreatePagePrevButton(contentsLabel);
-			pagePrevButton
-				.Events ()
-				.Clicked
-				.InvokeCommand (ViewModel, x => x.PagePrev)
-				.DisposeWith (_disposable);
+            pagePrevButton
+                .Events()
+                .Clicked
+                .InvokeCommand(ViewModel, x => x.PagePrev)
+                .DisposeWith(_disposable);
             var pageNextButton = ViewHelper.CreatePageNextButton(pagePrevButton);
-			pageNextButton
-				.Events ()
-				.Clicked
-				.InvokeCommand (ViewModel, x => x.PageNext)
-				.DisposeWith (_disposable);                
+            pageNextButton
+                .Events()
+                .Clicked
+                .InvokeCommand(ViewModel, x => x.PageNext)
+                .DisposeWith(_disposable);
             contentsFrame.Add(contentsLabel);
             contentsFrame.Add(pagePrevButton);
-            contentsFrame.Add(pageNextButton);        
+            contentsFrame.Add(pageNextButton);
 
             var contentsListView = ViewHelper.CreateContentsListView(pageNextButton);
             contentsListView.SelectedItemChanged += (e) =>
             {
                 ViewModel.ContentsViewPageIndex = (ViewModel.ContentsViewPageIndex.Item1, e.Item);
-                Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.OpenText); 
+                Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.OpenText);
             };
             contentsListView.SetSource(ViewModel.ContentViewItems);
             contentsFrame.Add(contentsListView);
             ViewHelper.CreateContentsScrollBar(contentsListView);
-            
+
             return contentsFrame;
         }
 

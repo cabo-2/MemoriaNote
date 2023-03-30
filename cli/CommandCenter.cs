@@ -34,7 +34,6 @@ namespace MemoriaNote.Cli
             {
                 Log.Logger.Fatal(e.Message);
                 Log.Logger.Fatal(e.StackTrace);
-                Console.Error.WriteLine($"Fatal: {e.Message}");
                 return -1;
             }
         }
@@ -65,7 +64,6 @@ namespace MemoriaNote.Cli
             {
                 Log.Logger.Fatal(e.Message);
                 Log.Logger.Fatal(e.StackTrace);
-                Console.Error.WriteLine($"Fatal: {e.Message}");
                 return -1;
             }
         }
@@ -127,7 +125,7 @@ namespace MemoriaNote.Cli
             {
                 Configuration.Instance = Configuration.Create<ConfigurationCli>();
                 var vm = new MemoriaNoteViewModel();
-               
+
                 var count = vm.Workgroup.SelectedNote.Count;
                 var contents = vm.Workgroup.SelectedNote.GetContents(0, 1000);
 
@@ -148,9 +146,9 @@ namespace MemoriaNote.Cli
         static int GetIndexWidth(int viewCount)
         {
             int indexWidth = 0;
-            while(viewCount > 0)
+            while (viewCount > 0)
             {
-                viewCount /= 10;      
+                viewCount /= 10;
                 indexWidth++;
             }
             return indexWidth;
@@ -159,7 +157,7 @@ namespace MemoriaNote.Cli
         static int GetMaxNameLength(List<Content> list)
         {
             int textWidth = 0;
-            foreach(var content in list)
+            foreach (var content in list)
             {
                 if (content.Title.Length > textWidth)
                     textWidth = content.Title.Length;
@@ -169,7 +167,7 @@ namespace MemoriaNote.Cli
 
         static void AppendBoarder(StringBuilder buffer, int count)
         {
-            foreach(var num in Enumerable.Range(0, count))
+            foreach (var num in Enumerable.Range(0, count))
                 buffer.Append("-");
         }
 
@@ -195,8 +193,8 @@ namespace MemoriaNote.Cli
             int indexWidth = GetIndexWidth(contents.Count);
             int nameWidth = GetMaxNameLength(contents);
 
-            WriteLineBoarder(indexWidth, nameWidth);           
-            foreach(var content in contents)
+            WriteLineBoarder(indexWidth, nameWidth);
+            foreach (var content in contents)
             {
                 var buffer = new StringBuilder();
                 buffer.Append("|");
@@ -206,30 +204,51 @@ namespace MemoriaNote.Cli
                 buffer.Append(" | ");
                 var name = content.ViewTitle;
                 buffer.Append(name.Substring(0, Math.Min(name.Length, nameWidth)));
-                foreach(var space in Enumerable.Repeat(" ", nameWidth - Math.Min(name.Length, nameWidth)))
+                foreach (var space in Enumerable.Repeat(" ", nameWidth - Math.Min(name.Length, nameWidth)))
                     buffer.Append(space);
                 buffer.Append(" |");
-                Console.WriteLine(buffer.ToString());   
+                Console.WriteLine(buffer.ToString());
 
                 if (num >= contents.Count)
-                    break;                    
-                num++;          
+                    break;
+                num++;
             }
             WriteLineBoarder(indexWidth, nameWidth);
             if (contents.Count < totalCount)
                 Console.WriteLine("Number of text messages exceeds 1000");
-            
-            Console.WriteLine("Total count: " + totalCount.ToString());
-        }     
 
-        public int Work()
-        {
-            return 0;
+            Console.WriteLine("Total count: " + totalCount.ToString());
         }
 
-        public int WorkSelect()
+        public int WorkSelect(string name)
         {
-            return 0;
+            try
+            {
+                if (name == null)
+                    throw new ArgumentNullException(nameof(name));
+
+                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+
+                var vm = new MemoriaNoteViewModel();
+
+                var wg = vm.Workgroup;
+                if (!wg.Notes.Any(n => name == n.TitlePage.Name))
+                {
+                    Console.Error.WriteLine("Error: No such note");
+                    return -1;
+                }
+
+                Configuration.Instance.Workgroup.SelectedNoteName = name;
+                Configuration.Instance.Save();
+                return 0;
+            }
+            catch (Exception e)
+            {
+                Log.Logger.Fatal(e.Message);
+                Log.Logger.Fatal(e.StackTrace);
+                Console.Error.WriteLine($"Fatal: {e.Message}");
+                return -1;
+            }
         }
 
         public int WorkEdit()
@@ -237,10 +256,89 @@ namespace MemoriaNote.Cli
             return 0;
         }
 
-
-        public int WorkCreate()
+        public int WorkCreate(string name = null, string title = null)
         {
-            return 0;
+            try
+            {
+                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+
+                var vm = new MemoriaNoteViewModel();
+                var wg = vm.Workgroup;
+
+                if (name == null)
+                    name = ReadLineNoteName();
+
+                bool retry = false;
+                do
+                {
+                    if (wg.Notes.Any(n => name == n.TitlePage.Name))
+                    {
+                        Console.Error.WriteLine("Error: A note with that name already exists");
+                        if (!ReadLineTryAgain())
+                            return -1;
+
+                        name = ReadLineNoteName();
+                        retry = true;
+                    }
+                }
+                while (retry);
+
+                if (title == null)
+                    title = ReadLineNoteTitle();
+                
+                if (string.IsNullOrWhiteSpace(title))
+                    title = name;
+
+                var dir = Configuration.Instance.ApplicationDataDirectory;
+                string path = Path.Combine(dir, name + ".db");
+                if (File.Exists(path))
+                {
+                    path = Path.Combine(dir, name + "_" + DateTime.Now.ToString("yyyyMMddhhmmss") + ".db");
+                    if (File.Exists(path))
+                        throw new ArgumentException(path);
+                }
+
+                Note note = null;
+                try
+                {
+                    note = Note.Create(name, title, path);
+                }
+                catch (Exception e)
+                {
+                    Log.Logger.Error(e.Message);
+                    Console.WriteLine($"Error: {e.Message}");
+                    return -1;
+                }
+
+                WorkAdd(path);
+                return 0;
+            }
+            catch (Exception e)
+            {
+                Log.Logger.Fatal(e.Message);
+                Log.Logger.Fatal(e.StackTrace);
+                Console.Error.WriteLine($"Fatal: {e.Message}");
+                return -1;
+            }
+        }
+
+        static bool ReadLineTryAgain()
+        {
+            Console.Write("Try again?(y/n)_");
+            var key = Console.ReadLine();
+            return key.ToLower() == "y";
+        }
+
+        static string ReadLineNoteName()
+        {
+            Console.Write("What is the name?_");
+            return Console.ReadLine();
+        }
+
+        static string ReadLineNoteTitle()
+        {
+            Console.Write("What is the title?_");
+            return Console.ReadLine();
         }
 
         public int WorkList()
@@ -250,13 +348,16 @@ namespace MemoriaNote.Cli
                 Configuration.Instance = Configuration.Create<ConfigurationCli>();
                 var vm = new MemoriaNoteViewModel();
 
-                foreach(var note in vm.Workgroup.Notes)
+                foreach (var note in vm.Workgroup.Notes)
                 {
                     bool check = note == vm.Workgroup.SelectedNote;
                     StringBuilder buffer = new StringBuilder();
-                    buffer.Append(" ");
                     buffer.Append(check ? "*" : " ");
+                    buffer.Append(" ");
                     buffer.Append(note.ToString());
+                    buffer.Append(" (");
+                    buffer.Append(note.TitlePage.Title);
+                    buffer.Append(")");
                     Console.WriteLine(buffer.ToString());
                 }
 
@@ -272,14 +373,87 @@ namespace MemoriaNote.Cli
             }
         }
 
-        public int WorkAdd()
+        public int WorkAdd(string path)
         {
-            return 0;
+            try
+            {
+                if (path == null)
+                    throw new ArgumentNullException(nameof(path));
+
+                if (!File.Exists(path))
+                {
+                    Console.Error.WriteLine("Error: No such file");
+                    return -1;
+                }
+
+                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                try
+                {
+                    using (NoteDbContext db = new NoteDbContext(path)) { }
+                }
+                catch
+                {
+                    Console.Error.WriteLine("Error: Failed to load");
+                    return -1;
+                }
+
+                if (!Configuration.Instance.DataSources.Contains(path))
+                    Configuration.Instance.DataSources.Add(path);
+
+                if (!Configuration.Instance.Workgroup.UseDataSources.Contains(path))
+                    Configuration.Instance.Workgroup.UseDataSources.Add(path);
+
+                var vm = new MemoriaNoteViewModel();
+
+                Configuration.Instance.Save();
+                return 0;
+            }
+            catch (Exception e)
+            {
+                Log.Logger.Fatal(e.Message);
+                Log.Logger.Fatal(e.StackTrace);
+                Console.Error.WriteLine($"Fatal: {e.Message}");
+                return -1;
+            }
         }
 
-        public int WorkRemove()
+        public int WorkRemove(string name)
         {
-            return 0;
+            try
+            {
+                if (name == null)
+                    throw new ArgumentNullException(nameof(name));
+
+                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+
+                var vm = new MemoriaNoteViewModel();
+
+                var wg = vm.Workgroup;
+                if (!wg.Notes.Any(n => name == n.TitlePage.Name))
+                {
+                    Console.Error.WriteLine("Error: No such remove note");
+                    return -1;
+                }
+
+                if (wg.Notes.Count == 1)
+                {
+                    Console.Error.WriteLine("Error: Cannot remove the last note");
+                    return -1;
+                }
+
+                var dataSource = wg.Notes.First(n => name == n.TitlePage.Name).DataSource;
+                Configuration.Instance.Workgroup.UseDataSources.Remove(dataSource);
+
+                Configuration.Instance.Save();
+                return 0;
+            }
+            catch (Exception e)
+            {
+                Log.Logger.Fatal(e.Message);
+                Log.Logger.Fatal(e.StackTrace);
+                Console.Error.WriteLine($"Fatal: {e.Message}");
+                return -1;
+            }
         }
 
         public int Import(string importDir)

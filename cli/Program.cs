@@ -27,12 +27,7 @@ namespace MemoriaNote.Cli
 
         protected int OnExecute(CommandLineApplication app)
         {
-            Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
-
-            var vm = new MemoriaNoteViewModel();
-            var sc = new ScreenController();
-
-            Configuration.Instance.Save();
+            app.ShowHint();
             return 0;
         }
 
@@ -73,8 +68,7 @@ namespace MemoriaNote.Cli
 
         [Command("config", Description = "Manage configuration options")]
         [Subcommand(typeof(ConfigEditCommand),
-                    typeof(ConfigShowCommand),
-                    typeof(ConfigInitCommand))]
+                    typeof(ConfigShowCommand))]
         [HelpOption("--help")]
         class ConfigCommand
         {
@@ -101,15 +95,6 @@ namespace MemoriaNote.Cli
                     return new CommandCenter().ConfigShow();
                 }
             }
-
-            [Command("init", Description = "Init config")]
-            class ConfigInitCommand
-            {
-                protected int OnExecute(CommandLineApplication app)
-                {
-                    return new CommandCenter().ConfigInit();
-                }
-            }
         }
 
         [Command("work", "w", "branch", Description = "List, change and manage note options",
@@ -129,7 +114,10 @@ namespace MemoriaNote.Cli
 
             protected int OnExecute(CommandLineApplication app)
             {
-                return new CommandCenter().Work();
+                if (Name.hasValue)
+                    return new CommandCenter().WorkSelect(Name.value);
+                else
+                    return new CommandCenter().WorkList();
             }
 
             [Command("select", "curr", Description = "select note",
@@ -143,7 +131,7 @@ namespace MemoriaNote.Cli
 
                 protected int OnExecute(IConsole console)
                 {
-                    return new CommandCenter().WorkSelect();
+                    return new CommandCenter().WorkSelect(Name.value);
                 }
             }
 
@@ -166,11 +154,14 @@ namespace MemoriaNote.Cli
                 [Argument(0, "name")]
                 public (bool hasValue, string value) Name { get; set; }
 
+                [Argument(1, "title")]
+                public (bool hasValue, string value) Title { get; set; }
+
                 protected IReadOnlyList<string> RemainingArguments { get; }
 
                 protected int OnExecute(IConsole console)
                 {
-                    return new CommandCenter().WorkCreate();
+                    return new CommandCenter().WorkCreate(Name.value, Title.value);
                 }
             }
 
@@ -192,14 +183,14 @@ namespace MemoriaNote.Cli
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkAddCommand
             {
-                [Argument(0, "name")]
-                public (bool hasValue, string value) Name { get; set; }
+                [Argument(0, "path")]
+                public (bool hasValue, string value) Path { get; set; }
 
                 protected IReadOnlyList<string> RemainingArguments { get; }
 
                 protected int OnExecute(IConsole console)
                 {
-                    return new CommandCenter().WorkAdd();
+                    return new CommandCenter().WorkAdd(Path.value);
                 }
             }
             [Command("remove", Description = "Remove note",
@@ -216,7 +207,7 @@ namespace MemoriaNote.Cli
 
                 protected int OnExecute(IConsole console)
                 {
-                    return new CommandCenter().WorkRemove();
+                    return new CommandCenter().WorkRemove(Name.value);
                 }
             }
         }
