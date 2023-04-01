@@ -63,7 +63,7 @@ namespace MemoriaNote.Cli
             views.Push(typeof(HomeView));   
         }     
 
-        public void RequestEdit()
+        public void RequestManage()
         {
             views.Push(typeof(ManageView));   
         }  

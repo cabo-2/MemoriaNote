@@ -156,7 +156,7 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.F12, "~F12~ Browse Mode", () => {
                         Log.Logger.Debug("Push F12 Function");
 
-                        Controller.RequestEdit();
+                        Controller.RequestManage();
                         Application.RequestStop ();
                     })
                 };

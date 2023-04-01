@@ -7,21 +7,27 @@ namespace MemoriaNote.Cli.Editors
 {
     public class TerminalEditor : ITerminalEditor
     {
-        public TerminalEditor()
-        {}
+        string _execPath;
+        public TerminalEditor(string execPath)
+        {
+            _execPath = execPath;
+        }
 
         public bool Edit()
         {
-            if (CreateCommand == null)
-                throw new ArgumentNullException(nameof(CreateCommand));
+            if (_execPath == null)
+                throw new ArgumentNullException(nameof(Edit));
 
             try
             {
-                var filePath = Scratchpad.Singleton.GetFile(this.Name, true);                
-                if (this.Text != null)
-                    File.WriteAllText(filePath, this.Text);
+                var filePath = Scratchpad.Singleton.GetFile(this.FileName, true);                
+                if (this.TextData != null)
+                    File.WriteAllText(filePath, this.TextData);
 
-                var startInfo = CreateCommand(filePath);
+                var startInfo = new ProcessStartInfo() {
+                    FileName = _execPath,
+                    Arguments = $"\"{filePath}\""
+                };
 
                 Log.Logger.Debug("Start terminal editor");
                 var process = Process.Start(startInfo);
@@ -35,7 +41,7 @@ namespace MemoriaNote.Cli.Editors
                     return false;
 
                 // Save if empty text              
-                this.Text = File.ReadAllText(filePath, Encoding.UTF8);
+                this.TextData = File.ReadAllText(filePath, Encoding.UTF8);
                 Scratchpad.Singleton.Clear(filePath);
 
                 return true;
@@ -48,9 +54,8 @@ namespace MemoriaNote.Cli.Editors
                 return false;
             }
         }
-        
-        public Func<string, ProcessStartInfo> CreateCommand { get; set; }        
-        public string Name { get; set; }
-        public string Text { get; set; }
+   
+        public string FileName { get; set; }
+        public string TextData { get; set; }
     }
 }

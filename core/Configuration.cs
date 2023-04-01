@@ -35,14 +35,20 @@ namespace MemoriaNote
             [DataMember][Reactive] public int MaxViewResultCount { get; set; } = 1000;
         }
 
-        protected virtual T GetDefault<T>() where T : Configuration, new()
+        protected T GetDefault<T>() where T : Configuration, new()
         {
             var config = Activator.CreateInstance (typeof(T)) as T;
 
             config.DataSources.Add(DefaultDataSourcePath);
             config.Workgroup = WorkgroupBuilder.Generate(DefaultWorkgroupName, config.DataSources);
 
+            SetDefault(config);
+
             return config;
+        }
+
+        protected virtual void SetDefault<T>(T value) where T : Configuration, new()
+        {
         }
 
         public virtual void Save ()

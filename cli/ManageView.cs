@@ -114,17 +114,37 @@ namespace MemoriaNote.Cli
                         Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.PageNext);
                     }),
                     new StatusItem(Key.Null," ",() => {}),
-                    new StatusItem(Key.F5, "~F5~ Edit  ", () => {                        
+                    new StatusItem(Key.F5, "~F5~ New   ", () => {                        
                         Log.Logger.Debug("Push F5 Function");
+
+                        ViewModel.EditingState = TextManageType.Create;
+                        Controller.RequestEditor ();
+                        //Controller.RequestManage ();
+                        Application.RequestStop ();
                     }),
-                    new StatusItem(Key.F6, "~F6~ New   ", () => {
-                        Log.Logger.Debug("Push F6 Function");                   
+                    new StatusItem(Key.F6, "~F6~ Edit  ", () => {
+                        Log.Logger.Debug("Push F6 Function");
+
+                        ViewModel.EditingState = TextManageType.Edit;
+                        Controller.RequestEditor ();
+                        //Controller.RequestManage ();
+                        Application.RequestStop ();                  
                     }),
                     new StatusItem(Key.F7, "~F7~ Rename", () => {
-                        Log.Logger.Debug("Push F7 Function");                  
+                        Log.Logger.Debug("Push F7 Function");
+
+                        ViewModel.EditingState = TextManageType.Rename;
+                        Controller.RequestEditor ();
+                        //Controller.RequestManage ();
+                        Application.RequestStop ();                    
                     }),
                     new StatusItem(Key.F8, "~F8~ Delete", () => {
-                        Log.Logger.Debug("Push F8 Function");                  
+                        Log.Logger.Debug("Push F8 Function");   
+
+                        ViewModel.EditingState = TextManageType.Delete;
+                        Controller.RequestEditor ();
+                        //Controller.RequestManage ();
+                        Application.RequestStop ();                
                     }),
                     new StatusItem(Key.Null," ",() => {}),
                     new StatusItem(Key.F12, "~F12~ Manage Mode", () => {

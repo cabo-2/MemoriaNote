@@ -4,7 +4,7 @@ namespace MemoriaNote.Cli.Editors
     {
         bool Edit();
 
-        string Name { get; set; }
-        string Text { get; set; }
+        string FileName { get; set; }
+        string TextData { get; set; }
     }
 }

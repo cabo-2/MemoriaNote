@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
 
@@ -6,18 +8,73 @@ namespace MemoriaNote.Cli.Editors
     public static class TerminalEditorFactory
     {
         //
+        // Editor selected method
+        // 
         // Windows:
-        //   1. config selected editor
-        //   2. Git for Windows selected editor
-        //   3. start "<filepath>.txt"
-        //   4. Terminal.Gui implements editor
+        //   1. PATH
+        //   2. winget
+        //   3. Git for Windows
         //
         // Linux:        
-        //   1. config selected editor
-        //   2. env $EDITOR ( nano or vim )
-        //   3. xdg-open "file://<filepath>.txt"
-        //   4. Terminal.Gui implements editor
+        //   1. PATH
         //
+
+        static string[] WindowsPathCommands = new string[] {
+            "where.exe nano.exe",
+            "where.exe vim.exe"
+        };
+
+        static string[] WindowsWingetCommands = new string[] {
+            @"C:\Program Files\Git\usr\bin\nano.exe",
+            @"C:\Program Files\Git\usr\bin\vim.exe"
+        };
+
+        static string[] WindowsGitCommands = new string[] {
+            @"C:\Program Files\Git\usr\bin\nano.exe",
+            @"C:\Program Files\Git\usr\bin\vim.exe"
+        };
+
+        static string[] LinuxPathCommands = new string[] {
+            @"nano",
+            @"vim"
+        };
+
+        public static bool SearchInstallEditor(out string execPath)
+        {
+            execPath = null;
+            Console.WriteLine("Search install editor...");
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                foreach(var editor in WindowsGitCommands)
+                {
+
+                }
+            }   
+            else
+            {
+                foreach(var editor in LinuxPathCommands)
+                {
+                    var startInfo = new ProcessStartInfo() {
+                        FileName = "which",
+                        Arguments = editor
+                    };
+                    var proc = Process.Start(startInfo);
+                    Console.Write($"{editor}...");
+                    proc.WaitForExit();
+                    if (proc.ExitCode == 0)
+                    {
+                        Console.WriteLine(" Found");
+                        execPath = editor;
+                        return true;
+                    }
+                    else
+                    {
+                        Console.WriteLine(" Not Found");
+                    }
+                }
+            }  
+            return false;     
+        }
 
         static ProcessStartInfo LaunchShellCommand(string filePath)
         {
@@ -53,9 +110,7 @@ namespace MemoriaNote.Cli.Editors
 
         public static ITerminalEditor Create()
         {
-            return new TerminalEditor() {
-                CreateCommand = (filePath) => ExecuteCommand("nano", filePath)
-            };
+            return new TerminalEditor("nano");
         }
     }
 }
