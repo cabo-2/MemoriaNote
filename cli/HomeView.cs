@@ -180,7 +180,7 @@ namespace MemoriaNote.Cli
                 .WhenAnyValue(
                     vm => vm.NoteNames,
                     vm => vm.SelectedNoteIndex,
-                    (list, index) => list[index])
+                    (list, index) => NStack.ustring.Make(list[index]))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(notesView, x => x.Text)
                 .DisposeWith(_disposable);
@@ -204,7 +204,7 @@ namespace MemoriaNote.Cli
             var notifyLabel = ViewHelper.CreateNotifyLabel(searchTextField);
             var notifyField = ViewHelper.CreateNoteName(notifyLabel);
             ViewModel
-                .WhenAnyValue(vm => vm.Notification)
+                .WhenAnyValue(vm => vm.Notification, x => NStack.ustring.Make(x))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(notifyField, x => x.Text)
                 .DisposeWith(_disposable);
@@ -226,7 +226,7 @@ namespace MemoriaNote.Cli
 
             var contentsLabel = ViewHelper.CreateContentsLabel();
             ViewModel
-                .WhenAnyValue(vm => vm.PlaceHolder)
+                .WhenAnyValue(vm => vm.PlaceHolder, x => NStack.ustring.Make(x))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(contentsLabel, x => x.Text)
                 .DisposeWith(_disposable);
@@ -273,14 +273,14 @@ namespace MemoriaNote.Cli
 
             var titleField = ViewHelper.CreateTitleField();
             ViewModel
-                .WhenAnyValue(vm => vm.EditingTitle)
+                .WhenAnyValue(vm => vm.EditingTitle, x => NStack.ustring.Make(x))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(titleField, x => x.Text)
                 .DisposeWith(_disposable);
             editorFrame.Add(titleField);
             var textEditor = ViewHelper.CreateTextEditor();
             ViewModel
-                .WhenAnyValue(vm => vm.TextEditor)
+                .WhenAnyValue(vm => vm.TextEditor, x => NStack.ustring.Make(x))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(textEditor, x => x.Text)
                 .DisposeWith(_disposable);

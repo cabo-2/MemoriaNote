@@ -53,7 +53,7 @@ namespace MemoriaNote.Cli
             }
         }
 
-        public static View CreateNoteLabel() => new Label("Note:")
+        public static Label CreateNoteLabel() => new Label("Note:")
         {
             X = 1,
             Y = 0,
@@ -78,7 +78,7 @@ namespace MemoriaNote.Cli
             CanFocus = true,
         };
 
-        public static View CreateNotifyLabel(View prev) => new Label("Notify:")
+        public static Label CreateNotifyLabel(View prev) => new Label("Notify:")
         {
             X = Pos.Right(prev) + 3,
             Y = 0,
@@ -86,7 +86,7 @@ namespace MemoriaNote.Cli
             Height = 1
         };
 
-        public static View CreateNotifyField(View prev) => new Label()
+        public static Label CreateNotifyField(View prev) => new Label()
         {
             X = Pos.Right(prev),
             Y = 0,
@@ -95,7 +95,7 @@ namespace MemoriaNote.Cli
             CanFocus = false
         };
 
-        public static View CreateContentsLabel() => new Label()
+        public static Label CreateContentsLabel() => new Label()
         {
             X = 0,
             Y = 0,
@@ -164,7 +164,7 @@ namespace MemoriaNote.Cli
             return scrollBar;
         }
 
-        public static View CreateTitleField() => new TextField()
+        public static TextField CreateTitleField() => new TextField()
         {
             X = 0,
             Y = 0,
