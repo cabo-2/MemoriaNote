@@ -12,14 +12,14 @@ using System.Reactive.Concurrency;
 namespace MemoriaNote.Cli
 {
 
-    public class EditView : Toplevel, IViewFor<MemoriaNoteViewModel>, ITerminalScreen, IDisposable
+    public class ManageView : Toplevel, IViewFor<MemoriaNoteViewModel>, ITerminalScreen, IDisposable
     {
         public static void Run(ScreenController sc, MemoriaNoteViewModel vm)
         {
             Application.Init();
             RxApp.MainThreadScheduler = TerminalScheduler.Default;
             RxApp.TaskpoolScheduler = TaskPoolScheduler.Default;
-            Application.Run(new EditView(sc, vm));
+            Application.Run(new ManageView(sc, vm));
             Application.Shutdown();
         }
 
@@ -30,7 +30,7 @@ namespace MemoriaNote.Cli
         protected FrameView _editorFrame;
         protected ColorScheme _colorScheme;
 
-        public EditView(ScreenController controller, MemoriaNoteViewModel viewModel)
+        public ManageView(ScreenController controller, MemoriaNoteViewModel viewModel)
         {
             Controller = controller;
             ViewModel = viewModel;
@@ -127,7 +127,7 @@ namespace MemoriaNote.Cli
                         Log.Logger.Debug("Push F8 Function");                  
                     }),
                     new StatusItem(Key.Null," ",() => {}),
-                    new StatusItem(Key.F12, "~F12~ Edit Mode", () => {
+                    new StatusItem(Key.F12, "~F12~ Manage Mode", () => {
                         Log.Logger.Debug("Push F12 Function");
 
                         Controller.RequestHome();
