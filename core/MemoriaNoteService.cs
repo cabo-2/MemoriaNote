@@ -19,7 +19,8 @@ namespace MemoriaNote
     {
         public MemoriaNoteService()
         {
-            if (!File.Exists(Configuration.Instance.DefaultDataSourcePath)) {
+            if (!File.Exists(Configuration.Instance.DefaultDataSourcePath))
+            {
                 Note.Create(Configuration.Instance.DefaultNoteName, Configuration.Instance.DefaultNoteTitle, Configuration.Instance.DefaultDataSourcePath);
                 Log.Logger.Information("Default note created");
             }
@@ -60,7 +61,7 @@ namespace MemoriaNote
                 () => OnSearchContents(SearchEntry, SearchRange, SearchMethod,
                         SelectedContentsIndex - Configuration.Instance.Search.MaxViewResultCount, OnSearchResultCallback),
                 canPagePrev
-            );            
+            );
 
             OpenText = ReactiveCommand.Create(
                 () => OnSelectedContextsIndexChanged()
@@ -94,7 +95,7 @@ namespace MemoriaNote
             _selectedContentsIndex = this
                 .WhenAnyValue(x => x.ContentsViewPageIndex)
                 .Select(x => ViewPageIndexToContentsIndex(x.Item1, x.Item2))
-                .ToProperty(this, x => x.SelectedContentsIndex);      
+                .ToProperty(this, x => x.SelectedContentsIndex);
 
             _searchRangeString = this
                 .WhenAnyValue(
@@ -102,7 +103,7 @@ namespace MemoriaNote
                     (range) =>
                         range.ToDisplayString()
                 )
-                .ToProperty(this, x => x.SearchMethodString);        
+                .ToProperty(this, x => x.SearchMethodString);
 
             _searchMethodString = this
                 .WhenAnyValue(
@@ -121,8 +122,9 @@ namespace MemoriaNote
 
         protected void DatabaseMigrate()
         {
-            foreach (var dataSource in Configuration.Instance.DataSources) {
-                Note.Migrate(dataSource);                
+            foreach (var dataSource in Configuration.Instance.DataSources)
+            {
+                Note.Migrate(dataSource);
             }
         }
 
@@ -141,7 +143,7 @@ namespace MemoriaNote
 
         protected void OnTextManageResultCallback(TextManageResult result)
         {
-            
+            this.Notification = result.Notification;
             Log.Logger.Information(result.ToString());
         }
 
@@ -163,8 +165,8 @@ namespace MemoriaNote
             }
         }
 
-        static string PlaceHolderString(int currentIndex, int totalCount) => totalCount > 0 ? $"{currentIndex+1} of {totalCount}" : "0 of 0";
-        
+        static string PlaceHolderString(int currentIndex, int totalCount) => totalCount > 0 ? $"{currentIndex + 1} of {totalCount}" : "0 of 0";
+
         static int ContentsIndexToViewIndex(int contentsIndex) => contentsIndex % Configuration.Instance.Search.MaxViewResultCount; // % is remainder
         static int ContentsIndexToViewPage(int contentsIndex) => (int)(contentsIndex / Configuration.Instance.Search.MaxViewResultCount);
         static int ViewPageIndexToContentsIndex(int page, int index) => (page * Configuration.Instance.Search.MaxViewResultCount) + index;
@@ -198,7 +200,7 @@ namespace MemoriaNote
                     if (sr != null)
                         result(sr, selectedContentsIndex);
                 }
-                catch (InvalidOperationException) {}
+                catch (InvalidOperationException) { }
                 catch (Exception ex)
                 {
                     Log.Logger.Debug(ex.Message);
@@ -213,7 +215,7 @@ namespace MemoriaNote
                     if (sr != null)
                         result(sr, selectedContentsIndex);
                 }
-                catch (InvalidOperationException) {}
+                catch (InvalidOperationException) { }
                 catch (Exception ex)
                 {
                     Log.Logger.Debug(ex.Message);
@@ -235,11 +237,27 @@ namespace MemoriaNote
                 result(mr);
         }
 
+        public bool CanCreateText(string newName, string newText)
+        {
+            List<string> errors;
+            var result = Workgroup.ValidateCreateText(newName, newText, out errors);
+            EditingErrors = errors;
+            return result;
+        }
+
         protected void OnEditText(Content content, string newText, Action<TextManageResult> result)
         {
             var mr = Workgroup.EditText(content, newText);
             if (mr != null)
                 result(mr);
+        }
+
+        public bool CanEditText(Content content, string newText)
+        {
+            List<string> errors;
+            var result = Workgroup.ValidateEditText(content, newText, out errors);
+            EditingErrors = errors;
+            return result;
         }
 
         protected void OnRenameText(Content content, string newName, Action<TextManageResult> result)
@@ -249,11 +267,27 @@ namespace MemoriaNote
                 result(mr);
         }
 
+        public bool CanRenameText(Content content, string newName)
+        {
+            List<string> errors;
+            var result = Workgroup.ValidateRenameText(content, newName, out errors);
+            EditingErrors = errors;
+            return result;
+        }
+
         protected void OnDeleteText(Content content, Action<TextManageResult> result)
         {
             var mr = Workgroup.DeleteText(content);
             if (mr != null)
                 result(mr);
+        }
+
+        public bool CanDeleteText(Content content)
+        {
+            List<string> errors;
+            var result = Workgroup.ValidateDeleteText(content, out errors);
+            EditingErrors = errors;
+            return result;
         }
 
         [Reactive] public Workgroup Workgroup { get; set; }
@@ -281,7 +315,7 @@ namespace MemoriaNote
         readonly ObservableAsPropertyHelper<int> _selectedContentsIndex;
         [IgnoreDataMember] public int SelectedContentsIndex => _selectedContentsIndex.Value;
 
-        [Reactive, DataMember] public (int,int) ContentsViewPageIndex { get; set; }
+        [Reactive, DataMember] public (int, int) ContentsViewPageIndex { get; set; }
 
         [Reactive, DataMember] public int ContentsCount { get; set; }
 
@@ -292,6 +326,8 @@ namespace MemoriaNote
         [Reactive, DataMember] public string TextEditor { get; set; } = string.Empty;
 
         [Reactive, DataMember] public string EditingText { get; set; } = string.Empty;
+
+        [Reactive, DataMember] public List<string> EditingErrors { get; set; } = new List<string>();
 
         [Reactive, DataMember] public TextManageType EditingState { get; set; }
 

@@ -343,17 +343,6 @@ namespace MemoriaNote
             }
         }
 
-        public Page FindPage(Guid guid)
-        {
-            foreach(var note in Notes)
-            {
-                var page = note.Read(guid);
-                if (page != null)
-                    return page;                
-            }
-            return null;
-        }
-
         public bool ValidateCreateText(string testName, string testText, out List<string> errors)
         {
             errors = new List<string>();
@@ -364,15 +353,27 @@ namespace MemoriaNote
             return errors.Count == 0;
         }
 
-        public bool ValidateEditText(Content content, string testText, out List<string> errors)
+        public bool ValidateEditText(IContent content, string testText, out List<string> errors)
         {
             errors = new List<string>();
+            if (content == null)
+            {
+                errors.Add("The text not yet opened.");
+                return false;
+            }    
+
             return TextUtil.ValidateTextString(testText, errors);
         }
 
-        public bool ValidateRenameText(Content content, string testName, out List<string> errors)
+        public bool ValidateRenameText(IContent content, string testName, out List<string> errors)
         {
             errors = new List<string>();
+            if (content == null)
+            {
+                errors.Add("The text not yet opened.");
+                return false;
+            } 
+
             TextUtil.ValidateNameString(testName, errors);            
             if (SelectedNote.Read(testName).FirstOrDefault() != null)
                 errors.Add("The text name is already in use.");
@@ -380,9 +381,15 @@ namespace MemoriaNote
             return errors.Count == 0;
         }
 
-        public bool ValidateDeleteText(Content content, out List<string> errors)
+        public bool ValidateDeleteText(IContent content, out List<string> errors)
         {
             errors = new List<string>();
+            if (content == null)
+            {
+                errors.Add("The text not yet opened.");
+                return false;
+            }
+
             return true;
         }
 
@@ -395,17 +402,17 @@ namespace MemoriaNote
             if (validate) {
                 var page = SelectedNote.Create(newName, newText);
                 mr.Content = page.GetContent();             
-                mr.Notification = $"The text created successfully.";
+                mr.Notification = "The text created successfully.";
                 mr.Result = true;
             }
             else
             {                
-                mr.Notification = $"Failed to create the text.";
+                mr.Notification = "Failed to create the text.";
             }
             return mr;
         }
         
-        public TextManageResult EditText(Content content, string newText)
+        public TextManageResult EditText(IContent content, string newText)
         {
             TextManageResult mr = new TextManageResult() { Operation = TextManageType.Edit };
             List<string> errors;
@@ -416,17 +423,17 @@ namespace MemoriaNote
                 page.Text = newText;
                 SelectedNote.Update(page);
                 mr.Content = page.GetContent();
-                mr.Notification = $"The text updated successfully.";
+                mr.Notification = "The text updated successfully.";
                 mr.Result = true;
             }
             else
             {                
-                mr.Notification = $"Failed to update the text.";
+                mr.Notification = "Failed to update the text.";
             }
             return mr;
         }
 
-        public TextManageResult RenameText(Content content, string newName)
+        public TextManageResult RenameText(IContent content, string newName)
         {
             TextManageResult mr = new TextManageResult() { Operation = TextManageType.Rename };
             List<string> errors;
@@ -437,17 +444,17 @@ namespace MemoriaNote
                 page.Title = newName;
                 SelectedNote.Update(page);
                 mr.Content = page.GetContent();
-                mr.Notification = $"The text renamed successfully.";
+                mr.Notification = "The text renamed successfully.";
                 mr.Result = true;
             }
             else
             {                
-                mr.Notification = $"Failed to rename the text.";
+                mr.Notification = "Failed to rename the text.";
             }
             return mr;
         }
 
-        public TextManageResult DeleteText(Content content)
+        public TextManageResult DeleteText(IContent content)
         {
             TextManageResult mr = new TextManageResult() { Operation = TextManageType.Delete };
             List<string> errors;
@@ -456,13 +463,13 @@ namespace MemoriaNote
             if (validate) {
                 SelectedNote.Delete(content);
                 mr.Content = null;
-                mr.Notification = $"The text deleted successfully.";
+                mr.Notification = "The text deleted successfully.";
                 mr.Result = true;
             }
             else
             {               
-                mr.Content = content; 
-                mr.Notification = $"Failed to delete the text.";
+                mr.Content = content.GetContent(); 
+                mr.Notification = "Failed to delete the text.";
             }
             return mr;
         }

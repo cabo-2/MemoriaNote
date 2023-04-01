@@ -138,7 +138,7 @@ namespace MemoriaNote
             }
         }
 
-        public void Delete(Content content)
+        public void Delete(IContent content)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
