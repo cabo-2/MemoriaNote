@@ -114,12 +114,13 @@ namespace MemoriaNote
         {
             var token = new CancellationToken();
             var task = Task.Run(() => {
-                foreach(var page in note.ReadAll())
-                {
-                    var path = Path.Combine(exportDir, $"{page.Title}.txt");
-                    using(StreamWriter writer = new StreamWriter(path))
-                        writer.Write(page.Text);
-                }
+                using(NoteDbContext db = new NoteDbContext(note.DataSource))
+                    foreach(var page in db.PageClient.ReadAll())
+                    {
+                        var path = Path.Combine(exportDir, $"{page.Title}.txt");
+                        using(StreamWriter writer = new StreamWriter(path))
+                            writer.Write(page.Text);
+                    }
             }, token);
             return task;
         }
