@@ -1,5 +1,4 @@
 using System;
-using System.Text;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -72,20 +71,32 @@ namespace MemoriaNote.Cli
 
         protected MenuItem[] CreateNoteMenuItems()
         {
-            var items = new List<MenuItem>();            
+            var items = new List<MenuItem>();
             var notes = ViewModel.NoteNames;
             var index = ViewModel.SelectedNoteIndex;
             var maxLen = Math.Min(notes.Count, 10);
 
-            for (int i=0; i<maxLen; i++) {
+            foreach (var i in Enumerable.Range(0, maxLen))
+            {
                 var isCurrent = (i == index);
-                var item = new MenuItem() {
+                var item = new MenuItem()
+                {
                     Title = notes[i],
-                    Help = "",      
+                    Help = "",
                     Checked = isCurrent,
                     Shortcut = ViewHelper.NumberToKey(i) | Key.CtrlMask | Key.AltMask,
-                    Action = () => {
-                        Log.Logger.Debug("Push Note: " + notes[i].ToString());
+                    Action = () =>
+                    {
+                        Log.Logger.Debug($"Push Ctrl+Alt+{i.ToString()}");
+                        if (ViewModel.SelectedNoteIndex != i)
+                        {
+                            Configuration.Instance.Workgroup.SelectedNoteName = ViewModel.NoteNames[i].ToString();
+                            ViewModel.Workgroup.SelectedNote = ViewModel.Workgroup.Notes[i];
+
+                            Log.Logger.Debug($"Selected note changed: {Configuration.Instance.Workgroup.SelectedNoteName}");
+                            Controller.RequestHome();
+                            Application.RequestStop();
+                        }
                     }
                 };
                 items.Add(item);
@@ -107,44 +118,45 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.Null," ",() => {}),
                     new StatusItem(Key.F1, "~F1~ Prev  ", () => {
                         Log.Logger.Debug("Push F1 Function");
-                        Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.PagePrev);                       
+                        Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.PagePrev);
                     }),
                     new StatusItem(Key.F2, "~F2~ Next  ", () => {
                         Log.Logger.Debug("Push F2 Function");
                         Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.PageNext);
                     }),
                     new StatusItem(Key.Null," ",() => {}),
-                    new StatusItem(Key.F5, "~F5~ New   ", () => {                        
+                    new StatusItem(Key.F5, "~F5~ New   ", () => {
                         Log.Logger.Debug("Push F5 Function");
 
                         ViewModel.EditingState = TextManageType.Create;
+                        ViewModel.EditingTitle = ViewModel.SearchEntry;
+                        Controller.RequestManage ();
                         Controller.RequestEditor ();
-                        //Controller.RequestManage ();
                         Application.RequestStop ();
                     }),
                     new StatusItem(Key.F6, "~F6~ Edit  ", () => {
                         Log.Logger.Debug("Push F6 Function");
 
                         ViewModel.EditingState = TextManageType.Edit;
+                        Controller.RequestManage ();
                         Controller.RequestEditor ();
-                        //Controller.RequestManage ();
-                        Application.RequestStop ();                  
+                        Application.RequestStop ();
                     }),
                     new StatusItem(Key.F7, "~F7~ Rename", () => {
                         Log.Logger.Debug("Push F7 Function");
 
                         ViewModel.EditingState = TextManageType.Rename;
+                        Controller.RequestManage ();
                         Controller.RequestEditor ();
-                        //Controller.RequestManage ();
-                        Application.RequestStop ();                    
+                        Application.RequestStop ();
                     }),
                     new StatusItem(Key.F8, "~F8~ Delete", () => {
-                        Log.Logger.Debug("Push F8 Function");   
+                        Log.Logger.Debug("Push F8 Function");
 
                         ViewModel.EditingState = TextManageType.Delete;
+                        Controller.RequestManage ();
                         Controller.RequestEditor ();
-                        //Controller.RequestManage ();
-                        Application.RequestStop ();                
+                        Application.RequestStop ();
                     }),
                     new StatusItem(Key.Null," ",() => {}),
                     new StatusItem(Key.F12, "~F12~ Manage Mode", () => {
@@ -167,17 +179,17 @@ namespace MemoriaNote.Cli
                 Height = 3,
                 CanFocus = false
             };
-            
+
             var notesLabel = ViewHelper.CreateNoteLabel();
             var notesView = ViewHelper.CreateNoteName(notesLabel);
             ViewModel
                 .WhenAnyValue(
                     vm => vm.NoteNames,
                     vm => vm.SelectedNoteIndex,
-                    (list,index) => NStack.ustring.Make(list[index]))
+                    (list, index) => NStack.ustring.Make(list[index]))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(notesView, x => x.Text)
-                .DisposeWith(_disposable);   
+                .DisposeWith(_disposable);
 
             var searchTextField = ViewHelper.CreateSearchTextField(notesView, ViewModel.SearchEntry ?? "");
             ViewModel
@@ -188,25 +200,34 @@ namespace MemoriaNote.Cli
             searchTextField.TextChanged += (e) =>
             {
                 ViewModel.SearchEntry = searchTextField.Text.ToString();
-                Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.Search); 
-            };            
-            /*searchTextField.ShortcutAction = () =>
+                Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.Search);
+            };
+            searchTextField.KeyDown += (e) =>
             {
-                Log.Logger.Debug("New test : " + ViewModel.Contents?.Count.ToString() ?? "null");
-                if (ViewModel.Contents.Count == 0)
+                if (e.KeyEvent.Key == Key.Enter &&
+                    ViewModel.EditingState == TextManageType.None)
                 {
-                    ViewModel.EditingState = EditingState.Create;
-                    ViewModel.EditingTitle = searchTextField.Text;
-                    ViewModel.EditingText = null;
-                    Controller.RequestHome();
-                    Controller.RequestEditor();
-                    this.RequestStop();
+                    if (!string.IsNullOrWhiteSpace(ViewModel.EditingTitle) &&
+                         ViewModel.EditingTitle == ViewModel.SearchEntry)
+                    {
+                        ViewModel.EditingState = TextManageType.Edit;
+                        Controller.RequestManage();
+                        Controller.RequestEditor();
+                        Application.RequestStop();
+                        Log.Logger.Debug("SearchTextField KeyUp1: " + ViewModel.EditingState.ToString());
+                    }
+                    else if (string.IsNullOrWhiteSpace(ViewModel.EditingTitle) &&
+                            !string.IsNullOrWhiteSpace(ViewModel.SearchEntry))
+                    {
+                        ViewModel.EditingState = TextManageType.Create;
+                        ViewModel.EditingTitle = ViewModel.SearchEntry;
+                        Controller.RequestManage();
+                        Controller.RequestEditor();
+                        Application.RequestStop();
+                        Log.Logger.Debug("SearchTextField KeyUp2: " + ViewModel.EditingState.ToString());
+                    }
                 }
-                else
-                {
-                    ViewModel.Notification = "Duplicate registration is not allowed";
-                }
-            };*/
+            };
             navigation.Add(notesLabel);
             navigation.Add(notesView);
 
@@ -243,31 +264,46 @@ namespace MemoriaNote.Cli
                 .DisposeWith(_disposable);
 
             var pagePrevButton = ViewHelper.CreatePagePrevButton(contentsLabel);
-			pagePrevButton
-				.Events ()
-				.Clicked
-				.InvokeCommand (ViewModel, x => x.PagePrev)
-				.DisposeWith (_disposable);
+            pagePrevButton
+                .Events()
+                .Clicked
+                .InvokeCommand(ViewModel, x => x.PagePrev)
+                .DisposeWith(_disposable);
             var pageNextButton = ViewHelper.CreatePageNextButton(pagePrevButton);
-			pageNextButton
-				.Events ()
-				.Clicked
-				.InvokeCommand (ViewModel, x => x.PageNext)
-				.DisposeWith (_disposable);                
+            pageNextButton
+                .Events()
+                .Clicked
+                .InvokeCommand(ViewModel, x => x.PageNext)
+                .DisposeWith(_disposable);
             contentsFrame.Add(contentsLabel);
             contentsFrame.Add(pagePrevButton);
-            contentsFrame.Add(pageNextButton);        
+            contentsFrame.Add(pageNextButton);
 
             var contentsListView = ViewHelper.CreateContentsListView(pageNextButton);
             contentsListView.SelectedItemChanged += (e) =>
             {
                 ViewModel.ContentsViewPageIndex = (ViewModel.ContentsViewPageIndex.Item1, e.Item);
-                Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.OpenText); 
+                Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.OpenText);
+            };
+            contentsListView.KeyDown += (e) =>
+            {
+                if (e.KeyEvent.Key == Key.Enter)
+                {
+                    if (!string.IsNullOrWhiteSpace(ViewModel.EditingTitle) &&
+                        ViewModel.EditingState == TextManageType.None)
+                    {
+                        ViewModel.EditingState = TextManageType.Edit;
+                        Controller.RequestManage();
+                        Controller.RequestEditor();
+                        Application.RequestStop();
+                        Log.Logger.Debug("contentsTextField KeyDown: " + ViewModel.EditingState.ToString());
+                    }
+                }
             };
             contentsListView.SetSource(ViewModel.ContentViewItems);
             contentsFrame.Add(contentsListView);
             ViewHelper.CreateContentsScrollBar(contentsListView);
-            
+
             return contentsFrame;
         }
 
@@ -291,23 +327,10 @@ namespace MemoriaNote.Cli
             editorFrame.Add(titleField);
             var textEditor = ViewHelper.CreateTextEditor();
             ViewModel
-                .WhenAnyValue(vm => vm.TextEditor, x => NStack.ustring.Make(x))
+                .WhenAnyValue(vm => vm.EditingText, x => NStack.ustring.Make(x))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(textEditor, x => x.Text)
                 .DisposeWith(_disposable);
-            /*textEditor.ShortcutAction = () =>
-            {
-                if (ViewModel.OpenedPage != null)
-                {
-                    Log.Logger.Debug("Request editor");
-                    ViewModel.EditingState = EditingState.Update;
-                    ViewModel.EditingTitle = titleField.Text;
-                    ViewModel.EditingText = textEditor.Text;
-                    this.Controller.RequestHome();
-                    this.Controller.RequestEditor();
-                    this.RequestStop();
-                }
-            };*/
             editorFrame.Add(textEditor);
             ViewHelper.CreateTextEditorScrollBar(textEditor);
 

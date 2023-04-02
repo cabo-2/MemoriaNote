@@ -155,14 +155,14 @@ namespace MemoriaNote
                 var page = Workgroup.SelectedNote.Read(this.Contents[this.ContentsViewPageIndex.Item2]);
                 this.OpenedContent = page.GetContent();
                 this.EditingTitle = this.OpenedContent.Title;
-                this.TextEditor = page.Text;
+                this.EditingText = page.Text;
             }
             else
             {
                 this.PlaceHolder = PlaceHolderString(0, 0);
                 this.OpenedContent = null;
                 this.EditingTitle = string.Empty;
-                this.TextEditor = string.Empty;
+                this.EditingText = string.Empty;
             }
         }
 
@@ -323,8 +323,6 @@ namespace MemoriaNote
         [Reactive] public Content OpenedContent { get; set; }
 
         [Reactive, DataMember] public string EditingTitle { get; set; } = string.Empty;
-
-        [Reactive, DataMember] public string TextEditor { get; set; } = string.Empty;
 
         [Reactive, DataMember] public string EditingText { get; set; } = string.Empty;
 

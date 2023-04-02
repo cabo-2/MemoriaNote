@@ -1,13 +1,7 @@
-using System;
 using System.IO;
 using System.Text;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using ReactiveUI;
-using Terminal.Gui;
-using ReactiveMarbles.ObservableEvents;
 using MemoriaNote.Cli.Editors;
 
 namespace MemoriaNote.Cli
@@ -47,71 +41,71 @@ namespace MemoriaNote.Cli
                     Log.Logger.Error("Error: EditingState none");
                     return;
             }
-            //ViewModel.EditingTitle = null;
-            //ViewModel.EditingText = null;
             ViewModel.EditingState = TextManageType.None;
-            Controller.RequestManage();
         }
 
         protected void OnCreateText(ITerminalEditor editor)
-        {         
-            editor.FileName = "Enter a name";
-            editor.TextData = AddNameComment(ViewModel.EditingTitle);
+        {
+            if (!ViewModel.CanCreateText(ViewModel.EditingTitle, ViewModel.EditingText))
+                if (!EnterName(editor, ViewModel.EditingState))
+                    return;
 
-            if (!editor.Edit())
-            {
-                Log.Logger.Information("Enter a name canceled");
-                return;
-            }
-
-            ViewModel.EditingTitle = RemoveNameComment(editor.TextData);
-
-            editor.FileName = ViewModel.EditingTitle;
-            editor.TextData = ViewModel.EditingText;
-
-            if (!editor.Edit())
-            {
-                Log.Logger.Information("Enter a text canceled");
-                return;
-            }
-
-            ViewModel.EditingText = editor.TextData;
-
-            Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.CreateText);
+            if (EnterText(editor))
+                Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.CreateText);
         }
 
         protected void OnEditText(ITerminalEditor editor)
         {
+            if (EnterText(editor))
+                Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.EditText);
+        }
+
+        protected void OnRenameText(ITerminalEditor editor)
+        {
+            if (EnterName(editor, ViewModel.EditingState))
+                Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.RenameText);
+        }
+        
+        protected void OnDeleteText(ITerminalEditor editor)
+        {
+        }
+
+        protected bool EnterName(ITerminalEditor editor, TextManageType type)
+        {
+            if (type == TextManageType.Rename)
+                editor.FileName = "Rename text";
+            else if (type == TextManageType.Delete)
+                editor.FileName = "Delete text";
+            else
+                editor.FileName = "New text";
+
+            editor.TextData = AddNameComment(ViewModel.EditingTitle);
+
+            if (!editor.Edit())
+            {
+                Log.Logger.Information("A name enter canceled");
+                ViewModel.Notification = "A name enter canceled";
+                return false;
+            }
+
+            ViewModel.EditingTitle = RemoveNameComment(editor.TextData);
+            return true;
+        }
+
+        protected bool EnterText(ITerminalEditor editor)
+        {
             editor.FileName = ViewModel.EditingTitle;
             editor.TextData = ViewModel.EditingText;
 
             if (!editor.Edit())
             {
-                Log.Logger.Information("Enter a text canceled");
-                return;
+                Log.Logger.Information("A text enter canceled");
+                ViewModel.Notification = "A text enter canceled";
+                return false;
             }
 
             ViewModel.EditingText = editor.TextData;
-
-            Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.EditText);
-        }
-        protected void OnRenameText(ITerminalEditor editor)
-        {
-            editor.FileName = "Enter a name";
-            editor.TextData = AddNameComment(ViewModel.EditingTitle);
-
-            if (!editor.Edit())
-            {
-                Log.Logger.Information("Enter a name canceled");
-                return;
-            }
-
-            ViewModel.EditingTitle = RemoveNameComment(editor.TextData);           
-
-            Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.RenameText);
-        }
-        protected void OnDeleteText(ITerminalEditor editor)
-        {
+            return true;
         }
 
         static string AddNameComment(string name)
@@ -119,16 +113,16 @@ namespace MemoriaNote.Cli
             StringBuilder buffer = new StringBuilder();
             buffer.AppendLine(name);
             buffer.AppendLine();
-            buffer.AppendLine("#### Please enter a text name ####");
+            buffer.AppendLine("#### Please enter a new name ####");
             return buffer.ToString();
         }
 
         static string RemoveNameComment(string name)
         {
-            using(StringReader reader = new StringReader(name))
+            using (StringReader reader = new StringReader(name))
             {
                 string line = reader.ReadLine();
-                while(line != null)
+                while (line != null)
                 {
                     if (!string.IsNullOrWhiteSpace(line))
                         break;

@@ -1,5 +1,4 @@
 using System;
-using System.Text;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -280,7 +279,7 @@ namespace MemoriaNote.Cli
             editorFrame.Add(titleField);
             var textEditor = ViewHelper.CreateTextEditor();
             ViewModel
-                .WhenAnyValue(vm => vm.TextEditor, x => NStack.ustring.Make(x))
+                .WhenAnyValue(vm => vm.EditingText, x => NStack.ustring.Make(x))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(textEditor, x => x.Text)
                 .DisposeWith(_disposable);
