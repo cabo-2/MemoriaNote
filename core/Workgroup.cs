@@ -343,6 +343,22 @@ namespace MemoriaNote
             }
         }
 
+        public Page ReadAll(IContent content)
+        {
+            Note current = this.SelectedNote;
+            Page page = current.Read(content.Guid);
+            if (page != null)
+                return page;
+            
+            foreach(var note in this.Notes.Where(n => !n.Equals(current)))
+            {
+                page = note.Read(content.Guid);
+                if (page != null)
+                    return page;
+            }
+            return null;
+        }
+
         public bool ValidateCreateText(string testName, string testText, out List<string> errors)
         {
             errors = new List<string>();
