@@ -72,15 +72,15 @@ namespace MemoriaNote
             );
 
             EditText = ReactiveCommand.Create(
-                () => OnEditText(OpenedPage?.GetContent(), EditingText.ToString(), OnTextManageResultCallback)
+                () => OnEditText(OpenedContent?.GetContent(), EditingText.ToString(), OnTextManageResultCallback)
             );
 
             RenameText = ReactiveCommand.Create(
-                () => OnRenameText(OpenedPage?.GetContent(), EditingTitle.ToString(), OnTextManageResultCallback)
+                () => OnRenameText(OpenedContent?.GetContent(), EditingTitle.ToString(), OnTextManageResultCallback)
             );
 
             DeleteText = ReactiveCommand.Create(
-                () => OnDeleteText(OpenedPage?.GetContent(), OnTextManageResultCallback)
+                () => OnDeleteText(OpenedContent?.GetContent(), OnTextManageResultCallback)
             );
 
             Workgroup.Notes.ToObservableChangeSet()
@@ -152,14 +152,15 @@ namespace MemoriaNote
             if (0 < this.Contents.Count)
             {
                 this.PlaceHolder = PlaceHolderString(this.SelectedContentsIndex, this.ContentsCount);
-                this.OpenedPage = Workgroup.SelectedNote.Read(this.Contents[this.ContentsViewPageIndex.Item2]);
-                this.EditingTitle = this.OpenedPage.Title;
-                this.TextEditor = this.OpenedPage.Text;
+                var page = Workgroup.SelectedNote.Read(this.Contents[this.ContentsViewPageIndex.Item2]);
+                this.OpenedContent = page.GetContent();
+                this.EditingTitle = this.OpenedContent.Title;
+                this.TextEditor = page.Text;
             }
             else
             {
                 this.PlaceHolder = PlaceHolderString(0, 0);
-                this.OpenedPage = null;
+                this.OpenedContent = null;
                 this.EditingTitle = string.Empty;
                 this.TextEditor = string.Empty;
             }
@@ -319,7 +320,7 @@ namespace MemoriaNote
 
         [Reactive, DataMember] public int ContentsCount { get; set; }
 
-        [Reactive] public Page OpenedPage { get; set; }
+        [Reactive] public Content OpenedContent { get; set; }
 
         [Reactive, DataMember] public string EditingTitle { get; set; } = string.Empty;
 
