@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
+using System.IO.Compression;
+using Newtonsoft.Json;
 
 namespace MemoriaNote
 {
@@ -121,6 +123,58 @@ namespace MemoriaNote
                         using(StreamWriter writer = new StreamWriter(path))
                             writer.Write(page.Text);
                     }
+            }, token);
+            return task;
+        }
+
+        public static Task JsonImporter(this Note note, string importPath)
+        {
+            var token = new CancellationToken();
+            var task = Task.Run(() =>
+            {
+                using ZipArchive zip = ZipFile.Open(importPath, ZipArchiveMode.Read);
+                using NoteDbContext db = new NoteDbContext(note.DataSource);
+
+                using(StreamReader reader = new StreamReader(zip.GetEntry("metadata.json").Open(), Encoding.UTF8))
+                {
+                    var tp = JsonConvert.DeserializeObject<TitlePage>(reader.ReadToEnd());                    
+                    NoteKeyValue.Set(db, NoteKeyValue.Name, tp.Name);
+                    NoteKeyValue.Set(db, NoteKeyValue.Title, tp.Title);
+                    NoteKeyValue.Set(db, NoteKeyValue.Description, tp.Description);
+                    NoteKeyValue.Set(db, NoteKeyValue.Author, tp.Author);  
+                    // tags           
+                }
+
+                foreach(var entry in zip.Entries.Where(e => e.Name != "metadata.json"))
+                {
+                    using(StreamReader reader = new StreamReader(entry.Open(), Encoding.UTF8))
+                    {
+                        var page = JsonConvert.DeserializeObject<Page>(reader.ReadToEnd());
+                        db.Pages.Add(page);                                             
+                    }
+                }
+
+                db.SaveChanges();
+            }, token);
+            return task;
+        }
+
+        public static Task JsonExporter(this Note note, string exportPath)
+        {
+            var token = new CancellationToken();
+            var task = Task.Run(() =>
+            {
+                using NoteDbContext db = new NoteDbContext(note.DataSource);
+                using ZipArchive zip = ZipFile.Open(exportPath, ZipArchiveMode.Create);
+
+                using(StreamWriter writer = new StreamWriter(zip.CreateEntry("metadata.json").Open(), Encoding.UTF8))
+                      writer.Write(JsonConvert.SerializeObject(db.TitlePage, Formatting.Indented));
+   
+                foreach(var page in db.PageClient.ReadAll())
+                {
+                    using(StreamWriter writer = new StreamWriter(zip.CreateEntry(page.Rowid.ToString()+".json").Open(), Encoding.UTF8))
+                        writer.Write(JsonConvert.SerializeObject(page, Formatting.Indented));
+                }
             }, token);
             return task;
         }

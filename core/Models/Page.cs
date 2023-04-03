@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Newtonsoft.Json;
 
 namespace MemoriaNote
 {
@@ -21,6 +22,7 @@ namespace MemoriaNote
         public int Rowid { get; set; }
         [NotMapped]
         public Guid Guid { get; set; }
+        [JsonIgnore]
         public string GuidAsString
         {
             get => Guid.ToString("B");
@@ -36,6 +38,7 @@ namespace MemoriaNote
         public int Index { get; set; }
         [NotMapped]
         public List<string> Tags { get; set; }
+        [JsonIgnore]
         public string TagsAsString
         {
             get
@@ -52,9 +55,10 @@ namespace MemoriaNote
                     Tags = value.Split(';').ToList();
             }
         }
+        [JsonIgnore]
         public string Noteid { get; set; }
         public string ContentType { get; set; }
-        [NotMapped]
+        [NotMapped, JsonIgnore]
         public string ViewTitle => ToString();
         public override string ToString()
         {
@@ -69,7 +73,7 @@ namespace MemoriaNote
         public DateTime CreateTime { get; set; }
         public DateTime UpdateTime { get; set; }
         public bool IsErased { get; set; }
-        [NotMapped]
+        [NotMapped, JsonIgnore]
         public object Parent { get; set; }
 
         public string Text { get; set; }
