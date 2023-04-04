@@ -68,9 +68,10 @@ namespace MemoriaNote
                 {
                     foreach (var page in DeserializePages(zip))
                         db.Pages.Add(page);
-                    db.SaveChanges();
+                    db.SaveChanges();                   
                 }
 
+                Note.Migrate(note.DataSource);
                 return note;
             }, token);
             return task;
@@ -96,9 +97,6 @@ namespace MemoriaNote
 
             if (outputPath == null)
                 throw new ArgumentNullException(nameof(outputPath));
-
-            if (File.Exists(outputPath))
-                throw new ArgumentException(nameof(outputPath));
 
             var token = new CancellationToken();
             var task = Task.Run(() =>
