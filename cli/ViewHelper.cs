@@ -174,7 +174,7 @@ namespace MemoriaNote.Cli
             ReadOnly = true
         };
 
-        public static TextEditor CreateTextEditor() => new TextEditor()
+        public static TextView CreateTextEditor() => new TextView()
         {
             X = 0,
             Y = 1,
@@ -186,7 +186,7 @@ namespace MemoriaNote.Cli
             ReadOnly = true,
         };
 
-        public static ScrollBarView CreateTextEditorScrollBar(TextEditor textEditor) 
+        public static ScrollBarView CreateTextEditorScrollBar(TextView textEditor) 
         {
             var scrollBar = new ScrollBarView(textEditor, true);
             scrollBar.ChangedPosition += () =>
