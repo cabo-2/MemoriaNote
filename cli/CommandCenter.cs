@@ -285,18 +285,12 @@ namespace MemoriaNote.Cli
 
                 if (title == null)
                     title = ReadLineNoteTitle();
-                
+
                 if (string.IsNullOrWhiteSpace(title))
                     title = name;
 
                 var dir = Configuration.Instance.ApplicationDataDirectory;
-                string path = Path.Combine(dir, name + ".db");
-                if (File.Exists(path))
-                {
-                    path = Path.Combine(dir, name + "_" + DateTime.Now.ToString("yyyyMMddhhmmss") + ".db");
-                    if (File.Exists(path))
-                        throw new ArgumentException(path);
-                }
+                string path = NoteUtil.GetNotePath(dir, name);
 
                 Note note = null;
                 try
@@ -456,6 +450,103 @@ namespace MemoriaNote.Cli
             }
         }
 
+        public int WorkBackup(string name = null, string outputPath = null)
+        {
+            try
+            {
+                Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
+                var vm = new MemoriaNoteViewModel();
+                Note current = null;
+
+                if (name != null)
+                {
+                    current = vm.Workgroup.Notes.FirstOrDefault(n => n.Metadata.Name == name);
+                    if (current == null)
+                    {
+                        Console.Error.WriteLine("Error: No such name");
+                        return -1; 
+                    }
+                }
+                else
+                {
+                    current = vm.Workgroup.SelectedNote;
+                }
+
+                if (outputPath != null)
+                {
+                    if (!Directory.Exists(Path.GetDirectoryName(outputPath)))
+                    {
+                        Console.Error.WriteLine("Error: No such output directory");
+                        return -1;
+                    }
+                    if (File.Exists(outputPath))
+                    {
+                        Console.Error.WriteLine("Error: Output file exists");
+                        return -1;
+                    }
+                }
+                else
+                {
+                    outputPath = NoteUtil.GetJsonPath(Environment.CurrentDirectory, current.Metadata.Name);
+                }
+
+                NoteUtil.Backup(current, outputPath).Wait();
+
+                Console.WriteLine("Backup completed");
+                return 0;
+            }
+            catch (Exception e)
+            {
+                Log.Logger.Fatal(e.Message);
+                Log.Logger.Fatal(e.StackTrace);
+                Console.Error.WriteLine($"Fatal: {e.Message}");
+                return -1;
+            }
+        }
+
+        public int WorkRestore(string inputPath, string outputDir = null)
+        {
+            try
+            {
+                if (inputPath == null)
+                    throw new ArgumentNullException(nameof(inputPath));
+
+                if (!File.Exists(inputPath))
+                {
+                    Console.Error.WriteLine("Error: No such input file");
+                    return -1;
+                }
+
+                Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
+                var vm = new MemoriaNoteViewModel();
+
+                if (outputDir != null)
+                {
+                    if (Directory.Exists(outputDir))
+                    {
+                        Console.Error.WriteLine("Error: No such directory");
+                        return -1;
+                    }
+                }
+                else
+                {
+                    outputDir = Environment.CurrentDirectory;
+                }
+
+                NoteUtil.Restore(inputPath, outputDir).Wait();                
+
+                Console.WriteLine("Restore completed");
+                return 0;
+            }
+            catch (Exception e)
+            {
+                Log.Logger.Fatal(e.Message);
+                Log.Logger.Fatal(e.StackTrace);
+                Console.Error.WriteLine($"Fatal: {e.Message}");
+                return -1;
+            }
+        }
+
         public int Import(string importDir)
         {
             try
@@ -472,7 +563,7 @@ namespace MemoriaNote.Cli
                 Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
                 var vm = new MemoriaNoteViewModel();
 
-                vm.Workgroup.SelectedNote.TextImporter(importDir).Wait();
+                NoteUtil.TextImporter(vm.Workgroup.SelectedNote, importDir).Wait();
 
                 Console.WriteLine("Import completed");
                 return 0;
@@ -502,7 +593,7 @@ namespace MemoriaNote.Cli
                 Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
                 var vm = new MemoriaNoteViewModel();
 
-                vm.Workgroup.SelectedNote.TextExporter(exportDir).Wait();
+                NoteUtil.TextExporter(vm.Workgroup.SelectedNote, exportDir).Wait();
 
                 Console.WriteLine("Export completed");
                 return 0;

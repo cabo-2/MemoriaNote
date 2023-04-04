@@ -105,7 +105,9 @@ namespace MemoriaNote.Cli
                     typeof(WorkCreateCommand),
                     typeof(WorkEditCommand),
                     typeof(WorkAddCommand),
-                    typeof(WorkRemoveCommand))]
+                    typeof(WorkRemoveCommand),
+                    typeof(WorkBackupCommand),
+                    typeof(WorkRestoreCommand))]
         [HelpOption("--help")]
         class WorkCommand
         {
@@ -208,6 +210,42 @@ namespace MemoriaNote.Cli
                 protected int OnExecute(IConsole console)
                 {
                     return new CommandCenter().WorkRemove(Name.value);
+                }
+            }
+
+            [Command("backup", Description = "Backup note")]
+            private class WorkBackupCommand
+            {
+                [Argument(0, "name")]
+                public (bool hasValue, string value) Name { get; set; }
+
+                [Option("--outputFile", Description = "")]
+                public (bool hasValue, string value) OutputPath { get; set; }
+
+                protected int OnExecute(IConsole console)
+                {
+                    return new CommandCenter().WorkBackup(Name.value, OutputPath.value);
+                }
+            }
+
+            [Command("restore", Description = "Restore note")]
+            private class WorkRestoreCommand
+            {
+                [Argument(0, "zipfile")]
+                public (bool hasValue, string value) InputPath { get; set; }
+
+                [Option("--outputDir", Description = "")]
+                public (bool hasValue, string value) OutputDir { get; set; }
+
+                protected int OnExecute(IConsole console)
+                {
+                    if (!InputPath.hasValue)
+                    {
+                        Console.Error.WriteLine("Error: No input file");
+                        return -1;
+                    }
+
+                    return new CommandCenter().WorkRestore(InputPath.value, OutputDir.value);
                 }
             }
         }
