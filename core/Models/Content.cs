@@ -9,21 +9,20 @@ namespace MemoriaNote
     [ComplexType]
     public class Content : IContent, IEquatable<Content>
     {
-        public static T Create<T>(string noteid, string title, params string[] tags) where T : IContent, new()
+        public static T Create<T>(string name, params string[] tags) where T : IContent, new()
         {
             var content = new T();
             content.Rowid = 0; // auto increment
             content.Guid = Guid.NewGuid();
-            content.Title = title;
+            content.Name = name;
             content.Index = 1;
-            content.Noteid = noteid;
             content.ContentType = nameof(T);
             if (tags == null)
-                content.Tags = null;
+                content.TagList = null;
             else
             {
-                content.Tags = new List<string>();
-                content.Tags.AddRange(tags);
+                content.TagList = new List<string>();
+                content.TagList.AddRange(tags);
             }
             content.CreateTime = DateTime.UtcNow;
             content.UpdateTime = content.CreateTime;
@@ -36,11 +35,10 @@ namespace MemoriaNote
             var value = new Content();
             value.Rowid = content.Rowid;
             value.Guid = content.Guid;
-            value.Title = content.Title;
+            value.Name = content.Name;
             value.Index = content.Index;
-            value.Noteid = content.Noteid;
             value.ContentType = content.ContentType;
-            value.TagsAsString = content.TagsAsString;
+            value.Tags = content.Tags;
             value.CreateTime = content.CreateTime;
             value.UpdateTime = content.UpdateTime;
             value.IsErased = content.IsErased;
@@ -51,9 +49,9 @@ namespace MemoriaNote
         public int Rowid { get; set; }
         [NotMapped]
         public Guid Guid { get; set; }
-        public string GuidAsString
+        public string Uuid
         {
-            get => Guid.ToString("B");
+            get => Guid.ToUuid();
             set
             {
                 if (string.IsNullOrEmpty(value))
@@ -62,36 +60,33 @@ namespace MemoriaNote
                     this.Guid = Guid.Parse(value);
             }
         }
-        public string Title { get; set; }
+        public string Name { get; set; }
         public int Index { get; set; }
         [NotMapped]
-        public List<string> Tags { get; set; }
-        public string TagsAsString
+        public List<string> TagList { get; set; }
+        public string Tags
         {
             get
             {
-                if (Tags == null)
+                if (TagList == null)
                     return null;
-                return string.Join (";", Tags);
+                return string.Join (";", TagList);
             }
             set
             {
                 if (value == null)
-                    Tags = null;
+                    TagList = null;
                 else
-                    Tags = value.Split (';').ToList ();
+                    TagList = value.Split (';').ToList ();
             }
         }
-        public string Noteid { get; set; }
         public string ContentType { get; set; }
-        [NotMapped]
-        public string ViewTitle => ToString ();
         public override string ToString () {
-            if (Title != null)
+            if (Name != null)
                 if (Index == 1)
-                    return Title;
+                    return Name;
                 else
-                    return Title + Index.ToIndexString ();
+                    return Name + Index.ToIndexString ();
             else
                 return "Rowid=" + Rowid;           
         }
@@ -145,9 +140,9 @@ namespace MemoriaNote
 
         public static int GetHashCode (IContent value) {
             return 4 ^ (value.Rowid.GetHashCode ()) ^
-                   (value.Title == null ? 5 : value.Title.GetHashCode ()) ^
+                   (value.Name == null ? 5 : value.Name.GetHashCode ()) ^
                    (value.Index.GetHashCode ()) ^
-                   (value.Tags == null ? 2 : GetOrderIndependentHashCode (value.Tags)) ^
+                   (value.TagList == null ? 2 : GetOrderIndependentHashCode (value.TagList)) ^
                    (value.CreateTime.GetHashCode()) ^
                    (value.UpdateTime.GetHashCode()) ^
                    (value.IsErased.GetHashCode());

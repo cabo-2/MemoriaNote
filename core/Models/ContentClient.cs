@@ -14,17 +14,17 @@ namespace MemoriaNote
 
         public Content Read(Guid guid)
         {
-            return DbContext.Contents.Find(guid.ToString("B"));
+            return DbContext.Contents.Find(guid.ToUuid());
         }
 
-        public Content Read(string title, int index)
+        public Content Read(string name, int index)
         {
-            return DbContext.Contents.FirstOrDefault(m => m.Title == title && m.Index == index);
+            return DbContext.Contents.FirstOrDefault(m => m.Name == name && m.Index == index);
         }
 
-        public IEnumerable<Content> Read(string title)
+        public IEnumerable<Content> Read(string name)
         {
-            return DbContext.Contents.Where(m => m.Title == title);
+            return DbContext.Contents.Where(m => m.Name == name);
         }
 
         public IEnumerable<Content> ReadAll()

@@ -9,53 +9,11 @@ using ReactiveUI;
 
 namespace MemoriaNote
 {
-    public class TitlePage : ReactiveObject
+    public class Metadata : ReactiveObject
     {
-        public TitlePage() {}
-        public TitlePage(string dataSource) {
+        public Metadata() {}
+        public Metadata(string dataSource) {
             DataSource = dataSource;
-        }
-
-        string _id = null;
-        public string Noteid
-        {
-            get
-            {
-                if (_id == null)
-                {
-                    using (NoteDbContext db = new NoteDbContext(DataSource))
-                        _id = NoteKeyValue.Get(db, NoteKeyValue.Noteid);
-                }
-                return _id;
-            }
-            set
-            {
-                NoteDbContext db = null;
-                try
-                {
-                    if (_id == null)
-                    {
-                        db = new NoteDbContext(DataSource);
-                        _id = NoteKeyValue.Get(db, NoteKeyValue.Noteid);
-                    }
-
-                    if (_id != value)
-                    {
-                        this.RaiseAndSetIfChanged(ref _id, value);
-                        if (db == null)
-                            db = new NoteDbContext(DataSource);
-                        NoteKeyValue.Set(db, NoteKeyValue.Noteid, _id);
-                    }
-                }
-                finally
-                {
-                    if (db != null)
-                    {
-                        db.Dispose();
-                        db = null;
-                    }
-                }
-            }
         }
 
         string _name = null;
@@ -499,7 +457,7 @@ namespace MemoriaNote
             if (context == null)
                 return null;
 
-            var entity = context.TitlePage.Find (key);
+            var entity = context.Metadata.Find (key);
             if (entity == null) return null;
             else
                 return entity.Value;
@@ -509,9 +467,9 @@ namespace MemoriaNote
             if (context == null)
                 return;
 
-            var entity = context.TitlePage.Find (key);
+            var entity = context.Metadata.Find (key);
             if (entity == null) {
-                context.TitlePage.Add (new NoteKeyValue () { Key = key, Value = value });
+                context.Metadata.Add (new NoteKeyValue () { Key = key, Value = value });
             }
             else {
                 var current = new NoteKeyValue () { Key = key, Value = value };
@@ -529,10 +487,10 @@ namespace MemoriaNote
             {
                 using (NoteDbContext conn = new NoteDbContext(dataSource))
                 {
-                    var entity = conn.TitlePage.Find(key);
+                    var entity = conn.Metadata.Find(key);
                     if (entity == null)
                     {
-                        conn.TitlePage.Add(new NoteKeyValue() { Key = key, Value = value });
+                        conn.Metadata.Add(new NoteKeyValue() { Key = key, Value = value });
                     }
                     else
                     {
@@ -545,7 +503,6 @@ namespace MemoriaNote
             return task;
         }
 
-        public static string Noteid => nameof(Noteid);
         public static string Name => nameof(Name);
         public static string Title => nameof(Title);
         public static string Version => nameof(Version);

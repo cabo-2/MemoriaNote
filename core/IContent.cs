@@ -7,14 +7,12 @@ namespace MemoriaNote
     {
         int Rowid { get; set; }
         Guid Guid { get; set; }
-        string GuidAsString { get; set; }
-        string Title { get; set; }
+        string Uuid { get; set; }
+        string Name { get; set; }
         int Index { get; set; }
-        List<string> Tags { get; set; }
-        string TagsAsString { get; set; }
-        string Noteid { get; set; }
+        List<string> TagList { get; set; }
+        string Tags { get; set; }
         string ContentType { get; set; }
-        string ViewTitle { get; }
         DateTime CreateTime { get; set; }
         DateTime UpdateTime { get; set; }
         bool IsErased { get; set; }

@@ -154,7 +154,7 @@ namespace MemoriaNote
                 this.PlaceHolder = PlaceHolderString(this.SelectedContentsIndex, this.ContentsCount);
                 var page = Workgroup.ReadAll(this.Contents[this.ContentsViewPageIndex.Item2]);
                 this.OpenedContent = page.GetContent();
-                this.EditingTitle = this.OpenedContent.Title;
+                this.EditingTitle = this.OpenedContent.Name;
                 this.EditingText = page.Text;
             }
             else

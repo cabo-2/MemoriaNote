@@ -27,11 +27,10 @@ namespace MemoriaNote
             {
                 context.Database.Migrate();
 
-                var tp = new TitlePage(context.DataSource);
-                tp.Name = name;
-                tp.Title = title;
-                tp.Version = NoteDbContext.CurrentVersion;
-                tp.Noteid = title.CalculateHash();
+                var md = new Metadata(context.DataSource);
+                md.Name = name;
+                md.Title = title;
+                md.Version = NoteDbContext.CurrentVersion;
             }
 
             return new Note(dataSource);
@@ -46,21 +45,19 @@ namespace MemoriaNote
             {
                 context.Database.Migrate();
                 // application migration code here                
-                var tp = new TitlePage(context.DataSource);
-                if (string.IsNullOrEmpty(tp.Noteid))
-                    tp.Noteid = NoteDbContext.GenerateID(tp.Title);
+                var md = new Metadata(context.DataSource);
 
-                tp.Version = NoteDbContext.CurrentVersion;
+                md.Version = NoteDbContext.CurrentVersion;
             }
 
             return new Note(dataSource);
         }
 
 
-        public Page Read(string title, int index)
+        public Page Read(string name, int index)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
-                return db.PageClient.Read(title, index);
+                return db.PageClient.Read(name, index);
         }
 
         public Page Read(Guid guid)
@@ -72,20 +69,20 @@ namespace MemoriaNote
         public Page Read(IContent content) => Read(content.Guid);
 
 
-        public IEnumerable<Page> Read(string title)
+        public IEnumerable<Page> Read(string name)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
-                return db.PageClient.Read(title).ToList();
+                return db.PageClient.Read(name).ToList();
         }
 
-        public Page Create(string title, string text, params string[] tags)
+        public Page Create(string name, string text, params string[] tags)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
-                var page = Page.Create(TitlePage.Noteid, title, text, tags);
-                page.Index = db.PageClient.GetLastIndex(title) + 1;
+                var page = Page.Create(name, text, tags);
+                page.Index = db.PageClient.GetLastIndex(name) + 1;
                 db.PageClient.Add(page);
-                RelocatePage(page.Title, db);
+                RelocatePage(page.Name, db);
                 db.SaveChanges();
                 return page;
             }
@@ -96,29 +93,23 @@ namespace MemoriaNote
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
                 var oldPage = db.Pages.Find(newPage.Rowid);
-                var history = PageHistory.Create(oldPage, newPage);
-                if (string.IsNullOrEmpty(history.TitlePatch) &&
-                    string.IsNullOrEmpty(history.TextPatch) &&
-                    string.IsNullOrEmpty(history.TagsPatch))
-                    return;
-                db.HistoryClient.Add(history);
                 newPage.UpdateLastModified();
 
-                var beforeTitle = oldPage.Title;
+                var beforeName = oldPage.Name;
                 db.PageClient.Update(newPage);
 
-                RelocatePage(newPage.Title, db);
-                if (newPage.Title != beforeTitle)
+                RelocatePage(newPage.Name, db);
+                if (newPage.Name != beforeName)
                 {
-                    RelocatePage(beforeTitle, db);
+                    RelocatePage(beforeName, db);
                 }
                 db.SaveChanges();
             }
         }
 
-        protected void RelocatePage(string title, NoteDbContext db)
+        protected void RelocatePage(string name, NoteDbContext db)
         {
-            var pages = db.PageClient.Read(title).ToList()
+            var pages = db.PageClient.Read(name).ToList()
                         .OrderByDescending(p => p.UpdateTime);
             int index = 1;
             foreach (var page in pages)
@@ -162,15 +153,15 @@ namespace MemoriaNote
                 {
                     var countSql =
                         "SELECT p.* FROM Pages p JOIN " +
-                       $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Title : \"{textMatch.Pattern}\"') f " +
+                       $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Name : \"{textMatch.Pattern}\"') f " +
                         "ON p.Rowid = f.rowid " +
-                       $"{textMatch.GetWhereClause("p.Title")}";
+                       $"{textMatch.GetWhereClause("p.Name")}";
                     var querySql =
                         "SELECT p.* FROM Pages p JOIN " +
-                       $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Title : \"{textMatch.Pattern}\"') f " +
+                       $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Name : \"{textMatch.Pattern}\"') f " +
                         "ON p.Rowid = f.rowid " +
-                       $"{textMatch.GetWhereClause("p.Title")} " +
-                        "ORDER BY p.Title COLLATE NOCASE ASC, p.'Index' ASC ";
+                       $"{textMatch.GetWhereClause("p.Name")} " +
+                        "ORDER BY p.Name COLLATE NOCASE ASC, p.'Index' ASC ";
 
                     count = db.Pages.FromSqlRaw(countSql).Count();
                     contents = db.Pages.FromSqlRaw(querySql)
@@ -183,7 +174,7 @@ namespace MemoriaNote
                 {
                     var sql =
                          "SELECT * FROM Contents " +
-                         "ORDER BY Title COLLATE NOCASE ASC, 'Index' ASC ";
+                         "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
 
                     count = db.Contents.Count();
                     contents = db.Contents.FromSqlRaw(sql)
@@ -195,11 +186,11 @@ namespace MemoriaNote
                 {
                     var countSql =
                         "SELECT * FROM Contents " +
-                       $"{textMatch.GetWhereClause("Title")}";
+                       $"{textMatch.GetWhereClause("Name")}";
                     var querySql =
                         "SELECT * FROM Contents " +
-                       $"{textMatch.GetWhereClause("Title")} " +
-                        "ORDER BY Title COLLATE NOCASE ASC, 'Index' ASC ";
+                       $"{textMatch.GetWhereClause("Name")} " +
+                        "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
 
                     count = db.Contents.FromSqlRaw(countSql).Count();
                     contents = db.Contents.FromSqlRaw(querySql)
@@ -236,7 +227,7 @@ namespace MemoriaNote
                         "SELECT p.* FROM Pages p JOIN " +
                        $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Text : \"{textMatch.Pattern}\"') f " +
                         "ON p.Rowid = f.rowid " +
-                        "ORDER BY p.Title COLLATE NOCASE ASC, p.'Index' ASC ";
+                        "ORDER BY p.Name COLLATE NOCASE ASC, p.'Index' ASC ";
 
                     count = db.Pages.FromSqlRaw(countSql).Count();
                     contents = db.Pages.FromSqlRaw(querySql)
@@ -249,7 +240,7 @@ namespace MemoriaNote
                 {
                     var sql =
                          "SELECT * FROM Contents " +
-                         "ORDER BY Title COLLATE NOCASE ASC, 'Index' ASC ";
+                         "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
 
                     count = db.Contents.Count();
                     contents = db.Contents.FromSqlRaw(sql)
@@ -301,10 +292,10 @@ namespace MemoriaNote
                    {
                        var sql =
                            "SELECT p.* FROM Pages p JOIN " +
-                          $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Title : \"{textMatch.Pattern}\"') f " +
+                          $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Name : \"{textMatch.Pattern}\"') f " +
                            "ON p.Rowid = f.rowid " +
-                          $"{textMatch.GetWhereClause("p.Title")} " +
-                           "ORDER BY p.Title COLLATE NOCASE ASC, p.'Index' ASC ";
+                          $"{textMatch.GetWhereClause("p.Name")} " +
+                           "ORDER BY p.Name COLLATE NOCASE ASC, p.'Index' ASC ";
 
                        count = db.Contents.FromSqlRaw(sql).Count();
                        contents = db.Contents.FromSqlRaw(sql)
@@ -318,7 +309,7 @@ namespace MemoriaNote
                    {
                        var sql =
                             "SELECT * FROM Contents " +
-                            "ORDER BY Title COLLATE NOCASE ASC, 'Index' ASC ";
+                            "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
 
                        count = db.Contents.Count();
                        contents = db.Contents.FromSqlRaw(sql)
@@ -331,11 +322,11 @@ namespace MemoriaNote
                    {
                        var countSql =
                            $"SELECT * FROM Contents " +
-                           $"{textMatch.GetWhereClause("Title")} ";
+                           $"{textMatch.GetWhereClause("Name")} ";
                        var querySql =
                            $"SELECT * FROM Contents " +
-                           $"{textMatch.GetWhereClause("Title")} " +
-                           "ORDER BY Title COLLATE NOCASE ASC, 'Index' ASC ";
+                           $"{textMatch.GetWhereClause("Name")} " +
+                           "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
 
                        count = db.Contents.FromSqlRaw(countSql).Count();
                        contents = db.Contents.FromSqlRaw(querySql)
@@ -383,7 +374,7 @@ namespace MemoriaNote
                             "SELECT p.* FROM Pages p JOIN " +
                            $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Text : \"{textMatch.Pattern}\"') f " +
                             "ON p.Rowid = f.rowid " +
-                            "ORDER BY p.Title COLLATE NOCASE ASC, p.'Index' ASC ";
+                            "ORDER BY p.Name COLLATE NOCASE ASC, p.'Index' ASC ";
 
                         count = db.Pages.FromSqlRaw(countSql).Count();
                         contents = db.Pages.FromSqlRaw(querySql)
@@ -397,7 +388,7 @@ namespace MemoriaNote
                     {
                         var sql =
                              "SELECT * FROM Contents " +
-                             "ORDER BY Title COLLATE NOCASE ASC, 'Index' ASC ";
+                             "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
 
                         count = db.Contents.Count();
                         contents = db.Contents.FromSqlRaw(sql)
@@ -417,20 +408,6 @@ namespace MemoriaNote
                 }
             }, token);
             return task;
-        }
-
-        public IEnumerable<Page> GetPageHistory(Page page)
-        {
-            var current = page;
-            using (NoteDbContext db = new NoteDbContext(DataSource))
-            {
-                yield return page;
-                foreach (var history in db.HistoryClient.Read(page.Rowid))
-                {
-                    current = history.Restore(current);
-                    yield return current;
-                }
-            }
         }
 
         public int Count
@@ -460,23 +437,23 @@ namespace MemoriaNote
                 if (value != null)
                 {
                     _dataSource = value;
-                    TitlePage = new TitlePage(value);
+                    Metadata = new Metadata(value);
                 }
                 else
                 {
                     _dataSource = null;
-                    TitlePage = null;
+                    Metadata = null;
                 }
             }
         }
 
-        public TitlePage TitlePage { get; private set; }
+        public Metadata Metadata { get; private set; }
 
         public override string ToString()
         {
-            if (TitlePage != null)
+            if (Metadata != null)
             {
-                return TitlePage.Name;
+                return Metadata.Name;
             }
             return base.ToString();
         }

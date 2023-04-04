@@ -159,8 +159,8 @@ namespace MemoriaNote.Cli
             int textWidth = 0;
             foreach (var content in list)
             {
-                if (content.Title.Length > textWidth)
-                    textWidth = content.Title.Length;
+                if (content.Name.Length > textWidth)
+                    textWidth = content.Name.Length;
             }
             return Math.Min(textWidth, 64);
         }
@@ -202,7 +202,7 @@ namespace MemoriaNote.Cli
                 buffer.Append(" | ");
                 buffer.Append(content.Guid.ToHashId());
                 buffer.Append(" | ");
-                var name = content.ViewTitle;
+                var name = content.Name;
                 buffer.Append(name.Substring(0, Math.Min(name.Length, nameWidth)));
                 foreach (var space in Enumerable.Repeat(" ", nameWidth - Math.Min(name.Length, nameWidth)))
                     buffer.Append(space);
@@ -232,7 +232,7 @@ namespace MemoriaNote.Cli
                 var vm = new MemoriaNoteViewModel();
 
                 var wg = vm.Workgroup;
-                if (!wg.Notes.Any(n => name == n.TitlePage.Name))
+                if (!wg.Notes.Any(n => name == n.Metadata.Name))
                 {
                     Console.Error.WriteLine("Error: No such note");
                     return -1;
@@ -271,7 +271,7 @@ namespace MemoriaNote.Cli
                 bool retry = false;
                 do
                 {
-                    if (wg.Notes.Any(n => name == n.TitlePage.Name))
+                    if (wg.Notes.Any(n => name == n.Metadata.Name))
                     {
                         Console.Error.WriteLine("Error: A note with that name already exists");
                         if (!ReadLineTryAgain())
@@ -356,7 +356,7 @@ namespace MemoriaNote.Cli
                     buffer.Append(" ");
                     buffer.Append(note.ToString());
                     buffer.Append(" (");
-                    buffer.Append(note.TitlePage.Title);
+                    buffer.Append(note.Metadata.Title);
                     buffer.Append(")");
                     Console.WriteLine(buffer.ToString());
                 }
@@ -429,7 +429,7 @@ namespace MemoriaNote.Cli
                 var vm = new MemoriaNoteViewModel();
 
                 var wg = vm.Workgroup;
-                if (!wg.Notes.Any(n => name == n.TitlePage.Name))
+                if (!wg.Notes.Any(n => name == n.Metadata.Name))
                 {
                     Console.Error.WriteLine("Error: No such remove note");
                     return -1;
@@ -441,7 +441,7 @@ namespace MemoriaNote.Cli
                     return -1;
                 }
 
-                var dataSource = wg.Notes.First(n => name == n.TitlePage.Name).DataSource;
+                var dataSource = wg.Notes.First(n => name == n.Metadata.Name).DataSource;
                 Configuration.Instance.Workgroup.UseDataSources.Remove(dataSource);
 
                 Configuration.Instance.Save();

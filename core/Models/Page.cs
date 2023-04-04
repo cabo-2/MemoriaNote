@@ -10,9 +10,9 @@ namespace MemoriaNote
     [Serializable]
     public class Page : IContent, IEquatable<Page>
     {       
-        public static Page Create(string noteid, string title, string text, params string[] tags)
+        public static Page Create(string name, string text, params string[] tags)
         {
-            var page = Content.Create<Page>(noteid, title, tags);
+            var page = Content.Create<Page>(name, tags);
             page.Text = text;
             return page;
         }
@@ -23,9 +23,9 @@ namespace MemoriaNote
         [NotMapped]
         public Guid Guid { get; set; }
         [JsonIgnore]
-        public string GuidAsString
+        public string Uuid
         {
-            get => Guid.ToString("B");
+            get => Guid.ToUuid();
             set
             {
                 if (string.IsNullOrEmpty(value))
@@ -34,39 +34,35 @@ namespace MemoriaNote
                     this.Guid = Guid.Parse(value);
             }
         }
-        public string Title { get; set; }
+        public string Name { get; set; }
         public int Index { get; set; }
         [NotMapped]
-        public List<string> Tags { get; set; }
+        public List<string> TagList { get; set; }
         [JsonIgnore]
-        public string TagsAsString
+        public string Tags
         {
             get
             {
-                if (Tags == null)
+                if (TagList == null)
                     return null;
-                return string.Join(";", Tags);
+                return string.Join(";", TagList);
             }
             set
             {
                 if (value == null)
-                    Tags = null;
+                    TagList = null;
                 else
-                    Tags = value.Split(';').ToList();
+                    TagList = value.Split(';').ToList();
             }
         }
-        [JsonIgnore]
-        public string Noteid { get; set; }
         public string ContentType { get; set; }
-        [NotMapped, JsonIgnore]
-        public string ViewTitle => ToString();
         public override string ToString()
         {
-            if (Title != null)
+            if (Name != null)
                 if (Index == 1)
-                    return Title;
+                    return Name;
                 else
-                    return Title + Index.ToIndexString();
+                    return Name + Index.ToIndexString();
             else
                 return "Rowid=" + Rowid;
         }

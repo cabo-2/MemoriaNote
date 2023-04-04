@@ -119,7 +119,7 @@ namespace MemoriaNote
                 using(NoteDbContext db = new NoteDbContext(note.DataSource))
                     foreach(var page in db.PageClient.ReadAll())
                     {
-                        var path = Path.Combine(exportDir, $"{page.Title}.txt");
+                        var path = Path.Combine(exportDir, $"{page.Name}.txt");
                         using(StreamWriter writer = new StreamWriter(path))
                             writer.Write(page.Text);
                     }
@@ -137,11 +137,11 @@ namespace MemoriaNote
 
                 using(StreamReader reader = new StreamReader(zip.GetEntry("metadata.json").Open(), Encoding.UTF8))
                 {
-                    var tp = JsonConvert.DeserializeObject<TitlePage>(reader.ReadToEnd());                    
-                    NoteKeyValue.Set(db, NoteKeyValue.Name, tp.Name);
-                    NoteKeyValue.Set(db, NoteKeyValue.Title, tp.Title);
-                    NoteKeyValue.Set(db, NoteKeyValue.Description, tp.Description);
-                    NoteKeyValue.Set(db, NoteKeyValue.Author, tp.Author);  
+                    var md = JsonConvert.DeserializeObject<Metadata>(reader.ReadToEnd());                    
+                    NoteKeyValue.Set(db, NoteKeyValue.Name, md.Name);
+                    NoteKeyValue.Set(db, NoteKeyValue.Title, md.Title);
+                    NoteKeyValue.Set(db, NoteKeyValue.Description, md.Description);
+                    NoteKeyValue.Set(db, NoteKeyValue.Author, md.Author);  
                     // tags           
                 }
 
@@ -168,7 +168,7 @@ namespace MemoriaNote
                 using ZipArchive zip = ZipFile.Open(exportPath, ZipArchiveMode.Create);
 
                 using(StreamWriter writer = new StreamWriter(zip.CreateEntry("metadata.json").Open(), Encoding.UTF8))
-                      writer.Write(JsonConvert.SerializeObject(db.TitlePage, Formatting.Indented));
+                      writer.Write(JsonConvert.SerializeObject(db.Metadata, Formatting.Indented));
    
                 foreach(var page in db.PageClient.ReadAll())
                 {
@@ -183,5 +183,7 @@ namespace MemoriaNote
     public static class GuidExtensions
     {
         public static string ToHashId(this Guid guid) => guid.ToString("D").Substring(0, 7);
+
+        public static string ToUuid(this Guid guid) => guid.ToString("D");
     }
 }

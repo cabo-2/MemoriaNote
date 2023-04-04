@@ -17,20 +17,20 @@ namespace MemoriaNote
             return DbContext.Pages.Find(rowid);
         }
 
-        public Page Read(string title, int index)
+        public Page Read(string name, int index)
         {
-            return DbContext.Pages.FirstOrDefault(m => m.Title == title && m.Index == index);
+            return DbContext.Pages.FirstOrDefault(m => m.Name == name && m.Index == index);
         }
 
         public Page Read(Guid guid)
         {
-            var guidString = guid.ToString("B");
-            return DbContext.Pages.FirstOrDefault(m => m.GuidAsString == guidString);
+            var uuid = guid.ToUuid();
+            return DbContext.Pages.FirstOrDefault(m => m.Uuid == uuid);
         }
 
-        public IEnumerable<Page> Read(string title)
+        public IEnumerable<Page> Read(string name)
         {
-            return DbContext.Pages.Where(m => m.Title == title);
+            return DbContext.Pages.Where(m => m.Name == name);
         }
 
         public IEnumerable<Page> ReadAll()
@@ -38,8 +38,8 @@ namespace MemoriaNote
             return DbContext.Pages;
         }
 
-        public Page Add (string title, string text, string tag) {
-            var page = Page.Create (title, text, tag);
+        public Page Add (string name, string text, string tag) {
+            var page = Page.Create (name, text, tag);
             Add (page);
             return page;
         }
@@ -53,9 +53,9 @@ namespace MemoriaNote
                 throw new ArgumentException("Duplicate entries, use update method");
         }
 
-        public void Update (int rowid, string title, string text) {
+        public void Update (int rowid, string name, string text) {
             var entity = Read (rowid);
-            entity.Title = title;
+            entity.Name = name;
             entity.Text = text;
             Update (entity);
         }
@@ -76,9 +76,9 @@ namespace MemoriaNote
                 DbContext.Pages.Remove(entity);
         }
 
-        public int GetLastIndex(string title)
+        public int GetLastIndex(string name)
         {
-            var last = DbContext.Pages.OrderBy(p => p.Title).LastOrDefault(m => m.Title == title);
+            var last = DbContext.Pages.OrderBy(p => p.Name).LastOrDefault(m => m.Name == name);
             return last != null ? last.Index : 0;
         }
 

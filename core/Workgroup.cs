@@ -95,7 +95,7 @@ namespace MemoriaNote
                 {
                     StringBuilder builder = new StringBuilder();
                     builder.AppendLine("SELECT * FROM Contents ");
-                    builder.AppendLine(textMatch.GetWhereClause("Title"));
+                    builder.AppendLine(textMatch.GetWhereClause("Name"));
                     int count = db.Contents.FromSqlRaw(builder.ToString()).Count();
                     tables[dataSource] = count;
                 }
@@ -179,7 +179,7 @@ namespace MemoriaNote
                 {
                     StringBuilder builder = new StringBuilder();
                     builder.AppendLine("SELECT * FROM Contents ");
-                    builder.AppendLine(textMatch.GetWhereClause("Title"));
+                    builder.AppendLine(textMatch.GetWhereClause("Name"));
                     int count = db.Contents.FromSqlRaw(builder.ToString()).Count();
                     tables[dataSource] = count;
                 }
@@ -457,7 +457,7 @@ namespace MemoriaNote
             mr.Errors = errors;
             if (validate) {
                 var page = SelectedNote.Read(content);
-                page.Title = newName;
+                page.Name = newName;
                 SelectedNote.Update(page);
                 mr.Content = page.GetContent();
                 mr.Notification = "The text renamed successfully.";

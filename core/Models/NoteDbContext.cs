@@ -18,13 +18,11 @@ namespace MemoriaNote
             DataSource = dataSource;
         }
 
-        public DbSet<NoteKeyValue> TitlePage { get; set; }
+        public DbSet<NoteKeyValue> Metadata { get; set; }
 
         public DbSet<Page> Pages { get; set; }
 
         public DbSet<Content> Contents { get; set; }
-
-        public DbSet<PageHistory> History { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -43,27 +41,16 @@ namespace MemoriaNote
                 .ValueGeneratedOnAdd();
 
             modelBuilder.Entity<Page>()
-                .HasAlternateKey(e => e.GuidAsString);
+                .HasAlternateKey(e => e.Uuid);
 
             modelBuilder.Entity<Page>()
-                .HasIndex(e => new { e.Title, e.Index });
-
-            modelBuilder.Entity<Page>()
-                .Property(e => e.Noteid)
-                .IsRequired();                
+                .HasIndex(e => new { e.Name, e.Index });             
 
             modelBuilder.Entity<Content>()
-                .HasKey(e => e.GuidAsString);
+                .HasKey(e => e.Uuid);
 
             modelBuilder.Entity<Content>()
-                .HasIndex(e => new { e.Title, e.Index });
-
-            modelBuilder.Entity<Content>()
-                .Property(e => e.Noteid)
-                .IsRequired();
-
-            modelBuilder.Entity<PageHistory>()
-                .HasKey(e => new { e.Rowid, e.Generation });
+                .HasIndex(e => new { e.Name, e.Index });
         }
 
         ContentClient _contentClient = null;
@@ -88,20 +75,9 @@ namespace MemoriaNote
             }
         }
 
-        PageHistoryClient _historyClient = null;
-        public PageHistoryClient HistoryClient
-        {
-            get
-            {
-                if (_historyClient == null)
-                    _historyClient = new PageHistoryClient(this);
-                return _historyClient;
-            }
-        }
-
         public string DataSource { get; set; }
 
-        public static string CurrentVersion { get => "2"; }
+        public static string CurrentVersion { get => "1"; }
 
         public static ILoggerFactory MyLoggerFactory {
             get
@@ -114,11 +90,6 @@ namespace MemoriaNote
                     }
                 );
             }
-        }
-
-        public static string GenerateID(string title)
-        {
-            return title.CalculateHash();
         }
     }
 }
