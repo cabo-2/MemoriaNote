@@ -349,9 +349,6 @@ namespace MemoriaNote.Cli
                     buffer.Append(check ? "*" : " ");
                     buffer.Append(" ");
                     buffer.Append(note.ToString());
-                    buffer.Append(" (");
-                    buffer.Append(note.Metadata.Title);
-                    buffer.Append(")");
                     Console.WriteLine(buffer.ToString());
                 }
 

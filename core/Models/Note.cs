@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
@@ -453,7 +454,12 @@ namespace MemoriaNote
         {
             if (Metadata != null)
             {
-                return Metadata.Name;
+                StringBuilder buffer = new StringBuilder();
+                buffer.Append(Metadata.Name);
+                buffer.Append(" (");
+                buffer.Append(Metadata.Title);
+                buffer.Append(")");
+                return buffer.ToString();
             }
             return base.ToString();
         }

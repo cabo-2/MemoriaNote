@@ -28,7 +28,7 @@ namespace MemoriaNote
             wg.Notes.AddRange(GetNoteItems(this.UseDataSources));
             if (this.SelectedNoteName != null)
             {
-                wg.SelectedNote = wg.Notes.FirstOrDefault( n => SelectedNoteName == n.ToString() );
+                wg.SelectedNote = wg.Notes.FirstOrDefault( n => SelectedNoteName == n.Metadata.Name );
                 if (wg.SelectedNote == null)
                     wg.SelectedNote = wg.Notes.FirstOrDefault();
             }
