@@ -173,8 +173,7 @@ namespace MemoriaNote.Cli
                 CanFocus = false
             };
 
-            var notesLabel = ViewHelper.CreateNoteLabel();
-            var notesView = ViewHelper.CreateNoteName(notesLabel);
+            var notesView = ViewHelper.CreateNoteName();
             ViewModel
                 .WhenAnyValue(
                     vm => vm.NoteNames,
@@ -195,19 +194,16 @@ namespace MemoriaNote.Cli
                 ViewModel.SearchEntry = searchTextField.Text.ToString();
                 Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.Search);
             };
-            navigation.Add(notesLabel);
             navigation.Add(notesView);
-
             navigation.Add(searchTextField);
 
-            var notifyLabel = ViewHelper.CreateNotifyLabel(searchTextField);
-            var notifyField = ViewHelper.CreateNoteName(notifyLabel);
+            var notifyField = ViewHelper.CreateNotifyField(searchTextField);
             ViewModel
                 .WhenAnyValue(vm => vm.Notification, x => NStack.ustring.Make(x))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(notifyField, x => x.Text)
                 .DisposeWith(_disposable);
-            navigation.Add(notifyLabel, notifyField);
+            navigation.Add(notifyField);
 
             return navigation;
         }
@@ -270,13 +266,27 @@ namespace MemoriaNote.Cli
                 CanFocus = true,
             };
 
-            var titleField = ViewHelper.CreateTitleField();
+            var pageNameField = ViewHelper.CreatePageNameField();
             ViewModel
                 .WhenAnyValue(vm => vm.EditingTitle, x => NStack.ustring.Make(x))
                 .ObserveOn(RxApp.MainThreadScheduler)
-                .BindTo(titleField, x => x.Text)
+                .BindTo(pageNameField, x => x.Text)
                 .DisposeWith(_disposable);
-            editorFrame.Add(titleField);
+            var pageUpdateTimeField = ViewHelper.CreatePageUpdateTimeField(pageNameField);
+            ViewModel
+                .WhenAnyValue(vm => vm.EditingUpdateTime, x => NStack.ustring.Make(x))
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .BindTo(pageUpdateTimeField, x => x.Text)
+                .DisposeWith(_disposable);
+            var emptyField = ViewHelper.CreateEmptyField();
+            var noteTitleField = ViewHelper.CreateNoteTitleField(emptyField);
+            ViewModel
+                .WhenAnyValue(vm => vm.EditingNoteTitle, x => NStack.ustring.Make(x))
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .BindTo(noteTitleField, x => x.Text)
+                .DisposeWith(_disposable);
+            editorFrame.Add(pageNameField, pageUpdateTimeField);
+            editorFrame.Add(emptyField, noteTitleField);
             var textEditor = ViewHelper.CreateTextEditor();
             ViewModel
                 .WhenAnyValue(vm => vm.EditingText, x => NStack.ustring.Make(x))

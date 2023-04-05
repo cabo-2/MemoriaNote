@@ -6,13 +6,14 @@ namespace MemoriaNote.Cli
 {
     public class ViewHelper
     {
-        public static int NotesLabelWidth => 6;
-        public static int NotesWidth => 35;
+        public static int NotesWidth => 42;
         public static int SearchTextWidth => 20;
-        public static int NotifyLabelWidth => 8;
-        public static int NotifyWidth => 30;
+        public static int NotifyOffsetWidth => 8;
+        public static int NotifyWidth => 36;
         public static int ContentPosX => 4;
         public static int ContentWidth => 25;
+        public static int PageUpdateTimeWidth => 38;
+        public static int NoteTitleWidth => 38;
         public static int EditorPosX => ContentWidth;
 
         static readonly StringBuilder aboutMessage;
@@ -53,17 +54,9 @@ namespace MemoriaNote.Cli
             }
         }
 
-        public static Label CreateNoteLabel() => new Label("Note:")
+        public static Label CreateNoteName() => new Label()
         {
             X = 1,
-            Y = 0,
-            Width = NotesLabelWidth,
-            Height = 1
-        };
-
-        public static Label CreateNoteName(View prev) => new Label()
-        {
-            X = Pos.Right(prev),
             Y = 0,
             Width = NotesWidth,
             Height = 1
@@ -78,21 +71,14 @@ namespace MemoriaNote.Cli
             CanFocus = true,
         };
 
-        public static Label CreateNotifyLabel(View prev) => new Label("Notify:")
-        {
-            X = Pos.Right(prev) + 3,
-            Y = 0,
-            Width = NotifyLabelWidth,
-            Height = 1
-        };
-
         public static Label CreateNotifyField(View prev) => new Label()
         {
-            X = Pos.Right(prev),
+            X = Pos.Right(prev) + NotifyOffsetWidth,
             Y = 0,
             Width = NotifyWidth,
             Height = 1,
-            CanFocus = false
+            CanFocus = false,
+            TextAlignment = TextAlignment.Right        
         };
 
         public static Label CreateContentsLabel() => new Label()
@@ -164,20 +150,52 @@ namespace MemoriaNote.Cli
             return scrollBar;
         }
 
-        public static TextField CreateTitleField() => new TextField()
+        public static TextField CreatePageNameField() => new TextField()
         {
             X = 0,
             Y = 0,
-            Width = Dim.Fill(),
-            Height = 1,
+            Width = Dim.Fill() - PageUpdateTimeWidth,
+            Height = 1,            
             CanFocus = false,
             ReadOnly = true
+        };
+
+        public static TextField CreateEmptyField() => new TextField()
+        {
+            X = 0,
+            Y = 1,
+            Width = Dim.Fill() - NoteTitleWidth,
+            Height = 1,            
+            CanFocus = false,
+            ReadOnly = true
+        };
+
+        public static TextField CreatePageUpdateTimeField(View prev) => new TextField()
+        {
+            X = Pos.Right(prev),
+            Y = 0,
+            Width = PageUpdateTimeWidth,
+            Height = 1,
+            CanFocus = false,
+            ReadOnly = true,
+            TextAlignment = TextAlignment.Right
+        };
+
+        public static TextField CreateNoteTitleField(View prev) => new TextField()
+        {
+            X = Pos.Right(prev),
+            Y = 1,
+            Width = NoteTitleWidth,
+            Height = 1,
+            CanFocus = false,
+            ReadOnly = true,
+            TextAlignment = TextAlignment.Right
         };
 
         public static TextView CreateTextEditor() => new TextView()
         {
             X = 0,
-            Y = 1,
+            Y = 2,
             Width = Dim.Fill(),
             Height = Dim.Fill(),
             BottomOffset = 1,

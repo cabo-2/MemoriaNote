@@ -151,11 +151,15 @@ namespace MemoriaNote
         {
             if (0 < this.Contents.Count)
             {
+                var content = this.Contents[this.ContentsViewPageIndex.Item2];
                 this.PlaceHolder = PlaceHolderString(this.SelectedContentsIndex, this.ContentsCount);
-                var page = Workgroup.ReadAll(this.Contents[this.ContentsViewPageIndex.Item2]);
-                this.OpenedContent = page.GetContent();
+                var page = Workgroup.ReadAll(content);
+                this.OpenedContent = content;
                 this.EditingTitle = this.OpenedContent.Name;
                 this.EditingText = page.Text;
+                this.EditingUpdateTime = content.UpdateTime.ToLocalTime().ToString("ddd MMM dd hh:mm:ss yyyy zzz");
+                var note = content.Parent as Note;
+                this.EditingNoteTitle = note?.Metadata?.Title ?? string.Empty;
             }
             else
             {
@@ -163,6 +167,8 @@ namespace MemoriaNote
                 this.OpenedContent = null;
                 this.EditingTitle = string.Empty;
                 this.EditingText = string.Empty;
+                this.EditingUpdateTime = string.Empty;
+                this.EditingNoteTitle = string.Empty;
             }
         }
 
@@ -327,6 +333,10 @@ namespace MemoriaNote
         [Reactive, DataMember] public string EditingText { get; set; } = string.Empty;
 
         [Reactive, DataMember] public List<string> EditingErrors { get; set; } = new List<string>();
+
+        [Reactive, DataMember] public string EditingUpdateTime { get; set; } = string.Empty;
+
+        [Reactive, DataMember] public string EditingNoteTitle { get; set; } = string.Empty;
 
         [Reactive, DataMember] public TextManageType EditingState { get; set; }
 
