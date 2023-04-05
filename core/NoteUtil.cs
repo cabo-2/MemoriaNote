@@ -21,8 +21,11 @@ namespace MemoriaNote
             {
                 foreach (var file in new DirectoryInfo(importDir).GetFiles("*.txt"))
                 {
-                    using (StreamReader reader = file.OpenText())
-                        note.Create(Path.GetFileNameWithoutExtension(file.Name), reader.ReadToEnd());
+                    using (StreamReader reader = file.OpenText()) 
+                    {
+                        var name = TextUtil.ReplaceNameStringReverse(Path.GetFileNameWithoutExtension(file.Name));
+                        note.Create(name, reader.ReadToEnd());
+                    }
                 }
             }, token);
             return task;

@@ -10,10 +10,21 @@ namespace MemoriaNote
         //
         // Invalid Name Patterns
         //  WindowsFS compatible: \/:*?\<>| COM0-9 LPT0-9 CON PRN AUX NUL CLOCKS$
+        //  LinuxFS compatible  : /
         //
 
-        static readonly char[] invalidChars = new char[] { '\\','/',':','*','?','\"','<','>','|' };
-        static readonly string[] invalidStrings = new string[] { "CON", "PRN", "AUX", "NUL", "CLOCKS$" };
+        static readonly ReplaceChar[] replaceChars = new ReplaceChar[] 
+        {
+            //new ReplaceChar() { Invalid = '\\', Replace = '＼' },
+            new ReplaceChar() { Invalid = '/', Replace = '／' },
+            //new ReplaceChar() { Invalid = ':', Replace = '：' },
+            //new ReplaceChar() { Invalid = '*', Replace = '＊' },
+            //new ReplaceChar() { Invalid = '?', Replace = '？' },
+            //new ReplaceChar() { Invalid = '"', Replace = '”' },
+            //new ReplaceChar() { Invalid = '<', Replace = '＜' },
+            //new ReplaceChar() { Invalid = '>', Replace = '＞' },
+            //new ReplaceChar() { Invalid = '|', Replace = '｜' }
+        };
         static readonly List<string> invalidNames;
 
         static TextUtil()
@@ -21,7 +32,7 @@ namespace MemoriaNote
             invalidNames = new List<string>();
             invalidNames.AddRange(Enumerable.Range(0, 10).Select(i => $"COM{i}"));
             invalidNames.AddRange(Enumerable.Range(0, 10).Select(i => $"LPT{i}"));
-            invalidNames.AddRange(invalidStrings);
+            invalidNames.AddRange(new string[] { "CON", "PRN", "AUX", "NUL", "CLOCKS$" });
         }
 
         public static bool ValidateNameString(string name, List<string> errors) {
@@ -30,28 +41,7 @@ namespace MemoriaNote
                 errors.Add("The text name have not been entered.");
                 return false;
             }
-
-            if (invalidNames.Contains(name))
-            {
-                errors.Add($"\"{name}\" cannot be used as a text name.");
-                return false;
-            }
-
-            var errorChars = invalidChars
-                .Where(c => name.Contains(c)).ToList();
-            if (errorChars.Count > 0) 
-            {
-                StringBuilder buffer = new StringBuilder();
-                buffer.Append($"\"");
-                foreach(var c in errorChars)
-                    buffer.Append($" {c} ");
-
-                buffer.Append("\" cannot be used as a text name.");
-                errors.Add(buffer.ToString());
-                return false;
-            }
-            else
-                return true;
+            return true;
         }
 
         public static bool ValidateTextString(string text, List<string> errors) => true;
@@ -59,13 +49,31 @@ namespace MemoriaNote
         public static string ReplaceNameString(string name)
         {
             if (invalidNames.Contains(name))              
-                return name + "'";
+                return name + "＿";
 
-            string newName = name;
-            foreach(var c in invalidChars.Where(c => name.Contains(c)))
-                newName = newName.Replace(c, '_');
+            foreach(var r in replaceChars)
+                if(name.Contains(r.Invalid))
+                    name = name.Replace(r.Invalid, r.Replace);
             
-            return newName.Substring(0, Math.Min(newName.Length, 60));
+            return name.Substring(0, Math.Min(name.Length, 128));
+        }
+
+        public static string ReplaceNameStringReverse(string name)
+        {
+            if (invalidNames.Any(x => (x + "＿") == name))              
+                return name.Substring(0, name.Length - 1);
+
+            foreach(var r in replaceChars)
+                if(name.Contains(r.Replace))
+                    name = name.Replace(r.Replace, r.Invalid);
+            
+            return name.Substring(0, Math.Min(name.Length, 128));
+        }
+
+        public class ReplaceChar
+        {
+            public char Invalid { get; set; }
+            public char Replace { get; set; }
         }
     }
 }
