@@ -18,9 +18,9 @@ namespace MemoriaNote.Cli.Editors
             if (_execPath == null)
                 throw new ArgumentNullException(nameof(Edit));
 
+            var filePath = Scratchpad.Singleton.GetFile(this.FileName, true);  
             try
-            {
-                var filePath = Scratchpad.Singleton.GetFile(this.FileName, true);                
+            {                              
                 if (this.TextData != null)
                     File.WriteAllText(filePath, this.TextData);
 
@@ -29,11 +29,8 @@ namespace MemoriaNote.Cli.Editors
                     Arguments = $"\"{filePath}\""
                 };
 
-                Log.Logger.Debug("Start terminal editor");
                 var process = Process.Start(startInfo);
                 process.WaitForExit();
-                Log.Logger.Debug("End terminal editor");
-
                 if (process.ExitCode != 0)
                     throw new InvalidOperationException(nameof(Edit));
 
@@ -41,17 +38,21 @@ namespace MemoriaNote.Cli.Editors
                     return false;
 
                 // Save if empty text              
-                this.TextData = File.ReadAllText(filePath, Encoding.UTF8);
-                Scratchpad.Singleton.Clear(filePath);
-
-                return true;
+                var editData = File.ReadAllText(filePath, Encoding.UTF8);
+                if (this.TextData == editData)
+                    return false;
+                else
+                    return true;
             }
             catch (Exception e)
             {
                 Log.Logger.Error(e.Message);
                 Log.Logger.Error(e.StackTrace);
-
                 return false;
+            }
+            finally
+            {
+                Scratchpad.Singleton.Clear(filePath);
             }
         }
    

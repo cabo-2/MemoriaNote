@@ -85,7 +85,7 @@ namespace MemoriaNote
         // Windows: C:\Users\<user>\AppData\Roaming\MemoriaNote\configuration.json
         // Linux:  /home/<user>/.config/MemoriaNote/configuration.json
         public static string ApplicationName => "MemoriaNote";
-        protected virtual string ConfigurationFilename => "configuration.json";        
+        public virtual string ConfigurationFilename => "configuration.json";        
         public virtual string ApplicationDataDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ApplicationName);
         public string ConfigurationPath => Path.Combine(ApplicationDataDirectory, ConfigurationFilename);
 

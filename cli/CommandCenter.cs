@@ -8,6 +8,7 @@ using ReactiveUI;
 using System.Collections.Generic;
 using Terminal.Gui;
 using McMaster.Extensions.CommandLineUtils;
+using Newtonsoft.Json;
 
 namespace MemoriaNote.Cli
 {
@@ -70,12 +71,81 @@ namespace MemoriaNote.Cli
 
         public int ConfigEdit()
         {
-            return 0;
+            try
+            {
+                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                bool retry;
+                do
+                {
+                    retry = false;                
+                    var editor = Editors.TerminalEditorFactory.Create();
+                    editor.FileName = Configuration.Instance.ConfigurationFilename;
+                    editor.TextData = JsonConvert.SerializeObject(Configuration.Instance, Formatting.Indented);
+
+                    ConfigurationCli config = null;                    
+                    if (editor.Edit())
+                    {                        
+                        try
+                        {
+                            config = JsonConvert.DeserializeObject<ConfigurationCli>(editor.TextData);
+                            Configuration.Instance = config;
+                            Configuration.Instance.Save();
+                            retry = false;
+                            Log.Logger.Information("Configuration updated");
+                        }
+                        catch
+                        {
+                            config = null; 
+                            Log.Logger.Error("Error: Unable to read edit data");
+                            Console.Error.WriteLine("Error: Unable to read edit data");
+                            if (ReadLineTryAgain())
+                                retry = true;
+                            else
+                                return -1;
+                        }
+                    }
+                    else
+                    {
+                        config = null;
+                        Log.Logger.Information("Configuration edit canceled");
+                        Console.WriteLine("Operation was canceled");
+                    }
+                }
+                while (retry);
+                return 0;
+            }
+            catch (Exception e)
+            {
+                Log.Logger.Fatal(e.Message);
+                Log.Logger.Fatal(e.StackTrace);
+                Console.Error.WriteLine($"Fatal: {e.Message}");
+                return -1;
+            }
         }
 
         public int ConfigShow()
         {
-            return 0;
+            try
+            {
+                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                StringReader reader = new StringReader(
+                    JsonConvert.SerializeObject(Configuration.Instance, Formatting.Indented));
+
+                string line = reader.ReadLine();
+                while (line != null)
+                {
+                    Console.WriteLine(line);
+                    line = reader.ReadLine();
+                }
+                return 0;
+            }
+            catch (Exception e)
+            {
+                Log.Logger.Fatal(e.Message);
+                Log.Logger.Fatal(e.StackTrace);
+                Console.Error.WriteLine($"Fatal: {e.Message}");
+                return -1;
+            }
         }
 
         public int ConfigInit()
@@ -461,7 +531,7 @@ namespace MemoriaNote.Cli
                     if (current == null)
                     {
                         Console.Error.WriteLine("Error: No such name");
-                        return -1; 
+                        return -1;
                     }
                 }
                 else
@@ -530,7 +600,7 @@ namespace MemoriaNote.Cli
                     outputDir = Environment.CurrentDirectory;
                 }
 
-                NoteUtil.Restore(inputPath, outputDir).Wait();                
+                NoteUtil.Restore(inputPath, outputDir).Wait();
 
                 Console.WriteLine("Restore completed");
                 return 0;
