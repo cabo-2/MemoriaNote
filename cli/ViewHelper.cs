@@ -12,8 +12,8 @@ namespace MemoriaNote.Cli
         public static int NotifyWidth => 36;
         public static int ContentPosX => 4;
         public static int ContentWidth => 25;
-        public static int PageUpdateTimeWidth => 38;
-        public static int NoteTitleWidth => 38;
+        public static int PageUpdateTimeWidth => 40;
+        public static int NoteTitleWidth => 40;
         public static int EditorPosX => ContentWidth;
 
         static readonly StringBuilder aboutMessage;
@@ -40,16 +40,16 @@ namespace MemoriaNote.Cli
         {
             switch (number)
             {
-                case 0: return Key.D0;
-                case 1: return Key.D1;
-                case 2: return Key.D2;
-                case 3: return Key.D3;
-                case 4: return Key.D4;
-                case 5: return Key.D5;
-                case 6: return Key.D6;
-                case 7: return Key.D7;
-                case 8: return Key.D8;
-                case 9: return Key.D9;
+                case 0: return Key.D1;
+                case 1: return Key.D2;
+                case 2: return Key.D3;
+                case 3: return Key.D4;
+                case 4: return Key.D5;
+                case 5: return Key.D6;
+                case 6: return Key.D7;
+                case 7: return Key.D8;
+                case 8: return Key.D9;
+                case 9: return Key.D0;
                 default: throw new ArgumentException(nameof(number));
             }
         }

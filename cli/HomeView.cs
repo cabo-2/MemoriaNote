@@ -124,13 +124,8 @@ namespace MemoriaNote.Cli
                         Log.Logger.Debug("Push F2 Function");
                         Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.PageNext);
                     }),
-                    new StatusItem(Key.Null," ",() => {}),
-                    new StatusItem(Key.F5, "~F5~ WildCard  ", () => {                        
-                                               //RegularExp"
-                        Log.Logger.Debug("Push F5 Function");
-                    }),
-                    new StatusItem(Key.F6, "~F6~ " + ViewModel.SearchRangeString, () => {
-                        Log.Logger.Debug("Push F6 Function");
+                    new StatusItem(Key.F3, "~F3~ " + ViewModel.SearchRangeString, () => {
+                        Log.Logger.Debug("Push F3 Function");
                         if (ViewModel.SearchRange == SearchRangeType.Note)
                             ViewModel.SearchRange = SearchRangeType.Workgroup;
                         else
@@ -140,8 +135,8 @@ namespace MemoriaNote.Cli
                         Application.RequestStop ();
                         Log.Logger.Debug("Search range changed: " + ViewModel.SearchRangeString);
                     }),
-                    new StatusItem(Key.F7, "~F7~ " + ViewModel.SearchMethodString, () => {
-                        Log.Logger.Debug("Push F7 Function");
+                    new StatusItem(Key.F4, "~F4~ " + ViewModel.SearchMethodString, () => {
+                        Log.Logger.Debug("Push F4 Function");
                         if (ViewModel.SearchMethod == SearchMethodType.Headline)
                             ViewModel.SearchMethod = SearchMethodType.FullText;
                         else
@@ -151,9 +146,9 @@ namespace MemoriaNote.Cli
                         Application.RequestStop ();
                         Log.Logger.Debug("Search method changed: " + ViewModel.SearchMethodString);
                     }),
-                    new StatusItem(Key.Null," ",() => {}),
-                    new StatusItem(Key.F12, "~F12~ Browse Mode", () => {
-                        Log.Logger.Debug("Push F12 Function");
+                    new StatusItem(Key.Null,"                       ",() => {}),
+                    new StatusItem(Key.F10, "~F10~ Browse Mode", () => {
+                        Log.Logger.Debug("Push F10 Function");
 
                         Controller.RequestManage();
                         Application.RequestStop ();
@@ -274,14 +269,16 @@ namespace MemoriaNote.Cli
                 .DisposeWith(_disposable);
             var pageUpdateTimeField = ViewHelper.CreatePageUpdateTimeField(pageNameField);
             ViewModel
-                .WhenAnyValue(vm => vm.EditingUpdateTime, x => NStack.ustring.Make(x))
+                .WhenAnyValue(vm => vm.EditingUpdateTime)
+                .Select(x => NStack.ustring.Make(" " + x))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(pageUpdateTimeField, x => x.Text)
                 .DisposeWith(_disposable);
             var emptyField = ViewHelper.CreateEmptyField();
             var noteTitleField = ViewHelper.CreateNoteTitleField(emptyField);
             ViewModel
-                .WhenAnyValue(vm => vm.EditingNoteTitle, x => NStack.ustring.Make(x))
+                .WhenAnyValue(vm => vm.EditingNoteTitle)
+                .Select(x => NStack.ustring.Make(" " + x))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(noteTitleField, x => x.Text)
                 .DisposeWith(_disposable);

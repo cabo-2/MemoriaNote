@@ -159,8 +159,8 @@ namespace MemoriaNote.Cli
                         Application.RequestStop ();
                     }),
                     new StatusItem(Key.Null," ",() => {}),
-                    new StatusItem(Key.F12, "~F12~ Manage Mode", () => {
-                        Log.Logger.Debug("Push F12 Function");
+                    new StatusItem(Key.F10, "~F10~ Manage Mode", () => {
+                        Log.Logger.Debug("Push F10 Function");
 
                         Controller.RequestHome();
                         Application.RequestStop ();
@@ -322,14 +322,16 @@ namespace MemoriaNote.Cli
                 .DisposeWith(_disposable);
             var pageUpdateTimeField = ViewHelper.CreatePageUpdateTimeField(pageNameField);
             ViewModel
-                .WhenAnyValue(vm => vm.EditingUpdateTime, x => NStack.ustring.Make(x))
+                .WhenAnyValue(vm => vm.EditingUpdateTime)
+                .Select(x => NStack.ustring.Make(" " + x))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(pageUpdateTimeField, x => x.Text)
                 .DisposeWith(_disposable);
             var emptyField = ViewHelper.CreateEmptyField();
             var noteTitleField = ViewHelper.CreateNoteTitleField(emptyField);
             ViewModel
-                .WhenAnyValue(vm => vm.EditingNoteTitle, x => NStack.ustring.Make(x))
+                .WhenAnyValue(vm => vm.EditingNoteTitle)
+                .Select(x => NStack.ustring.Make(" " + x))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(noteTitleField, x => x.Text)
                 .DisposeWith(_disposable);
