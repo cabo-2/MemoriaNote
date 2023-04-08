@@ -423,7 +423,7 @@ namespace MemoriaNote
         public List<Content> GetContents(int skipCount, int takeCount)
         {
             using(NoteDbContext db = new NoteDbContext(DataSource))
-                return new ContentClient(db)
+                return db.ContentClient
                             .ReadAll()
                             .Skip(skipCount)
                             .Take(takeCount)

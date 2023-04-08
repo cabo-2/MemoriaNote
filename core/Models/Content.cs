@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.ComponentModel.DataAnnotations.Schema;
+using Newtonsoft.Json;
 
 namespace MemoriaNote
 {
@@ -64,20 +65,22 @@ namespace MemoriaNote
         public int Index { get; set; }
         [NotMapped]
         public List<string> TagList { get; set; }
+        [JsonIgnore]
         public string Tags
         {
             get
             {
-                if (TagList == null)
+                if (TagList == null || TagList.Count == 0)
                     return null;
-                return string.Join (";", TagList);
+
+                return JsonConvert.SerializeObject(TagList);
             }
             set
             {
-                if (value == null)
+                if (string.IsNullOrWhiteSpace(value))
                     TagList = null;
                 else
-                    TagList = value.Split (';').ToList ();
+                    TagList = JsonConvert.DeserializeObject<List<string>>(value);
             }
         }
         public string ContentType { get; set; }

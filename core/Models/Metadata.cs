@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.ComponentModel.DataAnnotations;
 using ReactiveUI;
+using Newtonsoft.Json;
 
 namespace MemoriaNote
 {
@@ -273,20 +274,20 @@ namespace MemoriaNote
             }
         }
 
-        public List<string> Tags
+        public List<string> TagList
         {
             get
             {
-                var text = TagsAsString;
-                if (text == null)
+                var text = Tags;
+                if (string.IsNullOrWhiteSpace(text))
                     return null;
 
-                return new List<string>(text.Split(';'));
+                return JsonConvert.DeserializeObject<List<string>>(text);
             }
-            set => TagsAsString = string.Join(";", value);
+            set => Tags = JsonConvert.SerializeObject(value);
         }
         string _tags = null;
-        protected string TagsAsString
+        protected string Tags
         {
             get
             {

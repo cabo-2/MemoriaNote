@@ -9,7 +9,7 @@ namespace MemoriaNote
 {
     [Serializable]
     public class Page : IContent, IEquatable<Page>
-    {       
+    {
         public static Page Create(string name, string text, params string[] tags)
         {
             var page = Content.Create<Page>(name, tags);
@@ -43,16 +43,17 @@ namespace MemoriaNote
         {
             get
             {
-                if (TagList == null)
+                if (TagList == null || TagList.Count == 0)
                     return null;
-                return string.Join(";", TagList);
+
+                return JsonConvert.SerializeObject(TagList);
             }
             set
             {
-                if (value == null)
+                if (string.IsNullOrWhiteSpace(value))
                     TagList = null;
                 else
-                    TagList = value.Split(';').ToList();
+                    TagList = JsonConvert.DeserializeObject<List<string>>(value);
             }
         }
         public string ContentType { get; set; }
