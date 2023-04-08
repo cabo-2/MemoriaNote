@@ -14,7 +14,7 @@ namespace MemoriaNote.Cli
 {
     public class CommandCenter
     {
-        public int Edit(string name = null)
+        public int Find(string name = null)
         {
             try
             {
@@ -25,6 +25,31 @@ namespace MemoriaNote.Cli
 
                 var sc = new ScreenController();
                 sc.RequestHome();
+
+                sc.Start(vm);
+
+                Configuration.Instance.Save();
+                return 0;
+            }
+            catch (Exception e)
+            {
+                Log.Logger.Fatal(e.Message);
+                Log.Logger.Fatal(e.StackTrace);
+                return -1;
+            }
+        }
+
+        public int Edit(string name = null)
+        {
+            try
+            {
+                Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
+
+                var vm = new MemoriaNoteViewModel();
+                vm.SearchEntry = name;
+
+                var sc = new ScreenController();
+                sc.RequestManage();
 
                 sc.Start(vm);
 
@@ -53,7 +78,7 @@ namespace MemoriaNote.Cli
                 vm.EditingState = TextManageType.Create;
 
                 var sc = new ScreenController();
-                sc.RequestHome();
+                sc.RequestManage();
                 sc.RequestEditor();
 
                 sc.Start(vm);

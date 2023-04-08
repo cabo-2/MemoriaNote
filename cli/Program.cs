@@ -12,6 +12,7 @@ namespace MemoriaNote.Cli
     [Command("mn",
      Description = "Memoria Note CLI - A simple, .NET Terminal.Gui based, Text viewer and editor")]
     [Subcommand(
+        typeof(FindCommand),
         typeof(EditCommand),
         typeof(NewCommand),
         typeof(ConfigCommand),
@@ -31,15 +32,25 @@ namespace MemoriaNote.Cli
             return 0;
         }
 
-        [Command("edit", "e", Description = "Edit, browse and search text commands")]
+        [Command("find", "f", Description = "Find and browse text commands")]
+        [HelpOption("--help")]
+        class FindCommand
+        {
+            [Argument(0, Name = "name", Description = "text name")]
+            public string Name { get; set; }
+
+            protected int OnExecute(CommandLineApplication app)
+            {
+                return new CommandCenter().Find(Name);
+            }
+        }
+
+        [Command("edit", "e", Description = "Edit and manage text commands")]
         [HelpOption("--help")]
         class EditCommand
         {
             [Argument(0, Name = "name", Description = "text name")]
             public string Name { get; set; }
-
-            [Option("--uuid=<uuid>", Description = "uuid")]
-            public (bool hasValue, string value) Uuid { get; set; }
 
             protected int OnExecute(CommandLineApplication app)
             {
