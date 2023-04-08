@@ -202,6 +202,7 @@ namespace MemoriaNote.Cli
             RightOffset = 1,
             CanFocus = true,
             ReadOnly = true,
+            WordWrap = true
         };
 
         public static ScrollBarView CreateTextEditorScrollBar(TextView textEditor) 
