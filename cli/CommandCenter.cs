@@ -6,9 +6,11 @@ using System.Reflection;
 using System.Reactive.Concurrency;
 using ReactiveUI;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using Terminal.Gui;
 using McMaster.Extensions.CommandLineUtils;
 using Newtonsoft.Json;
+using MemoriaNote.Cli.Models;
 
 namespace MemoriaNote.Cli
 {
@@ -121,8 +123,8 @@ namespace MemoriaNote.Cli
                         catch
                         {
                             config = null; 
-                            Log.Logger.Error("Error: Unable to read edit data");
-                            Console.Error.WriteLine("Error: Unable to read edit data");
+                            Log.Logger.Error("Error: Unable to read modified data");
+                            Console.Error.WriteLine("Error: Unable to read modified data");
                             if (ReadLineTryAgain())
                                 retry = true;
                             else
@@ -348,7 +350,75 @@ namespace MemoriaNote.Cli
 
         public int WorkEdit()
         {
-            return 0;
+            try
+            {
+                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                var vm = new MemoriaNoteViewModel();
+                var note = vm.Workgroup.SelectedNote;
+                bool retry;
+                do
+                {
+                    retry = false;     
+                    JsonMetadata data = JsonMetadata.Create(note.Metadata);
+                    List<string> errors = new List<string>();
+                    var editor = Editors.TerminalEditorFactory.Create();
+                    editor.FileName = note.ToString();
+                    editor.TextData = JsonConvert.SerializeObject(data, Formatting.Indented);
+                 
+                    if (editor.Edit())
+                    {                        
+                        try
+                        {
+                            data = JsonConvert.DeserializeObject<JsonMetadata>(editor.TextData);
+
+                            data.ValidateName(note, vm.Workgroup, ref errors);
+                            data.ValidateTitle(note, vm.Workgroup, ref errors);
+                            
+                            note.Metadata.CopyTo(data);                      
+                            retry = false;                            
+                            Log.Logger.Information("Metadata updated");
+                        }
+                        catch(ValidationException)
+                        {
+                            data = null;
+                            foreach(var error in errors)
+                            {
+                                Log.Logger.Error($"Error: {error}");
+                                Console.Error.WriteLine($"Error: {error}");
+                            }
+                            if (ReadLineTryAgain())
+                                retry = true;
+                            else
+                                return -1;
+                        }
+                        catch
+                        {
+                            data = null; 
+                            Log.Logger.Error("Error: Unable to read modified data");
+                            Console.Error.WriteLine("Error: Unable to read modified data");
+                            if (ReadLineTryAgain())
+                                retry = true;
+                            else
+                                return -1;
+                        }
+                    }
+                    else
+                    {
+                        data = null;
+                        Log.Logger.Information("Metadata edit canceled");
+                        Console.WriteLine("Operation was canceled");
+                    }
+                }
+                while (retry);
+                return 0;
+            }
+            catch (Exception e)
+            {
+                Log.Logger.Fatal(e.Message);
+                Log.Logger.Fatal(e.StackTrace);
+                Console.Error.WriteLine($"Fatal: {e.Message}");
+                return -1;
+            }
         }
 
         public int WorkCreate(string name = null, string title = null)
