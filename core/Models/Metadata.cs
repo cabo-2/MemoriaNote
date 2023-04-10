@@ -10,7 +10,7 @@ using Newtonsoft.Json;
 
 namespace MemoriaNote
 {
-    public class Metadata : ReactiveObject
+    public class Metadata : ReactiveObject, IMetadata
     {
         public Metadata() {}
         public Metadata(string dataSource) {
@@ -327,119 +327,23 @@ namespace MemoriaNote
             }
         }
 
-        string _iconImage = null;
-        public object IconImage
+        public void CopyTo(IMetadata data)
         {
-            get
-            {
-                var text = IconImageAsString;
-                if (text == null)
-                    return null;
-
-                byte[] buffer = Convert.FromBase64String(text);
-                return ImageFromBuffer(buffer);
-            }
-            set
-            {
-                if (value == null)
-                {
-                    IconImageAsString = null;
-                }
-                else
-                {
-                    var buffer = ByteBufferFromImage(value);
-                    var text = Convert.ToBase64String(buffer);
-                    IconImageAsString = text;
-                }
-            }
-        }
-
-        protected string IconImageAsString
-        {
-            get
-            {
-                if (_iconImage == null)
-                {
-                    using (NoteDbContext db = new NoteDbContext(DataSource))
-                        _iconImage = NoteKeyValue.Get(db, NoteKeyValue.IconImage);
-                }
-                return _iconImage;         
-            }
-            set
-            {
-                if (_iconImage == null)
-                {
-                    using (NoteDbContext db = new NoteDbContext(DataSource))
-                        _iconImage = NoteKeyValue.Get(db, NoteKeyValue.IconImage);
-                }
-                if (_iconImage?.GetHashCode() != value?.GetHashCode()) 
-                {
-                    this.RaiseAndSetIfChanged(ref _iconImage, value);
-                    NoteKeyValue.SetAsync(DataSource, NoteKeyValue.IconImage, _iconImage);
-                }
-            }
-        }
-
-        static Byte[] ByteBufferFromImage(object imageSource)
-        {
-            var ms = new MemoryStream();
-            //var pngEncoder = new PngBitmapEncoder();
-            //pngEncoder.Frames.Add(BitmapFrame.Create(imageSource));
-            //pngEncoder.Save(ms);
-            return ms.GetBuffer();
-        }
-
-        static object ImageFromBuffer(Byte[] bytes)
-        {
-            var stream = new MemoryStream(bytes);
-            //var image = new BitmapImage();
-            //image.BeginInit();
-            //image.StreamSource = stream;
-            //image.EndInit();
-            //return image;
-            return null;
-        }
-
-        string _externalLinkUrl;
-        public string ExternalLinkUrl
-        {
-            get
-            {
-                if (_externalLinkUrl == null)
-                {
-                    using (NoteDbContext db = new NoteDbContext(DataSource))
-                        _externalLinkUrl = NoteKeyValue.Get(db, NoteKeyValue.ExternalLinkUrl);
-                }
-                return _externalLinkUrl;
-            }
-            set
-            {
-                NoteDbContext db = null;
-                try
-                {
-                    if (_externalLinkUrl == null)
-                    {
-                        db = new NoteDbContext(DataSource);
-                        _externalLinkUrl = NoteKeyValue.Get(db, NoteKeyValue.ExternalLinkUrl);
-                    }
-                    if (_externalLinkUrl != value)
-                    {
-                        this.RaiseAndSetIfChanged(ref _externalLinkUrl, value);
-                        if (db == null)
-                            db = new NoteDbContext(DataSource);
-                        NoteKeyValue.Set(db, NoteKeyValue.ExternalLinkUrl, _externalLinkUrl);
-                    }
-                }
-                finally
-                {
-                    if (db != null)
-                    {
-                        db.Dispose();
-                        db = null;
-                    }
-                }
-            }
-        }
+            if (this.Name != data.Name)
+                this.Name = data.Name;
+            if (this.Title != data.Title)
+                this.Title = data.Title;
+            if (this.Version != data.Version)
+                this.Version = data.Version;
+            if (this.Description != data.Description)
+                this.Description = data.Description;
+            if (this.Author != data.Author)
+                this.Author = data.Author;
+            if (this.ReadOnly != data.ReadOnly)
+                this.ReadOnly = data.ReadOnly;
+            if (this.TagList?.GetOrderIndependentHashCode() != data.TagList?.GetOrderIndependentHashCode())
+                this.TagList = data.TagList;
+        }             
 
         public override string ToString () {
             return Title ?? base.ToString ();
@@ -511,7 +415,5 @@ namespace MemoriaNote
         public static string Description => nameof(Description);
         public static string Author => nameof(Author);
         public static string Tags => nameof(Tags);
-        public static string IconImage => nameof(IconImage);
-        public static string ExternalLinkUrl => nameof(ExternalLinkUrl);
     }
 }

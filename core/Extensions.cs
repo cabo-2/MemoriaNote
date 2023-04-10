@@ -97,6 +97,17 @@ namespace MemoriaNote
         }
     }
 
+    public static class EnumerableExtensions
+    {
+        public static int GetOrderIndependentHashCode<T> (this IEnumerable<T> source) {
+            int hash = 0;
+            foreach (T element in source) {
+                hash = hash ^ EqualityComparer<T>.Default.GetHashCode (element);
+            }
+            return hash;
+        }
+    }
+
     public static class GuidExtensions
     {
         public static string ToHashId(this Guid guid) => guid.ToString("D").Substring(0, 7);
