@@ -95,7 +95,7 @@ namespace MemoriaNote
                 {
                     StringBuilder builder = new StringBuilder();
                     builder.AppendLine("SELECT * FROM Contents ");
-                    builder.AppendLine(textMatch.GetWhereClause("Name"));
+                    builder.AppendLine(textMatch.Where("Name"));
                     int count = db.Contents.FromSqlRaw(builder.ToString()).Count();
                     tables[dataSource] = count;
                 }
@@ -179,7 +179,7 @@ namespace MemoriaNote
                 {
                     StringBuilder builder = new StringBuilder();
                     builder.AppendLine("SELECT * FROM Contents ");
-                    builder.AppendLine(textMatch.GetWhereClause("Name"));
+                    builder.AppendLine(textMatch.Where("Name"));
                     int count = db.Contents.FromSqlRaw(builder.ToString()).Count();
                     tables[dataSource] = count;
                 }

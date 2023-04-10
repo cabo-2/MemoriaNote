@@ -1,10 +1,11 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 
 namespace MemoriaNote
 {
     public class TextMatching
     {
-        public TextMatching(string pattern, MatchingType type)
+        TextMatching(string pattern, MatchingType type)
         {
             Pattern = pattern;
             MatchingType = type;
@@ -15,42 +16,36 @@ namespace MemoriaNote
             if (string.IsNullOrWhiteSpace(keyword))
                 return new TextMatching("", MatchingType.None);
 
-            if (keyword.First() == '*')
-            {
-                if (keyword.Length > 1 && keyword.Last() == '*')
-                    return new TextMatching(keyword.Replace("*", ""), MatchingType.Partial);
-                else
-                    return new TextMatching(keyword.Replace("*", ""), MatchingType.Suffix);
-            }
+            var pattern = EscapeSingleQuote(keyword);
+            pattern = EscapeDoubleQuote(pattern);
+            pattern = EscapePercent(pattern);
+            pattern = EscapeUnderScore(pattern);
+            pattern = ReplaceGlobToLike(pattern);
+
+            if (keyword.Contains("*") || keyword.Contains("?"))
+                return new TextMatching(pattern, MatchingType.Partial);
             else
-            {
-                if (keyword.Length > 1 && keyword.Last() == '*')
-                    return new TextMatching(keyword.Replace("*", ""), MatchingType.Prefix);
-                else
-                    return new TextMatching(keyword.Replace("*", ""), MatchingType.Exact);
-            }
+                return new TextMatching(pattern, MatchingType.Exact);
         }
 
-        public string GetWhereClause(string column = null)
+        public string Where(string column = null)
         {
+            if (this.MatchingType == MatchingType.None)
+                return "";
+            
             if (string.IsNullOrWhiteSpace(column))
                 return "";
+            if (column.Contains('\''))
+                throw new System.ArgumentException(nameof(column));        
 
-            switch (MatchingType)
-            {
-                case MatchingType.Prefix:
-                    return "WHERE " + column + " LIKE '" + Pattern + "%' ";
-                case MatchingType.Suffix:
-                    return "WHERE " + column + " LIKE '" + "%" + Pattern + "' ";
-                case MatchingType.Partial:
-                    return "WHERE " + column + " LIKE '" + "%" + Pattern + "%' ";
-                case MatchingType.Exact:
-                    return "WHERE " + column + " LIKE '" + Pattern + "' ";
-                case MatchingType.None:
-                default:
-                    return "";
-            }
+            return $"WHERE {column} LIKE '{this.Pattern}' ESCAPE '\\' ";
         }
+
+        static string EscapeSingleQuote(string keyword) => keyword.Replace("\'", "\'\'");
+        static string EscapeDoubleQuote(string keyword) => keyword.Replace("\"", "\"\"");
+        static string EscapePercent(string keyword) => keyword.Replace("%", "\\%");
+        static string EscapeUnderScore(string keyword) => keyword.Replace("_", "\\_");
+        static string ReplaceGlobToLike(string keyword) => keyword.Replace("*", "%").Replace("?", "_");
 
         public string Pattern { get; private set; }
         public MatchingType MatchingType { get; private set; }
@@ -60,8 +55,6 @@ namespace MemoriaNote
     {
         None,
         Partial,
-        Prefix,
-        Suffix,
         Exact
     }
 }

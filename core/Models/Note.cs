@@ -156,12 +156,12 @@ namespace MemoriaNote
                         "SELECT p.* FROM Pages p JOIN " +
                        $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Name : \"{textMatch.Pattern}\"') f " +
                         "ON p.Rowid = f.rowid " +
-                       $"{textMatch.GetWhereClause("p.Name")}";
+                       $"{textMatch.Where("p.Name")}";
                     var querySql =
                         "SELECT p.* FROM Pages p JOIN " +
                        $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Name : \"{textMatch.Pattern}\"') f " +
                         "ON p.Rowid = f.rowid " +
-                       $"{textMatch.GetWhereClause("p.Name")} " +
+                       $"{textMatch.Where("p.Name")} " +
                         "ORDER BY p.Name COLLATE NOCASE ASC, p.'Index' ASC ";
 
                     count = db.Pages.FromSqlRaw(countSql).Count();
@@ -187,10 +187,10 @@ namespace MemoriaNote
                 {
                     var countSql =
                         "SELECT * FROM Contents " +
-                       $"{textMatch.GetWhereClause("Name")}";
+                       $"{textMatch.Where("Name")}";
                     var querySql =
                         "SELECT * FROM Contents " +
-                       $"{textMatch.GetWhereClause("Name")} " +
+                       $"{textMatch.Where("Name")} " +
                         "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
 
                     count = db.Contents.FromSqlRaw(countSql).Count();
@@ -295,7 +295,7 @@ namespace MemoriaNote
                            "SELECT p.* FROM Pages p JOIN " +
                           $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Name : \"{textMatch.Pattern}\"') f " +
                            "ON p.Rowid = f.rowid " +
-                          $"{textMatch.GetWhereClause("p.Name")} " +
+                          $"{textMatch.Where("p.Name")} " +
                            "ORDER BY p.Name COLLATE NOCASE ASC, p.'Index' ASC ";
 
                        count = db.Contents.FromSqlRaw(sql).Count();
@@ -323,10 +323,10 @@ namespace MemoriaNote
                    {
                        var countSql =
                            $"SELECT * FROM Contents " +
-                           $"{textMatch.GetWhereClause("Name")} ";
+                           $"{textMatch.Where("Name")} ";
                        var querySql =
                            $"SELECT * FROM Contents " +
-                           $"{textMatch.GetWhereClause("Name")} " +
+                           $"{textMatch.Where("Name")} " +
                            "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
 
                        count = db.Contents.FromSqlRaw(countSql).Count();
