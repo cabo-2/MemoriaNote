@@ -42,7 +42,10 @@ namespace MemoriaNote.Cli.Editors
                 if (this.TextData == editData)
                     return false;
                 else
+                {
+                    this.TextData = editData;
                     return true;
+                }
             }
             catch (Exception e)
             {
