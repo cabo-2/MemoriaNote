@@ -20,7 +20,7 @@ namespace MemoriaNote.Cli
         {
             try
             {
-                Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
 
                 var vm = new MemoriaNoteViewModel();
                 vm.SearchEntry = name;
@@ -30,7 +30,7 @@ namespace MemoriaNote.Cli
 
                 sc.Start(vm);
 
-                Configuration.Instance.Save();
+                ConfigurationCli.Instance.Save();
                 return 0;
             }
             catch (Exception e)
@@ -45,7 +45,7 @@ namespace MemoriaNote.Cli
         {
             try
             {
-                Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
 
                 var vm = new MemoriaNoteViewModel();
                 vm.SearchEntry = name;
@@ -55,7 +55,7 @@ namespace MemoriaNote.Cli
 
                 sc.Start(vm);
 
-                Configuration.Instance.Save();
+                ConfigurationCli.Instance.Save();
                 return 0;
             }
             catch (Exception e)
@@ -73,7 +73,7 @@ namespace MemoriaNote.Cli
                 if (name == null)
                     throw new ArgumentNullException(nameof(name));
 
-                Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
 
                 var vm = new MemoriaNoteViewModel();
                 vm.EditingTitle = name;
@@ -85,7 +85,7 @@ namespace MemoriaNote.Cli
 
                 sc.Start(vm);
 
-                Configuration.Instance.Save();
+                ConfigurationCli.Instance.Save();
                 return 0;
             }
             catch (Exception e)
@@ -100,14 +100,14 @@ namespace MemoriaNote.Cli
         {
             try
             {
-                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
                 bool retry;
                 do
                 {
                     retry = false;                
                     var editor = Editors.TerminalEditorFactory.Create();
-                    editor.FileName = Configuration.Instance.ConfigurationFilename;
-                    editor.TextData = JsonConvert.SerializeObject(Configuration.Instance, Formatting.Indented);
+                    editor.FileName = ConfigurationCli.Instance.ConfigurationFilename;
+                    editor.TextData = JsonConvert.SerializeObject(ConfigurationCli.Instance, Formatting.Indented);
 
                     ConfigurationCli config = null;                    
                     if (editor.Edit())
@@ -115,8 +115,8 @@ namespace MemoriaNote.Cli
                         try
                         {
                             config = JsonConvert.DeserializeObject<ConfigurationCli>(editor.TextData);
-                            Configuration.Instance = config;
-                            Configuration.Instance.Save();
+                            ConfigurationCli.Instance = config;
+                            ConfigurationCli.Instance.Save();
                             retry = false;
                             Log.Logger.Information("Configuration updated");
                         }
@@ -154,9 +154,9 @@ namespace MemoriaNote.Cli
         {
             try
             {
-                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
                 StringReader reader = new StringReader(
-                    JsonConvert.SerializeObject(Configuration.Instance, Formatting.Indented));
+                    JsonConvert.SerializeObject(ConfigurationCli.Instance, Formatting.Indented));
 
                 string line = reader.ReadLine();
                 while (line != null)
@@ -187,12 +187,12 @@ namespace MemoriaNote.Cli
                 if (name == null)
                     throw new ArgumentNullException(nameof(name));
 
-                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
 
                 var vm = new MemoriaNoteViewModel();
 
                 int skipCount = 0;
-                int takeCount = Configuration.Instance.Search.MaxViewResultCount;
+                int takeCount = ConfigurationCli.Instance.Search.MaxViewResultCount;
 
                 var wg = vm.Workgroup;
                 var result = wg.SearchContents(name, skipCount, takeCount, SearchRangeType.Note);
@@ -204,7 +204,7 @@ namespace MemoriaNote.Cli
                     break;
                 }
 
-                Configuration.Instance.Save();
+                ConfigurationCli.Instance.Save();
                 return 0;
             }
             catch (Exception e)
@@ -220,7 +220,7 @@ namespace MemoriaNote.Cli
         {
             try
             {
-                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
 
                 var count = vm.Workgroup.SelectedNote.Count;
@@ -228,7 +228,7 @@ namespace MemoriaNote.Cli
 
                 WriteLineList(contents, count);
 
-                Configuration.Instance.Save();
+                ConfigurationCli.Instance.Save();
                 return 0;
             }
             catch (Exception e)
@@ -324,7 +324,7 @@ namespace MemoriaNote.Cli
                 if (name == null)
                     throw new ArgumentNullException(nameof(name));
 
-                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
 
                 var vm = new MemoriaNoteViewModel();
 
@@ -335,8 +335,8 @@ namespace MemoriaNote.Cli
                     return -1;
                 }
 
-                Configuration.Instance.Workgroup.SelectedNoteName = name;
-                Configuration.Instance.Save();
+                ConfigurationCli.Instance.Workgroup.SelectedNoteName = name;
+                ConfigurationCli.Instance.Save();
                 return 0;
             }
             catch (Exception e)
@@ -352,7 +352,7 @@ namespace MemoriaNote.Cli
         {
             try
             {
-                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
                 var note = vm.Workgroup.SelectedNote;
                 bool retry;
@@ -425,7 +425,7 @@ namespace MemoriaNote.Cli
         {
             try
             {
-                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
 
                 var vm = new MemoriaNoteViewModel();
                 var wg = vm.Workgroup;
@@ -454,7 +454,7 @@ namespace MemoriaNote.Cli
                 if (string.IsNullOrWhiteSpace(title))
                     title = name;
 
-                var dir = Configuration.Instance.ApplicationDataDirectory;
+                var dir = ConfigurationCli.Instance.ApplicationDataDirectory;
                 string path = NoteUtil.GetNotePath(dir, name);
 
                 Note note = null;
@@ -504,7 +504,7 @@ namespace MemoriaNote.Cli
         {
             try
             {
-                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
 
                 foreach (var note in vm.Workgroup.Notes)
@@ -517,7 +517,7 @@ namespace MemoriaNote.Cli
                     Console.WriteLine(buffer.ToString());
                 }
 
-                Configuration.Instance.Save();
+                ConfigurationCli.Instance.Save();
                 return 0;
             }
             catch (Exception e)
@@ -542,7 +542,7 @@ namespace MemoriaNote.Cli
                     return -1;
                 }
 
-                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
                 try
                 {
                     using (NoteDbContext db = new NoteDbContext(path)) { }
@@ -553,15 +553,15 @@ namespace MemoriaNote.Cli
                     return -1;
                 }
 
-                if (!Configuration.Instance.DataSources.Contains(path))
-                    Configuration.Instance.DataSources.Add(path);
+                if (!ConfigurationCli.Instance.DataSources.Contains(path))
+                    ConfigurationCli.Instance.DataSources.Add(path);
 
-                if (!Configuration.Instance.Workgroup.UseDataSources.Contains(path))
-                    Configuration.Instance.Workgroup.UseDataSources.Add(path);
+                if (!ConfigurationCli.Instance.Workgroup.UseDataSources.Contains(path))
+                    ConfigurationCli.Instance.Workgroup.UseDataSources.Add(path);
 
                 var vm = new MemoriaNoteViewModel();
 
-                Configuration.Instance.Save();
+                ConfigurationCli.Instance.Save();
                 return 0;
             }
             catch (Exception e)
@@ -580,7 +580,7 @@ namespace MemoriaNote.Cli
                 if (name == null)
                     throw new ArgumentNullException(nameof(name));
 
-                Configuration.Instance = Configuration.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
 
                 var vm = new MemoriaNoteViewModel();
 
@@ -598,9 +598,9 @@ namespace MemoriaNote.Cli
                 }
 
                 var dataSource = wg.Notes.First(n => name == n.Metadata.Name).DataSource;
-                Configuration.Instance.Workgroup.UseDataSources.Remove(dataSource);
+                ConfigurationCli.Instance.Workgroup.UseDataSources.Remove(dataSource);
 
-                Configuration.Instance.Save();
+                ConfigurationCli.Instance.Save();
                 return 0;
             }
             catch (Exception e)
@@ -616,7 +616,7 @@ namespace MemoriaNote.Cli
         {
             try
             {
-                Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
                 Note current = null;
 
@@ -679,7 +679,7 @@ namespace MemoriaNote.Cli
                     return -1;
                 }
 
-                Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
 
                 if (outputDir != null)
@@ -722,7 +722,7 @@ namespace MemoriaNote.Cli
                     return -1;
                 }
 
-                Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
 
                 NoteUtil.TextImporter(vm.Workgroup.SelectedNote, importDir).Wait();
@@ -752,7 +752,7 @@ namespace MemoriaNote.Cli
                     return -1;
                 }
 
-                Configuration.Instance = ConfigurationCli.Create<ConfigurationCli>();
+                ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
 
                 NoteUtil.TextExporter(vm.Workgroup.SelectedNote, exportDir).Wait();

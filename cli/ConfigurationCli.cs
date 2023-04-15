@@ -12,6 +12,16 @@ namespace MemoriaNote.Cli
     [DataContract]
     public class ConfigurationCli : Configuration
     {
+        #pragma warning disable 108
+        public static ConfigurationCli Instance
+        {
+            get => (ConfigurationCli)Configuration.Instance;
+            set => Configuration.Instance = value;
+        }
+        #pragma warning restore 108
+
+        public static ConfigurationCli Create() => Configuration.Create<ConfigurationCli>();
+
         public TerminalSetting Terminal { get; set; } = new TerminalSetting();
 
         [DataContract]

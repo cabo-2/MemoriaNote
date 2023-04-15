@@ -105,17 +105,10 @@ namespace MemoriaNote
         public static int MaxAllNoteSearchCount => 10;
 
         protected static Configuration _instance;
-        public static Configuration Instance { 
-            get
-            {
-                if (_instance == null)
-                    _instance = new Configuration().GetDefault<Configuration>();
-                return _instance;
-            }
-            set
-            {
-                _instance = value;
-            }
+        public static Configuration Instance
+        { 
+            get => _instance;
+            set => _instance = value;
         }
 
         public static T Create<T>() where T : Configuration, new() => new T().Load<T>();
