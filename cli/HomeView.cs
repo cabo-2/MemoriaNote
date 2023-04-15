@@ -127,9 +127,9 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.F3, "~F3~ " + ViewModel.SearchRangeString, () => {
                         Log.Logger.Debug("Push F3 Function");
                         if (ViewModel.SearchRange == SearchRangeType.Note)
-                            ViewModel.SearchRange = SearchRangeType.Workgroup;
+                            ViewModel.SearchRange = ConfigurationCli.Instance.State.SearchRange = SearchRangeType.Workgroup;
                         else
-                            ViewModel.SearchRange = SearchRangeType.Note;
+                            ViewModel.SearchRange = ConfigurationCli.Instance.State.SearchRange = SearchRangeType.Note;
 
                         Controller.RequestHome();
                         Application.RequestStop ();
@@ -138,9 +138,9 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.F4, "~F4~ " + ViewModel.SearchMethodString, () => {
                         Log.Logger.Debug("Push F4 Function");
                         if (ViewModel.SearchMethod == SearchMethodType.Headline)
-                            ViewModel.SearchMethod = SearchMethodType.FullText;
+                            ViewModel.SearchMethod = ConfigurationCli.Instance.State.SearchMethod = SearchMethodType.FullText;
                         else
-                            ViewModel.SearchMethod = SearchMethodType.Headline;
+                            ViewModel.SearchMethod = ConfigurationCli.Instance.State.SearchMethod = SearchMethodType.Headline;
 
                         Controller.RequestHome();
                         Application.RequestStop ();
@@ -149,6 +149,9 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.Null,"                       ",() => {}),
                     new StatusItem(Key.F10, "~F10~ Browse Mode", () => {
                         Log.Logger.Debug("Push F10 Function");
+
+                        ViewModel.SearchRange = SearchRangeType.Note;
+                        ViewModel.SearchMethod = SearchMethodType.Headline;
 
                         Controller.RequestManage();
                         Application.RequestStop ();

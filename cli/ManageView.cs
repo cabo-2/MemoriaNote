@@ -162,6 +162,9 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.F10, "~F10~ Manage Mode", () => {
                         Log.Logger.Debug("Push F10 Function");
 
+                        ViewModel.SearchRange = ConfigurationCli.Instance.State.SearchRange;
+                        ViewModel.SearchMethod = ConfigurationCli.Instance.State.SearchMethod;
+
                         Controller.RequestHome();
                         Application.RequestStop ();
                     })

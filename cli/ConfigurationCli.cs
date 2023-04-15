@@ -22,12 +22,20 @@ namespace MemoriaNote.Cli
 
         public static ConfigurationCli Create() => Configuration.Create<ConfigurationCli>();
 
-        public TerminalSetting Terminal { get; set; } = new TerminalSetting();
+        [Reactive, DataMember] public TerminalSetting Terminal { get; set; } = new TerminalSetting();
 
         [DataContract]
         public class TerminalSetting : ConfigurationBase
         {
             [Reactive, DataMember] public string EditorPath { get; set; }
+        }
+
+        [Reactive, DataMember] public StateSetting State { get; set; } = new StateSetting();
+        [DataContract]
+        public class StateSetting : ConfigurationBase
+        {
+            [Reactive, DataMember] public SearchRangeType SearchRange { get; set; }
+            [Reactive, DataMember] public SearchMethodType SearchMethod { get; set; }
         }
 
         protected override void SetDefault<T>(T value)
