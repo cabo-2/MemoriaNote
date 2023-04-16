@@ -27,11 +27,11 @@ namespace MemoriaNote
         protected ObservableCollectionExtended<Note> _notes;
 
         #region SearchContents
-        public SearchResult SearchContents(string searchEntry, SearchRangeType searchRange = SearchRangeType.Note)
+        public SearchResult SearchContents(string searchEntry, SearchRangeType searchRange)
         {
-            return SearchContents(searchEntry, 0, int.MaxValue, searchRange);
+            return SearchContents(searchEntry, searchRange, 0, int.MaxValue);
         }
-        public SearchResult SearchContents(string searchEntry, int skipCount, int takeCount, SearchRangeType searchRange = SearchRangeType.Note)
+        public SearchResult SearchContents(string searchEntry, SearchRangeType searchRange, int skipCount, int takeCount)
         {
             if (searchRange == SearchRangeType.Note)
                 return SearchNoteContents(searchEntry, skipCount, takeCount);

@@ -26,17 +26,16 @@ namespace MemoriaNote
             }
             Workgroup = Configuration.Instance.Workgroup.Build();
 
-            Activate = ReactiveCommand.CreateFromTask(
-                () => Task.Run(() =>
+            ActivateHandler = () => Task.Run(() =>
                 {
                     OnActivate();
                     OnSearchContents(SearchEntry, SearchRange, SearchMethod, 0, OnSearchResultCallback);
-                }
-                )
-            );
+                });
+            Activate = ReactiveCommand.CreateFromTask(ActivateHandler);
 
+            SearchHandler = () => OnSearchContents(SearchEntry, SearchRange, SearchMethod, 0, OnSearchResultCallback);
             Search = ReactiveCommand.Create(
-                () => OnSearchContents(SearchEntry, SearchRange, SearchMethod, 0, OnSearchResultCallback)
+                () => OnSearchContentsAsync(SearchEntry, SearchRange, SearchMethod, 0, OnSearchResultCallback)
             );
 
             var canPageNext = this.WhenAnyValue(
@@ -46,7 +45,7 @@ namespace MemoriaNote
                     ViewPageIndexToContentsIndex(pi.Item1, pi.Item2) + Configuration.Instance.Search.MaxViewResultCount < count);
 
             PageNext = ReactiveCommand.Create(
-                () => OnSearchContents(SearchEntry, SearchRange, SearchMethod,
+                () => OnSearchContentsAsync(SearchEntry, SearchRange, SearchMethod,
                         SelectedContentsIndex + Configuration.Instance.Search.MaxViewResultCount, OnSearchResultCallback),
                 canPageNext
             );
@@ -58,30 +57,25 @@ namespace MemoriaNote
                     0 <= ViewPageIndexToContentsIndex(pi.Item1, pi.Item2) - Configuration.Instance.Search.MaxViewResultCount);
 
             PagePrev = ReactiveCommand.Create(
-                () => OnSearchContents(SearchEntry, SearchRange, SearchMethod,
+                () => OnSearchContentsAsync(SearchEntry, SearchRange, SearchMethod,
                         SelectedContentsIndex - Configuration.Instance.Search.MaxViewResultCount, OnSearchResultCallback),
                 canPagePrev
             );
 
-            OpenText = ReactiveCommand.Create(
-                () => OnSelectedContextsIndexChanged()
-            );
+            OpenTextHandler = () => OnSelectedContextsIndexChanged();
+            OpenText = ReactiveCommand.Create(OpenTextHandler);
 
-            CreateText = ReactiveCommand.Create(
-                () => OnCreateText(EditingTitle.ToString(), EditingText.ToString(), OnTextManageResultCallback)
-            );
+            CreateTextHandler = () => OnCreateText(EditingTitle.ToString(), EditingText.ToString(), OnTextManageResultCallback);
+            CreateText = ReactiveCommand.Create(CreateTextHandler);
 
-            EditText = ReactiveCommand.Create(
-                () => OnEditText(OpenedContent?.GetContent(), EditingText.ToString(), OnTextManageResultCallback)
-            );
+            EditTextHandler = () => OnEditText(OpenedContent?.GetContent(), EditingText.ToString(), OnTextManageResultCallback);
+            EditText = ReactiveCommand.Create(EditTextHandler);
 
-            RenameText = ReactiveCommand.Create(
-                () => OnRenameText(OpenedContent?.GetContent(), EditingTitle.ToString(), OnTextManageResultCallback)
-            );
+            RenameTextHandler = () => OnRenameText(OpenedContent?.GetContent(), EditingTitle.ToString(), OnTextManageResultCallback);
+            RenameText = ReactiveCommand.Create(RenameTextHandler);
 
-            DeleteText = ReactiveCommand.Create(
-                () => OnDeleteText(OpenedContent?.GetContent(), OnTextManageResultCallback)
-            );
+            DeleteTextHandler = () => OnDeleteText(OpenedContent?.GetContent(), OnTextManageResultCallback);
+            DeleteText = ReactiveCommand.Create(DeleteTextHandler);
 
             Workgroup.Notes.ToObservableChangeSet()
                 .Transform(note => note.ToString())
@@ -181,8 +175,51 @@ namespace MemoriaNote
         #region SearchContents
         object _searchLockObject = new object();
         List<CancellationTokenSource> _searchJobs = new List<CancellationTokenSource>();
+        
+        protected void OnSearchContents(string searchEntry, SearchRangeType searchRange, SearchMethodType searchMethod, int selectedContentsIndex, Action<SearchResult, int> result)
+        {
+            lock (_searchLockObject)
+            {
+                foreach (var job in _searchJobs)
+                    job.Cancel();
 
-        protected async void OnSearchContents(string searchEntry, SearchRangeType searchRange, SearchMethodType searchMethod, int selectedContentsIndex, Action<SearchResult, int> result)
+                _searchJobs.Clear();
+
+                int skipCount = selectedContentsIndex;
+                int takeCount = Configuration.Instance.Search.MaxViewResultCount;
+
+                if (searchMethod == SearchMethodType.Headline)
+                {
+                    SearchResult sr;
+                    try
+                    {
+                        sr = Workgroup.SearchContents(searchEntry, searchRange, skipCount, takeCount);
+                        if (sr != null)
+                            result(sr, selectedContentsIndex);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Logger.Debug(ex.Message);
+                    }
+                }
+                else if (searchMethod == SearchMethodType.FullText)
+                {
+                    SearchResult sr;
+                    try
+                    {
+                        sr = Workgroup.SearchFullText(searchEntry, searchRange, skipCount, takeCount);
+                        if (sr != null)
+                            result(sr, selectedContentsIndex);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Logger.Debug(ex.Message);
+                    }
+                }
+            }
+        }
+
+        protected async void OnSearchContentsAsync(string searchEntry, SearchRangeType searchRange, SearchMethodType searchMethod, int selectedContentsIndex, Action<SearchResult, int> result)
         {
             var cts = new CancellationTokenSource();
             CancellationToken token = cts.Token;
@@ -299,14 +336,21 @@ namespace MemoriaNote
 
         [Reactive] public Workgroup Workgroup { get; set; }
 
+        public Func<Task> ActivateHandler { get; }
         public ReactiveCommand<Unit, Unit> Activate { get; }
+        public Action SearchHandler { get; }
         public ReactiveCommand<Unit, Unit> Search { get; }
         public ReactiveCommand<Unit, Unit> PageNext { get; }
         public ReactiveCommand<Unit, Unit> PagePrev { get; }
+        public Action OpenTextHandler { get; }
         public ReactiveCommand<Unit, Unit> OpenText { get; }
+        public Action CreateTextHandler { get; }
         public ReactiveCommand<Unit, Unit> CreateText { get; }
+        public Action EditTextHandler { get; }
         public ReactiveCommand<Unit, Unit> EditText { get; }
+        public Action RenameTextHandler { get; }
         public ReactiveCommand<Unit, Unit> RenameText { get; }
+        public Action DeleteTextHandler { get; }
         public ReactiveCommand<Unit, Unit> DeleteText { get; }
 
         readonly ReadOnlyObservableCollection<string> _noteNames;

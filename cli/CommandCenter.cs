@@ -195,7 +195,7 @@ namespace MemoriaNote.Cli
                 int takeCount = ConfigurationCli.Instance.Search.MaxViewResultCount;
 
                 var wg = vm.Workgroup;
-                var result = wg.SearchContents(name, skipCount, takeCount, SearchRangeType.Note);
+                var result = wg.SearchContents(name, SearchRangeType.Note, skipCount, takeCount);
 
                 foreach (var content in result.Contents)
                 {
