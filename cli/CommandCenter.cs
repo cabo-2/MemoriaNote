@@ -216,17 +216,33 @@ namespace MemoriaNote.Cli
             }
         }
 
-        public int List()
+        public int List(string name = null, int maxCount = 1000, bool word = false)
         {
             try
             {
                 ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
 
-                var count = vm.Workgroup.SelectedNote.Count;
-                var contents = vm.Workgroup.SelectedNote.GetContents(0, 1000);
+                int count;
+                List<Content> contents;
 
-                WriteLineList(contents, count);
+                if (name == null)
+                {
+                    count = vm.Workgroup.SelectedNote.Count;
+                    contents = vm.Workgroup.SelectedNote.GetContents(0, maxCount);
+                }
+                else
+                {
+                    var key = word ? name + "*" : name;
+                    var sr = vm.Workgroup.SelectedNote.SearchContents(key, 0, maxCount);
+                    count = sr.Count;
+                    contents = sr.Contents;
+                }
+
+                if (word)
+                    WriteLineWord(contents, count);
+                else
+                    WriteLineList(contents, count);
 
                 ConfigurationCli.Instance.Save();
                 return 0;
@@ -306,7 +322,7 @@ namespace MemoriaNote.Cli
                 buffer.Append(" |");
                 Console.WriteLine(buffer.ToString());
 
-                if (num >= contents.Count)
+                if (num >= contents.Count || num >= totalCount)
                     break;
                 num++;
             }
@@ -316,6 +332,23 @@ namespace MemoriaNote.Cli
 
             Console.WriteLine("Total count: " + totalCount.ToString());
         }
+
+        static void WriteLineWord(List<Content> contents, int totalCount)
+        {
+            if (totalCount < 0)
+                throw new ArgumentException(nameof(totalCount));
+
+            int num = 1;
+            foreach (var content in contents)
+            {
+                Console.WriteLine(GetFirstWord(content.Name));
+                if (num >= contents.Count || num >= totalCount)
+                    break;
+                num++;
+            }           
+        }
+
+        static string GetFirstWord(string name) => name.Split(' ').FirstOrDefault();
 
         public int WorkSelect(string name)
         {

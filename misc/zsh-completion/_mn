@@ -1,0 +1,60 @@
+#compdef mn
+local prog="mn"
+local curcontext="$curcontext" state line  ret=1
+
+local -a _1st_arguments
+_1st_arguments=(
+  'config:Manage configuration options'
+  'edit:Edit and manage text commands'
+  'export:Export text files'
+  'find:Find and browse text commands'
+  'get:Get text command'
+  'import:Import text files'
+  'list:List text'
+  'new:Create text command'
+  'work:List, change and manage note options'
+)
+
+_arguments -C \
+  '1: :->cmds' \
+  '*: :->args' && ret=0
+
+__mn_list(){
+  echo "$($prog list "$1" --count 30 --word 2>/dev/null)"
+}
+
+case $state in
+  cmds)
+    _describe -t commands 'commands' _1st_arguments && ret=0
+    ;;
+
+  args)
+    case $words[2] in
+      (edit|find|list|ls|get)
+        _values 'name' $(__mn_list ${words[-1]}) && ret=0
+        ;;
+
+      (work)
+        local -a _work_arguments
+        _work_arguments=(
+          'add:Add a note'
+          'backup:Backup a note'
+          'create:Create a note'
+          'edit:Edit a note'
+          'list:List notes'
+          'remove:Remove a note'
+          'restore:Restore a note'
+          'select:select a note'
+        )
+        _describe -t commands 'work subcommands' _work_arguments && ret=0
+        ;;
+
+      *)
+        (( ret )) && _message 'no more arguments'
+        ;;
+
+    esac
+    ;;
+esac
+
+return ret

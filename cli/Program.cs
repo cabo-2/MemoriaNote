@@ -122,7 +122,7 @@ namespace MemoriaNote.Cli
         [HelpOption("--help")]
         class WorkCommand
         {
-            [Argument(0, "name", "select note")]
+            [Argument(0, "name", "note name")]
             public (bool hasValue, string value) Name { get; set; }
 
             protected int OnExecute(CommandLineApplication app)
@@ -133,7 +133,7 @@ namespace MemoriaNote.Cli
                     return new CommandCenter().WorkList();
             }
 
-            [Command("select", "curr", Description = "select note",
+            [Command("select", "curr", Description = "select a note",
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkSelectCommand
             {
@@ -160,7 +160,7 @@ namespace MemoriaNote.Cli
                 }
             }
 
-            [Command("create", Description = "Create note",
+            [Command("create", Description = "Create a note",
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkCreateCommand
             {
@@ -178,7 +178,7 @@ namespace MemoriaNote.Cli
                 }
             }
 
-            [Command("edit", Description = "Edit note",
+            [Command("edit", Description = "Edit a note",
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkEditCommand
             {
@@ -192,7 +192,7 @@ namespace MemoriaNote.Cli
                     return new CommandCenter().WorkEdit();
                 }
             }
-            [Command("add", Description = "Add note",
+            [Command("add", Description = "Add a note",
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkAddCommand
             {
@@ -206,7 +206,7 @@ namespace MemoriaNote.Cli
                     return new CommandCenter().WorkAdd(Path.value);
                 }
             }
-            [Command("remove", Description = "Remove note",
+            [Command("remove", Description = "Remove a note",
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkRemoveCommand
             {
@@ -224,7 +224,7 @@ namespace MemoriaNote.Cli
                 }
             }
 
-            [Command("backup", Description = "Backup note")]
+            [Command("backup", Description = "Backup a note")]
             private class WorkBackupCommand
             {
                 [Argument(0, "name")]
@@ -239,7 +239,7 @@ namespace MemoriaNote.Cli
                 }
             }
 
-            [Command("restore", Description = "Restore note")]
+            [Command("restore", Description = "Restore a note")]
             private class WorkRestoreCommand
             {
                 [Argument(0, "zipfile")]
@@ -265,14 +265,23 @@ namespace MemoriaNote.Cli
         [HelpOption("--help")]
         class ListCommand
         {
+            [Argument(0, "name")]
+            public (bool hasValue, string value) Name { get; set; }
+
+            [Option("--count", Description = "Maximum count option")]
+            public int MaxCount { get; set; } = 1000;
+
+            [Option("--word", Description = "First word option")]
+            public bool IsWord { get; set; }
+
             protected int OnExecute(CommandLineApplication app)
             {
-                new CommandCenter().List();
+                new CommandCenter().List(Name.value, MaxCount, IsWord);
                 return 0;
             }
         }
 
-        [Command("get", "g", Description = "get item")]
+        [Command("get", "g", Description = "Get text command")]
         [HelpOption("--help")]
         class GetCommand
         {
