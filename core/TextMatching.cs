@@ -16,7 +16,8 @@ namespace MemoriaNote
             if (string.IsNullOrWhiteSpace(keyword))
                 return new TextMatching("", MatchingType.None);
 
-            var pattern = EscapeSingleQuote(keyword);
+            var pattern = keyword.Trim();
+            pattern = EscapeSingleQuote(pattern);
             pattern = EscapeDoubleQuote(pattern);
             pattern = EscapePercent(pattern);
             pattern = EscapeUnderScore(pattern);
