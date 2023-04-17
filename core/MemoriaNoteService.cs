@@ -188,7 +188,7 @@ namespace MemoriaNote
                 int skipCount = selectedContentsIndex;
                 int takeCount = Configuration.Instance.Search.MaxViewResultCount;
 
-                if (searchMethod == SearchMethodType.Headline)
+                if (searchMethod == SearchMethodType.Heading)
                 {
                     SearchResult sr;
                     try
@@ -235,7 +235,7 @@ namespace MemoriaNote
             int skipCount = selectedContentsIndex;
             int takeCount = Configuration.Instance.Search.MaxViewResultCount;
 
-            if (searchMethod == SearchMethodType.Headline)
+            if (searchMethod == SearchMethodType.Heading)
             {
                 SearchResult sr;
                 try

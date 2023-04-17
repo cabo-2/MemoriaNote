@@ -88,7 +88,7 @@ namespace MemoriaNote
         {
             switch (method)
             {
-                case SearchMethodType.Headline:
+                case SearchMethodType.Heading:
                     return "Heading  ";
                 case SearchMethodType.FullText:
                 default:

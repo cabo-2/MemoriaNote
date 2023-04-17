@@ -137,10 +137,10 @@ namespace MemoriaNote.Cli
                     }),
                     new StatusItem(Key.F4, "~F4~ " + ViewModel.SearchMethodString, () => {
                         Log.Logger.Debug("Push F4 Function");
-                        if (ViewModel.SearchMethod == SearchMethodType.Headline)
+                        if (ViewModel.SearchMethod == SearchMethodType.Heading)
                             ViewModel.SearchMethod = ConfigurationCli.Instance.State.SearchMethod = SearchMethodType.FullText;
                         else
-                            ViewModel.SearchMethod = ConfigurationCli.Instance.State.SearchMethod = SearchMethodType.Headline;
+                            ViewModel.SearchMethod = ConfigurationCli.Instance.State.SearchMethod = SearchMethodType.Heading;
 
                         Controller.RequestHome();
                         Application.RequestStop ();
@@ -151,7 +151,7 @@ namespace MemoriaNote.Cli
                         Log.Logger.Debug("Push F10 Function");
 
                         ViewModel.SearchRange = SearchRangeType.Note;
-                        ViewModel.SearchMethod = SearchMethodType.Headline;
+                        ViewModel.SearchMethod = SearchMethodType.Heading;
 
                         Controller.RequestManage();
                         Application.RequestStop ();

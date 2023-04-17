@@ -67,7 +67,7 @@ namespace MemoriaNote.Cli
                 var vm = new MemoriaNoteViewModel();
                 vm.SearchEntry = name;
                 vm.SearchRange = SearchRangeType.Note;
-                vm.SearchMethod = SearchMethodType.Headline;
+                vm.SearchMethod = SearchMethodType.Heading;
 
                 var sc = new ScreenController();
                 sc.RequestManage();
@@ -97,7 +97,7 @@ namespace MemoriaNote.Cli
                 var vm = new MemoriaNoteViewModel();
                 vm.SearchEntry = name;
                 vm.SearchRange = SearchRangeType.Note;
-                vm.SearchMethod = SearchMethodType.Headline;
+                vm.SearchMethod = SearchMethodType.Heading;
                 vm.EditingTitle = name;
                 vm.EditingState = TextManageType.Create;
 
@@ -246,7 +246,7 @@ namespace MemoriaNote.Cli
                 var vm = new MemoriaNoteViewModel();
                 vm.SearchEntry = GetFindKey(name);
                 vm.SearchRange = SearchRangeType.Note;
-                vm.SearchMethod = SearchMethodType.Headline;
+                vm.SearchMethod = SearchMethodType.Heading;
                 vm.ActivateHandler().Wait();
 
                 if (completion)
