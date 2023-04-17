@@ -38,12 +38,6 @@ namespace MemoriaNote
             return DbContext.Pages;
         }
 
-        public Page Add (string name, string text, string tag) {
-            var page = Page.Create (name, text, tag);
-            Add (page);
-            return page;
-        }
-
         public void Add (Page value)
         {
             var entity = DbContext.Pages.Find(value.Rowid);
@@ -51,13 +45,6 @@ namespace MemoriaNote
                 DbContext.Pages.Add(value);
             else
                 throw new ArgumentException("Duplicate entries, use update method");
-        }
-
-        public void Update (int rowid, string name, string text) {
-            var entity = Read (rowid);
-            entity.Name = name;
-            entity.Text = text;
-            Update (entity);
         }
 
         public void Update(Page value)

@@ -76,11 +76,11 @@ namespace MemoriaNote
                 return db.PageClient.Read(name).ToList();
         }
 
-        public Page CreatePage(string name, string text, params string[] tags)
+        public Page CreatePage(string name, string text, string dir = null)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
-                var page = Page.Create(name, text, tags);
+                var page = Page.Create(name, text, dir);
                 page.Index = db.PageClient.GetLastIndex(name) + 1;
                 db.PageClient.Add(page);
                 RelocatePage(page.Name, db);

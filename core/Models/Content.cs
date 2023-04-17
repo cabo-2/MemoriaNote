@@ -10,7 +10,7 @@ namespace MemoriaNote
     [ComplexType]
     public class Content : IContent, IEquatable<Content>
     {
-        public static T Create<T>(string name, params string[] tags) where T : IContent, new()
+        public static T Create<T>(string name, string dir = null) where T : IContent, new()
         {
             var content = new T();
             content.Rowid = 0; // auto increment
@@ -18,13 +18,9 @@ namespace MemoriaNote
             content.Name = name;
             content.Index = 1;
             content.ContentType = nameof(T);
-            if (tags == null)
-                content.TagList = null;
-            else
-            {
-                content.TagList = new List<string>();
-                content.TagList.AddRange(tags);
-            }
+            if (dir != null)   
+                content.TagDict.Add(PageTag.Dir, dir);
+
             content.CreateTime = DateTime.UtcNow;
             content.UpdateTime = content.CreateTime;
             content.IsErased = false;
@@ -64,23 +60,23 @@ namespace MemoriaNote
         public string Name { get; set; }
         public int Index { get; set; }
         [NotMapped]
-        public List<string> TagList { get; set; }
+        public Dictionary<string, string> TagDict { get; set; }
         [JsonIgnore]
         public string Tags
         {
             get
             {
-                if (TagList == null || TagList.Count == 0)
+                if (TagDict == null || TagDict.Count == 0)
                     return null;
 
-                return JsonConvert.SerializeObject(TagList);
+                return JsonConvert.SerializeObject(TagDict);
             }
             set
             {
                 if (string.IsNullOrWhiteSpace(value))
-                    TagList = null;
+                    TagDict = new Dictionary<string, string>();
                 else
-                    TagList = JsonConvert.DeserializeObject<List<string>>(value);
+                    TagDict = JsonConvert.DeserializeObject<Dictionary<string, string>>(value);
             }
         }
         public string ContentType { get; set; }
@@ -145,7 +141,7 @@ namespace MemoriaNote
             return 4 ^ (value.Rowid.GetHashCode ()) ^
                    (value.Name == null ? 5 : value.Name.GetHashCode ()) ^
                    (value.Index.GetHashCode ()) ^
-                   (value.TagList == null ? 2 : value.TagList.GetOrderIndependentHashCode ()) ^
+                   (value.TagDict == null ? 2 : value.TagDict.GetOrderIndependentHashCode ()) ^
                    (value.CreateTime.GetHashCode()) ^
                    (value.UpdateTime.GetHashCode()) ^
                    (value.IsErased.GetHashCode());

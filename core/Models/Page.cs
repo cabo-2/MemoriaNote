@@ -10,9 +10,9 @@ namespace MemoriaNote
     [Serializable]
     public class Page : IContent, IEquatable<Page>
     {
-        public static Page Create(string name, string text, params string[] tags)
+        public static Page Create(string name, string text, string dir = null)
         {
-            var page = Content.Create<Page>(name, tags);
+            var page = Content.Create<Page>(name, dir);
             page.Text = text;
             return page;
         }
@@ -37,23 +37,23 @@ namespace MemoriaNote
         public string Name { get; set; }
         public int Index { get; set; }
         [NotMapped]
-        public List<string> TagList { get; set; }
+        public Dictionary<string, string> TagDict { get; set; } = new Dictionary<string, string>();
         [JsonIgnore]
         public string Tags
         {
             get
             {
-                if (TagList == null || TagList.Count == 0)
+                if (TagDict == null || TagDict.Count == 0)
                     return null;
 
-                return JsonConvert.SerializeObject(TagList);
+                return JsonConvert.SerializeObject(TagDict);
             }
             set
             {
                 if (string.IsNullOrWhiteSpace(value))
-                    TagList = null;
+                    TagDict = new Dictionary<string, string>();
                 else
-                    TagList = JsonConvert.DeserializeObject<List<string>>(value);
+                    TagDict = JsonConvert.DeserializeObject<Dictionary<string, string>>(value);
             }
         }
         public string ContentType { get; set; }
@@ -118,5 +118,10 @@ namespace MemoriaNote
         {
             return Content.Create(this);
         }
+    }
+    
+    public class PageTag
+    {
+        public static string Dir => nameof(Dir);
     }
 }
