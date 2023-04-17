@@ -23,7 +23,9 @@ namespace MemoriaNote.Cli
                 ConfigurationCli.Instance = ConfigurationCli.Create();
 
                 var vm = new MemoriaNoteViewModel();
-                vm.SearchEntry = name;
+                vm.SearchEntry = GetFindKey(name);
+                vm.SearchRange = ConfigurationCli.Instance.State.SearchRange;
+                vm.SearchMethod = ConfigurationCli.Instance.State.SearchMethod;
 
                 var sc = new ScreenController();
                 sc.RequestHome();
@@ -41,6 +43,21 @@ namespace MemoriaNote.Cli
             }
         }
 
+        static string GetFindKey(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return null;
+
+            var match = TextMatching.Create(name);
+            if (match.IsSentence)
+                return name;
+            
+            if (match.IsPrefixMatch || match.IsSuffixMatch)
+                return name;
+
+            return name + "*";
+        }
+
         public int Edit(string name = null)
         {
             try
@@ -49,6 +66,8 @@ namespace MemoriaNote.Cli
 
                 var vm = new MemoriaNoteViewModel();
                 vm.SearchEntry = name;
+                vm.SearchRange = SearchRangeType.Note;
+                vm.SearchMethod = SearchMethodType.Headline;
 
                 var sc = new ScreenController();
                 sc.RequestManage();
@@ -76,6 +95,9 @@ namespace MemoriaNote.Cli
                 ConfigurationCli.Instance = ConfigurationCli.Create();
 
                 var vm = new MemoriaNoteViewModel();
+                vm.SearchEntry = name;
+                vm.SearchRange = SearchRangeType.Note;
+                vm.SearchMethod = SearchMethodType.Headline;
                 vm.EditingTitle = name;
                 vm.EditingState = TextManageType.Create;
 
@@ -222,27 +244,15 @@ namespace MemoriaNote.Cli
             {
                 ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
-
-                int count;
-                List<Content> contents;
-
-                if (name == null)
-                {
-                    count = vm.Workgroup.SelectedNote.Count;
-                    contents = vm.Workgroup.SelectedNote.GetContents(0, maxCount);
-                }
-                else
-                {
-                    var key = word ? name + "*" : name;
-                    var sr = vm.Workgroup.SelectedNote.SearchContents(key, 0, maxCount);
-                    count = sr.Count;
-                    contents = sr.Contents;
-                }
+                vm.SearchEntry = GetFindKey(name);
+                vm.SearchRange = SearchRangeType.Note;
+                vm.SearchMethod = SearchMethodType.Headline;
+                vm.ActivateHandler().Wait();
 
                 if (word)
-                    WriteLineWord(contents, count);
+                    WriteLineWord(vm.Contents, vm.ContentsCount);
                 else
-                    WriteLineList(contents, count);
+                    WriteLineList(vm.Contents, vm.ContentsCount);
 
                 ConfigurationCli.Instance.Save();
                 return 0;
@@ -339,9 +349,11 @@ namespace MemoriaNote.Cli
                 throw new ArgumentException(nameof(totalCount));
 
             int num = 1;
-            foreach (var content in contents)
+            foreach (var name in contents.Select(c => GetFirstWord(c.Name))
+                                         .OrderBy(n => n)
+                                         .Distinct())
             {
-                Console.WriteLine(GetFirstWord(content.Name));
+                Console.WriteLine(name);
                 if (num >= contents.Count || num >= totalCount)
                     break;
                 num++;

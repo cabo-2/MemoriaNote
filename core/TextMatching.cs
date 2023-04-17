@@ -49,6 +49,26 @@ namespace MemoriaNote
 
         public string Pattern { get; private set; }
         public MatchingType MatchingType { get; private set; }
+
+        public bool IsPrefixMatch
+        {
+            get 
+            {
+                var last = Pattern.LastOrDefault();
+                return last == '%' || last == '_';
+            }
+        }
+
+        public bool IsSuffixMatch
+        {
+            get
+            {
+                var first = Pattern.FirstOrDefault();
+                return first == '%' || first == '_';
+            }
+        }
+
+        public bool IsSentence => Pattern.Any(c => c == ' ');
     }
 
     public enum MatchingType
