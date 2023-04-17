@@ -221,7 +221,7 @@ namespace MemoriaNote.Cli
 
                 foreach (var content in result.Contents)
                 {
-                    var page = wg.SelectedNote.Read(content);
+                    var page = wg.SelectedNote.ReadPage(content);
                     Console.WriteLine(page.ToString());
                     break;
                 }

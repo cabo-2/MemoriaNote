@@ -55,28 +55,28 @@ namespace MemoriaNote
         }
 
 
-        public Page Read(string name, int index)
+        public Page ReadPage(string name, int index)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
                 return db.PageClient.Read(name, index);
         }
 
-        public Page Read(Guid guid)
+        public Page ReadPage(Guid guid)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
                 return db.PageClient.Read(guid);
         }
 
-        public Page Read(IContent content) => Read(content.Guid);
+        public Page ReadPage(IContent content) => ReadPage(content.Guid);
 
 
-        public IEnumerable<Page> Read(string name)
+        public IEnumerable<Page> ReadPage(string name)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
                 return db.PageClient.Read(name).ToList();
         }
 
-        public Page Create(string name, string text, params string[] tags)
+        public Page CreatePage(string name, string text, params string[] tags)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
@@ -89,7 +89,7 @@ namespace MemoriaNote
             }
         }
 
-        public void Update(Page newPage)
+        public void UpdatePage(Page newPage)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
@@ -124,7 +124,7 @@ namespace MemoriaNote
             }
         }
 
-        public void Delete(IContent content)
+        public void DeletePage(IContent content)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
@@ -133,7 +133,7 @@ namespace MemoriaNote
             }
         }
 
-        public void Delete(int rowid)
+        public void DeletePage(int rowid)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {

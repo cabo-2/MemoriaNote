@@ -24,7 +24,7 @@ namespace MemoriaNote
                     using (StreamReader reader = file.OpenText()) 
                     {
                         var name = TextUtil.ReplaceNameStringReverse(Path.GetFileNameWithoutExtension(file.Name));
-                        note.Create(name, reader.ReadToEnd());
+                        note.CreatePage(name, reader.ReadToEnd());
                     }
                 }
             }, token);

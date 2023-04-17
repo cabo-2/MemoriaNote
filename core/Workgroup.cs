@@ -346,13 +346,13 @@ namespace MemoriaNote
         public Page ReadAll(IContent content)
         {
             Note current = this.SelectedNote;
-            Page page = current.Read(content.Guid);
+            Page page = current.ReadPage(content.Guid);
             if (page != null)
                 return page;
             
             foreach(var note in this.Notes.Where(n => !n.Equals(current)))
             {
-                page = note.Read(content.Guid);
+                page = note.ReadPage(content.Guid);
                 if (page != null)
                     return page;
             }
@@ -363,7 +363,7 @@ namespace MemoriaNote
         {
             errors = new List<string>();
             TextUtil.ValidateNameString(testName, errors);            
-            if (SelectedNote.Read(testName).FirstOrDefault() != null)
+            if (SelectedNote.ReadPage(testName).FirstOrDefault() != null)
                 errors.Add("The text name is already in use.");
 
             return errors.Count == 0;
@@ -391,7 +391,7 @@ namespace MemoriaNote
             } 
 
             TextUtil.ValidateNameString(testName, errors);            
-            if (SelectedNote.Read(testName).FirstOrDefault() != null)
+            if (SelectedNote.ReadPage(testName).FirstOrDefault() != null)
                 errors.Add("The text name is already in use.");
 
             return errors.Count == 0;
@@ -416,7 +416,7 @@ namespace MemoriaNote
             var validate = ValidateCreateText(newName, newText, out errors);
             mr.Errors = errors;
             if (validate) {
-                var page = SelectedNote.Create(newName, newText);
+                var page = SelectedNote.CreatePage(newName, newText);
                 mr.Content = page.GetContent();             
                 mr.Notification = "The text created successfully.";
                 mr.Result = true;
@@ -435,9 +435,9 @@ namespace MemoriaNote
             var validate = ValidateEditText(content, newText, out errors);
             mr.Errors = errors;
             if (validate) {
-                var page = SelectedNote.Read(content);
+                var page = SelectedNote.ReadPage(content);
                 page.Text = newText;
-                SelectedNote.Update(page);
+                SelectedNote.UpdatePage(page);
                 mr.Content = page.GetContent();
                 mr.Notification = "The text updated successfully.";
                 mr.Result = true;
@@ -456,9 +456,9 @@ namespace MemoriaNote
             var validate = ValidateRenameText(content, newName, out errors);
             mr.Errors = errors;
             if (validate) {
-                var page = SelectedNote.Read(content);
+                var page = SelectedNote.ReadPage(content);
                 page.Name = newName;
-                SelectedNote.Update(page);
+                SelectedNote.UpdatePage(page);
                 mr.Content = page.GetContent();
                 mr.Notification = "The text renamed successfully.";
                 mr.Result = true;
@@ -477,7 +477,7 @@ namespace MemoriaNote
             var validate = ValidateDeleteText(content, out errors);
             mr.Errors = errors;
             if (validate) {
-                SelectedNote.Delete(content);
+                SelectedNote.DeletePage(content);
                 mr.Content = null;
                 mr.Notification = "The text deleted successfully.";
                 mr.Result = true;
