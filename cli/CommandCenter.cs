@@ -238,7 +238,7 @@ namespace MemoriaNote.Cli
             }
         }
 
-        public int List(string name = null, int maxCount = 1000, bool word = false)
+        public int List(string name = null, bool completion = false)
         {
             try
             {
@@ -249,8 +249,8 @@ namespace MemoriaNote.Cli
                 vm.SearchMethod = SearchMethodType.Headline;
                 vm.ActivateHandler().Wait();
 
-                if (word)
-                    WriteLineWord(vm.Contents, vm.ContentsCount);
+                if (completion)
+                    WriteLineCompletion(vm.Contents, vm.ContentsCount);
                 else
                     WriteLineList(vm.Contents, vm.ContentsCount);
 
@@ -332,7 +332,7 @@ namespace MemoriaNote.Cli
                 buffer.Append(" |");
                 Console.WriteLine(buffer.ToString());
 
-                if (num >= contents.Count || num >= totalCount)
+                if (num >= contents.Count)
                     break;
                 num++;
             }
@@ -343,7 +343,7 @@ namespace MemoriaNote.Cli
             Console.WriteLine("Total count: " + totalCount.ToString());
         }
 
-        static void WriteLineWord(List<Content> contents, int totalCount)
+        static void WriteLineCompletion(List<Content> contents, int totalCount)
         {
             if (totalCount < 0)
                 throw new ArgumentException(nameof(totalCount));
@@ -354,7 +354,7 @@ namespace MemoriaNote.Cli
                                          .Distinct())
             {
                 Console.WriteLine(name);
-                if (num >= contents.Count || num >= totalCount)
+                if (num >= contents.Count)
                     break;
                 num++;
             }           

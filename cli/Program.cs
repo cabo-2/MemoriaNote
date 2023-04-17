@@ -268,15 +268,12 @@ namespace MemoriaNote.Cli
             [Argument(0, "name")]
             public (bool hasValue, string value) Name { get; set; }
 
-            [Option("--count", Description = "Maximum count option")]
-            public int MaxCount { get; set; } = 1000;
-
-            [Option("--word", Description = "First word option")]
-            public bool IsWord { get; set; }
+            [Option("--completion", Description = "Completion option")]
+            public bool Completion { get; set; }
 
             protected int OnExecute(CommandLineApplication app)
             {
-                new CommandCenter().List(Name.value, MaxCount, IsWord);
+                new CommandCenter().List(Name.value, Completion);
                 return 0;
             }
         }

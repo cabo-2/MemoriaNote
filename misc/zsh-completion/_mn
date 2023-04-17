@@ -20,7 +20,7 @@ _arguments -C \
   '*: :->args' && ret=0
 
 __mn_list(){
-  echo "$($prog list "$1" --count 30 --word 2>/dev/null)"
+  echo "$($prog list "$1" --completion 2>/dev/null)"
 }
 
 case $state in
