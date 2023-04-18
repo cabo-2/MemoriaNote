@@ -197,7 +197,7 @@ namespace MemoriaNote.Cli
 
             var notifyField = ViewHelper.CreateNotifyField(searchTextField);
             ViewModel
-                .WhenAnyValue(vm => vm.Notification, x => NStack.ustring.Make(x))
+                .WhenAnyValue(vm => vm.SearchNotice, x => NStack.ustring.Make(x))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(notifyField, x => x.Text)
                 .DisposeWith(_disposable);

@@ -130,14 +130,14 @@ namespace MemoriaNote
             var newContentItems = result.Contents.ConvertAll(c => c.ToString());
             this.ContentViewItems.Clear();
             this.ContentViewItems.Add(newContentItems);
-            this.Notification = result.ToString();
+            this.SearchNotice = result.ToString();
             OnSelectedContextsIndexChanged();
             Log.Logger.Information(result.ToString());
         }
 
         protected void OnTextManageResultCallback(TextManageResult result)
         {
-            this.Notification = result.Notification;
+            this.ManageNotice = result.Notification;
             Log.Logger.Information(result.ToString());
         }
 
@@ -410,6 +410,8 @@ namespace MemoriaNote
 
         [Reactive, DataMember] public string PlaceHolder { get; set; } = string.Empty;
 
-        [Reactive, DataMember] public string Notification { get; set; } = string.Empty;
+        [Reactive, DataMember] public string SearchNotice { get; set; } = string.Empty;
+
+        [Reactive, DataMember] public string ManageNotice { get; set; } = string.Empty;
     }
 }

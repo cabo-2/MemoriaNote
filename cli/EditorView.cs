@@ -84,7 +84,7 @@ namespace MemoriaNote.Cli
             if (!editor.Edit())
             {
                 Log.Logger.Information("A name enter canceled");
-                ViewModel.Notification = "A name enter canceled";
+                ViewModel.ManageNotice = "A name enter canceled";
                 return false;
             }
 
@@ -100,7 +100,7 @@ namespace MemoriaNote.Cli
             if (!editor.Edit())
             {
                 Log.Logger.Information("A text enter canceled");
-                ViewModel.Notification = "A text enter canceled";
+                ViewModel.SearchNotice = "A text enter canceled";
                 return false;
             }
 
