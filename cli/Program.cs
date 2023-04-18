@@ -32,7 +32,7 @@ namespace MemoriaNote.Cli
             return 0;
         }
 
-        [Command("find", "f", Description = "Find and browse text commands")]
+        [Command("find", Description = "Find and browse text commands")]
         [HelpOption("--help")]
         class FindCommand
         {
@@ -45,7 +45,7 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("edit", "e", Description = "Edit and manage text commands")]
+        [Command("edit", Description = "Edit and manage text commands")]
         [HelpOption("--help")]
         class EditCommand
         {
@@ -108,7 +108,7 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("work", "w", "branch", Description = "List, change and manage note options",
+        [Command("work", Description = "List, select and manage note options",
                 AllowArgumentSeparator = true,
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
         [Subcommand(typeof(WorkSelectCommand),
@@ -140,8 +140,6 @@ namespace MemoriaNote.Cli
                 [Argument(0, "name")]
                 public (bool hasValue, string value) Name { get; set; }
 
-                protected IReadOnlyList<string> RemainingArguments { get; }
-
                 protected int OnExecute(IConsole console)
                 {
                     return new CommandCenter().WorkSelect(Name.value);
@@ -171,8 +169,6 @@ namespace MemoriaNote.Cli
                 [Argument(1, "title")]
                 public (bool hasValue, string value) Title { get; set; }
 
-                protected IReadOnlyList<string> RemainingArguments { get; }
-
                 protected int OnExecute(IConsole console)
                 {
                     return new CommandCenter().WorkCreate(Name.value, Title.value);
@@ -186,8 +182,6 @@ namespace MemoriaNote.Cli
                 [Argument(0, "name")]
                 public (bool hasValue, string value) Name { get; set; }
 
-                protected IReadOnlyList<string> RemainingArguments { get; }
-
                 protected int OnExecute(IConsole console)
                 {
                     return new CommandCenter().WorkEdit();
@@ -199,8 +193,6 @@ namespace MemoriaNote.Cli
             {
                 [Argument(0, "path")]
                 public (bool hasValue, string value) Path { get; set; }
-
-                protected IReadOnlyList<string> RemainingArguments { get; }
 
                 protected int OnExecute(IConsole console)
                 {
@@ -214,11 +206,6 @@ namespace MemoriaNote.Cli
                 [Argument(0, "name")]
                 public (bool hasValue, string value) Name { get; set; }
 
-                [Option("--purge", Description = "The note PURGE option *** WARN ***")]
-                public bool IsPurge { get; set; }
-
-                protected IReadOnlyList<string> RemainingArguments { get; }
-
                 protected int OnExecute(IConsole console)
                 {
                     return new CommandCenter().WorkRemove(Name.value);
@@ -231,7 +218,7 @@ namespace MemoriaNote.Cli
                 [Argument(0, "name")]
                 public (bool hasValue, string value) Name { get; set; }
 
-                [Option("--outputFile", Description = "")]
+                [Option("--output", Description = "Output file path")]
                 public (bool hasValue, string value) OutputPath { get; set; }
 
                 protected int OnExecute(IConsole console)
@@ -243,10 +230,10 @@ namespace MemoriaNote.Cli
             [Command("restore", Description = "Restore a note")]
             private class WorkRestoreCommand
             {
-                [Argument(0, "zipfile")]
+                [Argument(0, "zip-file")]
                 public (bool hasValue, string value) InputPath { get; set; }
 
-                [Option("--outputDir", Description = "")]
+                [Option("--output-dir", Description = "Output directory")]
                 public (bool hasValue, string value) OutputDir { get; set; }
 
                 protected int OnExecute(IConsole console)
@@ -279,7 +266,7 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("get", "g", Description = "Get text command")]
+        [Command("get", Description = "Get text command")]
         [HelpOption("--help")]
         class GetCommand
         {
@@ -306,11 +293,8 @@ namespace MemoriaNote.Cli
         [HelpOption("--help")]
         class ImportCommand
         {
-            [Argument(0, "importDir")]
+            [Argument(0, "import-dir")]
             public (bool hasValue, string value) ImportDir { get; set; }
-
-            [Option("--work=<work>", Description = "Note")]
-            public (bool hasValue, string value) Work { get; set; }
 
             protected int OnExecute(CommandLineApplication app)
             {
@@ -328,11 +312,8 @@ namespace MemoriaNote.Cli
         [HelpOption("--help")]
         class ExportCommand
         {
-            [Argument(0, "exportDir")]
+            [Argument(0, "export-dir")]
             public (bool hasValue, string value) ExportDir { get; set; }
-
-            [Option("--work=<work>", Description = "Note")]
-            public (bool hasValue, string value) Work { get; set; }
 
             protected int OnExecute(CommandLineApplication app)
             {
