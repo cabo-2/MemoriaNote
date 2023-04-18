@@ -16,19 +16,24 @@ _1st_arguments=(
 )
 
 _arguments -C \
-  '1: :->cmds' \
-  '*: :->args' && ret=0
+  '1: :->arg1' \
+  '2: :->arg2' \
+  '3: :->arg3' && ret=0
 
 __mn_list(){
-  echo "$($prog list "$1" --completion 2>/dev/null)"
+  _call_program commands $prog list "$1" --completion
+}
+
+__mn_work_list(){
+  _call_program commands $prog work list --completion
 }
 
 case $state in
-  cmds)
+  arg1)
     _describe -t commands 'commands' _1st_arguments && ret=0
     ;;
 
-  args)
+  arg2)
     case $words[2] in
       (edit|find|list|ls|get)
         _values 'name' $(__mn_list ${words[-1]}) && ret=0
@@ -48,6 +53,23 @@ case $state in
         )
         _describe -t commands 'work subcommands' _work_arguments && ret=0
         ;;
+      
+      (config)
+        local -a _config_arguments
+        _config_arguments=(
+          'edit:Edit config'
+          'show:Show config'
+        )
+        _describe -t commands 'config subcommands' _config_arguments && ret=0
+        ;;
+
+      (import)
+        _arguments '*:input dir:_files' && ret=0
+        ;;
+
+      (export)
+        _arguments '*:output dir:_files' && ret=0
+        ;;
 
       *)
         (( ret )) && _message 'no more arguments'
@@ -55,6 +77,37 @@ case $state in
 
     esac
     ;;
+
+  arg3)
+    case $words[2] in
+      (work)
+        case $words[3] in
+          (edit|remove|select)
+            _values 'name' $(__mn_work_list ${words[-1]}) && ret=0
+            ;;
+
+          (add)
+            _arguments '*:input file:_files' && ret=0
+            ;;
+
+          (backup)
+            _values 'name' $(__mn_work_list ${words[-1]}) && ret=0
+            ;;
+
+          (restore)
+            _arguments '*:input file:_files' && ret=0
+            ;;
+
+          *)
+            (( ret )) && _message 'no more arguments'
+            ;;
+
+        esac
+        ;;
+
+    esac
+    ;;
+
 esac
 
 return ret

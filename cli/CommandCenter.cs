@@ -51,7 +51,7 @@ namespace MemoriaNote.Cli
             var match = TextMatching.Create(name);
             if (match.IsSentence)
                 return name;
-            
+
             if (match.IsPrefixMatch || match.IsSuffixMatch)
                 return name;
 
@@ -126,14 +126,14 @@ namespace MemoriaNote.Cli
                 bool retry;
                 do
                 {
-                    retry = false;                
+                    retry = false;
                     var editor = Editors.TerminalEditorFactory.Create();
                     editor.FileName = ConfigurationCli.Instance.ConfigurationFilename;
                     editor.TextData = JsonConvert.SerializeObject(ConfigurationCli.Instance, Formatting.Indented);
 
-                    ConfigurationCli config = null;                    
+                    ConfigurationCli config = null;
                     if (editor.Edit())
-                    {                        
+                    {
                         try
                         {
                             config = JsonConvert.DeserializeObject<ConfigurationCli>(editor.TextData);
@@ -144,7 +144,7 @@ namespace MemoriaNote.Cli
                         }
                         catch
                         {
-                            config = null; 
+                            config = null;
                             Log.Logger.Error("Error: Unable to read modified data");
                             Console.Error.WriteLine("Error: Unable to read modified data");
                             if (ReadLineTryAgain())
@@ -357,7 +357,7 @@ namespace MemoriaNote.Cli
                 if (num >= contents.Count)
                     break;
                 num++;
-            }           
+            }
         }
 
         static string GetFirstWord(string name) => name.Split(' ').FirstOrDefault();
@@ -403,30 +403,30 @@ namespace MemoriaNote.Cli
                 bool retry;
                 do
                 {
-                    retry = false;     
+                    retry = false;
                     JsonMetadata data = JsonMetadata.Create(note.Metadata);
                     List<string> errors = new List<string>();
                     var editor = Editors.TerminalEditorFactory.Create();
                     editor.FileName = note.ToString();
                     editor.TextData = JsonConvert.SerializeObject(data, Formatting.Indented);
-                 
+
                     if (editor.Edit())
-                    {                        
+                    {
                         try
                         {
                             data = JsonConvert.DeserializeObject<JsonMetadata>(editor.TextData);
 
                             data.ValidateName(note, vm.Workgroup, ref errors);
                             data.ValidateTitle(note, vm.Workgroup, ref errors);
-                            
-                            note.Metadata.CopyTo(data);                      
-                            retry = false;                            
+
+                            note.Metadata.CopyTo(data);
+                            retry = false;
                             Log.Logger.Information("Metadata updated");
                         }
-                        catch(ValidationException)
+                        catch (ValidationException)
                         {
                             data = null;
-                            foreach(var error in errors)
+                            foreach (var error in errors)
                             {
                                 Log.Logger.Error($"Error: {error}");
                                 Console.Error.WriteLine($"Error: {error}");
@@ -438,7 +438,7 @@ namespace MemoriaNote.Cli
                         }
                         catch
                         {
-                            data = null; 
+                            data = null;
                             Log.Logger.Error("Error: Unable to read modified data");
                             Console.Error.WriteLine("Error: Unable to read modified data");
                             if (ReadLineTryAgain())
@@ -545,7 +545,7 @@ namespace MemoriaNote.Cli
             return Console.ReadLine();
         }
 
-        public int WorkList()
+        public int WorkList(bool completion = false)
         {
             try
             {
@@ -554,12 +554,19 @@ namespace MemoriaNote.Cli
 
                 foreach (var note in vm.Workgroup.Notes)
                 {
-                    bool check = note == vm.Workgroup.SelectedNote;
-                    StringBuilder buffer = new StringBuilder();
-                    buffer.Append(check ? "*" : " ");
-                    buffer.Append(" ");
-                    buffer.Append(note.ToString());
-                    Console.WriteLine(buffer.ToString());
+                    if (!completion)
+                    {
+                        bool check = note == vm.Workgroup.SelectedNote;
+                        StringBuilder buffer = new StringBuilder();
+                        buffer.Append(check ? "*" : " ");
+                        buffer.Append(" ");
+                        buffer.Append(note.ToString());
+                        Console.WriteLine(buffer.ToString());
+                    }
+                    else
+                    {
+                        Console.WriteLine(note.Metadata.Name);
+                    }
                 }
 
                 ConfigurationCli.Instance.Save();

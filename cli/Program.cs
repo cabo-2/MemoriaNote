@@ -152,11 +152,12 @@ namespace MemoriaNote.Cli
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkListCommand
             {
-                protected IReadOnlyList<string> RemainingArguments { get; }
+                [Option("--completion", Description = "Completion option")]
+                public bool Completion { get; set; }
 
                 protected int OnExecute(IConsole console)
                 {
-                    return new CommandCenter().WorkList();
+                    return new CommandCenter().WorkList(Completion);
                 }
             }
 
