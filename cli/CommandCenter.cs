@@ -202,42 +202,6 @@ namespace MemoriaNote.Cli
             return 0;
         }
 
-        public int Get(string name, string format = null)
-        {
-            try
-            {
-                if (name == null)
-                    throw new ArgumentNullException(nameof(name));
-
-                ConfigurationCli.Instance = ConfigurationCli.Create();
-
-                var vm = new MemoriaNoteViewModel();
-
-                int skipCount = 0;
-                int takeCount = ConfigurationCli.Instance.Search.MaxViewResultCount;
-
-                var wg = vm.Workgroup;
-                var result = wg.SearchContents(name, SearchRangeType.Note, skipCount, takeCount);
-
-                foreach (var content in result.Contents)
-                {
-                    var page = wg.SelectedNote.ReadPage(content);
-                    Console.WriteLine(page.ToString());
-                    break;
-                }
-
-                ConfigurationCli.Instance.Save();
-                return 0;
-            }
-            catch (Exception e)
-            {
-                Log.Logger.Fatal(e.Message);
-                Log.Logger.Fatal(e.StackTrace);
-                Console.Error.WriteLine($"Fatal: {e.Message}");
-                return -1;
-            }
-        }
-
         public int List(string name = null, bool completion = false)
         {
             try

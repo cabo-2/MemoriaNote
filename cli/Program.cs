@@ -18,7 +18,6 @@ namespace MemoriaNote.Cli
         typeof(ConfigCommand),
         typeof(WorkCommand),
         typeof(ListCommand),
-        typeof(GetCommand),
         typeof(ImportCommand),
         typeof(ExportCommand))]
     [HelpOption("--help")]
@@ -263,29 +262,6 @@ namespace MemoriaNote.Cli
             {
                 new CommandCenter().List(Name.value, Completion);
                 return 0;
-            }
-        }
-
-        [Command("get", Description = "Get text command")]
-        [HelpOption("--help")]
-        class GetCommand
-        {
-
-            [Argument(1, "name", "text name")]
-            public (bool hasValue, string value) Name { get; set; }
-
-            [Option("--uuid=<uuid>", Description = "text uuid")]
-            public (bool hasValue, string value) Uuid { get; set; }
-
-            protected int OnExecute(CommandLineApplication app)
-            {
-                if (!Name.hasValue)
-                {
-                    Console.Error.WriteLine("Error: No name");
-                    return -1;
-                }
-
-                return new CommandCenter().Get(Name.value);
             }
         }
 

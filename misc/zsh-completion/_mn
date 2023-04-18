@@ -8,7 +8,6 @@ _1st_arguments=(
   'edit:Edit and manage text commands'
   'export:Export text files'
   'find:Find and browse text commands'
-  'get:Get text command'
   'import:Import text files'
   'list:List text'
   'new:Create text command'
@@ -35,7 +34,7 @@ case $state in
 
   arg2)
     case $words[2] in
-      (edit|find|list|ls|get)
+      (edit|find|list|ls)
         _values 'name' $(__mn_list ${words[-1]}) && ret=0
         ;;
 
