@@ -28,6 +28,8 @@ namespace MemoriaNote.Cli
         public class TerminalSetting : ConfigurationBase
         {
             [Reactive, DataMember] public string EditorPath { get; set; }
+
+            [Reactive, DataMember] public CompletionType Completion { get; set; } = CompletionType.Word;
         }
 
         [Reactive, DataMember] public StateSetting State { get; set; } = new StateSetting();
@@ -46,5 +48,11 @@ namespace MemoriaNote.Cli
             
             base.SetDefault(value);
         }
+    }
+
+    public enum CompletionType
+    {
+        None,
+        Word
     }
 }

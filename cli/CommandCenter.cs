@@ -207,6 +207,9 @@ namespace MemoriaNote.Cli
             try
             {
                 ConfigurationCli.Instance = ConfigurationCli.Create();
+                if (completion && ConfigurationCli.Instance.Terminal.Completion == CompletionType.None)
+                    return 0;
+
                 var vm = new MemoriaNoteViewModel();
                 vm.SearchEntry = GetFindKey(name);
                 vm.SearchRange = SearchRangeType.Note;
@@ -312,16 +315,10 @@ namespace MemoriaNote.Cli
             if (totalCount < 0)
                 throw new ArgumentException(nameof(totalCount));
 
-            int num = 1;
-            foreach (var name in contents.Select(c => GetFirstWord(c.Name))
+            foreach (var name in contents.Select(c => GetFirstWord(c.Name).ToLower())
                                          .OrderBy(n => n)
                                          .Distinct())
-            {
                 Console.WriteLine(name);
-                if (num >= contents.Count)
-                    break;
-                num++;
-            }
         }
 
         static string GetFirstWord(string name) => name.Split(' ').FirstOrDefault();
