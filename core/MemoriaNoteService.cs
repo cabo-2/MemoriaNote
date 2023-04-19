@@ -40,25 +40,27 @@ namespace MemoriaNote
 
             var canPageNext = this.WhenAnyValue(
                 x => x.ContentsViewPageIndex,
+                x => x.MaxViewResultCount,
                 x => x.ContentsCount,
-                (pi, count) =>
-                    ViewPageIndexToContentsIndex(pi.Item1, pi.Item2) + Configuration.Instance.Search.MaxViewResultCount < count);
+                (pi, maxView, count) =>
+                    ViewPageIndexToContentsIndex(pi.Item1, pi.Item2, maxView) + maxView < count);
 
             PageNext = ReactiveCommand.Create(
                 () => OnSearchContentsAsync(SearchEntry, SearchRange, SearchMethod,
-                        SelectedContentsIndex + Configuration.Instance.Search.MaxViewResultCount, OnSearchResultCallback),
+                        SelectedContentsIndex + MaxViewResultCount, OnSearchResultCallback),
                 canPageNext
             );
 
             var canPagePrev = this.WhenAnyValue(
                 x => x.ContentsViewPageIndex,
+                x => x.MaxViewResultCount,
                 x => x.ContentsCount,
-                (pi, count) =>
-                    0 <= ViewPageIndexToContentsIndex(pi.Item1, pi.Item2) - Configuration.Instance.Search.MaxViewResultCount);
+                (pi, maxView, count) =>
+                    0 <= ViewPageIndexToContentsIndex(pi.Item1, pi.Item2, maxView) - maxView);
 
             PagePrev = ReactiveCommand.Create(
                 () => OnSearchContentsAsync(SearchEntry, SearchRange, SearchMethod,
-                        SelectedContentsIndex - Configuration.Instance.Search.MaxViewResultCount, OnSearchResultCallback),
+                        SelectedContentsIndex - MaxViewResultCount, OnSearchResultCallback),
                 canPagePrev
             );
 
@@ -87,8 +89,11 @@ namespace MemoriaNote
                 .ToProperty(this, x => x.SelectedNoteIndex);
 
             _selectedContentsIndex = this
-                .WhenAnyValue(x => x.ContentsViewPageIndex)
-                .Select(x => ViewPageIndexToContentsIndex(x.Item1, x.Item2))
+                .WhenAnyValue(
+                    x => x.ContentsViewPageIndex,
+                    x => x.MaxViewResultCount,
+                    (pi, maxView) => ViewPageIndexToContentsIndex(pi.Item1, pi.Item2, maxView)
+                )
                 .ToProperty(this, x => x.SelectedContentsIndex);
 
             _searchRangeString = this
@@ -124,7 +129,7 @@ namespace MemoriaNote
 
         protected void OnSearchResultCallback(SearchResult result, int newContentsIndex)
         {
-            this.ContentsViewPageIndex = (ContentsIndexToViewPage(newContentsIndex), ContentsIndexToViewIndex(newContentsIndex));
+            this.ContentsViewPageIndex = (ContentsIndexToViewPage(newContentsIndex, MaxViewResultCount), ContentsIndexToViewIndex(newContentsIndex, MaxViewResultCount));
             this.ContentsCount = result.Count;
             this.Contents = result.Contents;
             var newContentItems = result.Contents.ConvertAll(c => c.ToString());
@@ -168,9 +173,9 @@ namespace MemoriaNote
 
         static string PlaceHolderString(int currentIndex, int totalCount) => totalCount > 0 ? $"{currentIndex + 1} of {totalCount}" : "0 of 0";
 
-        static int ContentsIndexToViewIndex(int contentsIndex) => contentsIndex % Configuration.Instance.Search.MaxViewResultCount; // % is remainder
-        static int ContentsIndexToViewPage(int contentsIndex) => (int)(contentsIndex / Configuration.Instance.Search.MaxViewResultCount);
-        static int ViewPageIndexToContentsIndex(int page, int index) => (page * Configuration.Instance.Search.MaxViewResultCount) + index;
+        static int ContentsIndexToViewIndex(int contentsIndex, int maxViewResultCount) => contentsIndex % maxViewResultCount; // % is remainder
+        static int ContentsIndexToViewPage(int contentsIndex, int maxViewResultCount) => (int)(contentsIndex / maxViewResultCount);
+        static int ViewPageIndexToContentsIndex(int page, int index, int maxViewResultCount) => (page * maxViewResultCount) + index;
 
         #region SearchContents
         object _searchLockObject = new object();
@@ -186,7 +191,7 @@ namespace MemoriaNote
                 _searchJobs.Clear();
 
                 int skipCount = selectedContentsIndex;
-                int takeCount = Configuration.Instance.Search.MaxViewResultCount;
+                int takeCount = MaxViewResultCount;
 
                 if (searchMethod == SearchMethodType.Heading)
                 {
@@ -233,7 +238,7 @@ namespace MemoriaNote
             }
 
             int skipCount = selectedContentsIndex;
-            int takeCount = Configuration.Instance.Search.MaxViewResultCount;
+            int takeCount = MaxViewResultCount;
 
             if (searchMethod == SearchMethodType.Heading)
             {
@@ -393,6 +398,8 @@ namespace MemoriaNote
         [IgnoreDataMember] public string SearchMethodString => _searchMethodString.Value;
 
         [Reactive, DataMember] public string SearchEntry { get; set; } = string.Empty;
+
+        [Reactive, DataMember] public int MaxViewResultCount { get; set; } = 1000;
 
         //[Reactive] public List<string> SearchHistory { get; set; } = new List<string>();
 
