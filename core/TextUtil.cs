@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using System.Linq;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace MemoriaNote
 {
@@ -68,6 +69,22 @@ namespace MemoriaNote
                     name = name.Replace(r.Replace, r.Invalid);
             
             return name.Substring(0, Math.Min(name.Length, 128));
+        }
+
+        public static string ConvertGenericPath(string path)
+        {
+            if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                return path?.Replace("\\", "/");
+            else
+                return path;        
+        }
+
+        public static string ConvertSystemPath(string path)
+        {
+            if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                return path?.Replace("/", "\\");
+            else
+                return path;        
         }
 
         public class ReplaceChar

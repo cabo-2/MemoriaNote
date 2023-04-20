@@ -722,7 +722,7 @@ namespace MemoriaNote.Cli
             }
         }
 
-        public int Import(string importDir)
+        public int Import(string importDir, bool recursive = false)
         {
             try
             {
@@ -738,7 +738,7 @@ namespace MemoriaNote.Cli
                 ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
 
-                NoteUtil.TextImporter(vm.Workgroup.SelectedNote, importDir).Wait();
+                NoteUtil.TextImporter(vm.Workgroup.SelectedNote, importDir, recursive).Wait();
 
                 Console.WriteLine("Import completed");
                 return 0;

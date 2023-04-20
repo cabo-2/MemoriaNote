@@ -14,21 +14,36 @@ namespace MemoriaNote
     {
         static readonly string MetadataName = "metadata.json";
 
-        public static Task TextImporter(Note note, string importDir)
+        public static Task TextImporter(Note note, string importDir, bool recursive = false)
         {
             var token = new CancellationToken();
             var task = Task.Run(() =>
             {
-                foreach (var file in new DirectoryInfo(importDir).GetFiles("*.txt"))
+                FindText(importDir, recursive, null, (file, subDir) =>
                 {
-                    using (StreamReader reader = file.OpenText()) 
+                   using (StreamReader reader = file.OpenText())
                     {
-                        var name = TextUtil.ReplaceNameStringReverse(Path.GetFileNameWithoutExtension(file.Name));
-                        note.CreatePage(name, reader.ReadToEnd());
+                        var name = TextUtil.ReplaceNameStringReverse(Path.GetFileNameWithoutExtension(file.Name));                        
+                        note.CreatePage(name, reader.ReadToEnd(), TextUtil.ConvertGenericPath(subDir));
                     }
-                }
+                });
+
             }, token);
             return task;
+        }
+
+        static void FindText(string importDir, bool recursive, string subDir, Action<FileInfo, string> importFile)
+        {
+            var targetDir = subDir == null ? importDir : Path.Combine(importDir, subDir);
+            foreach (var file in new DirectoryInfo(targetDir).GetFiles("*.txt"))
+                importFile(file, subDir);
+
+            if (!recursive)
+                return;
+
+            foreach (var dir in new DirectoryInfo(targetDir).EnumerateDirectories()
+                                                            .Where(d => d.Name.FirstOrDefault() != '.'))
+                FindText(importDir, recursive, Path.GetRelativePath(importDir, dir.FullName), importFile);
         }
 
         public static Task TextExporter(Note note, string exportDir)
@@ -37,12 +52,35 @@ namespace MemoriaNote
             var task = Task.Run(() =>
             {
                 using (NoteDbContext db = new NoteDbContext(note.DataSource))
+                {
+                    foreach (var subDir in db.PageClient.ReadAll()
+                                                     .Where(p => p.TagDict.ContainsKey(PageTag.Dir))
+                                                     .Select(p => p.TagDict[PageTag.Dir])
+                                                     .Distinct())
+                    {
+                        var dir = Path.Combine(exportDir, TextUtil.ConvertSystemPath(subDir));
+                        if (!Directory.Exists(dir))
+                            Directory.CreateDirectory(dir);
+                    }
+
                     foreach (var page in db.PageClient.ReadAll())
                     {
-                        var path = Path.Combine(exportDir, $"{page.Name}.txt");
+                        string subDir, path;
+                        if (page.TagDict.ContainsKey(PageTag.Dir))
+                        {
+                            subDir = page.TagDict[PageTag.Dir];
+                            path = Path.Combine(exportDir, TextUtil.ConvertSystemPath(subDir), $"{page.Name}.txt");
+                        }
+                        else
+                        {
+                            subDir = null;
+                            path = Path.Combine(exportDir, $"{page.Name}.txt");                            
+                        }
+                    
                         using (StreamWriter writer = new StreamWriter(path))
                             writer.Write(page.Text);
                     }
+                }
             }, token);
             return task;
         }
@@ -71,7 +109,7 @@ namespace MemoriaNote
                 {
                     foreach (var page in DeserializePages(zip))
                         db.Pages.Add(page);
-                    db.SaveChanges();                   
+                    db.SaveChanges();
                 }
 
                 Note.Migrate(note.DataSource);

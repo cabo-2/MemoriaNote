@@ -272,6 +272,9 @@ namespace MemoriaNote.Cli
             [Argument(0, "import-dir")]
             public (bool hasValue, string value) ImportDir { get; set; }
 
+            [Option("-r, --recursive", Description = "Sub directories recursively")]
+            public bool Recursive { get; set; }
+
             protected int OnExecute(CommandLineApplication app)
             {
                 if (!ImportDir.hasValue)
@@ -280,7 +283,7 @@ namespace MemoriaNote.Cli
                     return -1;
                 }
 
-                return new CommandCenter().Import(ImportDir.value);
+                return new CommandCenter().Import(ImportDir.value, Recursive);
             }
         }
 
