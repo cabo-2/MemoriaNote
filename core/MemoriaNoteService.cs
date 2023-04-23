@@ -401,20 +401,6 @@ namespace MemoriaNote
 
         [Reactive, DataMember] public int MaxViewResultCount { get; set; } = 1000;
 
-        //[Reactive] public List<string> SearchHistory { get; set; } = new List<string>();
-
-        // public bool IsWritable
-        // {
-        //     get
-        //     {
-        //         var noteReadOnly = Workgroup?.SelectedNote?.TitlePage?.ReadOnly;
-        //         if (noteReadOnly != null && !noteReadOnly.Value)
-        //             return true;
-        //         else
-        //             return false;
-        //     }
-        // }
-
         [Reactive, DataMember] public string PlaceHolder { get; set; } = string.Empty;
 
         [Reactive, DataMember] public string SearchNotice { get; set; } = string.Empty;

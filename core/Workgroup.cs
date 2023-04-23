@@ -362,6 +362,11 @@ namespace MemoriaNote
         public bool ValidateCreateText(string testName, string testText, out List<string> errors)
         {
             errors = new List<string>();
+            if (SelectedNote.Metadata.ReadOnly)
+            {
+                errors.Add("Create text is not allowed.");
+                return false;
+            }
             TextUtil.ValidateNameString(testName, errors);            
             if (SelectedNote.ReadPage(testName).FirstOrDefault() != null)
                 errors.Add("The text name is already in use.");
@@ -372,24 +377,32 @@ namespace MemoriaNote
         public bool ValidateEditText(IContent content, string testText, out List<string> errors)
         {
             errors = new List<string>();
+            if (SelectedNote.Metadata.ReadOnly)
+            {
+                errors.Add("Edit text is not allowed.");
+                return false;
+            }
             if (content == null)
             {
                 errors.Add("The text not yet opened.");
                 return false;
-            }    
-
+            }
             return TextUtil.ValidateTextString(testText, errors);
         }
 
         public bool ValidateRenameText(IContent content, string testName, out List<string> errors)
         {
             errors = new List<string>();
+            if (SelectedNote.Metadata.ReadOnly)
+            {
+                errors.Add("Rename text is not allowed.");
+                return false;
+            }
             if (content == null)
             {
                 errors.Add("The text not yet opened.");
                 return false;
-            } 
-
+            }
             TextUtil.ValidateNameString(testName, errors);            
             if (SelectedNote.ReadPage(testName).FirstOrDefault() != null)
                 errors.Add("The text name is already in use.");
@@ -400,12 +413,16 @@ namespace MemoriaNote
         public bool ValidateDeleteText(IContent content, out List<string> errors)
         {
             errors = new List<string>();
+            if (SelectedNote.Metadata.ReadOnly)
+            {
+                errors.Add("Delete text is not allowed.");
+                return false;
+            }
             if (content == null)
             {
                 errors.Add("The text not yet opened.");
                 return false;
             }
-
             return true;
         }
 
