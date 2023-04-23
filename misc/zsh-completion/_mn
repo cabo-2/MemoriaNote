@@ -20,7 +20,13 @@ _arguments -C \
   '3: :->arg3' && ret=0
 
 __mn_list(){
-  _call_program commands $prog list "$1" --completion
+  local -a mn_list
+  mn_list=$(_call_program commands $prog list "$1" --completion | grep -v "^$1$")
+  if [ -n "$mn_list" ]; then
+    echo "$mn_list"
+  else
+    echo "$1"
+  fi
 }
 
 __mn_work_list(){
