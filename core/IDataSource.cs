@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace MemoriaNote
 {
-    public interface IMetadata
+    public interface IDataSource : IEquatable<IDataSource>
     {
         public string Name { get; set; }
         public string Title { get; set; }
@@ -11,8 +11,12 @@ namespace MemoriaNote
         public string Description { get; set; }
         public string Author { get; set; }        
         public bool ReadOnly { get; set; }        
-        public List<string> TagList { get; set; }
+        public string Tag { get; set; }
+        public DateTime CreateTime { get; set; }
+        public string DataSource { get; set; }
 
-        public void CopyTo(IMetadata data);
+        public void CopyTo(IDataSource dest);                
+        public string ToString();
+        public IDataSource Clone();
     }
 }

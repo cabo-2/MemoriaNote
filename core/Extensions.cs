@@ -114,4 +114,9 @@ namespace MemoriaNote
 
         public static string ToUuid(this Guid guid) => guid.ToString("D");
     }
+
+    public static class DateTimeExtensions
+    {
+        public static string ToDateString(this DateTime dateTime) => dateTime.ToString("yyyyMMddhhmmss");
+    }
 }

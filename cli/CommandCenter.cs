@@ -10,7 +10,6 @@ using System.ComponentModel.DataAnnotations;
 using Terminal.Gui;
 using McMaster.Extensions.CommandLineUtils;
 using Newtonsoft.Json;
-using MemoriaNote.Cli.Models;
 
 namespace MemoriaNote.Cli
 {
@@ -365,7 +364,7 @@ namespace MemoriaNote.Cli
                 do
                 {
                     retry = false;
-                    JsonMetadata data = JsonMetadata.Create(note.Metadata);
+                    DataSourceTracker data = DataSourceTracker.Create(note.Metadata);
                     List<string> errors = new List<string>();
                     var editor = Editors.TerminalEditorFactory.Create();
                     editor.FileName = note.ToString();
@@ -375,7 +374,7 @@ namespace MemoriaNote.Cli
                     {
                         try
                         {
-                            data = JsonConvert.DeserializeObject<JsonMetadata>(editor.TextData);
+                            data = JsonConvert.DeserializeObject<DataSourceTracker>(editor.TextData);
 
                             data.ValidateName(note, vm.Workgroup, ref errors);
                             data.ValidateTitle(note, vm.Workgroup, ref errors);

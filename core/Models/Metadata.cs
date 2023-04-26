@@ -1,19 +1,15 @@
 ﻿using System;
-using System.IO;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.ComponentModel.DataAnnotations;
 using ReactiveUI;
-using Newtonsoft.Json;
 
 namespace MemoriaNote
 {
-    public class Metadata : ReactiveObject, IMetadata
+    public class Metadata : ReactiveObject, IDataSource
     {
-        public Metadata() {}
-        public Metadata(string dataSource) {
+        public Metadata() { }
+        public Metadata(string dataSource)
+        {
             DataSource = dataSource;
         }
 
@@ -228,7 +224,7 @@ namespace MemoriaNote
         {
             get
             {
-                var text = ReadOnlyAsString ?? "false";                
+                var text = ReadOnlyAsString ?? "false";
                 return bool.Parse(text);
             }
             set => ReadOnlyAsString = value.ToString();
@@ -243,7 +239,7 @@ namespace MemoriaNote
                     using (NoteDbContext db = new NoteDbContext(DataSource))
                         _readOnly = NoteKeyValue.Get(db, NoteKeyValue.ReadOnly);
                 }
-                return _readOnly;                
+                return _readOnly;
             }
             set
             {
@@ -274,46 +270,34 @@ namespace MemoriaNote
             }
         }
 
-        public List<string> TagList
+        string _tag = null;
+        public string Tag
         {
             get
             {
-                var text = Tags;
-                if (string.IsNullOrWhiteSpace(text))
-                    return null;
-
-                return JsonConvert.DeserializeObject<List<string>>(text);
-            }
-            set => Tags = JsonConvert.SerializeObject(value);
-        }
-        string _tags = null;
-        protected string Tags
-        {
-            get
-            {
-                if (_tags == null)
+                if (_tag == null)
                 {
                     using (NoteDbContext db = new NoteDbContext(DataSource))
-                        _tags = NoteKeyValue.Get(db, NoteKeyValue.Tags);
+                        _tag = NoteKeyValue.Get(db, NoteKeyValue.Tag);
                 }
-                return _tags;
+                return _tag;
             }
             set
             {
                 NoteDbContext db = null;
                 try
                 {
-                    if (_tags == null)
+                    if (_tag == null)
                     {
                         db = new NoteDbContext(DataSource);
-                        _tags = NoteKeyValue.Get(db, NoteKeyValue.Tags);
+                        _tag = NoteKeyValue.Get(db, NoteKeyValue.Tag);
                     }
-                    if (_tags != value)
+                    if (_tag != value)
                     {
-                        this.RaiseAndSetIfChanged(ref _tags, value);
+                        this.RaiseAndSetIfChanged(ref _tag, value);
                         if (db == null)
                             db = new NoteDbContext(DataSource);
-                        NoteKeyValue.Set(db, NoteKeyValue.Tags, _tags);
+                        NoteKeyValue.Set(db, NoteKeyValue.Tag, _tag);
                     }
                 }
                 finally
@@ -327,29 +311,63 @@ namespace MemoriaNote
             }
         }
 
-        public void CopyTo(IMetadata data)
+        public DateTime CreateTime
         {
-            if (this.Name != data.Name)
-                this.Name = data.Name;
-            if (this.Title != data.Title)
-                this.Title = data.Title;
-            if (this.Version != data.Version)
-                this.Version = data.Version;
-            if (this.Description != data.Description)
-                this.Description = data.Description;
-            if (this.Author != data.Author)
-                this.Author = data.Author;
-            if (this.ReadOnly != data.ReadOnly)
-                this.ReadOnly = data.ReadOnly;
-            if (this.TagList?.GetOrderIndependentHashCode() != data.TagList?.GetOrderIndependentHashCode())
-                this.TagList = data.TagList;
-        }             
-
-        public override string ToString () {
-            return Title ?? base.ToString ();
+            get
+            {
+                var createTime = CreateTimeAsString ?? default(DateTime).ToDateString();
+                return DateTime.Parse(createTime);
+            }
+            set => CreateTimeAsString = value.ToDateString();
+        }
+        string _createTime = null;
+        protected string CreateTimeAsString
+        {
+            get
+            {
+                if (_createTime == null)
+                {
+                    using (NoteDbContext db = new NoteDbContext(DataSource))
+                        _createTime = NoteKeyValue.Get(db, NoteKeyValue.CreateTime);
+                }
+                return _createTime;
+            }
+            set
+            {
+                NoteDbContext db = null;
+                try
+                {
+                    if (_createTime == null)
+                    {
+                        db = new NoteDbContext(DataSource);
+                        _createTime = NoteKeyValue.Get(db, NoteKeyValue.CreateTime);
+                    }
+                    if (_createTime != value)
+                    {
+                        this.RaiseAndSetIfChanged(ref _createTime, value);
+                        if (db == null)
+                            db = new NoteDbContext(DataSource);
+                        NoteKeyValue.Set(db, NoteKeyValue.CreateTime, _createTime);
+                    }
+                }
+                finally
+                {
+                    if (db != null)
+                    {
+                        db.Dispose();
+                        db = null;
+                    }
+                }
+            }
         }
 
         public string DataSource { get; set; }
+
+        public void CopyTo(IDataSource dest) => DataSourceTracker.Create(this).CopyTo(dest);
+        public override string ToString() => DataSourceTracker.Create(this).ToString();
+        public IDataSource Clone() => DataSourceTracker.Create(this).Clone();
+        public override int GetHashCode() => DataSourceTracker.Create(this).GetHashCode();
+        public bool Equals(IDataSource other) => this.GetHashCode() == other.GetHashCode();
     }
 
     public class NoteKeyValue
@@ -358,27 +376,31 @@ namespace MemoriaNote
         public string Key { get; set; }
         public string Value { get; set; }
 
-        public static string Get (NoteDbContext context, string key) {
+        public static string Get(NoteDbContext context, string key)
+        {
             if (context == null)
                 return null;
 
-            var entity = context.Metadata.Find (key);
+            var entity = context.Metadata.Find(key);
             if (entity == null) return null;
             else
                 return entity.Value;
         }
 
-        public static void Set (NoteDbContext context, string key, string value) {
+        public static void Set(NoteDbContext context, string key, string value)
+        {
             if (context == null)
                 return;
 
-            var entity = context.Metadata.Find (key);
-            if (entity == null) {
-                context.Metadata.Add (new NoteKeyValue () { Key = key, Value = value });
+            var entity = context.Metadata.Find(key);
+            if (entity == null)
+            {
+                context.Metadata.Add(new NoteKeyValue() { Key = key, Value = value });
             }
-            else {
-                var current = new NoteKeyValue () { Key = key, Value = value };
-                context.Entry (entity).CurrentValues.SetValues (current);
+            else
+            {
+                var current = new NoteKeyValue() { Key = key, Value = value };
+                context.Entry(entity).CurrentValues.SetValues(current);
             }
             context.SaveChanges();
         }
@@ -414,6 +436,7 @@ namespace MemoriaNote
         public static string ReadOnly => nameof(ReadOnly);
         public static string Description => nameof(Description);
         public static string Author => nameof(Author);
-        public static string Tags => nameof(Tags);
+        public static string Tag => nameof(Tag);
+        public static string CreateTime => nameof(CreateTime);
     }
 }

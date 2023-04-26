@@ -89,6 +89,9 @@ namespace MemoriaNote
         public virtual string ApplicationDataDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ApplicationName);
         public string ConfigurationPath => Path.Combine(ApplicationDataDirectory, ConfigurationFilename);
 
+        public virtual string DataSourcesFilename => "data-sources.json";      
+        public string DataSourcesPath => Path.Combine(ApplicationDataDirectory, DataSourcesFilename);
+
         protected virtual string DefaultDataSourceName => "Notepad.db";
         public string DefaultDataSourcePath => Path.Combine(ApplicationDataDirectory, DefaultDataSourceName);
 
