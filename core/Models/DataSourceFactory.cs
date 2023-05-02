@@ -27,11 +27,10 @@ namespace MemoriaNote
             if (FindFromDataSource(dataSource) != null)
                 throw new ArgumentException(nameof(dataSource));
 
-            Metadata meta = new Metadata(dataSource);
-            if (!string.IsNullOrWhiteSpace(meta.Tag) && FindFromNameTag(meta.Name, meta.Tag) != null)
-                RemoveNameTag(meta.Name, meta.Tag);
+            DataSourceTracker value = DataSourceTracker.Create(dataSource);
+            if (!string.IsNullOrWhiteSpace(value.Tag) && FindFromNameTag(value.Name, value.Tag) != null)
+                RemoveNameTag(value.Name, value.Tag);
 
-            DataSourceTracker value = DataSourceTracker.Create(meta.Name, dataSource, meta.Tag);
             Sources.Add(value);
             return value.Clone();
         }

@@ -363,10 +363,10 @@ namespace MemoriaNote
 
         public string DataSource { get; set; }
 
-        public void CopyTo(IDataSource dest) => DataSourceTracker.Create(this).CopyTo(dest);
-        public override string ToString() => DataSourceTracker.Create(this).ToString();
-        public IDataSource Clone() => DataSourceTracker.Create(this).Clone();
-        public override int GetHashCode() => DataSourceTracker.Create(this).GetHashCode();
+        public void CopyTo(IDataSource dest) => DataSourceTracker.Create(DataSource).CopyTo(dest);
+        public override string ToString() => DataSourceTracker.Create(DataSource).ToString();
+        public IDataSource Clone() => DataSourceTracker.Create(DataSource);
+        public override int GetHashCode() => DataSourceTracker.Create(DataSource).GetHashCode();
         public bool Equals(IDataSource other) => this.GetHashCode() == other.GetHashCode();
     }
 

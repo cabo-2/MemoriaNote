@@ -364,7 +364,7 @@ namespace MemoriaNote.Cli
                 do
                 {
                     retry = false;
-                    DataSourceTracker data = DataSourceTracker.Create(note.Metadata);
+                    DataSourceTracker data = DataSourceTracker.Create(note.Metadata.DataSource);
                     List<string> errors = new List<string>();
                     var editor = Editors.TerminalEditorFactory.Create();
                     editor.FileName = note.ToString();

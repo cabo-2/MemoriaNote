@@ -10,10 +10,10 @@ namespace MemoriaNote
     {
         [DataMember] public string Name { get; set; }
         [DataMember] public string Title { get; set; }
-        [DataMember] public string Version { get; set; }       
+        [DataMember] public string Version { get; set; }
         [DataMember] public string Description { get; set; }
-        [DataMember] public string Author { get; set; }        
-        [DataMember] public bool ReadOnly { get; set; } 
+        [DataMember] public string Author { get; set; }
+        [DataMember] public bool ReadOnly { get; set; }
         [DataMember] public string Tag { get; set; }
         [DataMember] public DateTime CreateTime { get; set; } = DateTime.Now;
         [DataMember] public string DataSource { get; set; }
@@ -21,11 +21,26 @@ namespace MemoriaNote
         public static DataSourceTracker Create(string name, string dataSource, string tag = null) =>
                                                    new DataSourceTracker() { Name = name, Tag = tag, DataSource = dataSource };
 
-        public static DataSourceTracker Create(IDataSource source)
+        public static DataSourceTracker Create(string dataSource)
         {
-            var tracker = new DataSourceTracker();
-            source.CopyTo(tracker);
-            return tracker;
+            var value = new DataSourceTracker() { DataSource = dataSource };
+            using (NoteDbContext db = new NoteDbContext(value.DataSource))
+            {
+                value.Name = NoteKeyValue.Get(db, NoteKeyValue.Name);
+                value.Title = NoteKeyValue.Get(db, NoteKeyValue.Title);
+                value.Version = NoteKeyValue.Get(db, NoteKeyValue.Version);
+                value.Description = NoteKeyValue.Get(db, NoteKeyValue.Description);
+                value.Author = NoteKeyValue.Get(db, NoteKeyValue.Author);
+                var readOnly = NoteKeyValue.Get(db, NoteKeyValue.ReadOnly);
+                value.ReadOnly = bool.Parse(readOnly ?? "false");
+                value.Tag = NoteKeyValue.Get(db, NoteKeyValue.Tag);
+                var createTime = NoteKeyValue.Get(db, NoteKeyValue.CreateTime);
+                if (createTime != null)
+                    value.CreateTime = DateTime.Parse(createTime);
+                else
+                    value.CreateTime = default(DateTime);
+            }
+            return value;
         }
 
         public void ValidateName(Note note, Workgroup wg, ref List<string> errors)
@@ -35,7 +50,7 @@ namespace MemoriaNote
                 errors.Add("Name cannot be blank");
                 throw new ValidationException(nameof(Name));
             }
-            foreach(var name in wg.Notes.Where(n => !n.Equals(note)).Select(n => n.Metadata.Name))
+            foreach (var name in wg.Notes.Where(n => !n.Equals(note)).Select(n => n.Metadata.Name))
                 if (this.Name == name)
                 {
                     errors.Add("Name is already registered");
@@ -50,14 +65,20 @@ namespace MemoriaNote
                 errors.Add("Title cannot be blank");
                 throw new ValidationException(nameof(Title));
             }
-        }  
+        }
 
         public IDataSource Clone() => new DataSourceTracker()
-                                    {
-                                        Name = this.Name, Title = this.Title, Version = this.Version, Description = this.Description,
-                                        Author = this.Author, ReadOnly = this.ReadOnly, Tag = this.Tag, CreateTime = this.CreateTime, 
-                                        DataSource = this.DataSource
-                                    };
+        {
+            Name = this.Name,
+            Title = this.Title,
+            Version = this.Version,
+            Description = this.Description,
+            Author = this.Author,
+            ReadOnly = this.ReadOnly,
+            Tag = this.Tag,
+            CreateTime = this.CreateTime,
+            DataSource = this.DataSource
+        };
         public override int GetHashCode() => new { Name, Title, Version, Description, Author, ReadOnly, Tag, CreateTime, DataSource }.GetHashCode();
         public bool Equals(IDataSource other) => this.GetHashCode() == other.GetHashCode();
         public void CopyTo(IDataSource dest)
@@ -79,7 +100,7 @@ namespace MemoriaNote
             if (this.CreateTime != dest.CreateTime)
                 dest.CreateTime = this.CreateTime;
             if (this.DataSource != dest.DataSource)
-                dest.DataSource = this.DataSource;         
+                dest.DataSource = this.DataSource;
         }
 
         public override string ToString()
