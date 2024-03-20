@@ -12,13 +12,13 @@ namespace MemoriaNote.Cli
     [DataContract]
     public class ConfigurationCli : Configuration
     {
-        #pragma warning disable 108
+#pragma warning disable 108
         public static ConfigurationCli Instance
         {
             get => (ConfigurationCli)Configuration.Instance;
             set => Configuration.Instance = value;
         }
-        #pragma warning restore 108
+#pragma warning restore 108
 
         public static ConfigurationCli Create() => Configuration.Create<ConfigurationCli>();
 
@@ -27,6 +27,9 @@ namespace MemoriaNote.Cli
         [DataContract]
         public class TerminalSetting : ConfigurationBase
         {
+            public static string EditorEnvName => "EDITOR";
+            [Reactive, DataMember] public bool EditorEnv { get; set; } = true;
+
             [Reactive, DataMember] public string EditorPath { get; set; }
 
             [Reactive, DataMember] public CompletionType Completion { get; set; } = CompletionType.Word;
@@ -43,9 +46,12 @@ namespace MemoriaNote.Cli
         protected override void SetDefault<T>(T value)
         {
             ConfigurationCli config = value as ConfigurationCli;
-            
-            config.Terminal.EditorPath = "";
-            
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                config.Terminal.EditorPath = @"C:\Program Files\Git\usr\bin\nano.exe";
+            else
+                config.Terminal.EditorPath = "nano";
+
             base.SetDefault(value);
         }
     }
