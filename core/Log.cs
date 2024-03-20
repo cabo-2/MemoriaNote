@@ -37,6 +37,9 @@ namespace MemoriaNote
         }
     }
 
+    /// <summary>
+    /// Define an enumeration type LoggerType with three possible values: None, File, and Console
+    /// </summary>
     public enum LoggerType
     {
         None,
