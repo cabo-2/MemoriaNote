@@ -36,7 +36,7 @@ namespace MemoriaNote.Cli
             aboutMessage.AppendLine(@" | |\  | (_) | ||  __/  | |___| |___ | |  ");
             aboutMessage.AppendLine(@" |_| \_|\___/ \__\___|   \____|_____|___| ");
             aboutMessage.AppendLine(@"");
-            aboutMessage.AppendLine(@"https://github.com/gui-cs/Terminal.Gui");
+            aboutMessage.AppendLine(@"https://github.com/cabo-2/MemoriaNote");
         }
 
         public static Key NumberToKey(int number)
