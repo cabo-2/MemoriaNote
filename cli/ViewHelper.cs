@@ -4,6 +4,9 @@ using Terminal.Gui;
 
 namespace MemoriaNote.Cli
 {
+    /// <summary>
+    /// Helper class containing methods to create various view elements for the MemoriaNote.Cli application.
+    /// </summary>
     public class ViewHelper
     {
         public static int NotesWidth => 42;
@@ -78,7 +81,7 @@ namespace MemoriaNote.Cli
             Width = NotifyWidth,
             Height = 1,
             CanFocus = false,
-            TextAlignment = TextAlignment.Right        
+            TextAlignment = TextAlignment.Right
         };
 
         public static Label CreateContentsLabel() => new Label()
@@ -155,7 +158,7 @@ namespace MemoriaNote.Cli
             X = 0,
             Y = 0,
             Width = Dim.Fill() - PageUpdateTimeWidth,
-            Height = 1,            
+            Height = 1,
             CanFocus = false,
             ReadOnly = true
         };
@@ -165,7 +168,7 @@ namespace MemoriaNote.Cli
             X = 0,
             Y = 1,
             Width = Dim.Fill() - NoteTitleWidth,
-            Height = 1,            
+            Height = 1,
             CanFocus = false,
             ReadOnly = true
         };
@@ -205,7 +208,7 @@ namespace MemoriaNote.Cli
             WordWrap = true
         };
 
-        public static ScrollBarView CreateTextEditorScrollBar(TextView textEditor) 
+        public static ScrollBarView CreateTextEditorScrollBar(TextView textEditor)
         {
             var scrollBar = new ScrollBarView(textEditor, true);
             scrollBar.ChangedPosition += () =>

@@ -1,4 +1,12 @@
-﻿using System;
+﻿// MIT License
+//
+// Copyright 2007-2011 Novell Inc
+// Copyright 2017 Microsoft Corp
+//
+// The following code is adapted from Terminal.Gui.
+// Original source code from: https://github.com/gui-cs/Terminal.Gui/blob/develop/ReactiveExample/TerminalScheduler.cs
+
+using System;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using Terminal.Gui;

@@ -4,13 +4,41 @@ using System.Text;
 
 namespace MemoriaNote
 {
+    /// <summary>
+    /// Represents the results of a search operation, including the list of content, start and end times, and the count of results.
+    /// </summary>
     public class SearchResult
     {
+        /// <summary>
+        /// Represents the search results containing a list of content, start and end times, and the count of results.
+        /// </summary>
+        /// <value>The list of content in the search results.</value>
         public List<Content> Contents { get; set; }
+
+        /// <summary>
+        /// Gets or sets the start time of the search operation.
+        /// </summary>
+        /// <value>The start time of the search operation.</value>
         public DateTime StartTime { get; set; }
+
+        /// <summary>
+        /// Gets or sets the end time of the search operation.
+        /// </summary>
+        /// <value>The end time of the search operation.</value>
         public DateTime EndTime { get; set; }
+
+        /// <summary>
+        /// Gets or sets the count of results in the search operation.
+        /// </summary>
+        /// <value>The count of results in the search operation.</value>
         public int Count { get; set; }
 
+        /// <summary>
+        /// Concatenates two search results into a new SearchResult object.
+        /// </summary>
+        /// <param name="a">The first search result to concatenate.</param>
+        /// <param name="b">The second search result to concatenate.</param>
+        /// <returns>The combined search result.</returns>
         public static SearchResult Concat(SearchResult a, SearchResult b)
         {
             var sr = new SearchResult();
@@ -23,6 +51,9 @@ namespace MemoriaNote
             return sr;
         }
 
+        /// <summary>
+        /// Represents an empty search result.
+        /// </summary>
         public static SearchResult Empty
         {
             get
@@ -37,11 +68,18 @@ namespace MemoriaNote
             }
         }
 
+        /// <summary>
+        /// Initializes a new instance of the SearchResult class with an empty list of content.
+        /// </summary>
         public SearchResult()
         {
             Contents = new List<Content>();
         }
 
+        /// <summary>
+        /// Returns a string representation of the search result.
+        /// </summary>
+        /// <returns>A string with the count of results and response time.</returns>
         public override string ToString()
         {
             StringBuilder builder = new StringBuilder();

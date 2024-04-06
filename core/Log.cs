@@ -15,10 +15,16 @@ using Serilog;
 
 namespace MemoriaNote
 {
+    /// <summary>
+    /// This class represents a logging utility for the application.
+    /// </summary>
     public class Log //: IDisposable
     {
         static Serilog.ILogger _logger = null;
         
+        /// <summary>
+        /// Property that provides access to the logger instance. If the logger instance is null, it is created with specified configurations and file destination.
+        /// </summary>
         public static Serilog.ILogger Logger        
         {
             get {

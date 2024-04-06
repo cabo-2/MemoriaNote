@@ -15,6 +15,9 @@ using DynamicData.Binding;
 namespace MemoriaNote.Cli
 {
 
+    /// <summary>
+    /// This class represents the ViewModel for MemoriaNote application, inheriting from MemoriaNoteService
+    /// </summary>
     [DataContract]
     public class MemoriaNoteViewModel : MemoriaNoteService
     {

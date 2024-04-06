@@ -10,7 +10,9 @@ using System.Reactive.Concurrency;
 
 namespace MemoriaNote.Cli
 {
-
+    /// <summary>
+    /// This class represents the HomeView which is a Toplevel view and implements IViewFor<MemoriaNoteViewModel>, ITerminalScreen, and IDisposable interfaces.
+    /// </summary>
     public class HomeView : Toplevel, IViewFor<MemoriaNoteViewModel>, ITerminalScreen, IDisposable
     {
         public static void Run(ScreenController sc, MemoriaNoteViewModel vm)

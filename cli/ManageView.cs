@@ -10,7 +10,9 @@ using System.Reactive.Concurrency;
 
 namespace MemoriaNote.Cli
 {
-
+    /// <summary>
+    /// This class represents the ManageView which is a Toplevel and implements IViewFor<MemoriaNoteViewModel>, ITerminalScreen, and IDisposable interfaces. It is used to manage the view of the MemoriaNoteViewModel in the terminal screen.
+    /// </summary>
     public class ManageView : Toplevel, IViewFor<MemoriaNoteViewModel>, ITerminalScreen, IDisposable
     {
         public static void Run(ScreenController sc, MemoriaNoteViewModel vm)
