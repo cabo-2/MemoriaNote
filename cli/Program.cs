@@ -132,7 +132,7 @@ namespace MemoriaNote.Cli
                     return new CommandCenter().WorkList();
             }
 
-            [Command("select", "curr", Description = "select a note",
+            [Command("select", "curr", Description = "Choose and display a specific note",
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkSelectCommand
             {
@@ -145,7 +145,7 @@ namespace MemoriaNote.Cli
                 }
             }
 
-            [Command("list", "ls", Description = "List notes",
+            [Command("list", "ls", Description = "Display a list of all notes",
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkListCommand
             {
@@ -158,7 +158,7 @@ namespace MemoriaNote.Cli
                 }
             }
 
-            [Command("create", Description = "Create a note",
+            [Command("create", Description = "Create a new note",
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkCreateCommand
             {
@@ -174,7 +174,7 @@ namespace MemoriaNote.Cli
                 }
             }
 
-            [Command("edit", Description = "Edit a note",
+            [Command("edit", Description = "Modify the content of the selected note",
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkEditCommand
             {
@@ -186,7 +186,7 @@ namespace MemoriaNote.Cli
                     return new CommandCenter().WorkEdit();
                 }
             }
-            [Command("add", Description = "Add a note",
+            [Command("add", Description = "Add a new note to the work list",
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkAddCommand
             {
@@ -198,7 +198,7 @@ namespace MemoriaNote.Cli
                     return new CommandCenter().WorkAdd(Path.value);
                 }
             }
-            [Command("remove", Description = "Remove a note",
+            [Command("remove", Description = "Delete the selected note",
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkRemoveCommand
             {
@@ -211,7 +211,7 @@ namespace MemoriaNote.Cli
                 }
             }
 
-            [Command("backup", Description = "Backup a note")]
+            [Command("backup", Description = "Create a backup of the selected note")]
             private class WorkBackupCommand
             {
                 [Argument(0, "name")]
@@ -226,7 +226,7 @@ namespace MemoriaNote.Cli
                 }
             }
 
-            [Command("restore", Description = "Restore a note")]
+            [Command("restore", Description = "Restore a previously backed up note")]
             private class WorkRestoreCommand
             {
                 [Argument(0, "zip-file")]

@@ -47,14 +47,14 @@ case $state in
       (work)
         local -a _work_arguments
         _work_arguments=(
-          'add:Add a note'
-          'backup:Backup a note'
-          'create:Create a note'
-          'edit:Edit a note'
-          'list:List notes'
-          'remove:Remove a note'
-          'restore:Restore a note'
-          'select:select a note'
+          'add:Add a new note to the work list'
+          'backup:Create a backup of the selected note'
+          'create:Create a new note'
+          'edit:Modify the content of the selected note'
+          'list:Display a list of all notes'
+          'remove:Delete the selected note'
+          'restore:Restore a previously backed up note'
+          'select:Choose and display a specific note'
         )
         _describe -t commands 'work subcommands' _work_arguments && ret=0
         ;;
