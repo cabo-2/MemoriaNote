@@ -86,12 +86,14 @@ namespace MemoriaNote.Cli
 
         protected void OnRenameText(ITerminalEditor editor)
         {
-            if (EnterName(editor, ViewModel.EditingState))
+            if (EnterName(editor, TextManageType.Rename))
                 Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.RenameText);
         }
         
         protected void OnDeleteText(ITerminalEditor editor)
         {
+            if (EnterName(editor, TextManageType.Delete))
+                Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.DeleteText);
         }
 
         protected bool EnterName(ITerminalEditor editor, TextManageType type)
@@ -103,7 +105,7 @@ namespace MemoriaNote.Cli
             else
                 editor.FileName = "New text";
 
-            editor.TextData = AddNameComment(ViewModel.EditingTitle);
+            editor.TextData = AddNameComment(ViewModel.EditingTitle, type);
 
             if (!editor.Edit())
             {
@@ -132,12 +134,18 @@ namespace MemoriaNote.Cli
             return true;
         }
 
-        static string AddNameComment(string name)
+        static string AddNameComment(string name, TextManageType type)
         {
             StringBuilder buffer = new StringBuilder();
             buffer.AppendLine(name);
             buffer.AppendLine();
-            buffer.AppendLine("#### Please enter a new name ####");
+
+            if (type == TextManageType.Rename)
+                buffer.AppendLine("#### Enter the name to be renamed ####");
+            else if (type == TextManageType.Delete)
+                buffer.AppendLine("#### Enter the name to be deleted ####");
+            else
+                buffer.AppendLine("#### Enter a name to be created ####");
             return buffer.ToString();
         }
 
