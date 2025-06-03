@@ -36,7 +36,7 @@ namespace MemoriaNote
 
         /// <summary>
         /// Represents the Logging settings for the application
-        /// Inherits from ConfigurationBase and is marked with DataContract attribute to indicate serializability
+        /// Inherits from ConfigurationBase and is marked with DataContract attribute to indicate it is serializable
         /// </summary>
         [DataMember]
         [Reactive]
@@ -65,7 +65,7 @@ namespace MemoriaNote
 
         /// <summary>
         /// Represents the Search settings for the application 
-        /// Inherits from ConfigurationBase and is marked with DataContract attribute to indicate serializability
+        /// Inherits from ConfigurationBase and is marked with DataContract attribute to indicate it is serializable
         /// </summary>
         [DataMember]
         [Reactive]

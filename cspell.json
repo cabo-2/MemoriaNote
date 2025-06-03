@@ -14,7 +14,9 @@
         "serilog",
         "Subviews",
         "Taskpool",
-        "ustring"
+        "ustring",
+        "Autoincrement",
+        "NOCASE"
     ],
     "ignoreWords": [],
     "import": []
