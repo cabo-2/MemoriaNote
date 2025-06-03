@@ -876,7 +876,7 @@ namespace MemoriaNote.Cli
 
                 if (outputDir != null)
                 {
-                    if (Directory.Exists(outputDir))
+                    if (!Directory.Exists(outputDir))
                     {
                         Console.Error.WriteLine("Error: No such directory");
                         return -1;
