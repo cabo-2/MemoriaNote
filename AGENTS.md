@@ -23,13 +23,9 @@ The project is expected to move to **.NET 10** after the baseline functional tes
 Before committing code changes or marking a pull request ready, run the following commands from the repository root:
 
 ```bash
-cd core && dotnet build && cd ..
-cd cli && dotnet build && cd ..
+dotnet build MemoriaNote.sln
+dotnet test MemoriaNote.sln --no-build
 ```
-
-If tests are present under `tests/`, also run `dotnet test`.
-
-When a root solution is added, prefer building and testing the solution from the repository root so that all projects are verified together.
 
 ## Spelling
 
