@@ -32,7 +32,7 @@ dotnet test MemoriaNote.sln --no-build
 Check source files with [cspell](https://cspell.org/):
 
 ```bash
-npx cspell --config cspell.json "**/*.cs"
+cspell --config cspell.json "**/*.cs"
 ```
 
 Correct any reported typos.
