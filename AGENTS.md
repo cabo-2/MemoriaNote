@@ -16,7 +16,7 @@ The project is expected to move to **.NET 10** after the baseline functional tes
 - Reference the applicable roadmap ID in the branch name or pull request description. A separate GitHub issue is optional unless additional discussion or tracking is useful.
 - Prefer draft pull requests for work that benefits from early visibility, but only mark them ready when the intended scope and verification are complete.
 - Required reviewer approval is not expected for solo development. Automated checks must pass when CI is available.
-- Use squash merge so that each pull request becomes one logical commit on `main`, then delete the merged branch.
+- Merge pull requests with GitHub's **Squash and merge** option so that each pull request becomes one logical commit on `main`, then delete the merged branch. Do not use **Create a merge commit** or **Rebase and merge** unless a specific change requires it.
 
 ## Build Verification
 
