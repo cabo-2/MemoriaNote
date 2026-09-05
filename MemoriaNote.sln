@@ -1,0 +1,33 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoriaNote.Core", "core\MemoriaNote.Core.csproj", "{67CE521B-2F82-4500-B784-4AC0738A3901}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mn", "cli\mn.csproj", "{5096EABB-A40E-4832-8883-BDF400791482}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoriaNote.Core.Tests", "tests\MemoriaNote.Core.Tests\MemoriaNote.Core.Tests.csproj", "{2E398A91-2B44-4287-91C8-8294772DF04B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{67CE521B-2F82-4500-B784-4AC0738A3901}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{67CE521B-2F82-4500-B784-4AC0738A3901}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{67CE521B-2F82-4500-B784-4AC0738A3901}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{67CE521B-2F82-4500-B784-4AC0738A3901}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5096EABB-A40E-4832-8883-BDF400791482}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5096EABB-A40E-4832-8883-BDF400791482}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5096EABB-A40E-4832-8883-BDF400791482}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5096EABB-A40E-4832-8883-BDF400791482}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2E398A91-2B44-4287-91C8-8294772DF04B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2E398A91-2B44-4287-91C8-8294772DF04B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2E398A91-2B44-4287-91C8-8294772DF04B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2E398A91-2B44-4287-91C8-8294772DF04B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

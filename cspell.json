@@ -1,6 +1,9 @@
 {
     "version": "0.2",
-    "ignorePaths": [],
+    "ignorePaths": [
+        "**/bin/**",
+        "**/obj/**"
+    ],
     "dictionaryDefinitions": [],
     "dictionaries": [],
     "words": [
@@ -16,7 +19,8 @@
         "Taskpool",
         "ustring",
         "Autoincrement",
-        "NOCASE"
+        "NOCASE",
+        "Parallelizable"
     ],
     "ignoreWords": [],
     "import": []
