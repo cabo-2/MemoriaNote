@@ -135,9 +135,7 @@ namespace MemoriaNote
         private async Task<SearchResult> SearchWorkgroupContentsAsync(string searchEntry, int skipCount, int takeCount, CancellationToken token)
         {
             DateTime startTime = DateTime.UtcNow;
-            var tables = await Task.Run(
-                () => CreateContentsCountTable(searchEntry, token),
-                token);
+            var tables = await CreateContentsCountTableAsync(searchEntry, token);
             IEnumerable<Content> contents = new List<Content>();
             foreach (var note in Notes)
             {
@@ -175,24 +173,28 @@ namespace MemoriaNote
                 EndTime = DateTime.UtcNow
             };
         }
-        Dictionary<string, int> CreateContentsCountTable(string searchEntry, CancellationToken token)
+        async Task<Dictionary<string, int>> CreateContentsCountTableAsync(
+            string searchEntry,
+            CancellationToken token)
         {
+            token.ThrowIfCancellationRequested();
             Dictionary<string, int> tables = new Dictionary<string, int>();
             foreach (var n in Notes)
                 tables.Add(n.DataSource, 0);
 
             TextMatching textMatch = TextMatching.Create(searchEntry);
-            foreach (var dataSource in tables.Select(t => t.Key).ToList().AsParallel())
+            foreach (var dataSource in tables.Keys.ToList())
             {
                 using (NoteDbContext db = new NoteDbContext(dataSource))
                 {
                     StringBuilder builder = new StringBuilder();
                     builder.AppendLine("SELECT * FROM Contents ");
                     builder.AppendLine(textMatch.Where("Name"));
-                    int count = db.Contents.FromSqlRaw(builder.ToString()).Count();
+                    int count = await db.Contents
+                        .FromSqlRaw(builder.ToString())
+                        .CountAsync(token);
                     tables[dataSource] = count;
                 }
-                CancelIfRequested(token);
             }
             return tables;
         }
@@ -251,9 +253,7 @@ namespace MemoriaNote
         private async Task<SearchResult> SearchWorkgroupFullTextAsync(string searchEntry, int skipCount, int takeCount, CancellationToken token)
         {
             DateTime startTime = DateTime.UtcNow;
-            var tables = await Task.Run(
-                () => CreateFullTextCountTable(searchEntry, token),
-                token);
+            var tables = await CreateFullTextCountTableAsync(searchEntry, token);
             IEnumerable<Content> contents = new List<Content>();
             foreach (var note in Notes)
             {
@@ -292,14 +292,17 @@ namespace MemoriaNote
             };
         }
 
-        Dictionary<string, int> CreateFullTextCountTable(string searchEntry, CancellationToken token)
+        async Task<Dictionary<string, int>> CreateFullTextCountTableAsync(
+            string searchEntry,
+            CancellationToken token)
         {
+            token.ThrowIfCancellationRequested();
             Dictionary<string, int> tables = new Dictionary<string, int>();
             foreach (var n in Notes)
                 tables.Add(n.DataSource, 0);
 
             TextMatching textMatch = TextMatching.Create(searchEntry);
-            foreach (var dataSource in tables.Select(t => t.Key).ToList().AsParallel())
+            foreach (var dataSource in tables.Keys.ToList())
             {
                 using (NoteDbContext db = new NoteDbContext(dataSource))
                 {
@@ -311,16 +314,17 @@ namespace MemoriaNote
                            $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Text : \"{textMatch.Pattern}\"') f " +
                             "ON p.Rowid = f.rowid "
                         );
-                        int count = db.Pages.FromSqlRaw(builder.ToString()).Count();
+                        int count = await db.Pages
+                            .FromSqlRaw(builder.ToString())
+                            .CountAsync(token);
                         tables[dataSource] = count;
                     }
                     else
                     {
-                        int count = db.Contents.Count();
+                        int count = await db.Contents.CountAsync(token);
                         tables[dataSource] = count;
                     }
                 }
-                CancelIfRequested(token);
             }
             return tables;
         }
