@@ -16,7 +16,7 @@ public sealed class NoteLifecycleTests
     /// Verifies that page changes remain synchronized with heading and full-text search.
     /// </summary>
     [Test]
-    public void NewDatabase_CanCompletePageLifecycleAndSynchronizeSearchIndexes()
+    public async Task NewDatabase_CanCompletePageLifecycleAndSynchronizeSearchIndexes()
     {
         using var database = new TemporaryNoteDatabase();
         var note = database.CreateNote("test-note", "Test Note");
@@ -42,18 +42,18 @@ public sealed class NoteLifecycleTests
 
         var page = note.CreatePage("Welcome", "A quasar appears in this note.");
 
-        AssertSingleResult(note.SearchContents("Welcome", 0, 10), page.Guid);
-        AssertSingleResult(note.SearchFullText("quasar", 0, 10), page.Guid);
+        AssertSingleResult(await SearchAsync(note, "Welcome", SearchMethodType.Heading), page.Guid);
+        AssertSingleResult(await SearchAsync(note, "quasar", SearchMethodType.FullText), page.Guid);
 
         var storedPage = note.ReadPage(page.Guid);
         storedPage.Name = "Renamed";
         storedPage.Text = "A nebula remains in this note.";
         note.UpdatePage(storedPage);
 
-        AssertEmptyResult(note.SearchContents("Welcome", 0, 10));
-        AssertSingleResult(note.SearchContents("Renamed", 0, 10), page.Guid);
-        AssertEmptyResult(note.SearchFullText("quasar", 0, 10));
-        AssertSingleResult(note.SearchFullText("nebula", 0, 10), page.Guid);
+        AssertEmptyResult(await SearchAsync(note, "Welcome", SearchMethodType.Heading));
+        AssertSingleResult(await SearchAsync(note, "Renamed", SearchMethodType.Heading), page.Guid);
+        AssertEmptyResult(await SearchAsync(note, "quasar", SearchMethodType.FullText));
+        AssertSingleResult(await SearchAsync(note, "nebula", SearchMethodType.FullText), page.Guid);
 
         note.DeletePage(storedPage.Rowid);
 
@@ -62,8 +62,8 @@ public sealed class NoteLifecycleTests
             Assert.That(note.ReadPage(page.Guid), Is.Null);
             Assert.That(note.Count, Is.Zero);
         }
-        AssertEmptyResult(note.SearchContents("Renamed", 0, 10));
-        AssertEmptyResult(note.SearchFullText("nebula", 0, 10));
+        AssertEmptyResult(await SearchAsync(note, "Renamed", SearchMethodType.Heading));
+        AssertEmptyResult(await SearchAsync(note, "nebula", SearchMethodType.FullText));
 
         using var finalContext = new NoteDbContext(database.DatabasePath);
         using (Assert.EnterMultipleScope())
@@ -71,6 +71,19 @@ public sealed class NoteLifecycleTests
             Assert.That(finalContext.Pages.Count(), Is.Zero);
             Assert.That(finalContext.Contents.Count(), Is.Zero);
         }
+    }
+
+    private static Task<SearchResult> SearchAsync(
+        Note note,
+        string searchEntry,
+        SearchMethodType searchMethod)
+    {
+        return note.SearchAsync(
+            searchEntry,
+            searchMethod,
+            0,
+            10,
+            CancellationToken.None);
     }
 
     private static void AssertSingleResult(SearchResult result, Guid expectedPageId)

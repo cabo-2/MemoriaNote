@@ -12,10 +12,10 @@ namespace MemoriaNote.Core.Tests.Functional;
 public sealed class WorkgroupFullTextSearchTests
 {
     /// <summary>
-    /// Verifies that synchronous and asynchronous searches return matches from every note.
+    /// Verifies that the unified asynchronous search returns matches from every note.
     /// </summary>
     [Test]
-    public async Task ExactQuery_ReturnsMatchesFromEveryNoteOnBothPaths()
+    public async Task ExactQuery_ReturnsMatchesFromEveryNote()
     {
         using var firstDatabase = new TemporaryNoteDatabase();
         using var secondDatabase = new TemporaryNoteDatabase();
@@ -27,29 +27,24 @@ public sealed class WorkgroupFullTextSearchTests
         secondNote.CreatePage("Marker", "The heading alone contains the query.");
         var workgroup = CreateWorkgroup(firstNote, secondNote);
 
-        var synchronousResult = workgroup.SearchFullText(
+        var result = await workgroup.SearchAsync(
             "marker",
             SearchRangeType.Workgroup,
-            0,
-            10);
-        var asynchronousResult = await workgroup.SearchFullTextAsync(
-            "marker",
-            SearchRangeType.Workgroup,
+            SearchMethodType.FullText,
             0,
             10,
             CancellationToken.None);
 
         var expectedPageIds = new[] { firstAlpha.Guid, firstZulu.Guid, secondBeta.Guid };
         var expectedOwners = new[] { firstNote, firstNote, secondNote };
-        AssertWorkgroupResult(synchronousResult, 3, expectedPageIds, expectedOwners);
-        AssertWorkgroupResult(asynchronousResult, 3, expectedPageIds, expectedOwners);
+        AssertWorkgroupResult(result, 3, expectedPageIds, expectedOwners);
     }
 
     /// <summary>
     /// Verifies that an empty query returns every page in workgroup display order.
     /// </summary>
     [Test]
-    public async Task EmptyQuery_ReturnsEveryPageOnBothPaths()
+    public async Task EmptyQuery_ReturnsEveryPage()
     {
         using var firstDatabase = new TemporaryNoteDatabase();
         using var secondDatabase = new TemporaryNoteDatabase();
@@ -60,29 +55,24 @@ public sealed class WorkgroupFullTextSearchTests
         var secondBeta = secondNote.CreatePage("Beta", "Third text");
         var workgroup = CreateWorkgroup(firstNote, secondNote);
 
-        var synchronousResult = workgroup.SearchFullText(
+        var result = await workgroup.SearchAsync(
             "   ",
             SearchRangeType.Workgroup,
-            0,
-            10);
-        var asynchronousResult = await workgroup.SearchFullTextAsync(
-            "   ",
-            SearchRangeType.Workgroup,
+            SearchMethodType.FullText,
             0,
             10,
             CancellationToken.None);
 
         var expectedPageIds = new[] { firstAlpha.Guid, firstZulu.Guid, secondBeta.Guid };
         var expectedOwners = new[] { firstNote, firstNote, secondNote };
-        AssertWorkgroupResult(synchronousResult, 3, expectedPageIds, expectedOwners);
-        AssertWorkgroupResult(asynchronousResult, 3, expectedPageIds, expectedOwners);
+        AssertWorkgroupResult(result, 3, expectedPageIds, expectedOwners);
     }
 
     /// <summary>
     /// Verifies that workgroup searches retain the existing full-text wildcard behavior.
     /// </summary>
     [Test]
-    public async Task WildcardQuery_RetainsTheNoteSearchContractOnBothPaths()
+    public async Task WildcardQuery_RetainsTheNoteSearchContract()
     {
         using var firstDatabase = new TemporaryNoteDatabase();
         using var secondDatabase = new TemporaryNoteDatabase();
@@ -94,22 +84,17 @@ public sealed class WorkgroupFullTextSearchTests
         secondNote.CreatePage("Second Prefix", "An orbiting probe reported back.");
         var workgroup = CreateWorkgroup(firstNote, secondNote);
 
-        var synchronousResult = workgroup.SearchFullText(
+        var result = await workgroup.SearchAsync(
             "orbit*",
             SearchRangeType.Workgroup,
-            0,
-            10);
-        var asynchronousResult = await workgroup.SearchFullTextAsync(
-            "orbit*",
-            SearchRangeType.Workgroup,
+            SearchMethodType.FullText,
             0,
             10,
             CancellationToken.None);
 
         var expectedPageIds = new[] { firstExact.Guid, secondExact.Guid };
         var expectedOwners = new[] { firstNote, secondNote };
-        AssertWorkgroupResult(synchronousResult, 2, expectedPageIds, expectedOwners);
-        AssertWorkgroupResult(asynchronousResult, 2, expectedPageIds, expectedOwners);
+        AssertWorkgroupResult(result, 2, expectedPageIds, expectedOwners);
     }
 
     /// <summary>
@@ -128,22 +113,17 @@ public sealed class WorkgroupFullTextSearchTests
         secondNote.CreatePage("Beta", "Shared marker.");
         var workgroup = CreateWorkgroup(firstNote, secondNote);
 
-        var synchronousResult = workgroup.SearchFullText(
+        var result = await workgroup.SearchAsync(
             "marker",
             SearchRangeType.Workgroup,
-            1,
-            2);
-        var asynchronousResult = await workgroup.SearchFullTextAsync(
-            "marker",
-            SearchRangeType.Workgroup,
+            SearchMethodType.FullText,
             1,
             2,
             CancellationToken.None);
 
         var expectedPageIds = new[] { firstBeta.Guid, secondAlpha.Guid };
         var expectedOwners = new[] { firstNote, secondNote };
-        AssertWorkgroupResult(synchronousResult, 4, expectedPageIds, expectedOwners);
-        AssertWorkgroupResult(asynchronousResult, 4, expectedPageIds, expectedOwners);
+        AssertWorkgroupResult(result, 4, expectedPageIds, expectedOwners);
     }
 
     private static Workgroup CreateWorkgroup(params Note[] notes)

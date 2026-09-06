@@ -15,7 +15,7 @@ public sealed class SearchContractTests
     /// Verifies that a heading query without wildcards matches the complete heading only.
     /// </summary>
     [Test]
-    public void HeadingSearch_ExactQuery_ReturnsOnlyTheCompleteHeading()
+    public async Task HeadingSearch_ExactQuery_ReturnsOnlyTheCompleteHeading()
     {
         using var database = new TemporaryNoteDatabase();
         var note = database.CreateNote("test-note", "Test Note");
@@ -24,7 +24,12 @@ public sealed class SearchContractTests
         note.CreatePage("Alphabet", "Longer heading");
         note.CreatePage("Beta Alpha", "Term in a longer heading");
 
-        var result = note.SearchContents("Alpha", 0, 10);
+        var result = await note.SearchAsync(
+            "Alpha",
+            SearchMethodType.Heading,
+            0,
+            10,
+            CancellationToken.None);
 
         AssertSearchResult(result, note, 2, firstExact.Guid, secondExact.Guid);
     }
@@ -33,7 +38,7 @@ public sealed class SearchContractTests
     /// Verifies the glob-style wildcard behavior of heading searches.
     /// </summary>
     [Test]
-    public void HeadingSearch_WildcardQueries_MatchExpectedHeadings()
+    public async Task HeadingSearch_WildcardQueries_MatchExpectedHeadings()
     {
         using var database = new TemporaryNoteDatabase();
         var note = database.CreateNote("test-note", "Test Note");
@@ -43,8 +48,18 @@ public sealed class SearchContractTests
         note.CreatePage("Alpine", "Different prefix");
         note.CreatePage("Beta", "Unrelated heading");
 
-        var prefixResult = note.SearchContents("Alpha*", 0, 10);
-        var singleCharacterResult = note.SearchContents("Alpha?", 0, 10);
+        var prefixResult = await note.SearchAsync(
+            "Alpha*",
+            SearchMethodType.Heading,
+            0,
+            10,
+            CancellationToken.None);
+        var singleCharacterResult = await note.SearchAsync(
+            "Alpha?",
+            SearchMethodType.Heading,
+            0,
+            10,
+            CancellationToken.None);
 
         AssertSearchResult(prefixResult, note, 3, alpha.Guid, alphabet.Guid, alphas.Guid);
         AssertSearchResult(singleCharacterResult, note, 1, alphas.Guid);
@@ -54,7 +69,7 @@ public sealed class SearchContractTests
     /// Verifies that an empty heading query returns every page in heading and index order.
     /// </summary>
     [Test]
-    public void HeadingSearch_EmptyQuery_ReturnsEveryPageInDisplayOrder()
+    public async Task HeadingSearch_EmptyQuery_ReturnsEveryPageInDisplayOrder()
     {
         using var database = new TemporaryNoteDatabase();
         var note = database.CreateNote("test-note", "Test Note");
@@ -63,7 +78,12 @@ public sealed class SearchContractTests
         var secondAlpha = note.CreatePage("Alpha", "Second alpha text");
         var gamma = note.CreatePage("Gamma", "Gamma text");
 
-        var result = note.SearchContents(string.Empty, 0, 10);
+        var result = await note.SearchAsync(
+            string.Empty,
+            SearchMethodType.Heading,
+            0,
+            10,
+            CancellationToken.None);
 
         AssertSearchResult(
             result,
@@ -79,7 +99,7 @@ public sealed class SearchContractTests
     /// Verifies that full-text queries match body tokens and do not search headings.
     /// </summary>
     [Test]
-    public void FullTextSearch_ExactQuery_MatchesBodyTokensOnly()
+    public async Task FullTextSearch_ExactQuery_MatchesBodyTokensOnly()
     {
         using var database = new TemporaryNoteDatabase();
         var note = database.CreateNote("test-note", "Test Note");
@@ -87,7 +107,12 @@ public sealed class SearchContractTests
         var beta = note.CreatePage("Beta", "A cobalt comet remains visible.");
         note.CreatePage("Comet", "This body mentions only a planet.");
 
-        var result = note.SearchFullText("comet", 0, 10);
+        var result = await note.SearchAsync(
+            "comet",
+            SearchMethodType.FullText,
+            0,
+            10,
+            CancellationToken.None);
 
         AssertSearchResult(result, note, 2, alpha.Guid, beta.Guid);
     }
@@ -96,14 +121,19 @@ public sealed class SearchContractTests
     /// Captures that a full-text wildcard currently behaves like an exact FTS token.
     /// </summary>
     [Test]
-    public void FullTextSearch_WildcardQuery_CurrentlyDoesNotExpandTheFtsToken()
+    public async Task FullTextSearch_WildcardQuery_CurrentlyDoesNotExpandTheFtsToken()
     {
         using var database = new TemporaryNoteDatabase();
         var note = database.CreateNote("test-note", "Test Note");
         var exactToken = note.CreatePage("Exact", "The probe entered orbit safely.");
         note.CreatePage("Prefix", "The orbital station received the probe.");
 
-        var result = note.SearchFullText("orbit*", 0, 10);
+        var result = await note.SearchAsync(
+            "orbit*",
+            SearchMethodType.FullText,
+            0,
+            10,
+            CancellationToken.None);
 
         AssertSearchResult(result, note, 1, exactToken.Guid);
     }
@@ -112,7 +142,7 @@ public sealed class SearchContractTests
     /// Verifies that an empty full-text query returns every page in heading and index order.
     /// </summary>
     [Test]
-    public void FullTextSearch_EmptyQuery_ReturnsEveryPageInDisplayOrder()
+    public async Task FullTextSearch_EmptyQuery_ReturnsEveryPageInDisplayOrder()
     {
         using var database = new TemporaryNoteDatabase();
         var note = database.CreateNote("test-note", "Test Note");
@@ -120,7 +150,12 @@ public sealed class SearchContractTests
         var alpha = note.CreatePage("Alpha", "Alpha text");
         var gamma = note.CreatePage("Gamma", "Gamma text");
 
-        var result = note.SearchFullText("   ", 0, 10);
+        var result = await note.SearchAsync(
+            "   ",
+            SearchMethodType.FullText,
+            0,
+            10,
+            CancellationToken.None);
 
         AssertSearchResult(result, note, 3, alpha.Guid, beta.Guid, gamma.Guid);
     }
@@ -129,7 +164,7 @@ public sealed class SearchContractTests
     /// Verifies that paging returns the requested ordered slice while retaining the total count.
     /// </summary>
     [Test]
-    public void SearchMethods_PagingReturnsOrderedSliceAndUnpagedTotalCount()
+    public async Task SearchMethods_PagingReturnsOrderedSliceAndUnpagedTotalCount()
     {
         using var database = new TemporaryNoteDatabase();
         var note = database.CreateNote("test-note", "Test Note");
@@ -138,8 +173,18 @@ public sealed class SearchContractTests
         var charlie = note.CreatePage("Charlie", "Shared marker in charlie.");
         var bravo = note.CreatePage("Bravo", "Shared marker in bravo.");
 
-        var headingResult = note.SearchContents("*", 1, 2);
-        var fullTextResult = note.SearchFullText("marker", 1, 2);
+        var headingResult = await note.SearchAsync(
+            "*",
+            SearchMethodType.Heading,
+            1,
+            2,
+            CancellationToken.None);
+        var fullTextResult = await note.SearchAsync(
+            "marker",
+            SearchMethodType.FullText,
+            1,
+            2,
+            CancellationToken.None);
 
         AssertSearchResult(headingResult, note, 4, bravo.Guid, charlie.Guid);
         AssertSearchResult(fullTextResult, note, 4, bravo.Guid, charlie.Guid);
@@ -155,19 +200,53 @@ public sealed class SearchContractTests
         var note = database.CreateNote("test-note", "Test Note");
         var page = note.CreatePage("Async", "Asynchronous owner marker.");
 
-        var headingResult = await note.SearchContentsAsync(
+        var headingResult = await note.SearchAsync(
             "Async",
+            SearchMethodType.Heading,
             0,
             10,
             CancellationToken.None);
-        var fullTextResult = await note.SearchFullTextAsync(
+        var fullTextResult = await note.SearchAsync(
             "marker",
+            SearchMethodType.FullText,
             0,
             10,
             CancellationToken.None);
 
         AssertSearchResult(headingResult, note, 1, page.Guid);
         AssertSearchResult(fullTextResult, note, 1, page.Guid);
+    }
+
+    /// <summary>
+    /// Verifies that cancellation is passed to heading and full-text database queries.
+    /// </summary>
+    /// <param name="searchMethod">The search method to cancel.</param>
+    [TestCase(SearchMethodType.Heading)]
+    [TestCase(SearchMethodType.FullText)]
+    public async Task SearchAsync_CancelledTokenCancelsDatabaseQuery(SearchMethodType searchMethod)
+    {
+        using var database = new TemporaryNoteDatabase();
+        var note = database.CreateNote("test-note", "Test Note");
+        note.CreatePage("Cancelled", "Cancellation marker.");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        OperationCanceledException? exception = null;
+
+        try
+        {
+            await note.SearchAsync(
+                "marker",
+                searchMethod,
+                0,
+                10,
+                cancellation.Token);
+        }
+        catch (OperationCanceledException caught)
+        {
+            exception = caught;
+        }
+
+        Assert.That(exception, Is.Not.Null);
     }
 
     private static void AssertSearchResult(

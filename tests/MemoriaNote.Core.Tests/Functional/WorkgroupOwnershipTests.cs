@@ -15,7 +15,7 @@ public sealed class WorkgroupOwnershipTests
     /// Verifies that a workgroup search preserves each result's normalized owner data source.
     /// </summary>
     [Test]
-    public void WorkgroupSearch_ReturnsTheOwnerForEveryResult()
+    public async Task WorkgroupSearch_ReturnsTheOwnerForEveryResult()
     {
         using var firstDatabase = new TemporaryNoteDatabase();
         using var secondDatabase = new TemporaryNoteDatabase();
@@ -25,7 +25,13 @@ public sealed class WorkgroupOwnershipTests
         secondNote.CreatePage("Second", "Second text");
         var workgroup = CreateWorkgroup(firstNote, firstNote, secondNote);
 
-        var result = workgroup.SearchWorkgroupContents("*", 0, 10);
+        var result = await workgroup.SearchAsync(
+            "*",
+            SearchRangeType.Workgroup,
+            SearchMethodType.Heading,
+            0,
+            10,
+            CancellationToken.None);
 
         Assert.That(result.Contents, Has.Count.EqualTo(2));
         using (Assert.EnterMultipleScope())
@@ -43,7 +49,7 @@ public sealed class WorkgroupOwnershipTests
     /// Verifies that reading and editing a non-selected note result affect only its owner.
     /// </summary>
     [Test]
-    public void EditText_UsesTheOwnerInsteadOfTheSelectedNote()
+    public async Task EditText_UsesTheOwnerInsteadOfTheSelectedNote()
     {
         using var selectedDatabase = new TemporaryNoteDatabase();
         using var ownerDatabase = new TemporaryNoteDatabase();
@@ -52,7 +58,7 @@ public sealed class WorkgroupOwnershipTests
         var selectedPage = selectedNote.CreatePage("Shared", "Selected text");
         var ownerPage = ownerNote.CreatePage("Shared", "Owner text");
         var workgroup = CreateWorkgroup(selectedNote, selectedNote, ownerNote);
-        var ownerResult = FindResult(workgroup, ownerNote, ownerPage.Guid);
+        var ownerResult = await FindResultAsync(workgroup, ownerNote, ownerPage.Guid);
 
         var openedPage = workgroup.ReadAll(ownerResult);
         var result = workgroup.EditText(ownerResult, "Edited owner text");
@@ -74,7 +80,7 @@ public sealed class WorkgroupOwnershipTests
     /// Verifies that rename validation and persistence both use the owning note.
     /// </summary>
     [Test]
-    public void RenameText_UsesTheOwnerForDuplicateChecksAndPersistence()
+    public async Task RenameText_UsesTheOwnerForDuplicateChecksAndPersistence()
     {
         using var selectedDatabase = new TemporaryNoteDatabase();
         using var ownerDatabase = new TemporaryNoteDatabase();
@@ -83,7 +89,7 @@ public sealed class WorkgroupOwnershipTests
         var selectedPage = selectedNote.CreatePage("Existing", "Selected text");
         var ownerPage = ownerNote.CreatePage("Original", "Owner text");
         var workgroup = CreateWorkgroup(selectedNote, selectedNote, ownerNote);
-        var ownerResult = FindResult(workgroup, ownerNote, ownerPage.Guid);
+        var ownerResult = await FindResultAsync(workgroup, ownerNote, ownerPage.Guid);
 
         var result = workgroup.RenameText(ownerResult, "Existing");
 
@@ -99,7 +105,7 @@ public sealed class WorkgroupOwnershipTests
     /// Verifies that deletion cannot use a result's row identifier against another note.
     /// </summary>
     [Test]
-    public void DeleteText_WithCollidingRowIds_DeletesOnlyTheOwnerPage()
+    public async Task DeleteText_WithCollidingRowIds_DeletesOnlyTheOwnerPage()
     {
         using var selectedDatabase = new TemporaryNoteDatabase();
         using var ownerDatabase = new TemporaryNoteDatabase();
@@ -108,7 +114,7 @@ public sealed class WorkgroupOwnershipTests
         var selectedPage = selectedNote.CreatePage("Selected", "Selected text");
         var ownerPage = ownerNote.CreatePage("Owner", "Owner text");
         var workgroup = CreateWorkgroup(selectedNote, selectedNote, ownerNote);
-        var ownerResult = FindResult(workgroup, ownerNote, ownerPage.Guid);
+        var ownerResult = await FindResultAsync(workgroup, ownerNote, ownerPage.Guid);
 
         Assert.That(ownerPage.Rowid, Is.EqualTo(selectedPage.Rowid));
 
@@ -126,7 +132,7 @@ public sealed class WorkgroupOwnershipTests
     /// Verifies that write permissions are determined from the owner rather than the selection.
     /// </summary>
     [Test]
-    public void ManageText_UsesTheOwnersReadOnlySetting()
+    public async Task ManageText_UsesTheOwnersReadOnlySetting()
     {
         using var selectedDatabase = new TemporaryNoteDatabase();
         using var ownerDatabase = new TemporaryNoteDatabase();
@@ -135,7 +141,7 @@ public sealed class WorkgroupOwnershipTests
         selectedNote.CreatePage("Selected", "Selected text");
         var ownerPage = ownerNote.CreatePage("Owner", "Owner text");
         var workgroup = CreateWorkgroup(selectedNote, selectedNote, ownerNote);
-        var ownerResult = FindResult(workgroup, ownerNote, ownerPage.Guid);
+        var ownerResult = await FindResultAsync(workgroup, ownerNote, ownerPage.Guid);
 
         selectedNote.Metadata.ReadOnly = true;
         var allowedResult = workgroup.EditText(ownerResult, "Allowed owner edit");
@@ -195,9 +201,15 @@ public sealed class WorkgroupOwnershipTests
         return workgroup;
     }
 
-    private static Content FindResult(Workgroup workgroup, Note owner, Guid pageId)
+    private static async Task<Content> FindResultAsync(Workgroup workgroup, Note owner, Guid pageId)
     {
-        var result = workgroup.SearchWorkgroupContents("*", 0, 10);
+        var result = await workgroup.SearchAsync(
+            "*",
+            SearchRangeType.Workgroup,
+            SearchMethodType.Heading,
+            0,
+            10,
+            CancellationToken.None);
         var content = result.Contents.Single(item => item.Guid == pageId);
         Assert.That(
             content.OwnerDataSource,

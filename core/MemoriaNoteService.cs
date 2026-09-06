@@ -20,26 +20,34 @@ namespace MemoriaNote
     /// </summary>
     public class MemoriaNoteService : ReactiveObject
     {
-        public MemoriaNoteService()
+        /// <summary>
+        /// Initializes the service from the configured workgroup.
+        /// </summary>
+        public MemoriaNoteService() : this(CreateConfiguredWorkgroup())
         {
-            if (!File.Exists(Configuration.Instance.DefaultDataSourcePath))
-            {
-                Note.Create(Configuration.Instance.DefaultNoteName, Configuration.Instance.DefaultNoteTitle, Configuration.Instance.DefaultDataSourcePath);
-                Log.Logger.Information("Default note created");
-            }
-            Workgroup = Configuration.Instance.Workgroup.Build();
+        }
 
-            ActivateHandler = () => Task.Run(() =>
-                {
-                    OnActivate();
-                    OnSearchContents(SearchEntry, SearchRange, SearchMethod, 0, OnSearchResultCallback);
-                });
+        /// <summary>
+        /// Initializes the service with the specified workgroup.
+        /// </summary>
+        /// <param name="workgroup">The workgroup used by the service.</param>
+        protected MemoriaNoteService(Workgroup workgroup)
+        {
+            Workgroup = workgroup ?? throw new ArgumentNullException(nameof(workgroup));
+
+            ActivateHandler = async () =>
+            {
+                await Task.Run(OnActivate);
+                await OnSearchContentsAsync(SearchEntry, SearchRange, SearchMethod, 0);
+            };
             Activate = ReactiveCommand.CreateFromTask(ActivateHandler);
 
-            SearchHandler = () => OnSearchContents(SearchEntry, SearchRange, SearchMethod, 0, OnSearchResultCallback);
-            Search = ReactiveCommand.Create(
-                () => OnSearchContentsAsync(SearchEntry, SearchRange, SearchMethod, 0, OnSearchResultCallback)
-            );
+            SearchHandler = () => OnSearchContentsAsync(
+                SearchEntry,
+                SearchRange,
+                SearchMethod,
+                0);
+            Search = ReactiveCommand.CreateFromTask(SearchHandler);
 
             var canPageNext = this.WhenAnyValue(
                 x => x.ContentsViewPageIndex,
@@ -48,9 +56,9 @@ namespace MemoriaNote
                 (pi, maxView, count) =>
                     ViewPageIndexToContentsIndex(pi.Item1, pi.Item2, maxView) + maxView < count);
 
-            PageNext = ReactiveCommand.Create(
+            PageNext = ReactiveCommand.CreateFromTask(
                 () => OnSearchContentsAsync(SearchEntry, SearchRange, SearchMethod,
-                        SelectedContentsIndex + MaxViewResultCount, OnSearchResultCallback),
+                        SelectedContentsIndex + MaxViewResultCount),
                 canPageNext
             );
 
@@ -61,9 +69,9 @@ namespace MemoriaNote
                 (pi, maxView, count) =>
                     0 <= ViewPageIndexToContentsIndex(pi.Item1, pi.Item2, maxView) - maxView);
 
-            PagePrev = ReactiveCommand.Create(
+            PagePrev = ReactiveCommand.CreateFromTask(
                 () => OnSearchContentsAsync(SearchEntry, SearchRange, SearchMethod,
-                        SelectedContentsIndex - MaxViewResultCount, OnSearchResultCallback),
+                        SelectedContentsIndex - MaxViewResultCount),
                 canPagePrev
             );
 
@@ -114,6 +122,20 @@ namespace MemoriaNote
                         method.ToDisplayString()
                 )
                 .ToProperty(this, x => x.SearchMethodString);
+        }
+
+        private static Workgroup CreateConfiguredWorkgroup()
+        {
+            if (!File.Exists(Configuration.Instance.DefaultDataSourcePath))
+            {
+                Note.Create(
+                    Configuration.Instance.DefaultNoteName,
+                    Configuration.Instance.DefaultNoteTitle,
+                    Configuration.Instance.DefaultDataSourcePath);
+                Log.Logger.Information("Default note created");
+            }
+
+            return Configuration.Instance.Workgroup.Build();
         }
 
         /// <summary>
@@ -242,138 +264,96 @@ namespace MemoriaNote
         static int ViewPageIndexToContentsIndex(int page, int index, int maxViewResultCount) => (page * maxViewResultCount) + index;
 
         #region SearchContents
-        object _searchLockObject = new object();
-        List<CancellationTokenSource> _searchJobs = new List<CancellationTokenSource>();
-        
+        readonly object _searchLockObject = new object();
+        CancellationTokenSource _searchCancellation;
+        long _searchGeneration;
+
         /// <summary>
-        /// Method to handle the search operation based on the search entry, search range, search method, and selected contents index.
-        /// This method cancels any ongoing search jobs, performs the search based on the specified criteria, and provides the search result to the callback.
+        /// Performs a search without applying its result to the service state.
         /// </summary>
-        protected void OnSearchContents(string searchEntry, SearchRangeType searchRange, SearchMethodType searchMethod, int selectedContentsIndex, Action<SearchResult, int> result)
+        /// <param name="searchEntry">The search entry captured for this request.</param>
+        /// <param name="searchRange">The search range captured for this request.</param>
+        /// <param name="searchMethod">The search method captured for this request.</param>
+        /// <param name="skipCount">The result offset captured for this request.</param>
+        /// <param name="takeCount">The result limit captured for this request.</param>
+        /// <param name="token">The cancellation token for this request.</param>
+        /// <returns>The matching contents and total count.</returns>
+        protected virtual Task<SearchResult> SearchAsync(
+            string searchEntry,
+            SearchRangeType searchRange,
+            SearchMethodType searchMethod,
+            int skipCount,
+            int takeCount,
+            CancellationToken token)
         {
-            // Lock the search operation to ensure thread safety
-            lock (_searchLockObject)
-            {
-                // Cancel any ongoing search jobs
-                foreach (var job in _searchJobs)
-                    job.Cancel();
-
-                // Clear the list of search jobs to start fresh
-                _searchJobs.Clear();
-
-                // Set the skip count and take count based on the selected contents index and maximum view result count
-                int skipCount = selectedContentsIndex;
-                int takeCount = MaxViewResultCount;
-
-                // Perform the search based on the search method
-                if (searchMethod == SearchMethodType.Heading)
-                {
-                    // Search for heading matches and handle any exceptions
-                    SearchResult sr;
-                    try
-                    {
-                        sr = Workgroup.SearchContents(searchEntry, searchRange, skipCount, takeCount);
-                        if (sr != null)
-                            result(sr, selectedContentsIndex);
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log debug information in case of an exception
-                        Log.Logger.Debug(ex.Message);
-                    }
-                }
-                else if (searchMethod == SearchMethodType.FullText)
-                {
-                    // Search for full text matches and handle any exceptions
-                    SearchResult sr;
-                    try
-                    {
-                        sr = Workgroup.SearchFullText(searchEntry, searchRange, skipCount, takeCount);
-                        if (sr != null)
-                            result(sr, selectedContentsIndex);
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log debug information in case of an exception
-                        Log.Logger.Debug(ex.Message);
-                    }
-                }
-            }
+            return Workgroup.SearchAsync(
+                searchEntry,
+                searchRange,
+                searchMethod,
+                skipCount,
+                takeCount,
+                token);
         }
 
         /// <summary>
-        /// Asynchronously handles the search operation based on the search entry, search range, search method, and selected contents index.
-        /// This method cancels any ongoing search jobs, performs the search based on the specified criteria, and provides the search result to the callback.
+        /// Runs a search and applies its result only when it is the latest request.
         /// </summary>
-        protected async void OnSearchContentsAsync(string searchEntry, SearchRangeType searchRange, SearchMethodType searchMethod, int selectedContentsIndex, Action<SearchResult, int> result)
+        /// <param name="searchEntry">The search entry captured for this request.</param>
+        /// <param name="searchRange">The search range captured for this request.</param>
+        /// <param name="searchMethod">The search method captured for this request.</param>
+        /// <param name="selectedContentsIndex">The result offset captured for this request.</param>
+        /// <returns>The applied search result, or null when the request was superseded.</returns>
+        protected async Task<SearchResult> OnSearchContentsAsync(
+            string searchEntry,
+            SearchRangeType searchRange,
+            SearchMethodType searchMethod,
+            int selectedContentsIndex)
         {
-            // Create a new cancellation token source
-            var cts = new CancellationTokenSource();
-            CancellationToken token = cts.Token;
+            var cancellation = new CancellationTokenSource();
+            long generation;
 
-            // Lock the search operation to ensure thread safety
             lock (_searchLockObject)
             {
-                // Cancel any ongoing search jobs
-                foreach (var job in _searchJobs)
-                    job.Cancel();
-
-                // Clear the list of search jobs and add the current one
-                _searchJobs.Clear();
-                _searchJobs.Add(cts);
+                _searchCancellation?.Cancel();
+                _searchCancellation = cancellation;
+                generation = ++_searchGeneration;
             }
 
-            // Set the skip count and take count based on the selected contents index and maximum view result count
-            int skipCount = selectedContentsIndex;
-            int takeCount = MaxViewResultCount;
+            try
+            {
+                var result = await SearchAsync(
+                    searchEntry,
+                    searchRange,
+                    searchMethod,
+                    selectedContentsIndex,
+                    MaxViewResultCount,
+                    cancellation.Token);
 
-            // Perform the search based on the search method
-            if (searchMethod == SearchMethodType.Heading)
-            {
-                // Search for heading matches and handle any exceptions
-                SearchResult sr;
-                try
+                lock (_searchLockObject)
                 {
-                    // Perform asynchronous search contents operation
-                    sr = await Workgroup.SearchContentsAsync(searchEntry, searchRange, skipCount, takeCount, token);
-                    
-                    // If search result is not null, provide it to the callback function
-                    if (sr != null)
-                        result(sr, selectedContentsIndex);
-                }
-                catch (InvalidOperationException) { }
-                catch (Exception ex)
-                {
-                    // Log debug information in case of an exception
-                    Log.Logger.Debug(ex.Message);
-                }
-            }
-            else if (searchMethod == SearchMethodType.FullText)
-            {
-                // Search for full text matches and handle any exceptions
-                SearchResult sr;
-                try
-                {
-                    // Perform asynchronous search full text operation
-                    sr = await Workgroup.SearchFullTextAsync(searchEntry, searchRange, skipCount, takeCount, token);
-                    
-                    // If search result is not null, provide it to the callback function
-                    if (sr != null)
-                        result(sr, selectedContentsIndex);
-                }
-                catch (InvalidOperationException) { }
-                catch (Exception ex)
-                {
-                    // Log debug information in case of an exception
-                    Log.Logger.Debug(ex.Message);
-                }
-            }
+                    if (generation != _searchGeneration ||
+                        !ReferenceEquals(_searchCancellation, cancellation) ||
+                        cancellation.IsCancellationRequested)
+                        return null;
 
-            // Release the cancellation token source from the list of search jobs
-            lock (_searchLockObject)
+                    OnSearchResultCallback(result, selectedContentsIndex);
+                }
+
+                return result;
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
             {
-                if (_searchJobs.Contains(cts))
-                    _searchJobs.Remove(cts);
+                return null;
+            }
+            finally
+            {
+                lock (_searchLockObject)
+                {
+                    if (ReferenceEquals(_searchCancellation, cancellation))
+                        _searchCancellation = null;
+                }
+
+                cancellation.Dispose();
             }
         }
         #endregion
@@ -504,19 +484,19 @@ namespace MemoriaNote
         /// <summary>
         /// Handler for searching content.
         /// </summary>
-        public Action SearchHandler { get; }
+        public Func<Task<SearchResult>> SearchHandler { get; }
         /// <summary>
         /// Command to initiate the search operation.
         /// </summary>
-        public ReactiveCommand<Unit, Unit> Search { get; }
+        public ReactiveCommand<Unit, SearchResult> Search { get; }
         /// <summary>
         /// Command to navigate to the next page of content.
         /// </summary>
-        public ReactiveCommand<Unit, Unit> PageNext { get; }
+        public ReactiveCommand<Unit, SearchResult> PageNext { get; }
         /// <summary>
         /// Command to navigate to the previous page of content.
         /// </summary>
-        public ReactiveCommand<Unit, Unit> PagePrev { get; }
+        public ReactiveCommand<Unit, SearchResult> PagePrev { get; }
         /// <summary>
         /// Handler for opening a text content.
         /// </summary>
