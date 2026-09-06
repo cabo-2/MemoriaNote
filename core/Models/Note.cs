@@ -215,21 +215,54 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Searches the database for contents matching the provided keyword, with optional pagination.
-        /// The search is performed based on the matching type of the keyword, filtering results as needed.
+        /// Asynchronously searches this note using the specified search method.
         /// </summary>
-        /// <param name="keyword">The keyword to search for matching contents.</param>
-        /// <param name="skipCount">The number of results to skip before retrieving data.</param>
-        /// <param name="takeCount">The maximum number of results to retrieve for the search query.</param>
-        /// <returns>A SearchResult object containing the matching contents, total count of results, and timing information.</returns>
-        public SearchResult SearchContents(string keyword, int skipCount, int takeCount)
+        /// <param name="searchEntry">The search entry to match.</param>
+        /// <param name="searchMethod">The search method to use.</param>
+        /// <param name="token">The cancellation token for the database operation.</param>
+        /// <returns>The matching contents and total count.</returns>
+        public Task<SearchResult> SearchAsync(
+            string searchEntry,
+            SearchMethodType searchMethod,
+            CancellationToken token)
+        {
+            return SearchAsync(searchEntry, searchMethod, 0, int.MaxValue, token);
+        }
+
+        /// <summary>
+        /// Asynchronously searches this note using the specified search method and paging values.
+        /// </summary>
+        /// <param name="searchEntry">The search entry to match.</param>
+        /// <param name="searchMethod">The search method to use.</param>
+        /// <param name="skipCount">The number of matching contents to skip.</param>
+        /// <param name="takeCount">The maximum number of matching contents to return.</param>
+        /// <param name="token">The cancellation token for the database operation.</param>
+        /// <returns>The matching contents and total count.</returns>
+        public Task<SearchResult> SearchAsync(
+            string searchEntry,
+            SearchMethodType searchMethod,
+            int skipCount,
+            int takeCount,
+            CancellationToken token)
+        {
+            if (searchMethod == SearchMethodType.Heading)
+                return SearchHeadingsAsync(searchEntry, skipCount, takeCount, token);
+            else
+                return SearchFullTextAsync(searchEntry, skipCount, takeCount, token);
+        }
+
+        private async Task<SearchResult> SearchHeadingsAsync(
+            string searchEntry,
+            int skipCount,
+            int takeCount,
+            CancellationToken token)
         {
             DateTime startTime = DateTime.UtcNow;
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
-                List<Content> contents = null;
+                List<Content> contents;
                 int count;
-                TextMatching textMatch = TextMatching.Create(keyword);
+                TextMatching textMatch = TextMatching.Create(searchEntry);
                 if (textMatch.MatchingType == MatchingType.Exact)
                 {
                     var countSql =
@@ -244,12 +277,12 @@ namespace MemoriaNote
                        $"{textMatch.Where("p.Name")} " +
                         "ORDER BY p.Name COLLATE NOCASE ASC, p.'Index' ASC ";
 
-                    count = db.Pages.FromSqlRaw(countSql).Count();
-                    contents = db.Pages.FromSqlRaw(querySql)
-                              .Skip(skipCount)
-                              .Take(takeCount)
-                              .Select(p => p.GetContent())
-                              .ToList();
+                    count = await db.Pages.FromSqlRaw(countSql).CountAsync(token);
+                    var pages = await db.Pages.FromSqlRaw(querySql)
+                        .Skip(skipCount)
+                        .Take(takeCount)
+                        .ToListAsync(token);
+                    contents = pages.ConvertAll(page => page.GetContent());
                 }
                 else if (textMatch.MatchingType == MatchingType.None)
                 {
@@ -257,11 +290,11 @@ namespace MemoriaNote
                          "SELECT * FROM Contents " +
                          "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
 
-                    count = db.Contents.Count();
-                    contents = db.Contents.FromSqlRaw(sql)
-                              .Skip(skipCount)
-                              .Take(takeCount)
-                              .ToList();
+                    count = await db.Contents.CountAsync(token);
+                    contents = await db.Contents.FromSqlRaw(sql)
+                        .Skip(skipCount)
+                        .Take(takeCount)
+                        .ToListAsync(token);
                 }
                 else
                 {
@@ -273,12 +306,13 @@ namespace MemoriaNote
                        $"{textMatch.Where("Name")} " +
                         "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
 
-                    count = db.Contents.FromSqlRaw(countSql).Count();
-                    contents = db.Contents.FromSqlRaw(querySql)
-                              .Skip(skipCount)
-                              .Take(takeCount)
-                              .ToList();
+                    count = await db.Contents.FromSqlRaw(countSql).CountAsync(token);
+                    contents = await db.Contents.FromSqlRaw(querySql)
+                        .Skip(skipCount)
+                        .Take(takeCount)
+                        .ToListAsync(token);
                 }
+
                 contents.ForEach(content => SetOwner(content));
                 return new SearchResult()
                 {
@@ -290,22 +324,18 @@ namespace MemoriaNote
             }
         }
 
-        /// <summary>
-        /// Searches the database for contents matching the provided keyword using full-text search, with optional pagination.
-        /// The search is performed based on the matching type of the keyword, filtering results as needed.
-        /// </summary>
-        /// <param name="keyword">The keyword to search for matching contents using full-text search.</param>
-        /// <param name="skipCount">The number of results to skip before retrieving data.</param>
-        /// <param name="takeCount">The maximum number of results to retrieve for the search query.</param>
-        /// <returns>A SearchResult object containing the matching contents, total count of results, and timing information.</returns>
-        public SearchResult SearchFullText(string keyword, int skipCount, int takeCount)
+        private async Task<SearchResult> SearchFullTextAsync(
+            string searchEntry,
+            int skipCount,
+            int takeCount,
+            CancellationToken token)
         {
             DateTime startTime = DateTime.UtcNow;
             using (NoteDbContext db = new NoteDbContext(DataSource))
             {
-                List<Content> contents = null;
+                List<Content> contents;
                 int count;
-                TextMatching textMatch = TextMatching.Create(keyword);
+                TextMatching textMatch = TextMatching.Create(searchEntry);
                 if (textMatch.MatchingType != MatchingType.None)
                 {
                     var countSql =
@@ -318,12 +348,12 @@ namespace MemoriaNote
                         "ON p.Rowid = f.rowid " +
                         "ORDER BY p.Name COLLATE NOCASE ASC, p.'Index' ASC ";
 
-                    count = db.Pages.FromSqlRaw(countSql).Count();
-                    contents = db.Pages.FromSqlRaw(querySql)
-                              .Skip(skipCount)
-                              .Take(takeCount)
-                              .Select(p => p.GetContent())
-                              .ToList();
+                    count = await db.Pages.FromSqlRaw(countSql).CountAsync(token);
+                    var pages = await db.Pages.FromSqlRaw(querySql)
+                        .Skip(skipCount)
+                        .Take(takeCount)
+                        .ToListAsync(token);
+                    contents = pages.ConvertAll(page => page.GetContent());
                 }
                 else
                 {
@@ -331,12 +361,13 @@ namespace MemoriaNote
                          "SELECT * FROM Contents " +
                          "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
 
-                    count = db.Contents.Count();
-                    contents = db.Contents.FromSqlRaw(sql)
-                              .Skip(skipCount)
-                              .Take(takeCount)
-                              .ToList();
+                    count = await db.Contents.CountAsync(token);
+                    contents = await db.Contents.FromSqlRaw(sql)
+                        .Skip(skipCount)
+                        .Take(takeCount)
+                        .ToListAsync(token);
                 }
+
                 contents.ForEach(content => SetOwner(content));
                 return new SearchResult()
                 {
@@ -346,185 +377,6 @@ namespace MemoriaNote
                     EndTime = DateTime.UtcNow
                 };
             }
-        }
-
-        /// <summary>
-        /// Checks if the CancellationToken requests cancellation and throws an exception if cancellation is requested.
-        /// </summary>
-        /// <param name="token">The CancellationToken to check for cancellation request.</param>
-        /// <returns>True if the CancellationToken requested cancellation; otherwise, false.</returns>
-        static bool CancelIfRequested(CancellationToken token)
-        {
-            if (token.IsCancellationRequested)
-            {
-                token.ThrowIfCancellationRequested();
-            }
-            return true;
-        }
-
-        static bool IsEmptyKeyword(string keyword)
-        {
-            return string.IsNullOrWhiteSpace(keyword) || keyword == "*";
-        }
-
-        public Task<SearchResult> SearchContentsAsync(string searchEntry, CancellationToken token)
-        {
-            return SearchContentsAsync(searchEntry, 0, int.MaxValue, token);
-        }
-
-        /// <summary>
-        /// Asynchronously searches the database for contents matching the provided search entry using heading search, 
-        /// with optional pagination and cancellation token. The search is performed based on the matching type of the search entry, 
-        /// filtering results as needed while allowing for cancellation.
-        /// </summary>
-        /// <param name="searchEntry">The search entry to match contents using heading search.</param>
-        /// <param name="skipCount">The number of matching results to skip before retrieving data.</param>
-        /// <param name="takeCount">The maximum number of matching results to retrieve for the search query.</param>
-        /// <param name="token">The CancellationToken used for cancellation request during the search operation.</param>
-        /// <returns>A task that represents the asynchronous search operation, returning a SearchResult object with matching contents, 
-        /// total count of results, and timing information.</returns>
-        public Task<SearchResult> SearchContentsAsync(string searchEntry, int skipCount, int takeCount, CancellationToken token)
-        {
-            var task = Task.Run(async () =>
-           {
-               DateTime startTime = DateTime.UtcNow;
-               await Task.Yield(); //dummy
-               using (NoteDbContext db = new NoteDbContext(DataSource))
-               {
-                   List<Content> contents = null;
-                   int count;
-                   TextMatching textMatch = TextMatching.Create(searchEntry);
-                   if (textMatch.MatchingType == MatchingType.Exact)
-                   {
-                       var sql =
-                           "SELECT p.* FROM Pages p JOIN " +
-                          $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Name : \"{textMatch.Pattern}\"') f " +
-                           "ON p.Rowid = f.rowid " +
-                          $"{textMatch.Where("p.Name")} " +
-                           "ORDER BY p.Name COLLATE NOCASE ASC, p.'Index' ASC ";
-
-                       count = db.Contents.FromSqlRaw(sql).Count();
-                       contents = db.Contents.FromSqlRaw(sql)
-                                 .Where(m => CancelIfRequested(token))
-                                 .Skip(skipCount)
-                                 .Take(takeCount)
-                                 .Select(p => p.GetContent())
-                                 .ToList();
-                   }
-                   else if (textMatch.MatchingType == MatchingType.None)
-                   {
-                       var sql =
-                            "SELECT * FROM Contents " +
-                            "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
-
-                       count = db.Contents.Count();
-                       contents = db.Contents.FromSqlRaw(sql)
-                                 .Where(m => CancelIfRequested(token))
-                                 .Skip(skipCount)
-                                 .Take(takeCount)
-                                 .ToList();
-                   }
-                   else
-                   {
-                       var countSql =
-                           $"SELECT * FROM Contents " +
-                           $"{textMatch.Where("Name")} ";
-                       var querySql =
-                           $"SELECT * FROM Contents " +
-                           $"{textMatch.Where("Name")} " +
-                           "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
-
-                       count = db.Contents.FromSqlRaw(countSql).Count();
-                       contents = db.Contents.FromSqlRaw(querySql)
-                                 .Where(m => CancelIfRequested(token))
-                                 .Skip(skipCount)
-                                 .Take(takeCount)
-                                 .Select(p => p.GetContent())
-                                 .ToList();
-                   }
-                   contents.ForEach(content => SetOwner(content));
-                   return new SearchResult()
-                   {
-                       Contents = contents,
-                       Count = count,
-                       StartTime = startTime,
-                       EndTime = DateTime.UtcNow
-                   };
-               }
-           }, token);
-            return task;
-        }
-
-        public Task<SearchResult> SearchFullTextAsync(string searchEntry, CancellationToken token)
-        {
-            return SearchFullTextAsync(searchEntry, 0, int.MaxValue, token);
-        }
-        /// <summary>
-        /// Asynchronously searches the database for contents matching the provided search entry using full-text search, 
-        /// with optional pagination and cancellation token. The search is performed based on the matching type of the search entry, 
-        /// filtering results as needed while allowing for cancellation.
-        /// </summary>
-        /// <param name="searchEntry">The search entry to match contents using full-text search.</param>
-        /// <param name="skipCount">The number of matching results to skip before retrieving data.</param>
-        /// <param name="takeCount">The maximum number of matching results to retrieve for the search query.</param>
-        /// <param name="token">The CancellationToken used for cancellation request during the search operation.</param>
-        /// <returns>A task that represents the asynchronous search operation, returning a SearchResult object with matching contents, 
-        /// total count of results, and timing information.</returns>
-        public Task<SearchResult> SearchFullTextAsync(string searchEntry, int skipCount, int takeCount, CancellationToken token)
-        {
-            var task = Task.Run(async () =>
-            {
-                DateTime startTime = DateTime.UtcNow;
-                await Task.Yield(); //dummy
-                using (NoteDbContext db = new NoteDbContext(DataSource))
-                {
-                    List<Content> contents = null;
-                    int count;
-                    TextMatching textMatch = TextMatching.Create(searchEntry);
-                    if (textMatch.MatchingType != MatchingType.None)
-                    {
-                        var countSql =
-                            "SELECT p.* FROM Pages p JOIN " +
-                           $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Text : \"{textMatch.Pattern}\"') f " +
-                            "ON p.Rowid = f.rowid";
-                        var querySql =
-                            "SELECT p.* FROM Pages p JOIN " +
-                           $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Text : \"{textMatch.Pattern}\"') f " +
-                            "ON p.Rowid = f.rowid " +
-                            "ORDER BY p.Name COLLATE NOCASE ASC, p.'Index' ASC ";
-
-                        count = db.Pages.FromSqlRaw(countSql).Count();
-                        contents = db.Pages.FromSqlRaw(querySql)
-                                  .Where(m => CancelIfRequested(token))
-                                  .Skip(skipCount)
-                                  .Take(takeCount)
-                                  .Select(p => p.GetContent())
-                                  .ToList();
-                    }
-                    else
-                    {
-                        var sql =
-                             "SELECT * FROM Contents " +
-                             "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
-
-                        count = db.Contents.Count();
-                        contents = db.Contents.FromSqlRaw(sql)
-                                  .Where(m => CancelIfRequested(token))
-                                  .Skip(skipCount)
-                                  .Take(takeCount)
-                                  .ToList();
-                    }
-                    contents.ForEach(content => SetOwner(content));
-                    return new SearchResult()
-                    {
-                        Contents = contents,
-                        Count = count,
-                        StartTime = startTime,
-                        EndTime = DateTime.UtcNow
-                    };
-                }
-            }, token);
-            return task;
         }
 
         /// <summary>

@@ -71,8 +71,14 @@ public sealed class NoteTransferCharacteristicsTests
 
         AssertPage(restoredPages[0], first);
         AssertPage(restoredPages[1], second);
+        var searchResult = await restored.SearchAsync(
+            "entry",
+            SearchMethodType.FullText,
+            0,
+            10,
+            CancellationToken.None);
         Assert.That(
-            restored.SearchFullText("entry", 0, 10).Contents.Select(content => content.Guid),
+            searchResult.Contents.Select(content => content.Guid),
             Is.EqualTo(new[] { first.Guid, second.Guid }));
     }
 

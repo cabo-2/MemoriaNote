@@ -30,131 +30,52 @@ namespace MemoriaNote
         protected Note _selectedNote;
         protected ObservableCollectionExtended<Note> _notes;
 
-        #region SearchContents
+        #region Search
         /// <summary>
-        /// Searches for the specified search entry within the specified search range. 
-        /// If no skip count or take count are provided, it defaults to 0 and int.MaxValue respectively.
+        /// Asynchronously searches the selected note or the entire workgroup.
         /// </summary>
-        /// <param name="searchEntry">The search entry to look for.</param>
-        /// <param name="searchRange">The range to search within (Note or Workgroup).</param>
-        /// <returns>The search result containing the found contents.</returns>
-        public SearchResult SearchContents(string searchEntry, SearchRangeType searchRange)
+        /// <param name="searchEntry">The search entry to match.</param>
+        /// <param name="searchRange">The range to search.</param>
+        /// <param name="searchMethod">The search method to use.</param>
+        /// <param name="token">The cancellation token for the search.</param>
+        /// <returns>The matching contents and total count.</returns>
+        public Task<SearchResult> SearchAsync(
+            string searchEntry,
+            SearchRangeType searchRange,
+            SearchMethodType searchMethod,
+            CancellationToken token)
         {
-            return SearchContents(searchEntry, searchRange, 0, int.MaxValue);
+            return SearchAsync(
+                searchEntry,
+                searchRange,
+                searchMethod,
+                0,
+                int.MaxValue,
+                token);
         }
 
         /// <summary>
-        /// Searches for the specified search entry within the specified search range with the specified skip and take counts.
-        /// If the search range is a Note, it searches within the current selected note; otherwise, it searches within the entire workgroup.
+        /// Asynchronously searches the selected note or the entire workgroup using paging values.
         /// </summary>
-        /// <param name="searchEntry">The search entry to look for.</param>
-        /// <param name="searchRange">The range to search within (Note or Workgroup).</param>
-        /// <param name="skipCount">The number of items to skip before returning search results.</param>
-        /// <param name="takeCount">The maximum number of items to include in the search results.</param>
-        /// <returns>The search result containing the found contents.</returns>
-        public SearchResult SearchContents(string searchEntry, SearchRangeType searchRange, int skipCount, int takeCount)
+        /// <param name="searchEntry">The search entry to match.</param>
+        /// <param name="searchRange">The range to search.</param>
+        /// <param name="searchMethod">The search method to use.</param>
+        /// <param name="skipCount">The number of matching contents to skip.</param>
+        /// <param name="takeCount">The maximum number of matching contents to return.</param>
+        /// <param name="token">The cancellation token for the search.</param>
+        /// <returns>The matching contents and total count.</returns>
+        public Task<SearchResult> SearchAsync(
+            string searchEntry,
+            SearchRangeType searchRange,
+            SearchMethodType searchMethod,
+            int skipCount,
+            int takeCount,
+            CancellationToken token)
         {
-            if (searchRange == SearchRangeType.Note)
-                return SearchNoteContents(searchEntry, skipCount, takeCount);
+            if (searchMethod == SearchMethodType.Heading)
+                return SearchContentsAsync(searchEntry, searchRange, skipCount, takeCount, token);
             else
-                return SearchWorkgroupContents(searchEntry, skipCount, takeCount);
-        }
-
-        /// <summary>
-        /// Searches for the specified search entry within the current selected note with the specified skip and take counts.
-        /// If the current selected note is null, it returns an empty SearchResult.
-        /// </summary>
-        /// <param name="searchEntry">The search entry to look for.</param>
-        /// <param name="skipCount">The number of items to skip before returning search results.</param>
-        /// <param name="takeCount">The maximum number of items to include in the search results.</param>
-        /// <returns>The search result containing the found contents within the current selected note.</returns>
-        public SearchResult SearchNoteContents(string searchEntry, int skipCount, int takeCount)
-        {
-            var currentNote = this.SelectedNote;
-            if (currentNote == null)
-                return SearchResult.Empty;
-            else
-                return currentNote.SearchContents(searchEntry, skipCount, takeCount);
-        }
-
-        /// <summary>
-        /// Searches for the specified search entry within the entire workgroup and aggregates the results from each note.
-        /// The method creates a table of contents count for each note in the workgroup, then iterates over each note to fetch matching contents.
-        /// If the skip count exceeds the total number of contents in a note, it moves on to the next note.
-        /// The method returns a list of contents that match the search entry, along with the total count of matched contents.
-        /// </summary>
-        /// <param name="searchEntry">The search entry to look for.</param>
-        /// <param name="skipCount">The number of items to skip before returning search results.</param>
-        /// <param name="takeCount">The maximum number of items to include in the search results.</param>
-        /// <returns>A SearchResult object containing the found contents within the entire workgroup.</returns>
-        public SearchResult SearchWorkgroupContents(string searchEntry, int skipCount, int takeCount)
-        {
-            DateTime startTime = DateTime.UtcNow;
-            var tables = CreateContentsCountTable(searchEntry);
-            IEnumerable<Content> contents = new List<Content>();
-            foreach (var note in Notes)
-            {
-                int count = tables[note.DataSource];
-                if (skipCount < count)
-                {
-                    var s = note.SearchContents(searchEntry, skipCount, takeCount);
-                    contents = contents.Concat(s.Contents);
-
-                    int newSkipCount, newTakeCount;
-                    if (NeedMoreQuery(count, skipCount, takeCount, out newSkipCount, out newTakeCount))
-                    {
-                        skipCount = newSkipCount;
-                        takeCount = newTakeCount;
-                    }
-                    else
-                        break;
-                }
-                else
-                {
-                    skipCount -= count; //read skip
-                }
-            }
-            var sr = new SearchResult();
-            sr.Contents = contents.ToList();
-            sr.Count = tables.Select(kv => kv.Value).Sum();
-            sr.StartTime = startTime;
-            sr.EndTime = DateTime.UtcNow;
-            return sr;
-        }
-        Dictionary<string, int> CreateContentsCountTable(string searchEntry)
-        {
-            Dictionary<string, int> tables = new Dictionary<string, int>();
-            foreach (var n in Notes)
-                tables.Add(n.DataSource, 0);
-
-            TextMatching textMatch = TextMatching.Create(searchEntry);
-            foreach (var dataSource in tables.Select(t => t.Key).ToList().AsParallel())
-            {
-                using (NoteDbContext db = new NoteDbContext(dataSource))
-                {
-                    StringBuilder builder = new StringBuilder();
-                    builder.AppendLine("SELECT * FROM Contents ");
-                    builder.AppendLine(textMatch.Where("Name"));
-                    int count = db.Contents.FromSqlRaw(builder.ToString()).Count();
-                    tables[dataSource] = count;
-                }
-            }
-            return tables;
-        }
-        #endregion
-
-        #region SearchContentsAsync
-        /// <summary>
-        /// Asynchronously searches for the specified search entry within the specified search range with the default skip and take counts.
-        /// If the search range is a Note, it searches within the current selected note; otherwise, it searches within the entire workgroup.
-        /// </summary>
-        /// <param name="searchEntry">The search entry to look for.</param>
-        /// <param name="searchRange">The range to search within (Note or Workgroup).</param>
-        /// <param name="token">A cancellation token that can be used to cancel the asynchronous operation.</param>
-        /// <returns>A task representing the asynchronous operation, which upon completion returns a SearchResult object containing the found contents.</returns>
-        public Task<SearchResult> SearchContentsAsync(string searchEntry, SearchRangeType searchRange, CancellationToken token)
-        {
-            return SearchContentsAsync(searchEntry, searchRange, 0, int.MaxValue, token);
+                return SearchFullTextAsync(searchEntry, searchRange, skipCount, takeCount, token);
         }
 
         /// <summary>
@@ -167,7 +88,7 @@ namespace MemoriaNote
         /// <param name="takeCount">The maximum number of items to include in the search results.</param>
         /// <param name="token">A cancellation token that can be used to potentially cancel the asynchronous operation.</param>
         /// <returns>A task representing the asynchronous operation, which upon completion returns a SearchResult object containing the found contents.</returns>
-        public Task<SearchResult> SearchContentsAsync(string searchEntry, SearchRangeType searchRange, int skipCount, int takeCount, CancellationToken token)
+        private Task<SearchResult> SearchContentsAsync(string searchEntry, SearchRangeType searchRange, int skipCount, int takeCount, CancellationToken token)
         {
             if (searchRange == SearchRangeType.Note)
                 return SearchNoteContentsAsync(searchEntry, skipCount, takeCount, token);
@@ -184,13 +105,21 @@ namespace MemoriaNote
         /// <param name="takeCount">The maximum number of items to include in the search results.</param>
         /// <param name="token">A cancellation token that can be used to potentially cancel the asynchronous operation.</param>
         /// <returns>A task representing the asynchronous operation, which upon completion returns a SearchResult object containing the found contents.</returns>
-        public Task<SearchResult> SearchNoteContentsAsync(string searchEntry, int skipCount, int takeCount, CancellationToken token)
+        private Task<SearchResult> SearchNoteContentsAsync(string searchEntry, int skipCount, int takeCount, CancellationToken token)
         {
             var currentNote = this.SelectedNote;
             if (currentNote == null)
-                return Task.Run(() => { return SearchResult.Empty; });
+            {
+                token.ThrowIfCancellationRequested();
+                return Task.FromResult(SearchResult.Empty);
+            }
             else
-                return currentNote.SearchContentsAsync(searchEntry, skipCount, takeCount, token);
+                return currentNote.SearchAsync(
+                    searchEntry,
+                    SearchMethodType.Heading,
+                    skipCount,
+                    takeCount,
+                    token);
         }
 
         /// <summary>
@@ -203,44 +132,48 @@ namespace MemoriaNote
         /// <param name="takeCount">The maximum number of items to include in the search results.</param>
         /// <param name="token">A cancellation token that can be used to potentially cancel the asynchronous operation.</param>
         /// <returns>A task representing the asynchronous operation, which upon completion returns a SearchResult object containing the found contents within the entire workgroup.</returns>
-        public Task<SearchResult> SearchWorkgroupContentsAsync(string searchEntry, int skipCount, int takeCount, CancellationToken token)
+        private async Task<SearchResult> SearchWorkgroupContentsAsync(string searchEntry, int skipCount, int takeCount, CancellationToken token)
         {
-            var task = Task.Run(async () =>
+            DateTime startTime = DateTime.UtcNow;
+            var tables = await Task.Run(
+                () => CreateContentsCountTable(searchEntry, token),
+                token);
+            IEnumerable<Content> contents = new List<Content>();
+            foreach (var note in Notes)
             {
-                DateTime startTime = DateTime.UtcNow;
-                var tables = CreateContentsCountTable(searchEntry, token);
-                IEnumerable<Content> contents = new List<Content>();
-                foreach (var note in Notes)
+                int count = tables[note.DataSource];
+                if (skipCount < count)
                 {
-                    int count = tables[note.DataSource];
-                    if (skipCount < count)
-                    {
-                        var s = await note.SearchContentsAsync(searchEntry, skipCount, takeCount, token);
-                        contents = contents.Concat(s.Contents);
+                    var result = await note.SearchAsync(
+                        searchEntry,
+                        SearchMethodType.Heading,
+                        skipCount,
+                        takeCount,
+                        token);
+                    contents = contents.Concat(result.Contents);
 
-                        int newSkipCount, newTakeCount;
-                        if (NeedMoreQuery(count, skipCount, takeCount, out newSkipCount, out newTakeCount))
-                        {
-                            skipCount = newSkipCount;
-                            takeCount = newTakeCount;
-                        }
-                        else
-                            break;
+                    if (NeedMoreQuery(count, skipCount, takeCount, out var newSkipCount, out var newTakeCount))
+                    {
+                        skipCount = newSkipCount;
+                        takeCount = newTakeCount;
                     }
                     else
-                    {
-                        skipCount -= count; //read skip
-                    }
-                    CancelIfRequested(token);
+                        break;
                 }
-                var sr = new SearchResult();
-                sr.Contents = contents.ToList();
-                sr.Count = tables.Select(kv => kv.Value).Sum();
-                sr.StartTime = startTime;
-                sr.EndTime = DateTime.UtcNow;
-                return sr;
-            }, token);
-            return task;
+                else
+                {
+                    skipCount -= count; //read skip
+                }
+                CancelIfRequested(token);
+            }
+
+            return new SearchResult()
+            {
+                Contents = contents.ToList(),
+                Count = tables.Select(kv => kv.Value).Sum(),
+                StartTime = startTime,
+                EndTime = DateTime.UtcNow
+            };
         }
         Dictionary<string, int> CreateContentsCountTable(string searchEntry, CancellationToken token)
         {
@@ -265,63 +198,74 @@ namespace MemoriaNote
         }
         #endregion
 
-        #region SearchFullText
-        public SearchResult SearchFullText(string searchEntry, SearchRangeType searchRange)
-        {
-            return SearchFullText(searchEntry, searchRange, 0, int.MaxValue);
-        }
+        #region FullTextSearch
         /// <summary>
-        /// Searches for the full text of the specified search entry within the specified search range with the provided skip and take counts.
-        /// If the search range is set to SearchRangeType.Note, it searches for the full text within the currently selected note.
-        /// If the search range is set to SearchRangeType.Workgroup, it searches for the full text within the entire workgroup.
+        /// Asynchronously searches for the full text of the specified search entry within the specified search range with the provided skip and take counts.
+        /// If the search range is set to SearchRangeType.Note, it asynchronously searches for the full text within the currently selected note.
+        /// If the search range is set to SearchRangeType.Workgroup, it asynchronously searches for the full text within the entire workgroup.
         /// </summary>
         /// <param name="searchEntry">The search entry to look for.</param>
         /// <param name="searchRange">The range within which to search for the full text.</param>
         /// <param name="skipCount">The number of items to skip before returning search results.</param>
         /// <param name="takeCount">The maximum number of items to include in the search results.</param>
-        /// <returns>A SearchResult object containing the found contents within the specified search range with the provided skip and take counts.</returns>
-        public SearchResult SearchFullText(string searchEntry, SearchRangeType searchRange, int skipCount, int takeCount)
+        /// <param name="token">The cancellation token to cancel the asynchronous operation if needed.</param>
+        /// <returns>A task representing the asynchronous operation that returns a SearchResult object containing the found contents within the specified search range with the provided skip and take counts.</returns>
+        private Task<SearchResult> SearchFullTextAsync(string searchEntry, SearchRangeType searchRange, int skipCount, int takeCount, CancellationToken token)
         {
             if (searchRange == SearchRangeType.Note)
-                return SearchNoteFullText(searchEntry, skipCount, takeCount);
+                return SearchNoteFullTextAsync(searchEntry, skipCount, takeCount, token);
             else
-                return SearchWorkgroupFullText(searchEntry, skipCount, takeCount);
+                return SearchWorkgroupFullTextAsync(searchEntry, skipCount, takeCount, token);
         }
-        /// <summary>
-        /// Searches for the full text of the specified search entry within the currently selected note with the provided skip and take counts.
-        /// If the currently selected note is null, it returns an empty SearchResult object.
-        /// </summary>
-        /// <param name="searchEntry">The search entry to look for.</param>
-        /// <param name="skipCount">The number of items to skip before returning search results.</param>
-        /// <param name="takeCount">The maximum number of items to include in the search results.</param>
-        /// <returns>A SearchResult object containing the found contents within the currently selected note with the provided skip and take counts.</returns>
-        public SearchResult SearchNoteFullText(string searchEntry, int skipCount, int takeCount)
+
+        private Task<SearchResult> SearchNoteFullTextAsync(string searchEntry, int skipCount, int takeCount, CancellationToken token)
         {
             var currentNote = this.SelectedNote;
             if (currentNote == null)
-                return SearchResult.Empty;
+            {
+                token.ThrowIfCancellationRequested();
+                return Task.FromResult(SearchResult.Empty);
+            }
             else
-                return currentNote.SearchFullText(searchEntry, skipCount, takeCount);
+                return currentNote.SearchAsync(
+                    searchEntry,
+                    SearchMethodType.FullText,
+                    skipCount,
+                    takeCount,
+                    token);
         }
+
         /// <summary>
-        /// Searches for the full text of the specified search entry within the entire workgroup,
-        /// aggregating results from all notes based on the provided skip and take counts.
+        /// Asynchronously searches for the full text of the specified search entry within the entire workgroup,
+        /// aggregating results from all notes within the workgroup based on skip and take counts.
+        /// The search is performed by querying the database tables asynchronously to retrieve the relevant contents.
+        /// If the skip count exceeds the number of content items in a particular note, the search continues to the next note.
+        /// Returns a task representing the asynchronous operation that provides a SearchResult object
+        /// containing the found contents within the workgroup with the total count and execution time.
         /// </summary>
         /// <param name="searchEntry">The search entry to look for.</param>
         /// <param name="skipCount">The number of items to skip before returning search results.</param>
         /// <param name="takeCount">The maximum number of items to include in the search results.</param>
-        /// <returns>A search result containing the matching contents and total count.</returns>
-        public SearchResult SearchWorkgroupFullText(string searchEntry, int skipCount, int takeCount)
+        /// <param name="token">The cancellation token to cancel the asynchronous operation if needed.</param>
+        /// <returns>A task representing the asynchronous operation that returns a SearchResult object containing the found contents within the workgroup with the total count and execution time.</returns>
+        private async Task<SearchResult> SearchWorkgroupFullTextAsync(string searchEntry, int skipCount, int takeCount, CancellationToken token)
         {
             DateTime startTime = DateTime.UtcNow;
-            var tables = CreateFullTextCountTable(searchEntry, CancellationToken.None);
+            var tables = await Task.Run(
+                () => CreateFullTextCountTable(searchEntry, token),
+                token);
             IEnumerable<Content> contents = new List<Content>();
             foreach (var note in Notes)
             {
                 int count = tables[note.DataSource];
                 if (skipCount < count)
                 {
-                    var result = note.SearchFullText(searchEntry, skipCount, takeCount);
+                    var result = await note.SearchAsync(
+                        searchEntry,
+                        SearchMethodType.FullText,
+                        skipCount,
+                        takeCount,
+                        token);
                     contents = contents.Concat(result.Contents);
 
                     if (NeedMoreQuery(count, skipCount, takeCount, out var newSkipCount, out var newTakeCount))
@@ -334,8 +278,9 @@ namespace MemoriaNote
                 }
                 else
                 {
-                    skipCount -= count;
+                    skipCount -= count; //read skip
                 }
+                CancelIfRequested(token);
             }
 
             return new SearchResult()
@@ -345,94 +290,6 @@ namespace MemoriaNote
                 StartTime = startTime,
                 EndTime = DateTime.UtcNow
             };
-        }
-        #endregion
-
-        #region SearchFullTextAsync
-        public Task<SearchResult> SearchFullTextAsync(string searchEntry, SearchRangeType searchRange, CancellationToken token)
-        {
-            return SearchFullTextAsync(searchEntry, searchRange, 0, int.MaxValue, token);
-        }
-
-        /// <summary>
-        /// Asynchronously searches for the full text of the specified search entry within the specified search range with the provided skip and take counts.
-        /// If the search range is set to SearchRangeType.Note, it asynchronously searches for the full text within the currently selected note.
-        /// If the search range is set to SearchRangeType.Workgroup, it asynchronously searches for the full text within the entire workgroup.
-        /// </summary>
-        /// <param name="searchEntry">The search entry to look for.</param>
-        /// <param name="searchRange">The range within which to search for the full text.</param>
-        /// <param name="skipCount">The number of items to skip before returning search results.</param>
-        /// <param name="takeCount">The maximum number of items to include in the search results.</param>
-        /// <param name="token">The cancellation token to cancel the asynchronous operation if needed.</param>
-        /// <returns>A task representing the asynchronous operation that returns a SearchResult object containing the found contents within the specified search range with the provided skip and take counts.</returns>
-        public Task<SearchResult> SearchFullTextAsync(string searchEntry, SearchRangeType searchRange, int skipCount, int takeCount, CancellationToken token)
-        {
-            if (searchRange == SearchRangeType.Note)
-                return SearchNoteFullTextAsync(searchEntry, skipCount, takeCount, token);
-            else
-                return SearchWorkgroupFullTextAsync(searchEntry, skipCount, takeCount, token);
-        }
-
-        public Task<SearchResult> SearchNoteFullTextAsync(string searchEntry, int skipCount, int takeCount, CancellationToken token)
-        {
-            var currentNote = this.SelectedNote;
-            if (currentNote == null)
-                return Task.Run(() => { return SearchResult.Empty; });
-            else
-                return currentNote.SearchFullTextAsync(searchEntry, skipCount, takeCount, token);
-        }
-
-        /// <summary>
-        /// Asynchronously searches for the full text of the specified search entry within the entire workgroup, 
-        /// aggregating results from all notes within the workgroup based on skip and take counts.
-        /// The search is performed by querying the database tables asynchronously to retrieve the relevant contents.
-        /// If the skip count exceeds the number of content items in a particular note, the search continues to the next note.
-        /// Returns a task representing the asynchronous operation that provides a SearchResult object 
-        /// containing the found contents within the workgroup with the total count and execution time.
-        /// </summary>
-        /// <param name="searchEntry">The search entry to look for.</param>
-        /// <param name="skipCount">The number of items to skip before returning search results.</param>
-        /// <param name="takeCount">The maximum number of items to include in the search results.</param>
-        /// <param name="token">The cancellation token to cancel the asynchronous operation if needed.</param>
-        /// <returns>A task representing the asynchronous operation that returns a SearchResult object containing the found contents within the workgroup with the total count and execution time.</returns>
-        public Task<SearchResult> SearchWorkgroupFullTextAsync(string searchEntry, int skipCount, int takeCount, CancellationToken token)
-        {
-            var task = Task.Run(async () =>
-            {
-                DateTime startTime = DateTime.UtcNow;
-                var tables = CreateFullTextCountTable(searchEntry, token);
-                IEnumerable<Content> contents = new List<Content>();
-                foreach (var note in Notes)
-                {
-                    int count = tables[note.DataSource];
-                    if (skipCount < count)
-                    {
-                        var s = await note.SearchFullTextAsync(searchEntry, skipCount, takeCount, token);
-                        contents = contents.Concat(s.Contents);
-
-                        int newSkipCount, newTakeCount;
-                        if (NeedMoreQuery(count, skipCount, takeCount, out newSkipCount, out newTakeCount))
-                        {
-                            skipCount = newSkipCount;
-                            takeCount = newTakeCount;
-                        }
-                        else
-                            break;
-                    }
-                    else
-                    {
-                        skipCount -= count; //read skip
-                    }
-                    CancelIfRequested(token);
-                }
-                var sr = new SearchResult();
-                sr.Contents = contents.ToList();
-                sr.Count = tables.Select(kv => kv.Value).Sum();
-                sr.StartTime = startTime;
-                sr.EndTime = DateTime.UtcNow;
-                return sr;
-            }, token);
-            return task;
         }
 
         Dictionary<string, int> CreateFullTextCountTable(string searchEntry, CancellationToken token)
