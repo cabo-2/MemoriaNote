@@ -472,25 +472,65 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Reads the specified content from the currently selected note and then iterates through other notes to find and read the content.
-        /// <para>If the content is found in the currently selected note, it returns the page, otherwise it searches through other notes.</para>
+        /// Reads the specified content from the note identified by its owner data source.
         /// </summary>
         /// <param name="content">The content to read from the notes.</param>
         /// <returns>The page of the specified content if found in any of the notes, otherwise null.</returns>
         public Page ReadAll(IContent content)
         {
-            Note current = this.SelectedNote;
-            Page page = current.ReadPage(content.Guid);
-            if (page != null)
-                return page;
+            var owner = FindOwner(content);
+            return owner?.ReadPage(content.Guid);
+        }
 
-            foreach (var note in this.Notes.Where(n => !n.Equals(current)))
+        private Note FindOwner(IContent content)
+        {
+            if (content == null || string.IsNullOrWhiteSpace(content.OwnerDataSource))
+                return null;
+
+            var ownerDataSource = Path.GetFullPath(content.OwnerDataSource);
+            var comparison = OperatingSystem.IsWindows()
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+
+            return Notes.FirstOrDefault(note =>
+                string.Equals(Path.GetFullPath(note.DataSource), ownerDataSource, comparison));
+        }
+
+        private bool ValidateOwnedContent(
+            IContent content,
+            string permissionError,
+            out Note owner,
+            out List<string> errors)
+        {
+            errors = new List<string>();
+            owner = null;
+
+            if (content == null)
             {
-                page = note.ReadPage(content.Guid);
-                if (page != null)
-                    return page;
+                errors.Add("The text not yet opened.");
+                return false;
             }
-            return null;
+
+            owner = FindOwner(content);
+            if (owner == null)
+            {
+                errors.Add("The text owner note was not found.");
+                return false;
+            }
+
+            if (owner.Metadata.ReadOnly)
+            {
+                errors.Add(permissionError);
+                return false;
+            }
+
+            if (owner.ReadPage(content.Guid) == null)
+            {
+                errors.Add("The text was not found in its owner note.");
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -518,7 +558,7 @@ namespace MemoriaNote
 
         /// <summary>
         /// Validates the editing of the text content with the specified content and updates the list of errors if validation fails.
-        /// Checks if the selected note allows text editing, validates the text content, and returns the validation result.
+        /// Checks if the owning note allows text editing, validates the text content, and returns the validation result.
         /// </summary>
         /// <param name="content">The content to be edited in the text.</param>
         /// <param name="testText">The updated content of the text to be edited.</param>
@@ -526,23 +566,19 @@ namespace MemoriaNote
         /// <returns>True if the text editing is valid, false otherwise.</returns>
         public bool ValidateEditText(IContent content, string testText, out List<string> errors)
         {
-            errors = new List<string>();
-            if (SelectedNote.Metadata.ReadOnly)
-            {
-                errors.Add("Edit text is not allowed.");
+            if (!ValidateOwnedContent(
+                content,
+                "Edit text is not allowed.",
+                out _,
+                out errors))
                 return false;
-            }
-            if (content == null)
-            {
-                errors.Add("The text not yet opened.");
-                return false;
-            }
+
             return TextUtil.ValidateTextString(testText, errors);
         }
 
         /// <summary>
         /// Validates the renaming of the text with the specified content name and updates the list of errors if validation fails.
-        /// Checks if the selected note allows text renaming, validates the new text name, and checks if the name is already in use.
+        /// Checks if the owning note allows text renaming, validates the new text name, and checks if the name is already in use there.
         /// </summary>
         /// <param name="content">The content of the text to be renamed.</param>
         /// <param name="testName">The new name for the text.</param>
@@ -550,19 +586,15 @@ namespace MemoriaNote
         /// <returns>True if the text renaming is valid, false otherwise.</returns>
         public bool ValidateRenameText(IContent content, string testName, out List<string> errors)
         {
-            errors = new List<string>();
-            if (SelectedNote.Metadata.ReadOnly)
-            {
-                errors.Add("Rename text is not allowed.");
+            if (!ValidateOwnedContent(
+                content,
+                "Rename text is not allowed.",
+                out var owner,
+                out errors))
                 return false;
-            }
-            if (content == null)
-            {
-                errors.Add("The text not yet opened.");
-                return false;
-            }
+
             TextUtil.ValidateNameString(testName, errors);
-            if (SelectedNote.ReadPage(testName).FirstOrDefault() != null)
+            if (owner.ReadPage(testName).FirstOrDefault() != null)
                 errors.Add("The text name is already in use.");
 
             return errors.Count == 0;
@@ -570,25 +602,18 @@ namespace MemoriaNote
 
         /// <summary>
         /// Validates the deletion of the text content with the specified content and updates the list of errors if validation fails.
-        /// Checks if the selected note allows text deletion, validates the content, and returns the validation result.
+        /// Checks if the owning note allows text deletion, validates the content, and returns the validation result.
         /// </summary>
         /// <param name="content">The content to be deleted from the text.</param>
         /// <param name="errors">A list of error messages if validation fails.</param>
         /// <returns>True if the text deletion is valid, false otherwise.</returns>
         public bool ValidateDeleteText(IContent content, out List<string> errors)
         {
-            errors = new List<string>();
-            if (SelectedNote.Metadata.ReadOnly)
-            {
-                errors.Add("Delete text is not allowed.");
-                return false;
-            }
-            if (content == null)
-            {
-                errors.Add("The text not yet opened.");
-                return false;
-            }
-            return true;
+            return ValidateOwnedContent(
+                content,
+                "Delete text is not allowed.",
+                out _,
+                out errors);
         }
 
         /// <summary>
@@ -620,7 +645,7 @@ namespace MemoriaNote
 
         /// <summary>
         /// Updates the content of a text with the specified new text content.
-        /// Validates if the selected note allows text editing, checks the validity of the text content, and updates the text content if validation passes.
+        /// Validates if the owning note allows text editing, checks the text content, and updates that note if validation passes.
         /// </summary>
         /// <param name="content">The content of the text to be edited.</param>
         /// <param name="newText">The new content for the text.</param>
@@ -633,9 +658,10 @@ namespace MemoriaNote
             mr.Errors = errors;
             if (validate)
             {
-                var page = SelectedNote.ReadPage(content);
+                var owner = FindOwner(content);
+                var page = owner.ReadPage(content);
                 page.Text = newText;
-                SelectedNote.UpdatePage(page);
+                owner.UpdatePage(page);
                 mr.Content = page.GetContent();
                 mr.Notification = "The text updated successfully.";
                 mr.Result = true;
@@ -649,7 +675,7 @@ namespace MemoriaNote
 
         /// <summary>
         /// Renames the text content with the specified new name and updates the list of errors if validation fails.
-        /// Validates if the selected note allows text renaming, checks the validity of the new text name, and verifies if the name is already in use.
+        /// Validates if the owning note allows text renaming and whether the new name is already in use there.
         /// </summary>
         /// <param name="content">The content of the text to be renamed.</param>
         /// <param name="newName">The new name for the text.</param>
@@ -662,9 +688,10 @@ namespace MemoriaNote
             mr.Errors = errors;
             if (validate)
             {
-                var page = SelectedNote.ReadPage(content);
+                var owner = FindOwner(content);
+                var page = owner.ReadPage(content);
                 page.Name = newName;
-                SelectedNote.UpdatePage(page);
+                owner.UpdatePage(page);
                 mr.Content = page.GetContent();
                 mr.Notification = "The text renamed successfully.";
                 mr.Result = true;
@@ -691,14 +718,16 @@ namespace MemoriaNote
             mr.Errors = errors;
             if (validate)
             {
-                SelectedNote.DeletePage(content);
+                var owner = FindOwner(content);
+                var page = owner.ReadPage(content);
+                owner.DeletePage(page);
                 mr.Content = null;
                 mr.Notification = "The text deleted successfully.";
                 mr.Result = true;
             }
             else
             {
-                mr.Content = content.GetContent();
+                mr.Content = content?.GetContent();
                 mr.Notification = "Failed to delete the text.";
             }
             return mr;

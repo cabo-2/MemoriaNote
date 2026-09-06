@@ -145,6 +145,31 @@ public sealed class SearchContractTests
         AssertSearchResult(fullTextResult, note, 4, bravo.Guid, charlie.Guid);
     }
 
+    /// <summary>
+    /// Verifies that asynchronous heading and full-text results retain their owner identity.
+    /// </summary>
+    [Test]
+    public async Task SearchMethodsAsync_ReturnResultsWithTheirOwner()
+    {
+        using var database = new TemporaryNoteDatabase();
+        var note = database.CreateNote("test-note", "Test Note");
+        var page = note.CreatePage("Async", "Asynchronous owner marker.");
+
+        var headingResult = await note.SearchContentsAsync(
+            "Async",
+            0,
+            10,
+            CancellationToken.None);
+        var fullTextResult = await note.SearchFullTextAsync(
+            "marker",
+            0,
+            10,
+            CancellationToken.None);
+
+        AssertSearchResult(headingResult, note, 1, page.Guid);
+        AssertSearchResult(fullTextResult, note, 1, page.Guid);
+    }
+
     private static void AssertSearchResult(
         SearchResult result,
         Note expectedParent,
@@ -160,6 +185,9 @@ public sealed class SearchContractTests
             Assert.That(
                 result.Contents.Select(content => content.Parent),
                 Is.All.SameAs(expectedParent));
+            Assert.That(
+                result.Contents.Select(content => content.OwnerDataSource),
+                Is.All.EqualTo(Path.GetFullPath(expectedParent.DataSource)));
             Assert.That(result.StartTime, Is.LessThanOrEqualTo(result.EndTime));
         }
     }

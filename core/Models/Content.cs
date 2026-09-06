@@ -59,6 +59,7 @@ namespace MemoriaNote
             value.CreateTime = content.CreateTime;
             value.UpdateTime = content.UpdateTime;
             value.IsErased = content.IsErased;
+            value.OwnerDataSource = content.OwnerDataSource;
             value.Parent = content.Parent;
             return value;
         }
@@ -162,6 +163,12 @@ namespace MemoriaNote
         /// Gets or sets the IsErased property which indicates whether the content object has been flagged as erased.
         /// </summary>
         public bool IsErased { get; set; }
+
+        /// <summary>
+        /// Gets or sets the normalized data source of the note that owns the content.
+        /// </summary>
+        [NotMapped, JsonIgnore]
+        public string OwnerDataSource { get; set; }
 
         /// <summary>
         /// Gets or sets the Parent property which represents an object that is the parent of the content object.

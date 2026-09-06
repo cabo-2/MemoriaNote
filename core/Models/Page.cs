@@ -131,6 +131,13 @@ namespace MemoriaNote
         /// Indicates whether the page has been erased.
         /// </summary>
         public bool IsErased { get; set; }
+
+        /// <summary>
+        /// Gets or sets the normalized data source of the note that owns the page.
+        /// </summary>
+        [NotMapped, JsonIgnore]
+        public string OwnerDataSource { get; set; }
+
         /// <summary>
         /// Represents the parent object of the page, not mapped to the database and ignored during JSON serialization.
         /// </summary>

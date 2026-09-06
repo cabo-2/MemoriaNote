@@ -82,7 +82,7 @@ namespace MemoriaNote
         public Page ReadPage(string name, int index)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
-                return db.PageClient.Read(name, index);
+                return SetOwner(db.PageClient.Read(name, index));
         }
 
         /// <summary>
@@ -93,7 +93,7 @@ namespace MemoriaNote
         public Page ReadPage(Guid guid)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
-                return db.PageClient.Read(guid);
+                return SetOwner(db.PageClient.Read(guid));
         }
 
         /// <summary>
@@ -111,7 +111,7 @@ namespace MemoriaNote
         public IEnumerable<Page> ReadPage(string name)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
-                return db.PageClient.Read(name).ToList();
+                return db.PageClient.Read(name).ToList().Select(SetOwner).ToList();
         }
 
         /// <summary>
@@ -131,7 +131,7 @@ namespace MemoriaNote
                 db.PageClient.Add(page);
                 RelocatePage(page.Name, db);
                 db.SaveChanges();
-                return page;
+                return SetOwner(page);
             }
         }
 
@@ -279,7 +279,7 @@ namespace MemoriaNote
                               .Take(takeCount)
                               .ToList();
                 }
-                contents.ForEach(c => c.Parent = this);
+                contents.ForEach(content => SetOwner(content));
                 return new SearchResult()
                 {
                     Contents = contents,
@@ -337,7 +337,7 @@ namespace MemoriaNote
                               .Take(takeCount)
                               .ToList();
                 }
-                contents.ForEach(c => c.Parent = this);
+                contents.ForEach(content => SetOwner(content));
                 return new SearchResult()
                 {
                     Contents = contents,
@@ -442,7 +442,7 @@ namespace MemoriaNote
                                  .Select(p => p.GetContent())
                                  .ToList();
                    }
-                   contents.ForEach(c => c.Parent = this);
+                   contents.ForEach(content => SetOwner(content));
                    return new SearchResult()
                    {
                        Contents = contents,
@@ -514,7 +514,7 @@ namespace MemoriaNote
                                   .Take(takeCount)
                                   .ToList();
                     }
-                    contents.ForEach(c => c.Parent = this);
+                    contents.ForEach(content => SetOwner(content));
                     return new SearchResult()
                     {
                         Contents = contents,
@@ -553,7 +553,20 @@ namespace MemoriaNote
                             .ReadAll()
                             .Skip(skipCount)
                             .Take(takeCount)
+                            .ToList()
+                            .Select(SetOwner)
                             .ToList();
+        }
+
+        private T SetOwner<T>(T content) where T : class, IContent
+        {
+            if (content != null)
+            {
+                content.OwnerDataSource = Path.GetFullPath(DataSource);
+                content.Parent = this;
+            }
+
+            return content;
         }
 
         /// <summary>

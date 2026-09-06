@@ -54,6 +54,11 @@ namespace MemoriaNote
         /// Flag to indicate if the content has been erased
         /// </summary>
         bool IsErased { get; set; }
+
+        /// <summary>
+        /// Gets or sets the normalized data source of the note that owns the content.
+        /// </summary>
+        string OwnerDataSource { get; set; }
         
         /// <summary>
         /// Parent object of the content
