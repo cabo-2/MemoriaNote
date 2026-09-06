@@ -303,9 +303,48 @@ namespace MemoriaNote
             else
                 return currentNote.SearchFullText(searchEntry, skipCount, takeCount);
         }
+        /// <summary>
+        /// Searches for the full text of the specified search entry within the entire workgroup,
+        /// aggregating results from all notes based on the provided skip and take counts.
+        /// </summary>
+        /// <param name="searchEntry">The search entry to look for.</param>
+        /// <param name="skipCount">The number of items to skip before returning search results.</param>
+        /// <param name="takeCount">The maximum number of items to include in the search results.</param>
+        /// <returns>A search result containing the matching contents and total count.</returns>
         public SearchResult SearchWorkgroupFullText(string searchEntry, int skipCount, int takeCount)
         {
-            return SearchResult.Empty;
+            DateTime startTime = DateTime.UtcNow;
+            var tables = CreateFullTextCountTable(searchEntry, CancellationToken.None);
+            IEnumerable<Content> contents = new List<Content>();
+            foreach (var note in Notes)
+            {
+                int count = tables[note.DataSource];
+                if (skipCount < count)
+                {
+                    var result = note.SearchFullText(searchEntry, skipCount, takeCount);
+                    contents = contents.Concat(result.Contents);
+
+                    if (NeedMoreQuery(count, skipCount, takeCount, out var newSkipCount, out var newTakeCount))
+                    {
+                        skipCount = newSkipCount;
+                        takeCount = newTakeCount;
+                    }
+                    else
+                        break;
+                }
+                else
+                {
+                    skipCount -= count;
+                }
+            }
+
+            return new SearchResult()
+            {
+                Contents = contents.ToList(),
+                Count = tables.Select(kv => kv.Value).Sum(),
+                StartTime = startTime,
+                EndTime = DateTime.UtcNow
+            };
         }
         #endregion
 
