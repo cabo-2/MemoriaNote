@@ -16,10 +16,23 @@ namespace MemoriaNote
     public class Note
     {
         string _dataSource = null;
+        readonly INoteSearchRepository _searchRepository;
 
         public Note() { }
         public Note(string dataSource)
         {
+            DataSource = dataSource;
+        }
+
+        /// <summary>
+        /// Initializes a note with an explicit search persistence boundary.
+        /// </summary>
+        /// <param name="dataSource">The path of the note database.</param>
+        /// <param name="searchRepository">The repository used for note searches.</param>
+        public Note(string dataSource, INoteSearchRepository searchRepository)
+        {
+            _searchRepository = searchRepository ??
+                throw new ArgumentNullException(nameof(searchRepository));
             DataSource = dataSource;
         }
 
@@ -266,145 +279,44 @@ namespace MemoriaNote
         /// <param name="takeCount">The maximum number of matching contents to return.</param>
         /// <param name="token">The cancellation token for the database operation.</param>
         /// <returns>The matching contents and total count.</returns>
-        public Task<SearchResult> SearchAsync(
+        public async Task<SearchResult> SearchAsync(
             string searchEntry,
             SearchMethodType searchMethod,
             int skipCount,
             int takeCount,
             CancellationToken token)
         {
-            if (searchMethod == SearchMethodType.Heading)
-                return SearchHeadingsAsync(searchEntry, skipCount, takeCount, token);
-            else
-                return SearchFullTextAsync(searchEntry, skipCount, takeCount, token);
+            var result = await SearchRepository.SearchAsync(
+                DataSource,
+                searchEntry,
+                searchMethod,
+                skipCount,
+                takeCount,
+                token);
+            result.Contents.ForEach(content => SetOwner(content));
+            return result;
         }
 
-        private async Task<SearchResult> SearchHeadingsAsync(
+        internal Task<int> CountSearchResultsAsync(
             string searchEntry,
-            int skipCount,
-            int takeCount,
+            SearchMethodType searchMethod,
             CancellationToken token)
         {
-            DateTime startTime = DateTime.UtcNow;
-            using (NoteDbContext db = new NoteDbContext(DataSource))
-            {
-                List<Content> contents;
-                int count;
-                TextMatching textMatch = TextMatching.Create(searchEntry);
-                if (textMatch.MatchingType == MatchingType.Exact)
-                {
-                    var countSql =
-                        "SELECT p.* FROM Pages p JOIN " +
-                       $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Name : \"{textMatch.Pattern}\"') f " +
-                        "ON p.Rowid = f.rowid " +
-                       $"{textMatch.Where("p.Name")}";
-                    var querySql =
-                        "SELECT p.* FROM Pages p JOIN " +
-                       $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Name : \"{textMatch.Pattern}\"') f " +
-                        "ON p.Rowid = f.rowid " +
-                       $"{textMatch.Where("p.Name")} " +
-                        "ORDER BY p.Name COLLATE NOCASE ASC, p.'Index' ASC ";
-
-                    count = await db.Pages.FromSqlRaw(countSql).CountAsync(token);
-                    var pages = await db.Pages.FromSqlRaw(querySql)
-                        .Skip(skipCount)
-                        .Take(takeCount)
-                        .ToListAsync(token);
-                    contents = pages.ConvertAll(page => page.GetContent());
-                }
-                else if (textMatch.MatchingType == MatchingType.None)
-                {
-                    var sql =
-                         "SELECT * FROM Contents " +
-                         "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
-
-                    count = await db.Contents.CountAsync(token);
-                    contents = await db.Contents.FromSqlRaw(sql)
-                        .Skip(skipCount)
-                        .Take(takeCount)
-                        .ToListAsync(token);
-                }
-                else
-                {
-                    var countSql =
-                        "SELECT * FROM Contents " +
-                       $"{textMatch.Where("Name")}";
-                    var querySql =
-                        "SELECT * FROM Contents " +
-                       $"{textMatch.Where("Name")} " +
-                        "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
-
-                    count = await db.Contents.FromSqlRaw(countSql).CountAsync(token);
-                    contents = await db.Contents.FromSqlRaw(querySql)
-                        .Skip(skipCount)
-                        .Take(takeCount)
-                        .ToListAsync(token);
-                }
-
-                contents.ForEach(content => SetOwner(content));
-                return new SearchResult()
-                {
-                    Contents = contents,
-                    Count = count,
-                    StartTime = startTime,
-                    EndTime = DateTime.UtcNow
-                };
-            }
+            return SearchRepository.CountAsync(
+                DataSource,
+                searchEntry,
+                searchMethod,
+                token);
         }
 
-        private async Task<SearchResult> SearchFullTextAsync(
-            string searchEntry,
-            int skipCount,
-            int takeCount,
-            CancellationToken token)
+        INoteSearchRepository SearchRepository =>
+            _searchRepository ?? DefaultSearchRepository.Instance;
+
+        static class DefaultSearchRepository
         {
-            DateTime startTime = DateTime.UtcNow;
-            using (NoteDbContext db = new NoteDbContext(DataSource))
-            {
-                List<Content> contents;
-                int count;
-                TextMatching textMatch = TextMatching.Create(searchEntry);
-                if (textMatch.MatchingType != MatchingType.None)
-                {
-                    var countSql =
-                        "SELECT p.* FROM Pages p JOIN " +
-                       $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Text : \"{textMatch.Pattern}\"') f " +
-                        "ON p.Rowid = f.rowid";
-                    var querySql =
-                        "SELECT p.* FROM Pages p JOIN " +
-                       $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Text : \"{textMatch.Pattern}\"') f " +
-                        "ON p.Rowid = f.rowid " +
-                        "ORDER BY p.Name COLLATE NOCASE ASC, p.'Index' ASC ";
-
-                    count = await db.Pages.FromSqlRaw(countSql).CountAsync(token);
-                    var pages = await db.Pages.FromSqlRaw(querySql)
-                        .Skip(skipCount)
-                        .Take(takeCount)
-                        .ToListAsync(token);
-                    contents = pages.ConvertAll(page => page.GetContent());
-                }
-                else
-                {
-                    var sql =
-                         "SELECT * FROM Contents " +
-                         "ORDER BY Name COLLATE NOCASE ASC, 'Index' ASC ";
-
-                    count = await db.Contents.CountAsync(token);
-                    contents = await db.Contents.FromSqlRaw(sql)
-                        .Skip(skipCount)
-                        .Take(takeCount)
-                        .ToListAsync(token);
-                }
-
-                contents.ForEach(content => SetOwner(content));
-                return new SearchResult()
-                {
-                    Contents = contents,
-                    Count = count,
-                    StartTime = startTime,
-                    EndTime = DateTime.UtcNow
-                };
-            }
+            internal static readonly INoteSearchRepository Instance =
+                new SqliteNoteSearchRepository(
+                    new SqliteNoteDatabaseFactory(NoteDbContext.MyLoggerFactory));
         }
 
         /// <summary>
