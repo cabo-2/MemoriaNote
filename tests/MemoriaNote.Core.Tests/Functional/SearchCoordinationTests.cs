@@ -97,10 +97,39 @@ public sealed class SearchCoordinationTests
     }
 
     /// <summary>
-    /// Verifies that non-cancellation failures remain observable by callers.
+    /// Verifies that an infrastructure failure is handled without replacing the current result.
     /// </summary>
     [Test]
-    public async Task SearchFailure_FaultsTheReturnedTask()
+    public async Task SearchInfrastructureFailure_PreservesTheCurrentResult()
+    {
+        var invocationCount = 0;
+        var service = new ControlledSearchService((_, _) =>
+        {
+            invocationCount++;
+            return invocationCount == 1
+                ? Task.FromResult(CreateResult(4))
+                : Task.FromException<SearchResult>(new IOException("Database unavailable."));
+        });
+
+        var successfulResult = await service.SearchHandler();
+        var previousNotice = service.SearchNotice;
+        service.SearchEntry = "failure";
+        var failedResult = await service.SearchHandler();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(successfulResult, Is.Not.Null);
+            Assert.That(failedResult, Is.Null);
+            Assert.That(service.ContentsCount, Is.EqualTo(4));
+            Assert.That(service.SearchNotice, Is.EqualTo(previousNotice));
+        }
+    }
+
+    /// <summary>
+    /// Verifies that unexpected failures remain observable by callers.
+    /// </summary>
+    [Test]
+    public async Task UnexpectedSearchFailure_FaultsTheReturnedTask()
     {
         var service = new ControlledSearchService((_, _) =>
             Task.FromException<SearchResult>(new InvalidOperationException("Search failed.")));
