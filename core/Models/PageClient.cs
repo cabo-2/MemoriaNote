@@ -113,8 +113,10 @@ namespace MemoriaNote
         /// <returns>The last index of the Page with the specified name, or 0 if no Page is found.</returns>
         public int GetLastIndex(string name)
         {
-            var last = DbContext.Pages.OrderBy(p => p.Name).LastOrDefault(m => m.Name == name);
-            return last != null ? last.Index : 0;
+            return DbContext.Pages
+                .Where(page => page.Name == name)
+                .Select(page => (int?)page.Index)
+                .Max() ?? 0;
         }
 
         /// <summary>

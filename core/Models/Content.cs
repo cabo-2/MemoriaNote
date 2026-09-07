@@ -97,7 +97,8 @@ namespace MemoriaNote
         public string Name { get; set; }
 
         /// <summary>
-        /// Gets or sets the Index property which represents the index assigned to the content object.
+        /// Gets or sets the one-based display number that distinguishes dictionary senses
+        /// with the same name using exact matching.
         /// </summary>
         public int Index { get; set; }
 
