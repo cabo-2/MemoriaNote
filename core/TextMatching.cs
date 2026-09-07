@@ -1,5 +1,4 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
 
 namespace MemoriaNote
 {
@@ -36,25 +35,6 @@ namespace MemoriaNote
                 return new TextMatching(pattern, MatchingType.Partial);
             else
                 return new TextMatching(pattern, MatchingType.Exact);
-        }
-
-        /// <summary>
-        /// Generates a WHERE clause condition for SQL queries based on the pattern and column
-        /// </summary>
-        /// <param name="column"></param>
-        /// <returns></returns>
-        /// <exception cref="System.ArgumentException"></exception>
-        public string Where(string column = null)
-        {
-            if (this.MatchingType == MatchingType.None)
-                return "";
-            
-            if (string.IsNullOrWhiteSpace(column))
-                return "";
-            if (column.Contains('\''))
-                throw new System.ArgumentException(nameof(column));        
-
-            return $"WHERE {column} LIKE '{this.Pattern}' ESCAPE '\\' ";
         }
 
         // Static helper methods to escape special characters in the keyword

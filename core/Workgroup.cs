@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using ReactiveUI;
 
 using System.Collections.ObjectModel;
@@ -135,7 +133,10 @@ namespace MemoriaNote
         private async Task<SearchResult> SearchWorkgroupContentsAsync(string searchEntry, int skipCount, int takeCount, CancellationToken token)
         {
             DateTime startTime = DateTime.UtcNow;
-            var tables = await CreateContentsCountTableAsync(searchEntry, token);
+            var tables = await CreateSearchCountTableAsync(
+                searchEntry,
+                SearchMethodType.Heading,
+                token);
             IEnumerable<Content> contents = new List<Content>();
             foreach (var note in Notes)
             {
@@ -173,28 +174,20 @@ namespace MemoriaNote
                 EndTime = DateTime.UtcNow
             };
         }
-        async Task<Dictionary<string, int>> CreateContentsCountTableAsync(
+        async Task<Dictionary<string, int>> CreateSearchCountTableAsync(
             string searchEntry,
+            SearchMethodType searchMethod,
             CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
             Dictionary<string, int> tables = new Dictionary<string, int>();
-            foreach (var n in Notes)
-                tables.Add(n.DataSource, 0);
-
-            TextMatching textMatch = TextMatching.Create(searchEntry);
-            foreach (var dataSource in tables.Keys.ToList())
+            foreach (var note in Notes)
             {
-                using (NoteDbContext db = new NoteDbContext(dataSource))
-                {
-                    StringBuilder builder = new StringBuilder();
-                    builder.AppendLine("SELECT * FROM Contents ");
-                    builder.AppendLine(textMatch.Where("Name"));
-                    int count = await db.Contents
-                        .FromSqlRaw(builder.ToString())
-                        .CountAsync(token);
-                    tables[dataSource] = count;
-                }
+                var count = await note.CountSearchResultsAsync(
+                    searchEntry,
+                    searchMethod,
+                    token);
+                tables.Add(note.DataSource, count);
             }
             return tables;
         }
@@ -253,7 +246,10 @@ namespace MemoriaNote
         private async Task<SearchResult> SearchWorkgroupFullTextAsync(string searchEntry, int skipCount, int takeCount, CancellationToken token)
         {
             DateTime startTime = DateTime.UtcNow;
-            var tables = await CreateFullTextCountTableAsync(searchEntry, token);
+            var tables = await CreateSearchCountTableAsync(
+                searchEntry,
+                SearchMethodType.FullText,
+                token);
             IEnumerable<Content> contents = new List<Content>();
             foreach (var note in Notes)
             {
@@ -292,42 +288,6 @@ namespace MemoriaNote
             };
         }
 
-        async Task<Dictionary<string, int>> CreateFullTextCountTableAsync(
-            string searchEntry,
-            CancellationToken token)
-        {
-            token.ThrowIfCancellationRequested();
-            Dictionary<string, int> tables = new Dictionary<string, int>();
-            foreach (var n in Notes)
-                tables.Add(n.DataSource, 0);
-
-            TextMatching textMatch = TextMatching.Create(searchEntry);
-            foreach (var dataSource in tables.Keys.ToList())
-            {
-                using (NoteDbContext db = new NoteDbContext(dataSource))
-                {
-                    if (!string.IsNullOrWhiteSpace(textMatch.Pattern))
-                    {
-                        StringBuilder builder = new StringBuilder();
-                        builder.AppendLine(
-                            "SELECT p.* FROM Pages p JOIN " +
-                           $"(SELECT rowid FROM FtsIndex WHERE FtsIndex MATCH 'Text : \"{textMatch.Pattern}\"') f " +
-                            "ON p.Rowid = f.rowid "
-                        );
-                        int count = await db.Pages
-                            .FromSqlRaw(builder.ToString())
-                            .CountAsync(token);
-                        tables[dataSource] = count;
-                    }
-                    else
-                    {
-                        int count = await db.Contents.CountAsync(token);
-                        tables[dataSource] = count;
-                    }
-                }
-            }
-            return tables;
-        }
         #endregion
 
         static bool CancelIfRequested(CancellationToken token)
