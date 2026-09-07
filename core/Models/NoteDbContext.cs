@@ -18,6 +18,16 @@ namespace MemoriaNote
             DataSource = dataSource;
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="NoteDbContext"/> class using
+        /// externally configured Entity Framework Core options.
+        /// </summary>
+        /// <param name="options">The options used to configure this context.</param>
+        public NoteDbContext(DbContextOptions<NoteDbContext> options)
+            : base(options)
+        {
+        }
+
         public DbSet<NoteKeyValue> Metadata { get; set; }
 
         public DbSet<Page> Pages { get; set; }
@@ -26,6 +36,9 @@ namespace MemoriaNote
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
+            if (optionsBuilder.IsConfigured)
+                return;
+
             optionsBuilder
                 .UseLoggerFactory(MyLoggerFactory)
                 .UseSqlite("Data Source=" + (DataSource ?? ":memory:"));
