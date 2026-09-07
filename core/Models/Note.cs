@@ -125,12 +125,18 @@ namespace MemoriaNote
         public Page CreatePage(string name, string text, string dir = null)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
+            using (var transaction = db.Database.BeginTransaction())
             {
                 var page = Page.Create(name, text, dir);
                 page.Index = db.PageClient.GetLastIndex(name) + 1;
                 db.PageClient.Add(page);
-                RelocatePage(page.Name, db);
+
+                var pages = db.PageClient.Read(name).ToList();
+                pages.Add(page);
+                NormalizePageIndexes(pages);
+
                 db.SaveChanges();
+                transaction.Commit();
                 return SetOwner(page);
             }
         }
@@ -138,79 +144,101 @@ namespace MemoriaNote
         /// <summary>
         /// Updates an existing Page in the database with the provided new Page object.
         /// The method retrieves the old Page from the database, updates its last modified timestamp,
-        /// updates the new Page in the database, and ensures the correct index ordering by relocating 
-        /// the affected pages if the name of the Page has changed.
+        /// and updates the new Page without changing its dictionary sense index. If the name changes,
+        /// the page is appended to the destination name and the source indexes are compacted.
         /// </summary>
         /// <param name="newPage">The new Page object containing the updated information.</param>
         public void UpdatePage(Page newPage)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
+            using (var transaction = db.Database.BeginTransaction())
             {
                 var oldPage = db.Pages.Find(newPage.Rowid);
-                newPage.UpdateLastModified();
-
                 var beforeName = oldPage.Name;
+                var beforeIndex = oldPage.Index;
+                var sourcePages = db.PageClient.Read(beforeName).ToList();
+                var nameChanged = !string.Equals(
+                    newPage.Name,
+                    beforeName,
+                    StringComparison.Ordinal);
+                var destinationPages = nameChanged
+                    ? db.PageClient.Read(newPage.Name).ToList()
+                    : sourcePages;
+
+                newPage.UpdateLastModified();
                 db.PageClient.Update(newPage);
 
-                RelocatePage(newPage.Name, db);
-                if (newPage.Name != beforeName)
+                if (nameChanged)
                 {
-                    RelocatePage(beforeName, db);
+                    NormalizePageIndexes(
+                        sourcePages.Where(page => page.Rowid != oldPage.Rowid));
+                    NormalizePageIndexes(destinationPages);
+                    oldPage.Index = destinationPages.Count + 1;
                 }
+                else
+                {
+                    oldPage.Index = beforeIndex;
+                    NormalizePageIndexes(sourcePages);
+                }
+
                 db.SaveChanges();
+                transaction.Commit();
+                newPage.Index = oldPage.Index;
             }
         }
 
         /// <summary>
-        /// Updates the index of pages with the specified name in the database to ensure correct ordering based on the last update time.
-        /// The method retrieves all pages with the specified name, orders them based on the last update time in descending order,
-        /// and then updates their index values sequentially to maintain the correct ordering.
+        /// Normalizes page indexes while preserving their current display order.
         /// </summary>
-        /// <param name="name">The name of the pages to relocate.</param>
-        /// <param name="db">The NoteDbContext instance for interacting with the database.</param>
-        protected void RelocatePage(string name, NoteDbContext db)
+        /// <param name="pages">The pages in one exact-name group.</param>
+        protected void NormalizePageIndexes(IEnumerable<Page> pages)
         {
-            var pages = db.PageClient.Read(name).ToList()
-                        .OrderByDescending(p => p.UpdateTime);
             int index = 1;
-            foreach (var page in pages)
+            foreach (var page in pages
+                .OrderBy(page => page.Index)
+                .ThenBy(page => page.Rowid))
             {
-                if (page.Index != index)
-                {
-                    page.Index = index;
-                    db.PageClient.Update(page);
-                }
+                page.Index = index;
                 index++;
             }
         }
 
         /// <summary>
         /// Deletes a specific page from the database based on the provided content object.
-        /// The page with the corresponding row identifier is removed from the database,
-        /// and the changes are saved to the database.
+        /// The page with the corresponding row identifier is removed and the remaining indexes
+        /// for its exact-name group are compacted in the same transaction.
         /// </summary>
         /// <param name="content">The content object representing the page to delete.</param>
         public void DeletePage(IContent content)
         {
-            using (NoteDbContext db = new NoteDbContext(DataSource))
-            {
-                db.PageClient.Remove(content.Rowid);
-                db.SaveChanges();
-            }
+            DeletePage(content.Rowid);
         }
 
         /// <summary>
         /// Deletes a specific page from the database based on the provided row identifier.
-        /// The page with the corresponding row identifier is removed from the database,
-        /// and the changes are saved to the database.
+        /// The page with the corresponding row identifier is removed and the remaining indexes
+        /// for its exact-name group are compacted in the same transaction.
         /// </summary>
         /// <param name="rowid">The row identifier of the page to delete.</param>
         public void DeletePage(int rowid)
         {
             using (NoteDbContext db = new NoteDbContext(DataSource))
+            using (var transaction = db.Database.BeginTransaction())
             {
-                db.PageClient.Remove(rowid);
+                var page = db.PageClient.Read(rowid);
+                if (page == null)
+                {
+                    transaction.Commit();
+                    return;
+                }
+
+                var pages = db.PageClient.Read(page.Name).ToList();
+                db.PageClient.Remove(page.Rowid);
+                NormalizePageIndexes(
+                    pages.Where(candidate => candidate.Rowid != page.Rowid));
+
                 db.SaveChanges();
+                transaction.Commit();
             }
         }
 

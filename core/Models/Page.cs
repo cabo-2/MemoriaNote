@@ -62,7 +62,8 @@ namespace MemoriaNote
         public string Name { get; set; }
 
         /// <summary>
-        /// Represents the index of the page.
+        /// Gets or sets the one-based display number that distinguishes dictionary senses
+        /// with the same name using exact matching. The value is managed by Note page operations.
         /// </summary>
         public int Index { get; set; }
 
