@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data.Common;
 using System.IO;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -12,6 +13,7 @@ using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 using DynamicData;
 using DynamicData.Binding;
+using Microsoft.EntityFrameworkCore;
 
 namespace MemoriaNote
 {
@@ -37,7 +39,16 @@ namespace MemoriaNote
 
             ActivateHandler = async () =>
             {
-                await Task.Run(OnActivate);
+                try
+                {
+                    await Task.Run(OnActivate);
+                }
+                catch (Exception exception) when (IsInfrastructureException(exception))
+                {
+                    LogInfrastructureError(exception, "Activation");
+                    return;
+                }
+
                 await OnSearchContentsAsync(SearchEntry, SearchRange, SearchMethod, 0);
             };
             Activate = ReactiveCommand.CreateFromTask(ActivateHandler);
@@ -75,7 +86,9 @@ namespace MemoriaNote
                 canPagePrev
             );
 
-            OpenTextHandler = () => OnSelectedContextsIndexChanged();
+            OpenTextHandler = () => ExecuteInfrastructureOperation(
+                OnSelectedContextsIndexChanged,
+                "Open text");
             OpenText = ReactiveCommand.Create(OpenTextHandler);
 
             CreateTextHandler = () => OnCreateText(EditingTitle.ToString(), EditingText.ToString(), OnTextManageResultCallback);
@@ -169,23 +182,53 @@ namespace MemoriaNote
         /// <param name="newContentsIndex">The index of the new contents</param>
         protected void OnSearchResultCallback(SearchResult result, int newContentsIndex)
         {
-            // Update the contents view page index based on the new contents index
-            this.ContentsViewPageIndex = (ContentsIndexToViewPage(newContentsIndex, MaxViewResultCount), ContentsIndexToViewIndex(newContentsIndex, MaxViewResultCount));
-            // Update the total number of contents
-            this.ContentsCount = result.Count;
-            // Update the contents list with the search result
-            this.Contents = result.Contents;
-            // Convert the contents to string representation
+            var newViewPageIndex = (
+                ContentsIndexToViewPage(newContentsIndex, MaxViewResultCount),
+                ContentsIndexToViewIndex(newContentsIndex, MaxViewResultCount));
             var newContentItems = result.Contents.ConvertAll(c => c.ToString());
-            // Clear the current content view items and add the new items
-            this.ContentViewItems.Clear();
-            this.ContentViewItems.Add(newContentItems);
-            // Update the search notice with the search result
-            this.SearchNotice = result.ToString();
-            // Update the selected contexts in the view
-            OnSelectedContextsIndexChanged();
-            // Log the search result information
-            Log.Logger.Information(result.ToString());
+            var newSearchNotice = result.ToString();
+            Content newOpenedContent = null;
+            string newEditingTitle = string.Empty;
+            string newEditingText = string.Empty;
+            string newEditingUpdateTime = string.Empty;
+            string newEditingNoteTitle = string.Empty;
+            var newPlaceHolder = PlaceHolderString(0, 0);
+
+            if (result.Contents.Count > 0)
+            {
+                newOpenedContent = result.Contents[newViewPageIndex.Item2];
+                var page = Workgroup.ReadAll(newOpenedContent);
+                if (page == null)
+                {
+                    Log.Logger.Warning(
+                        "Search result {ContentId} was not found in its owner note.",
+                        newOpenedContent.Guid);
+                    return;
+                }
+
+                newPlaceHolder = PlaceHolderString(newContentsIndex, result.Count);
+                newEditingTitle = newOpenedContent.Name;
+                newEditingText = page.Text;
+                newEditingUpdateTime = newOpenedContent.UpdateTime
+                    .ToLocalTime()
+                    .ToString("ddd MMM dd hh:mm:ss yyyy zzz");
+                var note = newOpenedContent.Parent as Note;
+                newEditingNoteTitle = note?.Metadata?.Title ?? string.Empty;
+            }
+
+            ContentsViewPageIndex = newViewPageIndex;
+            ContentsCount = result.Count;
+            Contents = result.Contents;
+            ContentViewItems.Clear();
+            ContentViewItems.Add(newContentItems);
+            SearchNotice = newSearchNotice;
+            OpenedContent = newOpenedContent;
+            PlaceHolder = newPlaceHolder;
+            EditingTitle = newEditingTitle;
+            EditingText = newEditingText;
+            EditingUpdateTime = newEditingUpdateTime;
+            EditingNoteTitle = newEditingNoteTitle;
+            Log.Logger.Information(newSearchNotice);
         }
 
         /// <summary>
@@ -195,7 +238,14 @@ namespace MemoriaNote
         protected void OnTextManageResultCallback(TextManageResult result)
         {
             this.ManageNotice = result.Notification;
-            Log.Logger.Information(result.ToString());
+            if (result.Result)
+                Log.Logger.Information(result.ToString());
+            else
+                Log.Logger.Warning(
+                    "{Operation} validation failed: {Notification} {@Errors}",
+                    result.Operation,
+                    result.Notification,
+                    result.Errors);
         }
 
         /// <summary>
@@ -209,10 +259,18 @@ namespace MemoriaNote
             {
                 // Retrieve the selected content based on the view page index
                 var content = this.Contents[this.ContentsViewPageIndex.Item2];
-                // Set the placeholder text based on the selected content index and total contents count
-                this.PlaceHolder = PlaceHolderString(this.SelectedContentsIndex, this.ContentsCount);
                 // Read the text content of the selected content
                 var page = Workgroup.ReadAll(content);
+                if (page == null)
+                {
+                    Log.Logger.Warning(
+                        "Text {ContentId} was not found in its owner note.",
+                        content.Guid);
+                    return;
+                }
+
+                // Set the placeholder text based on the selected content index and total contents count
+                this.PlaceHolder = PlaceHolderString(this.SelectedContentsIndex, this.ContentsCount);
                 // Set the opened content to the selected content
                 this.OpenedContent = content;
                 // Set the editing title to the name of the opened content
@@ -302,7 +360,10 @@ namespace MemoriaNote
         /// <param name="searchRange">The search range captured for this request.</param>
         /// <param name="searchMethod">The search method captured for this request.</param>
         /// <param name="selectedContentsIndex">The result offset captured for this request.</param>
-        /// <returns>The applied search result, or null when the request was superseded.</returns>
+        /// <returns>
+        /// The applied search result, or null when the request was superseded, canceled,
+        /// or stopped by an infrastructure failure.
+        /// </returns>
         protected async Task<SearchResult> OnSearchContentsAsync(
             string searchEntry,
             SearchRangeType searchRange,
@@ -345,6 +406,11 @@ namespace MemoriaNote
             {
                 return null;
             }
+            catch (Exception exception) when (IsInfrastructureException(exception))
+            {
+                LogInfrastructureError(exception, "Search");
+                return null;
+            }
             finally
             {
                 lock (_searchLockObject)
@@ -366,9 +432,10 @@ namespace MemoriaNote
         /// <param name="result">The callback function to receive the result of the create text operation.</param>
         protected void OnCreateText(string newName, string newText, Action<TextManageResult> result)
         {
-            var mr = Workgroup.CreateText(newName, newText);
-            if (mr != null)
-                result(mr);
+            ExecuteTextManagement(
+                () => Workgroup.CreateText(newName, newText),
+                result,
+                "Create text");
         }
 
         /// <summary>
@@ -380,10 +447,17 @@ namespace MemoriaNote
         /// <returns>Returns true if the text can be created, false otherwise.</returns>
         public bool CanCreateText(string newName, string newText)
         {
-            List<string> errors;
-            var result = Workgroup.ValidateCreateText(newName, newText, out errors);
-            EditingErrors = errors;
-            return result;
+            try
+            {
+                var validation = Workgroup.ValidateCreateText(newName, newText, out var errors);
+                EditingErrors = errors;
+                return validation;
+            }
+            catch (Exception exception) when (IsInfrastructureException(exception))
+            {
+                LogInfrastructureError(exception, "Validate text creation");
+                return false;
+            }
         }
 
         /// <summary>
@@ -394,9 +468,10 @@ namespace MemoriaNote
         /// <param name="result">The callback function to receive the result of the edit text operation.</param>
         protected void OnEditText(Content content, string newText, Action<TextManageResult> result)
         {
-            var mr = Workgroup.EditText(content, newText);
-            if (mr != null)
-                result(mr);
+            ExecuteTextManagement(
+                () => Workgroup.EditText(content, newText),
+                result,
+                "Edit text");
         }
 
         /// <summary>
@@ -408,10 +483,17 @@ namespace MemoriaNote
         /// <returns>Returns true if the text can be edited, false otherwise.</returns>
         public bool CanEditText(Content content, string newText)
         {
-            List<string> errors;
-            var result = Workgroup.ValidateEditText(content, newText, out errors);
-            EditingErrors = errors;
-            return result;
+            try
+            {
+                var validation = Workgroup.ValidateEditText(content, newText, out var errors);
+                EditingErrors = errors;
+                return validation;
+            }
+            catch (Exception exception) when (IsInfrastructureException(exception))
+            {
+                LogInfrastructureError(exception, "Validate text editing");
+                return false;
+            }
         }
 
         /// <summary>
@@ -422,9 +504,10 @@ namespace MemoriaNote
         /// <param name="result">The callback function to receive the result of the rename text operation.</param>
         protected void OnRenameText(Content content, string newName, Action<TextManageResult> result)
         {
-            var mr = Workgroup.RenameText(content, newName);
-            if (mr != null)
-                result(mr);
+            ExecuteTextManagement(
+                () => Workgroup.RenameText(content, newName),
+                result,
+                "Rename text");
         }
 
         /// <summary>
@@ -436,10 +519,17 @@ namespace MemoriaNote
         /// <returns>Returns true if the text can be renamed, false otherwise.</returns>
         public bool CanRenameText(Content content, string newName)
         {
-            List<string> errors;
-            var result = Workgroup.ValidateRenameText(content, newName, out errors);
-            EditingErrors = errors;
-            return result;
+            try
+            {
+                var validation = Workgroup.ValidateRenameText(content, newName, out var errors);
+                EditingErrors = errors;
+                return validation;
+            }
+            catch (Exception exception) when (IsInfrastructureException(exception))
+            {
+                LogInfrastructureError(exception, "Validate text renaming");
+                return false;
+            }
         }
 
         /// <summary>
@@ -449,9 +539,10 @@ namespace MemoriaNote
         /// <param name="result">The callback function to receive the result of the delete text operation.</param>
         protected void OnDeleteText(Content content, Action<TextManageResult> result)
         {
-            var mr = Workgroup.DeleteText(content);
-            if (mr != null)
-                result(mr);
+            ExecuteTextManagement(
+                () => Workgroup.DeleteText(content),
+                result,
+                "Delete text");
         }
 
         /// <summary>
@@ -462,10 +553,74 @@ namespace MemoriaNote
         /// <returns>Returns true if the text can be deleted, false otherwise.</returns>
         public bool CanDeleteText(Content content)
         {
-            List<string> errors;
-            var result = Workgroup.ValidateDeleteText(content, out errors);
-            EditingErrors = errors;
-            return result;
+            try
+            {
+                var validation = Workgroup.ValidateDeleteText(content, out var errors);
+                EditingErrors = errors;
+                return validation;
+            }
+            catch (Exception exception) when (IsInfrastructureException(exception))
+            {
+                LogInfrastructureError(exception, "Validate text deletion");
+                return false;
+            }
+        }
+
+        private void ExecuteTextManagement(
+            Func<TextManageResult> operation,
+            Action<TextManageResult> result,
+            string operationName)
+        {
+            try
+            {
+                var manageResult = operation();
+                if (manageResult != null)
+                    result(manageResult);
+            }
+            catch (Exception exception) when (IsInfrastructureException(exception))
+            {
+                LogInfrastructureError(exception, operationName);
+            }
+        }
+
+        private static void ExecuteInfrastructureOperation(
+            Action operation,
+            string operationName)
+        {
+            try
+            {
+                operation();
+            }
+            catch (Exception exception) when (IsInfrastructureException(exception))
+            {
+                LogInfrastructureError(exception, operationName);
+            }
+        }
+
+        private static bool IsInfrastructureException(Exception exception)
+        {
+            if (exception is DbException ||
+                exception is IOException ||
+                exception is UnauthorizedAccessException)
+                return true;
+
+            if (exception is DbUpdateException dbUpdateException)
+                return dbUpdateException.InnerException != null &&
+                    IsInfrastructureException(dbUpdateException.InnerException);
+
+            if (exception is AggregateException aggregateException)
+                return aggregateException.InnerExceptions.Count > 0 &&
+                    aggregateException.InnerExceptions.All(IsInfrastructureException);
+
+            return false;
+        }
+
+        private static void LogInfrastructureError(Exception exception, string operation)
+        {
+            Log.Logger.Error(
+                exception,
+                "{Operation} failed due to an infrastructure error.",
+                operation);
         }
 
         /// <summary>
