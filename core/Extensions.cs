@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
 using System.IO.Compression;
+using System.Globalization;
 using Newtonsoft.Json;
 
 namespace MemoriaNote
@@ -203,6 +204,7 @@ namespace MemoriaNote
         /// </summary>
         /// <param name="dateTime">The input DateTime</param>
         /// <returns>The string representation of the DateTime in the specified format</returns>
-        public static string ToDateString(this DateTime dateTime) => dateTime.ToString("yyyyMMddhhmmss");
+        public static string ToDateString(this DateTime dateTime) =>
+            dateTime.ToString("yyyyMMddhhmmss", CultureInfo.InvariantCulture);
     }
 }

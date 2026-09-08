@@ -160,9 +160,17 @@ namespace MemoriaNote
 
                 // Create a new Note object with the retrieved name, title, and path.
                 Note note = Note.Create(name, title, notePath);
-                // Set additional metadata for the Note if available.
-                note.Metadata.Description = kv.FirstOrDefault(x => x.Key == NoteKeyValue.Description)?.Value;
-                note.Metadata.Author = kv.FirstOrDefault(x => x.Key == NoteKeyValue.Author)?.Value;
+                // Persist the additional metadata in one operation when values are available.
+                var metadataUpdate = new NoteMetadataUpdate();
+                var description = kv.FirstOrDefault(
+                    value => value.Key == NoteKeyValue.Description)?.Value;
+                var author = kv.FirstOrDefault(
+                    value => value.Key == NoteKeyValue.Author)?.Value;
+                if (description != null)
+                    metadataUpdate.SetDescription(description);
+                if (author != null)
+                    metadataUpdate.SetAuthor(author);
+                note.UpdateMetadata(metadataUpdate);
 
                 // Open a connection to the Note database.
                 using (NoteDbContext db = new NoteDbContext(note.DataSource))
@@ -242,10 +250,17 @@ namespace MemoriaNote
                         writer.Write(JsonConvert.SerializeObject(page, Formatting.Indented));
                 }
 
-                // Write the metadata of the Note to the zip file as JSON.
+                // Write the loaded metadata snapshot using the existing key-value JSON shape.
+                var metadata = note.Metadata.StoredValues
+                    .Select(value => new NoteKeyValue
+                    {
+                        Key = value.Key,
+                        Value = value.Value
+                    })
+                    .ToList();
                 using (Stream stream = zip.CreateEntry(MetadataName).Open())
                 using (StreamWriter writer = new StreamWriter(stream, Encoding.UTF8))
-                    writer.Write(JsonConvert.SerializeObject(db.Metadata, Formatting.Indented));
+                    writer.Write(JsonConvert.SerializeObject(metadata, Formatting.Indented));
             }, token);
             // Return the task as a result of the asynchronous operation.
             return task;

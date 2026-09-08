@@ -15,7 +15,7 @@ public sealed class MetadataCharacteristicsTests
     /// Verifies the metadata values written while creating a note.
     /// </summary>
     [Test]
-    public void CreateNote_PersistsInitialMetadataButCreateTimeReadFails()
+    public void CreateNote_PersistsInitialMetadataAsSnapshot()
     {
         using var database = new TemporaryNoteDatabase();
 
@@ -34,6 +34,8 @@ public sealed class MetadataCharacteristicsTests
             Assert.That(reopened.Metadata.Author, Is.Null);
             Assert.That(reopened.Metadata.ReadOnly, Is.False);
             Assert.That(reopened.Metadata.Tag, Is.Null);
+            Assert.That(reopened.Metadata.CreateTime, Is.EqualTo(default(DateTime)));
+            Assert.That(reopened.MetadataIssues, Is.Empty);
             Assert.That(
                 storedMetadata,
                 Is.EqualTo(new Dictionary<string, string>
@@ -44,31 +46,27 @@ public sealed class MetadataCharacteristicsTests
                 }));
         }
 
-        Action readCreateTime = () =>
-        {
-            _ = reopened.Metadata.CreateTime;
-        };
-        Assert.Throws<FormatException>(readCreateTime);
     }
 
     /// <summary>
-    /// Verifies that metadata setters persist values for a newly opened note instance.
+    /// Verifies that one explicit metadata update persists all requested values.
     /// </summary>
     [Test]
-    public void UpdateMetadata_PersistsValuesButCreateTimeReadFails()
+    public void UpdateMetadata_PersistsValuesAsOneSnapshot()
     {
         using var database = new TemporaryNoteDatabase();
         var note = database.CreateNote("test-note", "Test Note");
         var createTime = new DateTime(2026, 1, 2, 9, 10, 11);
 
-        note.Metadata.Name = "renamed-note";
-        note.Metadata.Title = "Renamed Note";
-        note.Metadata.Version = "characterized-version";
-        note.Metadata.Description = "Metadata description";
-        note.Metadata.Author = "Test Author";
-        note.Metadata.ReadOnly = true;
-        note.Metadata.Tag = "baseline";
-        note.Metadata.CreateTime = createTime;
+        note.UpdateMetadata(new NoteMetadataUpdate()
+            .SetName("renamed-note")
+            .SetTitle("Renamed Note")
+            .SetVersion("characterized-version")
+            .SetDescription("Metadata description")
+            .SetAuthor("Test Author")
+            .SetReadOnly(true)
+            .SetTag("baseline")
+            .SetCreateTime(createTime));
 
         var reopened = new Note(database.DatabasePath);
 
@@ -84,13 +82,43 @@ public sealed class MetadataCharacteristicsTests
             Assert.That(reopened.Metadata.Author, Is.EqualTo("Test Author"));
             Assert.That(reopened.Metadata.ReadOnly, Is.True);
             Assert.That(reopened.Metadata.Tag, Is.EqualTo("baseline"));
+            Assert.That(reopened.Metadata.CreateTime, Is.EqualTo(createTime));
             Assert.That(storedCreateTime, Is.EqualTo("20260102091011"));
         }
+    }
 
-        Action readCreateTime = () =>
+    /// <summary>
+    /// Verifies that snapshot operations do not access the database after loading.
+    /// </summary>
+    [Test]
+    public void LoadedSnapshot_AfterDatabaseDeletion_RemainsUsable()
+    {
+        using var database = new TemporaryNoteDatabase();
+        var note = database.CreateNote("offline-note", "Offline Note");
+        note.UpdateMetadata(new NoteMetadataUpdate()
+            .SetTag("offline")
+            .SetCreateTime(new DateTime(2026, 2, 3, 4, 5, 6)));
+        var snapshot = note.Metadata;
+        var tracker = DataSourceTracker.Create(snapshot);
+        var workgroup = new Workgroup();
+        workgroup.Notes.Add(note);
+        var errors = new List<string>();
+
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        File.Delete(database.DatabasePath);
+
+        tracker.ValidateName(note, workgroup, ref errors);
+        tracker.ValidateTitle(note, workgroup, ref errors);
+        var clone = snapshot.Clone();
+
+        using (Assert.EnterMultipleScope())
         {
-            _ = reopened.Metadata.CreateTime;
-        };
-        Assert.Throws<FormatException>(readCreateTime);
+            Assert.That(snapshot.Name, Is.EqualTo("offline-note"));
+            Assert.That(snapshot.Title, Is.EqualTo("Offline Note"));
+            Assert.That(snapshot.ToString(), Is.EqualTo("offline-note:offline"));
+            Assert.That(clone, Is.EqualTo(snapshot));
+            Assert.That(clone.GetHashCode(), Is.EqualTo(snapshot.GetHashCode()));
+            Assert.That(errors, Is.Empty);
+        }
     }
 }

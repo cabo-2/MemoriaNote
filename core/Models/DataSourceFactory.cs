@@ -43,7 +43,8 @@ namespace MemoriaNote
             if (FindFromDataSource(dataSource) != null)
                 throw new ArgumentException(nameof(dataSource));
 
-            DataSourceTracker value = DataSourceTracker.Create(dataSource);
+            var note = new Note(dataSource);
+            DataSourceTracker value = DataSourceTracker.Create(note.Metadata);
             if (!string.IsNullOrWhiteSpace(value.Tag) && FindFromNameTag(value.Name, value.Tag) != null)
                 RemoveNameTag(value.Name, value.Tag);
 

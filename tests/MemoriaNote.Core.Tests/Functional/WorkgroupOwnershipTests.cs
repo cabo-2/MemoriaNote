@@ -143,11 +143,11 @@ public sealed class WorkgroupOwnershipTests
         var workgroup = CreateWorkgroup(selectedNote, selectedNote, ownerNote);
         var ownerResult = await FindResultAsync(workgroup, ownerNote, ownerPage.Guid);
 
-        selectedNote.Metadata.ReadOnly = true;
+        selectedNote.UpdateMetadata(new NoteMetadataUpdate().SetReadOnly(true));
         var allowedResult = workgroup.EditText(ownerResult, "Allowed owner edit");
 
-        selectedNote.Metadata.ReadOnly = false;
-        ownerNote.Metadata.ReadOnly = true;
+        selectedNote.UpdateMetadata(new NoteMetadataUpdate().SetReadOnly(false));
+        ownerNote.UpdateMetadata(new NoteMetadataUpdate().SetReadOnly(true));
         var editResult = workgroup.EditText(ownerResult, "Blocked edit");
         var renameResult = workgroup.RenameText(ownerResult, "Blocked rename");
         var deleteResult = workgroup.DeleteText(ownerResult);

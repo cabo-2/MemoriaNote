@@ -68,31 +68,27 @@ namespace MemoriaNote
                                                    new DataSourceTracker() { Name = name, Tag = tag, DataSource = dataSource };
 
         /// <summary>
-        /// Creates a new instance of the DataSourceTracker class with the specified data source. 
-        /// Retrieves additional metadata values from the database using the data source as the database connection string.
+        /// Creates a mutable data source tracker from an in-memory metadata snapshot.
         /// </summary>
-        /// <param name="dataSource">The data source for the DataSourceTracker.</param>
-        /// <returns>A new DataSourceTracker instance with metadata values obtained from the database.</returns>
-        public static DataSourceTracker Create(string dataSource)
+        /// <param name="metadata">The metadata snapshot to copy.</param>
+        /// <returns>A new data source tracker containing the snapshot values.</returns>
+        public static DataSourceTracker Create(NoteMetadata metadata)
         {
-            var value = new DataSourceTracker() { DataSource = dataSource };
-            using (NoteDbContext db = new NoteDbContext(value.DataSource))
+            if (metadata == null)
+                throw new ArgumentNullException(nameof(metadata));
+
+            return new DataSourceTracker
             {
-                value.Name = NoteKeyValue.Get(db, NoteKeyValue.Name);
-                value.Title = NoteKeyValue.Get(db, NoteKeyValue.Title);
-                value.Version = NoteKeyValue.Get(db, NoteKeyValue.Version);
-                value.Description = NoteKeyValue.Get(db, NoteKeyValue.Description);
-                value.Author = NoteKeyValue.Get(db, NoteKeyValue.Author);
-                var readOnly = NoteKeyValue.Get(db, NoteKeyValue.ReadOnly);
-                value.ReadOnly = bool.Parse(readOnly ?? "false");
-                value.Tag = NoteKeyValue.Get(db, NoteKeyValue.Tag);
-                var createTime = NoteKeyValue.Get(db, NoteKeyValue.CreateTime);
-                if (createTime != null)
-                    value.CreateTime = DateTime.Parse(createTime);
-                else
-                    value.CreateTime = default(DateTime);
-            }
-            return value;
+                Name = metadata.Name,
+                Title = metadata.Title,
+                Version = metadata.Version,
+                Description = metadata.Description,
+                Author = metadata.Author,
+                ReadOnly = metadata.ReadOnly,
+                Tag = metadata.Tag,
+                CreateTime = metadata.CreateTime,
+                DataSource = metadata.DataSource
+            };
         }
 
         /// <summary>

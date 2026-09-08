@@ -20,10 +20,12 @@ public sealed class NoteTransferCharacteristicsTests
     {
         using var database = new TemporaryNoteDatabase();
         var source = database.CreateNote("archive", "Archive Note");
-        source.Metadata.Description = "Backup description";
-        source.Metadata.Author = "Test Author";
-        source.Metadata.ReadOnly = true;
-        source.Metadata.Tag = "source-only";
+        source.UpdateMetadata(new NoteMetadataUpdate()
+            .SetDescription("Backup description")
+            .SetAuthor("Test Author")
+            .SetReadOnly(true)
+            .SetTag("source-only")
+            .SetCreateTime(new DateTime(2026, 3, 4, 5, 6, 7)));
         var first = source.CreatePage("Daily", "First entry", "journal/2026");
         var second = source.CreatePage("Daily", "Second entry", "journal/2026");
         var backupPath = Path.Combine(database.DirectoryPath, "archive.json.zip");
@@ -50,6 +52,7 @@ public sealed class NoteTransferCharacteristicsTests
                 Assert.That(metadata[NoteKeyValue.Author], Is.EqualTo("Test Author"));
                 Assert.That(metadata[NoteKeyValue.ReadOnly], Is.EqualTo(bool.TrueString));
                 Assert.That(metadata[NoteKeyValue.Tag], Is.EqualTo("source-only"));
+                Assert.That(metadata[NoteKeyValue.CreateTime], Is.EqualTo("20260304050607"));
                 Assert.That(pages, Has.Count.EqualTo(2));
             }
         }
