@@ -143,7 +143,7 @@ public sealed class PageCrudCharacteristicsTests
             Assert.That(remainingContent.Index, Is.EqualTo(1));
         }
 
-        note.DeletePage(separate.Rowid);
+        note.DeletePage(separate.Guid);
 
         using (Assert.EnterMultipleScope())
         {

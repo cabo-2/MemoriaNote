@@ -92,10 +92,11 @@ namespace MemoriaNote
                 using (NoteDbContext db = new NoteDbContext(note.DataSource))
                 {
                     // Create directories based on unique subdirectories found in the Note pages.
-                    foreach (var subDir in db.PageClient.ReadAll()
-                                                     .Where(p => p.TagDict.ContainsKey(PageTag.Dir))
-                                                     .Select(p => p.TagDict[PageTag.Dir])
-                                                     .Distinct())
+                    foreach (var subDir in db.Pages
+                        .AsEnumerable()
+                        .Where(p => p.TagDict.ContainsKey(PageTag.Dir))
+                        .Select(p => p.TagDict[PageTag.Dir])
+                        .Distinct())
                     {
                         var dir = Path.Combine(exportDir, TextUtil.ConvertSystemPath(subDir));
                         // Create the directory if it does not exist.
@@ -104,7 +105,7 @@ namespace MemoriaNote
                     }
 
                     // Export each page's text content into a text file.
-                    foreach (var page in db.PageClient.ReadAll())
+                    foreach (var page in db.Pages)
                     {
                         string subDir, path;
                         if (page.TagDict.ContainsKey(PageTag.Dir))
@@ -233,7 +234,7 @@ namespace MemoriaNote
                 // Determine the number of digits needed to pad page numbers for sorting.
                 int digits = db.Pages.Count().ToString().Length;
                 // Iterate through each page in the database and write them to the zip file as JSON.
-                foreach (var page in db.PageClient.ReadAll())
+                foreach (var page in db.Pages)
                 {
                     // Create an entry in the zip file for each page and write the JSON content.
                     using (Stream stream = zip.CreateEntry($"{page.Rowid.ToString().PadLeft(digits, '0')}.json").Open())
