@@ -77,17 +77,6 @@ namespace MemoriaNote
             }
         }
 
-        PageClient _pageClient = null;
-        public PageClient PageClient
-        {
-            get
-            {
-                if (_pageClient == null)
-                    _pageClient = new PageClient(this);
-                return _pageClient;
-            }
-        }
-
         public string DataSource { get; set; }
 
         public static string CurrentVersion { get => "1"; }

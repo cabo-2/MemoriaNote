@@ -16,6 +16,7 @@ namespace MemoriaNote
     public class Note
     {
         string _dataSource = null;
+        readonly INoteRepository _repository;
         readonly INoteSearchRepository _searchRepository;
 
         public Note() { }
@@ -31,6 +32,34 @@ namespace MemoriaNote
         /// <param name="searchRepository">The repository used for note searches.</param>
         public Note(string dataSource, INoteSearchRepository searchRepository)
         {
+            _searchRepository = searchRepository ??
+                throw new ArgumentNullException(nameof(searchRepository));
+            DataSource = dataSource;
+        }
+
+        /// <summary>
+        /// Initializes a note with an explicit page persistence boundary.
+        /// </summary>
+        /// <param name="dataSource">The path of the note database.</param>
+        /// <param name="repository">The repository used for page operations.</param>
+        public Note(string dataSource, INoteRepository repository)
+        {
+            _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+            DataSource = dataSource;
+        }
+
+        /// <summary>
+        /// Initializes a note with explicit page and search persistence boundaries.
+        /// </summary>
+        /// <param name="dataSource">The path of the note database.</param>
+        /// <param name="repository">The repository used for page operations.</param>
+        /// <param name="searchRepository">The repository used for note searches.</param>
+        public Note(
+            string dataSource,
+            INoteRepository repository,
+            INoteSearchRepository searchRepository)
+        {
+            _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _searchRepository = searchRepository ??
                 throw new ArgumentNullException(nameof(searchRepository));
             DataSource = dataSource;
@@ -94,8 +123,11 @@ namespace MemoriaNote
         /// <returns>The Page object if found, or null if not found.</returns>
         public Page ReadPage(string name, int index)
         {
-            using (NoteDbContext db = new NoteDbContext(DataSource))
-                return SetOwner(db.PageClient.Read(name, index));
+            return SetOwner(Repository.ReadPageAsync(
+                DataSource,
+                name,
+                index,
+                CancellationToken.None).GetAwaiter().GetResult());
         }
 
         /// <summary>
@@ -105,8 +137,10 @@ namespace MemoriaNote
         /// <returns>The Page object if found, or null if not found.</returns>
         public Page ReadPage(Guid guid)
         {
-            using (NoteDbContext db = new NoteDbContext(DataSource))
-                return SetOwner(db.PageClient.Read(guid));
+            return SetOwner(Repository.ReadPageAsync(
+                DataSource,
+                guid,
+                CancellationToken.None).GetAwaiter().GetResult());
         }
 
         /// <summary>
@@ -123,8 +157,14 @@ namespace MemoriaNote
         /// <returns>An IEnumerable collection of Page objects.</returns>
         public IEnumerable<Page> ReadPage(string name)
         {
-            using (NoteDbContext db = new NoteDbContext(DataSource))
-                return db.PageClient.Read(name).ToList().Select(SetOwner).ToList();
+            return Repository.ReadPagesAsync(
+                    DataSource,
+                    name,
+                    CancellationToken.None)
+                .GetAwaiter()
+                .GetResult()
+                .Select(SetOwner)
+                .ToList();
         }
 
         /// <summary>
@@ -137,21 +177,12 @@ namespace MemoriaNote
         /// <returns>The newly created Page object.</returns>
         public Page CreatePage(string name, string text, string dir = null)
         {
-            using (NoteDbContext db = new NoteDbContext(DataSource))
-            using (var transaction = db.Database.BeginTransaction())
-            {
-                var page = Page.Create(name, text, dir);
-                page.Index = db.PageClient.GetLastIndex(name) + 1;
-                db.PageClient.Add(page);
-
-                var pages = db.PageClient.Read(name).ToList();
-                pages.Add(page);
-                NormalizePageIndexes(pages);
-
-                db.SaveChanges();
-                transaction.Commit();
-                return SetOwner(page);
-            }
+            return SetOwner(Repository.CreatePageAsync(
+                DataSource,
+                name,
+                text,
+                dir,
+                CancellationToken.None).GetAwaiter().GetResult());
         }
 
         /// <summary>
@@ -163,96 +194,42 @@ namespace MemoriaNote
         /// <param name="newPage">The new Page object containing the updated information.</param>
         public void UpdatePage(Page newPage)
         {
-            using (NoteDbContext db = new NoteDbContext(DataSource))
-            using (var transaction = db.Database.BeginTransaction())
-            {
-                var oldPage = db.Pages.Find(newPage.Rowid);
-                var beforeName = oldPage.Name;
-                var beforeIndex = oldPage.Index;
-                var sourcePages = db.PageClient.Read(beforeName).ToList();
-                var nameChanged = !string.Equals(
-                    newPage.Name,
-                    beforeName,
-                    StringComparison.Ordinal);
-                var destinationPages = nameChanged
-                    ? db.PageClient.Read(newPage.Name).ToList()
-                    : sourcePages;
-
-                newPage.UpdateLastModified();
-                db.PageClient.Update(newPage);
-
-                if (nameChanged)
-                {
-                    NormalizePageIndexes(
-                        sourcePages.Where(page => page.Rowid != oldPage.Rowid));
-                    NormalizePageIndexes(destinationPages);
-                    oldPage.Index = destinationPages.Count + 1;
-                }
-                else
-                {
-                    oldPage.Index = beforeIndex;
-                    NormalizePageIndexes(sourcePages);
-                }
-
-                db.SaveChanges();
-                transaction.Commit();
-                newPage.Index = oldPage.Index;
-            }
-        }
-
-        /// <summary>
-        /// Normalizes page indexes while preserving their current display order.
-        /// </summary>
-        /// <param name="pages">The pages in one exact-name group.</param>
-        protected void NormalizePageIndexes(IEnumerable<Page> pages)
-        {
-            int index = 1;
-            foreach (var page in pages
-                .OrderBy(page => page.Index)
-                .ThenBy(page => page.Rowid))
-            {
-                page.Index = index;
-                index++;
-            }
+            var persistedPage = Repository.UpdatePageAsync(
+                DataSource,
+                newPage,
+                CancellationToken.None).GetAwaiter().GetResult();
+            newPage.Rowid = persistedPage.Rowid;
+            newPage.Index = persistedPage.Index;
+            newPage.UpdateTime = persistedPage.UpdateTime;
+            SetOwner(newPage);
         }
 
         /// <summary>
         /// Deletes a specific page from the database based on the provided content object.
-        /// The page with the corresponding row identifier is removed and the remaining indexes
+        /// The page with the corresponding identifier is removed and the remaining indexes
         /// for its exact-name group are compacted in the same transaction.
         /// </summary>
         /// <param name="content">The content object representing the page to delete.</param>
         public void DeletePage(IContent content)
         {
-            DeletePage(content.Rowid);
+            if (content == null)
+                throw new ArgumentNullException(nameof(content));
+
+            DeletePage(content.Guid);
         }
 
         /// <summary>
-        /// Deletes a specific page from the database based on the provided row identifier.
-        /// The page with the corresponding row identifier is removed and the remaining indexes
+        /// Deletes a specific page from the database based on its stable identifier.
+        /// The page with the corresponding identifier is removed and the remaining indexes
         /// for its exact-name group are compacted in the same transaction.
         /// </summary>
-        /// <param name="rowid">The row identifier of the page to delete.</param>
-        public void DeletePage(int rowid)
+        /// <param name="guid">The stable identifier of the page to delete.</param>
+        public void DeletePage(Guid guid)
         {
-            using (NoteDbContext db = new NoteDbContext(DataSource))
-            using (var transaction = db.Database.BeginTransaction())
-            {
-                var page = db.PageClient.Read(rowid);
-                if (page == null)
-                {
-                    transaction.Commit();
-                    return;
-                }
-
-                var pages = db.PageClient.Read(page.Name).ToList();
-                db.PageClient.Remove(page.Rowid);
-                NormalizePageIndexes(
-                    pages.Where(candidate => candidate.Rowid != page.Rowid));
-
-                db.SaveChanges();
-                transaction.Commit();
-            }
+            Repository.DeletePageAsync(
+                DataSource,
+                guid,
+                CancellationToken.None).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -312,6 +289,15 @@ namespace MemoriaNote
         INoteSearchRepository SearchRepository =>
             _searchRepository ?? DefaultSearchRepository.Instance;
 
+        INoteRepository Repository => _repository ?? DefaultRepository.Instance;
+
+        static class DefaultRepository
+        {
+            internal static readonly INoteRepository Instance =
+                new SqliteNoteRepository(
+                    new SqliteNoteDatabaseFactory(NoteDbContext.MyLoggerFactory));
+        }
+
         static class DefaultSearchRepository
         {
             internal static readonly INoteSearchRepository Instance =
@@ -320,34 +306,33 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Gets the count of contents in the database using the NoteDbContext specified by the DataSource property. 
+        /// Gets the count of contents in the note repository.
         /// </summary>
         /// <returns>An integer representing the total count of contents in the database.</returns>
         public int Count
         {
-            get
-            {
-                using (NoteDbContext db = new NoteDbContext(DataSource))
-                    return db.Contents.Count();
-            }
+            get => Repository.CountAsync(DataSource, CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
         }
 
         /// <summary>
-        /// Retrieves a list of content items from the database based on the provided skip count and take count, using the specified NoteDbContext as the data source.
+        /// Retrieves a list of content items from the note repository using the provided paging values.
         /// </summary>
         /// <param name="skipCount">The number of content items to skip before retrieving data.</param>
         /// <param name="takeCount">The maximum number of content items to retrieve from the database.</param>
         /// <returns>A list of Content objects representing the retrieved content items.</returns>
         public List<Content> GetContents(int skipCount, int takeCount)
         {
-            using (NoteDbContext db = new NoteDbContext(DataSource))
-                return db.ContentClient
-                            .ReadAll()
-                            .Skip(skipCount)
-                            .Take(takeCount)
-                            .ToList()
-                            .Select(SetOwner)
-                            .ToList();
+            return Repository.ReadContentsAsync(
+                    DataSource,
+                    skipCount,
+                    takeCount,
+                    CancellationToken.None)
+                .GetAwaiter()
+                .GetResult()
+                .Select(SetOwner)
+                .ToList();
         }
 
         private T SetOwner<T>(T content) where T : class, IContent

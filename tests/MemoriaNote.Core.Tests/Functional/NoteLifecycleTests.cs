@@ -55,7 +55,7 @@ public sealed class NoteLifecycleTests
         AssertEmptyResult(await SearchAsync(note, "quasar", SearchMethodType.FullText));
         AssertSingleResult(await SearchAsync(note, "nebula", SearchMethodType.FullText), page.Guid);
 
-        note.DeletePage(storedPage.Rowid);
+        note.DeletePage(storedPage.Guid);
 
         using (Assert.EnterMultipleScope())
         {
