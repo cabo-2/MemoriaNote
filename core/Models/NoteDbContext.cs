@@ -66,17 +66,6 @@ namespace MemoriaNote
                 .HasIndex(e => new { e.Name, e.Index });
         }
 
-        ContentClient _contentClient = null;
-        public ContentClient ContentClient
-        {
-            get
-            {
-                if (_contentClient == null)
-                    _contentClient = new ContentClient(this);
-                return _contentClient;
-            }
-        }
-
         public string DataSource { get; set; }
 
         public static string CurrentVersion { get => "1"; }
