@@ -1,4 +1,5 @@
 using MemoriaNote.Core.Tests.Infrastructure;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
@@ -62,6 +63,66 @@ public sealed class SqliteNoteMetadataRepositoryTests
         Assert.That(
             context.Metadata.Find(NoteKeyValue.CreateTime)?.Value,
             Is.EqualTo("20260102091011"));
+    }
+
+    /// <summary>
+    /// Verifies that a batch update uses one context and one asynchronous save.
+    /// </summary>
+    [Test]
+    public async Task UpdateAsync_UsesOneContextAndOneSaveChangesAsync()
+    {
+        using var database = new TemporaryNoteDatabase();
+        database.CreateNote("test-note", "Test Note");
+        var factory = new CountingDatabaseFactory();
+        var repository = new SqliteNoteMetadataRepository(factory);
+
+        await repository.UpdateAsync(
+            database.DatabasePath,
+            new NoteMetadataUpdate()
+                .SetName("renamed-note")
+                .SetTitle("Renamed Note"),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(factory.ContextCount, Is.EqualTo(1));
+            Assert.That(factory.SaveChangesAsyncCount, Is.EqualTo(1));
+        }
+    }
+
+    /// <summary>
+    /// Verifies that an existing 14-character time is parsed without guessing or rewriting it.
+    /// </summary>
+    [Test]
+    public async Task LoadAsync_WithExistingCreateTime_LeavesStoredValueUnchanged()
+    {
+        using var database = new TemporaryNoteDatabase();
+        database.CreateNote("test-note", "Test Note");
+        using (var context = new NoteDbContext(database.DatabasePath))
+        {
+            context.Metadata.Add(new NoteKeyValue
+            {
+                Key = NoteKeyValue.CreateTime,
+                Value = "20260102011011"
+            });
+            context.SaveChanges();
+        }
+
+        var result = await _repository.LoadAsync(
+            database.DatabasePath,
+            CancellationToken.None);
+
+        using var verification = new NoteDbContext(database.DatabasePath);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.HasIssues, Is.False);
+            Assert.That(
+                result.Metadata.CreateTime,
+                Is.EqualTo(new DateTime(2026, 1, 2, 1, 10, 11)));
+            Assert.That(
+                verification.Metadata.Find(NoteKeyValue.CreateTime)?.Value,
+                Is.EqualTo("20260102011011"));
+        }
     }
 
     /// <summary>
@@ -160,5 +221,51 @@ public sealed class SqliteNoteMetadataRepositoryTests
         Assert.ThrowsAsync<OperationCanceledException>(new Func<Task>(async () =>
             await _repository.LoadAsync(database.DatabasePath, cancellation.Token)));
         Assert.That(File.Exists(database.DatabasePath), Is.False);
+    }
+
+    sealed class CountingDatabaseFactory : INoteDatabaseFactory
+    {
+        internal int ContextCount { get; private set; }
+
+        internal int SaveChangesAsyncCount { get; private set; }
+
+        public NoteDbContext Create(string dataSource)
+        {
+            ContextCount++;
+            var normalizedDataSource = Path.GetFullPath(dataSource);
+            var connectionString = new SqliteConnectionStringBuilder
+            {
+                DataSource = normalizedDataSource
+            }.ToString();
+            var options = new DbContextOptionsBuilder<NoteDbContext>()
+                .UseSqlite(connectionString)
+                .Options;
+            return new CountingNoteDbContext(
+                options,
+                normalizedDataSource,
+                () => SaveChangesAsyncCount++);
+        }
+    }
+
+    sealed class CountingNoteDbContext : NoteDbContext
+    {
+        readonly Action _onSaveChangesAsync;
+
+        internal CountingNoteDbContext(
+            DbContextOptions<NoteDbContext> options,
+            string dataSource,
+            Action onSaveChangesAsync)
+            : base(options)
+        {
+            DataSource = dataSource;
+            _onSaveChangesAsync = onSaveChangesAsync;
+        }
+
+        public override Task<int> SaveChangesAsync(
+            CancellationToken cancellationToken = default)
+        {
+            _onSaveChangesAsync();
+            return base.SaveChangesAsync(cancellationToken);
+        }
     }
 }

@@ -342,7 +342,7 @@ namespace MemoriaNote.Cli
                 do
                 {
                     retry = false;
-                    var data = DataSourceTracker.Create(note.Metadata.DataSource);
+                    var data = DataSourceTracker.Create(note.Metadata);
                     var errors = new List<string>();
                     var editor = Editors.TerminalEditorFactory.Create();
                     editor.FileName = note.ToString();
@@ -355,7 +355,8 @@ namespace MemoriaNote.Cli
                             data = JsonConvert.DeserializeObject<DataSourceTracker>(editor.TextData);
                             data.ValidateName(note, vm.Workgroup, ref errors);
                             data.ValidateTitle(note, vm.Workgroup, ref errors);
-                            note.Metadata.CopyTo(data);
+                            note.UpdateMetadata(
+                                NoteMetadataUpdate.FromDifferences(note.Metadata, data));
                             Log.Logger.Information("Metadata updated");
                         }
                         catch (ValidationException)

@@ -18,11 +18,12 @@ namespace MemoriaNote
         string _dataSource = null;
         readonly INoteRepository _repository;
         readonly INoteSearchRepository _searchRepository;
+        readonly INoteMetadataRepository _metadataRepository;
 
         public Note() { }
         public Note(string dataSource)
         {
-            DataSource = dataSource;
+            InitializeDataSource(dataSource);
         }
 
         /// <summary>
@@ -34,7 +35,7 @@ namespace MemoriaNote
         {
             _searchRepository = searchRepository ??
                 throw new ArgumentNullException(nameof(searchRepository));
-            DataSource = dataSource;
+            InitializeDataSource(dataSource);
         }
 
         /// <summary>
@@ -45,7 +46,19 @@ namespace MemoriaNote
         public Note(string dataSource, INoteRepository repository)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
-            DataSource = dataSource;
+            InitializeDataSource(dataSource);
+        }
+
+        /// <summary>
+        /// Initializes a note with an explicit metadata persistence boundary.
+        /// </summary>
+        /// <param name="dataSource">The path of the note database.</param>
+        /// <param name="metadataRepository">The repository used for metadata operations.</param>
+        public Note(string dataSource, INoteMetadataRepository metadataRepository)
+        {
+            _metadataRepository = metadataRepository ??
+                throw new ArgumentNullException(nameof(metadataRepository));
+            InitializeDataSource(dataSource);
         }
 
         /// <summary>
@@ -62,7 +75,28 @@ namespace MemoriaNote
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _searchRepository = searchRepository ??
                 throw new ArgumentNullException(nameof(searchRepository));
-            DataSource = dataSource;
+            InitializeDataSource(dataSource);
+        }
+
+        /// <summary>
+        /// Initializes a note with explicit page, search, and metadata persistence boundaries.
+        /// </summary>
+        /// <param name="dataSource">The path of the note database.</param>
+        /// <param name="repository">The repository used for page operations.</param>
+        /// <param name="searchRepository">The repository used for note searches.</param>
+        /// <param name="metadataRepository">The repository used for metadata operations.</param>
+        public Note(
+            string dataSource,
+            INoteRepository repository,
+            INoteSearchRepository searchRepository,
+            INoteMetadataRepository metadataRepository)
+        {
+            _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+            _searchRepository = searchRepository ??
+                throw new ArgumentNullException(nameof(searchRepository));
+            _metadataRepository = metadataRepository ??
+                throw new ArgumentNullException(nameof(metadataRepository));
+            InitializeDataSource(dataSource);
         }
 
         /// <summary>
@@ -79,14 +113,17 @@ namespace MemoriaNote
                 throw new ArgumentException("File exists");
 
             using (NoteDbContext context = new NoteDbContext(dataSource))
-            {
                 context.Database.Migrate();
 
-                var md = new Metadata(context.DataSource);
-                md.Name = name;
-                md.Title = title;
-                md.Version = NoteDbContext.CurrentVersion;
-            }
+            DefaultMetadataRepository.Instance.UpdateAsync(
+                    dataSource,
+                    new NoteMetadataUpdate()
+                        .SetName(name)
+                        .SetTitle(title)
+                        .SetVersion(NoteDbContext.CurrentVersion),
+                    CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
 
             return new Note(dataSource);
         }
@@ -103,13 +140,14 @@ namespace MemoriaNote
                 throw new ArgumentException("File does not exists");
 
             using (NoteDbContext context = new NoteDbContext(dataSource))
-            {
                 context.Database.Migrate();
 
-                var md = new Metadata(context.DataSource);
-
-                md.Version = NoteDbContext.CurrentVersion;
-            }
+            DefaultMetadataRepository.Instance.UpdateAsync(
+                    dataSource,
+                    new NoteMetadataUpdate().SetVersion(NoteDbContext.CurrentVersion),
+                    CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
 
             return new Note(dataSource);
         }
@@ -291,6 +329,9 @@ namespace MemoriaNote
 
         INoteRepository Repository => _repository ?? DefaultRepository.Instance;
 
+        INoteMetadataRepository MetadataRepository =>
+            _metadataRepository ?? DefaultMetadataRepository.Instance;
+
         static class DefaultRepository
         {
             internal static readonly INoteRepository Instance =
@@ -302,6 +343,13 @@ namespace MemoriaNote
         {
             internal static readonly INoteSearchRepository Instance =
                 new SqliteNoteSearchRepository(
+                    new SqliteNoteDatabaseFactory(NoteDbContext.MyLoggerFactory));
+        }
+
+        static class DefaultMetadataRepository
+        {
+            internal static readonly INoteMetadataRepository Instance =
+                new SqliteNoteMetadataRepository(
                     new SqliteNoteDatabaseFactory(NoteDbContext.MyLoggerFactory));
         }
 
@@ -347,32 +395,91 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Gets or sets the data source for the search operation, initializing the Metadata property with the value provided.
-        /// If the provided value is not null, sets the data source and initializes the Metadata property with a new Metadata object using the value.
-        /// If the provided value is null, resets the data source to null and sets the Metadata property to null.
+        /// Gets or sets the data source for note operations.
+        /// Setting this property clears the currently loaded metadata snapshot without accessing the database.
         /// </summary>
         public string DataSource
         {
             get => _dataSource;
             set
             {
-                if (value != null)
-                {
-                    _dataSource = value;
-                    Metadata = new Metadata(value);
-                }
-                else
-                {
-                    _dataSource = null;
-                    Metadata = null;
-                }
+                _dataSource = value;
+                Metadata = null;
+                MetadataIssues = Array.Empty<MetadataLoadIssue>();
             }
         }
 
         /// <summary>
-        /// Gets or sets the metadata for the content item. The metadata includes information such as the name and title of the content.
+        /// Gets the most recently loaded or persisted metadata snapshot.
         /// </summary>
-        public Metadata Metadata { get; private set; }
+        public NoteMetadata Metadata { get; private set; }
+
+        /// <summary>
+        /// Gets classifiable problems found while producing the current metadata snapshot.
+        /// </summary>
+        public IReadOnlyList<MetadataLoadIssue> MetadataIssues { get; private set; } =
+            Array.Empty<MetadataLoadIssue>();
+
+        /// <summary>
+        /// Reloads the metadata snapshot from the note database.
+        /// </summary>
+        /// <param name="token">The cancellation token for the database operation.</param>
+        /// <returns>The loaded snapshot and any classifiable value problems.</returns>
+        public async Task<MetadataLoadResult> ReloadMetadataAsync(CancellationToken token)
+        {
+            var result = await MetadataRepository
+                .LoadAsync(DataSource, token)
+                .ConfigureAwait(false);
+            ApplyMetadata(result);
+            return result;
+        }
+
+        /// <summary>
+        /// Persists requested metadata fields atomically and replaces the current snapshot.
+        /// </summary>
+        /// <param name="update">The metadata fields to update together.</param>
+        /// <param name="token">The cancellation token for the database operation.</param>
+        /// <returns>The saved snapshot and any classifiable value problems.</returns>
+        public async Task<MetadataLoadResult> UpdateMetadataAsync(
+            NoteMetadataUpdate update,
+            CancellationToken token)
+        {
+            var result = await MetadataRepository
+                .UpdateAsync(DataSource, update, token)
+                .ConfigureAwait(false);
+            ApplyMetadata(result);
+            return result;
+        }
+
+        /// <summary>
+        /// Persists requested metadata fields atomically through the synchronous compatibility API.
+        /// </summary>
+        /// <param name="update">The metadata fields to update together.</param>
+        /// <returns>The saved snapshot and any classifiable value problems.</returns>
+        public MetadataLoadResult UpdateMetadata(NoteMetadataUpdate update)
+        {
+            return UpdateMetadataAsync(update, CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+        }
+
+        void InitializeDataSource(string dataSource)
+        {
+            DataSource = dataSource;
+            if (dataSource == null || !File.Exists(dataSource))
+                return;
+
+            var result = MetadataRepository.LoadAsync(dataSource, CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+            ApplyMetadata(result);
+        }
+
+        void ApplyMetadata(MetadataLoadResult result)
+        {
+            Metadata = result.Metadata;
+            MetadataIssues = result.Issues;
+        }
         
         public override string ToString()
         {
