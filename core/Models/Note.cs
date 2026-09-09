@@ -5,13 +5,12 @@ using System.Linq;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 
 namespace MemoriaNote
 {
     /// <summary>
     /// Represents a Note in the MemoriaNote application.
-    /// Provides methods for creating, migrating, and managing notes and pages in the database.
+    /// Provides methods for managing note metadata and pages.
     /// </summary>
     public class Note
     {
@@ -99,59 +98,19 @@ namespace MemoriaNote
             InitializeDataSource(dataSource);
         }
 
-        /// <summary>
-        /// Creates a new Note with the specified name, title, and data source.
-        /// If the file already exists at the data source path, an exception is thrown.
-        /// </summary>
-        /// <param name="name">The name of the note.</param>
-        /// <param name="title">The title of the note.</param>
-        /// <param name="dataSource">The path to the data source.</param>
-        /// <returns>A new Note object.</returns>
-        public static Note Create(string name, string title, string dataSource)
+        internal Note(
+            string dataSource,
+            INoteMetadataRepository metadataRepository,
+            MetadataLoadResult metadata)
         {
-            if (File.Exists(dataSource))
-                throw new ArgumentException("File exists");
+            _metadataRepository = metadataRepository ??
+                throw new ArgumentNullException(nameof(metadataRepository));
+            if (metadata == null)
+                throw new ArgumentNullException(nameof(metadata));
 
-            using (NoteDbContext context = new NoteDbContext(dataSource))
-                context.Database.Migrate();
-
-            DefaultMetadataRepository.Instance.UpdateAsync(
-                    dataSource,
-                    new NoteMetadataUpdate()
-                        .SetName(name)
-                        .SetTitle(title)
-                        .SetVersion(NoteDbContext.CurrentVersion),
-                    CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
-
-            return new Note(dataSource);
+            DataSource = dataSource;
+            ApplyMetadata(metadata);
         }
-
-        /// <summary>
-        /// Migrates an existing Note data source to the current version of the database schema.
-        /// If the file does not exist at the specified data source path, an exception is thrown.
-        /// </summary>
-        /// <param name="dataSource">The path to the data source.</param>
-        /// <returns>A new Note object with the migrated data source.</returns>
-        public static Note Migrate(string dataSource)
-        {
-            if (!File.Exists(dataSource))
-                throw new ArgumentException("File does not exists");
-
-            using (NoteDbContext context = new NoteDbContext(dataSource))
-                context.Database.Migrate();
-
-            DefaultMetadataRepository.Instance.UpdateAsync(
-                    dataSource,
-                    new NoteMetadataUpdate().SetVersion(NoteDbContext.CurrentVersion),
-                    CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
-
-            return new Note(dataSource);
-        }
-
 
         /// <summary>
         /// Reads a specific Page from the database based on the provided name and index.

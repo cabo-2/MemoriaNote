@@ -22,10 +22,17 @@ namespace MemoriaNote
     /// </summary>
     public class MemoriaNoteService : ReactiveObject
     {
+        readonly INoteMigrator _noteMigrator;
+
         /// <summary>
         /// Initializes the service from the configured workgroup.
         /// </summary>
-        public MemoriaNoteService() : this(CreateConfiguredWorkgroup())
+        public MemoriaNoteService() : this(NotePersistence.CreateMigrator())
+        {
+        }
+
+        MemoriaNoteService(INoteMigrator noteMigrator)
+            : this(CreateConfiguredWorkgroup(noteMigrator), noteMigrator)
         {
         }
 
@@ -34,8 +41,20 @@ namespace MemoriaNote
         /// </summary>
         /// <param name="workgroup">The workgroup used by the service.</param>
         protected MemoriaNoteService(Workgroup workgroup)
+            : this(workgroup, NotePersistence.CreateMigrator())
+        {
+        }
+
+        /// <summary>
+        /// Initializes the service with an explicit workgroup and note migrator.
+        /// </summary>
+        /// <param name="workgroup">The workgroup used by the service.</param>
+        /// <param name="noteMigrator">The service used for note database lifecycle operations.</param>
+        protected MemoriaNoteService(Workgroup workgroup, INoteMigrator noteMigrator)
         {
             Workgroup = workgroup ?? throw new ArgumentNullException(nameof(workgroup));
+            _noteMigrator = noteMigrator ??
+                throw new ArgumentNullException(nameof(noteMigrator));
 
             ActivateHandler = async () =>
             {
@@ -137,14 +156,17 @@ namespace MemoriaNote
                 .ToProperty(this, x => x.SearchMethodString);
         }
 
-        private static Workgroup CreateConfiguredWorkgroup()
+        private static Workgroup CreateConfiguredWorkgroup(INoteMigrator noteMigrator)
         {
             if (!File.Exists(Configuration.Instance.DefaultDataSourcePath))
             {
-                Note.Create(
-                    Configuration.Instance.DefaultNoteName,
-                    Configuration.Instance.DefaultNoteTitle,
-                    Configuration.Instance.DefaultDataSourcePath);
+                noteMigrator.CreateAsync(
+                        Configuration.Instance.DefaultNoteName,
+                        Configuration.Instance.DefaultNoteTitle,
+                        Configuration.Instance.DefaultDataSourcePath,
+                        CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult();
                 Log.Logger.Information("Default note created");
             }
 
@@ -171,7 +193,9 @@ namespace MemoriaNote
         {
             foreach (var dataSource in Configuration.Instance.DataSources)
             {
-                Note.Migrate(dataSource);
+                _noteMigrator.MigrateAsync(dataSource, CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult();
             }
         }
 

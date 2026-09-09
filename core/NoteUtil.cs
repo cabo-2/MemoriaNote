@@ -137,16 +137,37 @@ namespace MemoriaNote
         /// <returns>A Task representing the asynchronous operation that restores the Note object.</returns>
         public static Task<Note> Restore(string inputPath, string outputDir)
         {
+            return Restore(
+                inputPath,
+                outputDir,
+                NotePersistence.CreateMigrator(),
+                CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Restores a Note object using an explicit note migrator.
+        /// </summary>
+        /// <param name="inputPath">The path to the input zip archive.</param>
+        /// <param name="outputDir">The directory where the restored note will be saved.</param>
+        /// <param name="noteMigrator">The service used for note database lifecycle operations.</param>
+        /// <param name="token">The cancellation token for the operation.</param>
+        /// <returns>A task that returns the restored note.</returns>
+        public static Task<Note> Restore(
+            string inputPath,
+            string outputDir,
+            INoteMigrator noteMigrator,
+            CancellationToken token)
+        {
             // Check for null input parameters and throw ArgumentNullException if necessary.
             if (inputPath == null)
                 throw new ArgumentNullException(nameof(inputPath));
             if (outputDir == null)
                 throw new ArgumentNullException(nameof(outputDir));
+            if (noteMigrator == null)
+                throw new ArgumentNullException(nameof(noteMigrator));
 
-            // Create a cancellation token for the task.
-            var token = new CancellationToken();
             // Run the task asynchronously, restoring the Note object from the input zip file.
-            var task = Task.Run<Note>(() =>
+            var task = Task.Run<Note>(async () =>
             {
                 // Open the input zip file for reading.
                 using ZipArchive zip = ZipFile.Open(inputPath, ZipArchiveMode.Read);
@@ -159,7 +180,12 @@ namespace MemoriaNote
                 var notePath = GetNotePath(outputDir, name);
 
                 // Create a new Note object with the retrieved name, title, and path.
-                Note note = Note.Create(name, title, notePath);
+                Note note = await noteMigrator.CreateAsync(
+                        name,
+                        title,
+                        notePath,
+                        token)
+                    .ConfigureAwait(false);
                 // Persist the additional metadata in one operation when values are available.
                 var metadataUpdate = new NoteMetadataUpdate();
                 var description = kv.FirstOrDefault(
@@ -183,7 +209,8 @@ namespace MemoriaNote
                 }
 
                 // Migrate the Note's data source to the latest version.
-                Note.Migrate(note.DataSource);
+                await noteMigrator.MigrateAsync(note.DataSource, token)
+                    .ConfigureAwait(false);
                 // Return the restored Note object.
                 return note;
             }, token);
