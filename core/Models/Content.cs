@@ -7,12 +7,13 @@ using Newtonsoft.Json;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Represents a class that implements the IContent interface and IEquatable interface for comparing content objects.
-    /// The Content class is marked as serializable and complex type.
+    /// Represents the persisted summary read model derived from a Page.
+    /// Contents rows omit Page text and are maintained only by database triggers or explicit
+    /// read model reconstruction.
     /// </summary>
     /// <remarks>
-    /// The Content class contains properties for unique identifiers, names, indexes, tags, content type, and timestamps.
-    /// It also provides methods for creating new instances of content objects and copying properties from existing objects.
+    /// The Content class contains properties for identifiers, names, indexes, tags, content
+    /// type, and timestamps used by list and heading-search operations.
     /// </remarks>
     [Serializable]
     [ComplexType]
