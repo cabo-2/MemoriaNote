@@ -137,7 +137,7 @@ public sealed class NoteTransferCharacteristicsTests
             Assert.That(await File.ReadAllTextAsync(meetingPath), Is.EqualTo("Nested text"));
         }
 
-        var imported = Note.Create(
+        var imported = database.CreateNote(
             "imported",
             "Imported Note",
             Path.Combine(database.DirectoryPath, "imported.db"));

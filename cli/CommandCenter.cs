@@ -4,6 +4,7 @@ using System.Text;
 using System.Linq;
 using System.Reflection;
 using System.Reactive.Concurrency;
+using System.Threading;
 using ReactiveUI;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -18,6 +19,25 @@ namespace MemoriaNote.Cli
     /// </summary>
     public class CommandCenter
     {
+        readonly INoteMigrator _noteMigrator;
+
+        /// <summary>
+        /// Initializes a command center with the default SQLite persistence services.
+        /// </summary>
+        public CommandCenter() : this(NotePersistence.CreateMigrator())
+        {
+        }
+
+        /// <summary>
+        /// Initializes a command center with an explicit note migrator.
+        /// </summary>
+        /// <param name="noteMigrator">The service used for note database lifecycle operations.</param>
+        public CommandCenter(INoteMigrator noteMigrator)
+        {
+            _noteMigrator = noteMigrator ??
+                throw new ArgumentNullException(nameof(noteMigrator));
+        }
+
         /// <summary>
         /// 共通の前後処理＋例外ハンドリングを行うラッパー
         /// </summary>
@@ -416,7 +436,13 @@ namespace MemoriaNote.Cli
                 var path = NoteUtil.GetNotePath(ConfigurationCli.Instance.ApplicationDataDirectory, name);
                 try
                 {
-                    Note.Create(name, title, path);
+                    _noteMigrator.CreateAsync(
+                            name,
+                            title,
+                            path,
+                            CancellationToken.None)
+                        .GetAwaiter()
+                        .GetResult();
                 }
                 catch (Exception e)
                 {
