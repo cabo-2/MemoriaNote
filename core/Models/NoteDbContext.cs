@@ -32,6 +32,10 @@ namespace MemoriaNote
 
         public DbSet<Page> Pages { get; set; }
 
+        /// <summary>
+        /// Gets or sets the Page summary read model maintained by SQLite triggers.
+        /// Application writes must treat Pages as authoritative.
+        /// </summary>
         public DbSet<Content> Contents { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
