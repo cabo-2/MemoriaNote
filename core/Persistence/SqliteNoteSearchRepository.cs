@@ -33,23 +33,50 @@ namespace MemoriaNote
             int takeCount,
             CancellationToken token)
         {
+            var result = await SearchPageSummariesAsync(
+                    dataSource,
+                    searchEntry,
+                    searchMethod,
+                    skipCount,
+                    takeCount,
+                    token)
+                .ConfigureAwait(false);
+            return new SearchResult()
+            {
+                Contents = result.PageSummaries
+                    .Select(PageSummaryContentAdapter.ToContent)
+                    .ToList(),
+                Count = result.Count,
+                StartTime = result.StartTime,
+                EndTime = result.EndTime
+            };
+        }
+
+        /// <inheritdoc/>
+        public async Task<NoteSearchResult> SearchPageSummariesAsync(
+            string dataSource,
+            string searchEntry,
+            SearchMethodType searchMethod,
+            int skipCount,
+            int takeCount,
+            CancellationToken token)
+        {
             token.ThrowIfCancellationRequested();
             var startTime = DateTime.UtcNow;
             using var context = _databaseFactory.Create(dataSource);
             var query = CreateQuery(context, searchEntry, searchMethod);
             var count = await query.CountAsync(token);
             var contents = await query.ReadAsync(skipCount, takeCount, token);
+            var noteId = NoteId.FromDataSource(context.DataSource);
+            var summaries = contents
+                .Select(content => PageSummaryMapper.FromContent(noteId, content))
+                .ToList();
 
-            foreach (var content in contents)
-                content.OwnerDataSource = context.DataSource;
-
-            return new SearchResult()
-            {
-                Contents = contents,
-                Count = count,
-                StartTime = startTime,
-                EndTime = DateTime.UtcNow
-            };
+            return new NoteSearchResult(
+                summaries,
+                count,
+                startTime,
+                DateTime.UtcNow);
         }
 
         /// <inheritdoc/>

@@ -260,15 +260,22 @@ namespace MemoriaNote
             int takeCount,
             CancellationToken token)
         {
-            var result = await SearchRepository.SearchAsync(
+            var result = await SearchRepository.SearchPageSummariesAsync(
                 DataSource,
                 searchEntry,
                 searchMethod,
                 skipCount,
                 takeCount,
                 token);
-            result.Contents.ForEach(content => SetOwner(content));
-            return result;
+            return new SearchResult()
+            {
+                Contents = result.PageSummaries
+                    .Select(ToCompatibilityContent)
+                    .ToList(),
+                Count = result.Count,
+                StartTime = result.StartTime,
+                EndTime = result.EndTime
+            };
         }
 
         internal Task<int> CountSearchResultsAsync(
@@ -331,15 +338,20 @@ namespace MemoriaNote
         /// <returns>A list of Content objects representing the retrieved content items.</returns>
         public List<Content> GetContents(int skipCount, int takeCount)
         {
-            return Repository.ReadContentsAsync(
+            return Repository.ReadPageSummariesAsync(
                     DataSource,
                     skipCount,
                     takeCount,
                     CancellationToken.None)
                 .GetAwaiter()
                 .GetResult()
-                .Select(SetOwner)
+                .Select(ToCompatibilityContent)
                 .ToList();
+        }
+
+        Content ToCompatibilityContent(PageSummary summary)
+        {
+            return SetOwner(PageSummaryContentAdapter.ToContent(summary));
         }
 
         private T SetOwner<T>(T content) where T : class, IContent

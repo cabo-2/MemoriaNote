@@ -287,13 +287,14 @@ public sealed class SqliteNoteSearchRepositoryTests
 
         using (Assert.EnterMultipleScope())
         {
+            var returnedContent = result.Contents.Single();
             Assert.That(repository.CountCallCount, Is.EqualTo(1));
             Assert.That(repository.SearchCallCount, Is.EqualTo(1));
             Assert.That(result.Count, Is.EqualTo(1));
-            Assert.That(result.Contents.Single(), Is.SameAs(content));
-            Assert.That(content.Parent, Is.SameAs(note));
+            Assert.That(returnedContent.Guid, Is.EqualTo(content.Guid));
+            Assert.That(returnedContent.Parent, Is.SameAs(note));
             Assert.That(
-                content.OwnerDataSource,
+                returnedContent.OwnerDataSource,
                 Is.EqualTo(Path.GetFullPath(database.DatabasePath)));
         }
     }
