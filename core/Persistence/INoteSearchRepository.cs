@@ -27,6 +27,49 @@ namespace MemoriaNote
             CancellationToken token);
 
         /// <summary>
+        /// Searches a note and returns immutable, owner-qualified page summaries together with the
+        /// unpaged total count.
+        /// </summary>
+        /// <param name="dataSource">The path of the note database.</param>
+        /// <param name="searchEntry">The search entry to match.</param>
+        /// <param name="searchMethod">The search method to use.</param>
+        /// <param name="skipCount">The number of matches to skip.</param>
+        /// <param name="takeCount">The maximum number of matches to return.</param>
+        /// <param name="token">The cancellation token for database operations.</param>
+        /// <returns>The typed, ordered search results and total count.</returns>
+        async Task<NoteSearchResult> SearchPageSummariesAsync(
+            string dataSource,
+            string searchEntry,
+            SearchMethodType searchMethod,
+            int skipCount,
+            int takeCount,
+            CancellationToken token)
+        {
+            var result = await SearchAsync(
+                    dataSource,
+                    searchEntry,
+                    searchMethod,
+                    skipCount,
+                    takeCount,
+                    token)
+                .ConfigureAwait(false);
+            var noteId = NoteId.FromDataSource(dataSource);
+            var summaries = new PageSummary[result.Contents.Count];
+            for (var index = 0; index < result.Contents.Count; index++)
+            {
+                summaries[index] = PageSummaryMapper.FromContent(
+                    noteId,
+                    result.Contents[index]);
+            }
+
+            return new NoteSearchResult(
+                summaries,
+                result.Count,
+                result.StartTime,
+                result.EndTime);
+        }
+
+        /// <summary>
         /// Counts every match in a note without applying paging.
         /// </summary>
         /// <param name="dataSource">The path of the note database.</param>

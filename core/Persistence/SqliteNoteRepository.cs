@@ -25,14 +25,33 @@ namespace MemoriaNote
         }
 
         /// <inheritdoc/>
-        public async Task<Page> ReadPageAsync(
+        public Task<Page> ReadPageAsync(
             string dataSource,
             Guid pageId,
             CancellationToken token)
         {
+            return ReadPageByUuidAsync(dataSource, pageId.ToUuid(), token);
+        }
+
+        /// <inheritdoc/>
+        public Task<Page> ReadPageAsync(
+            string dataSource,
+            PageId pageId,
+            CancellationToken token)
+        {
+            if (pageId == null)
+                throw new ArgumentNullException(nameof(pageId));
+
+            return ReadPageByUuidAsync(dataSource, pageId.ToUuid(), token);
+        }
+
+        async Task<Page> ReadPageByUuidAsync(
+            string dataSource,
+            string uuid,
+            CancellationToken token)
+        {
             token.ThrowIfCancellationRequested();
             using var context = _databaseFactory.Create(dataSource);
-            var uuid = pageId.ToUuid();
             var page = await context.Pages
                 .AsNoTracking()
                 .SingleOrDefaultAsync(candidate => candidate.Uuid == uuid, token)
@@ -117,7 +136,7 @@ namespace MemoriaNote
             await using var transaction = await context.Database
                 .BeginTransactionAsync(token)
                 .ConfigureAwait(false);
-            var uuid = page.Guid.ToUuid();
+            var uuid = PageId.FromGuid(page.Guid).ToUuid();
             var persistedPage = await context.Pages
                 .SingleOrDefaultAsync(candidate => candidate.Uuid == uuid, token)
                 .ConfigureAwait(false);
@@ -156,9 +175,29 @@ namespace MemoriaNote
         }
 
         /// <inheritdoc/>
-        public async Task DeletePageAsync(
+        public Task DeletePageAsync(
             string dataSource,
             Guid pageId,
+            CancellationToken token)
+        {
+            return DeletePageByUuidAsync(dataSource, pageId.ToUuid(), token);
+        }
+
+        /// <inheritdoc/>
+        public Task DeletePageAsync(
+            string dataSource,
+            PageId pageId,
+            CancellationToken token)
+        {
+            if (pageId == null)
+                throw new ArgumentNullException(nameof(pageId));
+
+            return DeletePageByUuidAsync(dataSource, pageId.ToUuid(), token);
+        }
+
+        async Task DeletePageByUuidAsync(
+            string dataSource,
+            string uuid,
             CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
@@ -166,7 +205,6 @@ namespace MemoriaNote
             await using var transaction = await context.Database
                 .BeginTransactionAsync(token)
                 .ConfigureAwait(false);
-            var uuid = pageId.ToUuid();
             var page = await context.Pages
                 .SingleOrDefaultAsync(candidate => candidate.Uuid == uuid, token)
                 .ConfigureAwait(false);
@@ -201,6 +239,24 @@ namespace MemoriaNote
             int takeCount,
             CancellationToken token)
         {
+            var summaries = await ReadPageSummariesAsync(
+                    dataSource,
+                    skipCount,
+                    takeCount,
+                    token)
+                .ConfigureAwait(false);
+            return summaries
+                .Select(PageSummaryContentAdapter.ToContent)
+                .ToList();
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<PageSummary>> ReadPageSummariesAsync(
+            string dataSource,
+            int skipCount,
+            int takeCount,
+            CancellationToken token)
+        {
             token.ThrowIfCancellationRequested();
             using var context = _databaseFactory.Create(dataSource);
             var contents = await context.Contents
@@ -210,8 +266,11 @@ namespace MemoriaNote
                 .Take(takeCount)
                 .ToListAsync(token)
                 .ConfigureAwait(false);
-            contents.ForEach(content => SetOwner(content, context.DataSource));
-            return contents;
+            var noteId = NoteId.FromDataSource(context.DataSource);
+            return contents
+                .Select(content => PageSummaryMapper.FromContent(noteId, content))
+                .ToList()
+                .AsReadOnly();
         }
 
         static Task<List<Page>> ReadTrackedNameGroupAsync(
