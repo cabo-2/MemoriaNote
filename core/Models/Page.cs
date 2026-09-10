@@ -150,45 +150,45 @@ namespace MemoriaNote
         /// </summary>
         public string Text { get; set; }
 
+        /// <inheritdoc/>
         public bool EntityEquals(IContent other)
         {
-            return Content.EntityEquals(this, other);
+            return PageIdentity.Equals(this, other);
         }
 
         /// <summary>
-        /// Determines whether the current Page object is equal to another Page object by comparing their entities and hash codes.
-        /// If the entities are equal, it further compares their hash codes for equality.
+        /// Determines whether this page and another page have the same non-empty page identifier.
         /// </summary>
         /// <param name="other">The Page object to compare with the current Page object.</param>
         /// <returns>True if the current Page object is equal to the specified Page object; otherwise, false.</returns>
         public bool Equals(Page other)
         {
-            if (EntityEquals(other))
-                return this.GetHashCode() == other.GetHashCode();
-            else
-                return false;
+            return PageIdentity.Equals(this, other);
         }
 
         /// <summary>
-        /// Determines whether the current Page object is equal to another object by checking if the other object is a Page object.
-        /// If it is a Page object, it further calls the Equals method to compare them.
+        /// Determines whether this page and another content entity have the same non-empty
+        /// page identifier.
         /// </summary>
         /// <param name="obj">The object to compare with the current Page object.</param>
-        /// <returns>True if the current Page object is equal to the specified object and they are of the same type; otherwise, false.</returns>
+        /// <returns>
+        /// True if the object is a content entity with the same page identifier; otherwise, false.
+        /// </returns>
         public override bool Equals(object obj)
         {
-            return this.Equals(obj as Page);
+            return obj is IContent other && PageIdentity.Equals(this, other);
         }
 
         /// <summary>
-        /// Serves as a hash function for a Page object and is suitable for use in hashing algorithms and data structures like hash tables.
-        /// The hash code is calculated based on the hash codes of the Content property and the Text property.
+        /// Gets the hash code of this page's non-empty identifier.
         /// </summary>
         /// <returns>A hash code value for the current Page object.</returns>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown when the page has not been assigned an identifier.
+        /// </exception>
         public override int GetHashCode()
         {
-            return Content.GetHashCode(this) ^
-                   (Text == null ? 4 : Text.GetHashCode());
+            return PageIdentity.GetHashCode(this);
         }
 
         /// <summary>

@@ -68,6 +68,60 @@ public sealed class PageSummaryTests
         Assert.That(propertyNames, Does.Not.Contain("Text"));
     }
 
+    /// <summary>
+    /// Verifies that projection values do not participate in an owned page's identity.
+    /// </summary>
+    [Test]
+    public void Equality_SameOwnerAndPageIds_IgnoresProjectionValues()
+    {
+        var noteId = NoteId.FromDataSource(Path.Combine(Path.GetTempPath(), "owner.db"));
+        var pageId = PageId.FromGuid(Guid.NewGuid());
+        var first = CreateSummary(noteId, pageId, new Dictionary<string, string>());
+        var second = new PageSummary(
+            noteId,
+            pageId,
+            "Changed",
+            99,
+            new Dictionary<string, string> { ["Changed"] = "true" },
+            "ChangedType",
+            DateTime.MinValue,
+            DateTime.MaxValue,
+            true);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(first, Is.EqualTo(second));
+            Assert.That(first == second, Is.True);
+            Assert.That(first.GetHashCode(), Is.EqualTo(second.GetHashCode()));
+        }
+    }
+
+    /// <summary>
+    /// Verifies that the owning note is part of a page summary's identity.
+    /// </summary>
+    [Test]
+    public void Equality_SamePageIdWithDifferentOwner_ReturnsFalse()
+    {
+        var pageId = PageId.FromGuid(Guid.NewGuid());
+        var first = CreateSummary(
+            NoteId.FromDataSource(Path.Combine(Path.GetTempPath(), "first-owner.db")),
+            pageId,
+            null);
+        var second = CreateSummary(
+            NoteId.FromDataSource(Path.Combine(Path.GetTempPath(), "second-owner.db")),
+            pageId,
+            null);
+        object firstObject = first;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(first, Is.Not.EqualTo(second));
+            Assert.That(first != second, Is.True);
+            Assert.That(first.Equals(default(PageSummary)), Is.False);
+            Assert.That(firstObject.Equals("not a summary"), Is.False);
+        }
+    }
+
     static PageSummary CreateSummary(
         NoteId noteId,
         PageId pageId,

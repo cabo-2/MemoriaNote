@@ -66,10 +66,14 @@ namespace MemoriaNote
         object Parent { get; set; }
 
         /// <summary>
-        /// Method to compare two content objects for equality based on their properties
+        /// Determines whether this entity and another content entity have the same
+        /// non-empty page identifier.
         /// </summary>
-        /// <param name="other"></param>
-        /// <returns></returns>
+        /// <param name="other">The content entity to compare.</param>
+        /// <returns>
+        /// True when both entities represent the same page; otherwise, false. Two distinct
+        /// entities with empty identifiers are never equal.
+        /// </returns>
         bool EntityEquals(IContent other);
         
         /// <summary>
