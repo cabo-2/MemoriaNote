@@ -30,6 +30,7 @@ namespace MemoriaNote
         {
             var content = new T();
             content.Rowid = 0; // auto increment
+            // Assign identity before the transient entity can be returned to callers.
             content.Guid = Guid.NewGuid();
             content.Name = name;
             content.Index = 1;
@@ -178,74 +179,69 @@ namespace MemoriaNote
         [NotMapped]
         public object Parent { get; set; }
 
+        /// <inheritdoc/>
         public bool EntityEquals(IContent other)
         {
-            return EntityEquals(this, other);
+            return PageIdentity.Equals(this, other);
         }
 
         /// <summary>
-        /// Compares two objects that implement the IContent interface for equality based on their Guid property.
-        /// Returns true if the objects are the same instance, or if their Guid properties are equal; otherwise, false.
+        /// Compares two content entities by their non-empty page identifiers.
         /// </summary>
         /// <param name="objA">The first object to compare.</param>
         /// <param name="objB">The second object to compare.</param>
-        /// <returns>True if the objects are the same instance or if their Guid properties are equal; otherwise, false.</returns>
+        /// <returns>
+        /// True if the objects are the same instance or have the same non-empty page identifier;
+        /// otherwise, false.
+        /// </returns>
         public static bool EntityEquals(IContent objA, IContent objB)
         {
-            // Optimization for a common success case.
-            if (Object.ReferenceEquals(objA, objB))
-                return true;
-
-            // If parameter is null, return false.
-            if (objA == null || objB == null)
-                return false;
-
-            // Check properties that this class declares.
-            if (objA.Guid == objB.Guid)
-                return true;
-
-            return false;
+            return PageIdentity.Equals(objA, objB);
         }
 
+        /// <inheritdoc/>
         public bool Equals(Content other)
         {
-            return Equals(this, other);
+            return PageIdentity.Equals(this, other);
         }
 
         /// <summary>
-        /// Compares two objects implementing the IContent interface for equality based on their properties.
-        /// Returns true if the objects are equal based on the EntityEquals method and have the same hash code; otherwise, false.
+        /// Compares two content entities by their non-empty page identifiers.
         /// </summary>
         /// <param name="objA">The first object implementing the IContent interface to compare.</param>
         /// <param name="objB">The second object implementing the IContent interface to compare.</param>
-        /// <returns>True if the objects are equal based on EntityEquals and their hash codes match; otherwise, false.</returns>
+        /// <returns>True if the objects have the same entity identity; otherwise, false.</returns>
         public static bool Equals(IContent objA, IContent objB)
         {
-            if (EntityEquals(objA, objB))
-                return objA.GetHashCode() == objB.GetHashCode();
-            else
-                return false;
+            return PageIdentity.Equals(objA, objB);
         }
 
+        /// <inheritdoc/>
         public override bool Equals(object obj)
         {
-            return this.Equals(obj as Content);
+            return obj is IContent other && PageIdentity.Equals(this, other);
         }
 
+        /// <inheritdoc/>
         public override int GetHashCode()
         {
-            return GetHashCode(this);
+            return PageIdentity.GetHashCode(this);
         }
 
+        /// <summary>
+        /// Gets the hash code of a content entity's non-empty page identifier.
+        /// </summary>
+        /// <param name="value">The content entity whose identifier is hashed.</param>
+        /// <returns>The hash code of the entity's page identifier.</returns>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown when <paramref name="value"/> is null.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// Thrown when the entity has not been assigned a page identifier.
+        /// </exception>
         public static int GetHashCode(IContent value)
         {
-            return 4 ^ (value.Rowid.GetHashCode()) ^
-                   (value.Name == null ? 5 : value.Name.GetHashCode()) ^
-                   (value.Index.GetHashCode()) ^
-                   (value.TagDict == null ? 2 : value.TagDict.GetOrderIndependentHashCode()) ^
-                   (value.CreateTime.GetHashCode()) ^
-                   (value.UpdateTime.GetHashCode()) ^
-                   (value.IsErased.GetHashCode());
+            return PageIdentity.GetHashCode(value);
         }
 
         public Content GetContent() => this;

@@ -7,7 +7,7 @@ namespace MemoriaNote
     /// <summary>
     /// Represents an immutable, body-free page summary with an explicit owning note.
     /// </summary>
-    public sealed class PageSummary
+    public sealed class PageSummary : IEquatable<PageSummary>
     {
         readonly IReadOnlyDictionary<string, string> _tags;
 
@@ -93,5 +93,50 @@ namespace MemoriaNote
         /// Gets a value indicating whether the page is marked as erased.
         /// </summary>
         public bool IsErased { get; }
+
+        /// <summary>
+        /// Determines whether this summary and another summary identify the same page in the
+        /// same owning note.
+        /// </summary>
+        /// <param name="other">The summary to compare.</param>
+        /// <returns>True when both the note and page identifiers are equal; otherwise, false.</returns>
+        public bool Equals(PageSummary other)
+        {
+            return other != null && NoteId == other.NoteId && PageId == other.PageId;
+        }
+
+        /// <inheritdoc/>
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as PageSummary);
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(NoteId, PageId);
+        }
+
+        /// <summary>
+        /// Determines whether two summaries identify the same page in the same owning note.
+        /// </summary>
+        /// <param name="left">The first summary.</param>
+        /// <param name="right">The second summary.</param>
+        /// <returns>True when both summaries have the same identity.</returns>
+        public static bool operator ==(PageSummary left, PageSummary right)
+        {
+            return ReferenceEquals(left, right) || left?.Equals(right) == true;
+        }
+
+        /// <summary>
+        /// Determines whether two summaries identify different owned pages.
+        /// </summary>
+        /// <param name="left">The first summary.</param>
+        /// <param name="right">The second summary.</param>
+        /// <returns>True when the summaries have different identities.</returns>
+        public static bool operator !=(PageSummary left, PageSummary right)
+        {
+            return !(left == right);
+        }
     }
 }

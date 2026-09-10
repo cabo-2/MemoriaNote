@@ -105,7 +105,10 @@ namespace MemoriaNote
                 errors.Add("Name cannot be blank");
                 throw new ValidationException(nameof(Name));
             }
-            foreach (var name in wg.Notes.Where(n => !n.Equals(note)).Select(n => n.Metadata.Name))
+            var noteId = NoteId.FromDataSource(note.DataSource);
+            foreach (var name in wg.Notes
+                .Where(candidate => NoteId.FromDataSource(candidate.DataSource) != noteId)
+                .Select(candidate => candidate.Metadata.Name))
                 if (this.Name == name)
                 {
                     errors.Add("Name is already registered");
