@@ -33,22 +33,24 @@ namespace MemoriaNote
             int takeCount,
             CancellationToken token)
         {
-            var result = await SearchPageSummariesAsync(
-                    dataSource,
-                    searchEntry,
-                    searchMethod,
-                    skipCount,
-                    takeCount,
-                    token)
+            var startTime = DateTime.UtcNow;
+            var request = SearchRequest.ForNote(
+                searchEntry,
+                searchMethod,
+                NoteId.FromDataSource(dataSource),
+                skipCount,
+                takeCount);
+            var result = await new SearchUseCase(this)
+                .SearchAsync(request, token)
                 .ConfigureAwait(false);
             return new SearchResult()
             {
-                Contents = result.PageSummaries
+                Contents = result.Items
                     .Select(PageSummaryContentAdapter.ToContent)
                     .ToList(),
-                Count = result.Count,
-                StartTime = result.StartTime,
-                EndTime = result.EndTime
+                Count = result.TotalCount,
+                StartTime = startTime,
+                EndTime = DateTime.UtcNow
             };
         }
 
@@ -77,6 +79,27 @@ namespace MemoriaNote
                 count,
                 startTime,
                 DateTime.UtcNow);
+        }
+
+        /// <inheritdoc/>
+        public async Task<IReadOnlyList<PageSummary>> SearchPageSummariesAsync(
+            NoteId noteId,
+            string searchEntry,
+            SearchMethodType searchMethod,
+            int skipCount,
+            int takeCount,
+            CancellationToken token)
+        {
+            if (noteId == null)
+                throw new ArgumentNullException(nameof(noteId));
+
+            token.ThrowIfCancellationRequested();
+            using var context = _databaseFactory.Create(noteId.Locator);
+            var query = CreateQuery(context, searchEntry, searchMethod);
+            var contents = await query.ReadAsync(skipCount, takeCount, token);
+            return contents
+                .Select(content => PageSummaryMapper.FromContent(noteId, content))
+                .ToList();
         }
 
         /// <inheritdoc/>
