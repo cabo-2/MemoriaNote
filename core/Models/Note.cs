@@ -284,7 +284,8 @@ namespace MemoriaNote
         internal INoteSearchRepository SearchRepository =>
             _searchRepository ?? DefaultSearchRepository.Instance;
 
-        INoteRepository Repository => _repository ?? DefaultRepository.Instance;
+        internal INoteRepository Repository =>
+            _repository ?? DefaultRepository.Instance;
 
         INoteMetadataRepository MetadataRepository =>
             _metadataRepository ?? DefaultMetadataRepository.Instance;

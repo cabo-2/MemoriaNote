@@ -180,7 +180,7 @@ namespace MemoriaNote
             Guid pageId,
             CancellationToken token)
         {
-            return DeletePageByUuidAsync(dataSource, pageId.ToUuid(), token);
+            return DeletePageIgnoringAbsenceAsync(dataSource, pageId.ToUuid(), token);
         }
 
         /// <inheritdoc/>
@@ -192,10 +192,32 @@ namespace MemoriaNote
             if (pageId == null)
                 throw new ArgumentNullException(nameof(pageId));
 
-            return DeletePageByUuidAsync(dataSource, pageId.ToUuid(), token);
+            return DeletePageIgnoringAbsenceAsync(dataSource, pageId.ToUuid(), token);
         }
 
-        async Task DeletePageByUuidAsync(
+        /// <inheritdoc/>
+        public Task<bool> TryDeletePageAsync(
+            NoteId noteId,
+            PageId pageId,
+            CancellationToken token)
+        {
+            if (noteId == null)
+                throw new ArgumentNullException(nameof(noteId));
+            if (pageId == null)
+                throw new ArgumentNullException(nameof(pageId));
+
+            return TryDeletePageByUuidAsync(noteId.Locator, pageId.ToUuid(), token);
+        }
+
+        async Task DeletePageIgnoringAbsenceAsync(
+            string dataSource,
+            string uuid,
+            CancellationToken token)
+        {
+            await TryDeletePageByUuidAsync(dataSource, uuid, token).ConfigureAwait(false);
+        }
+
+        async Task<bool> TryDeletePageByUuidAsync(
             string dataSource,
             string uuid,
             CancellationToken token)
@@ -211,7 +233,7 @@ namespace MemoriaNote
             if (page == null)
             {
                 await transaction.CommitAsync(token).ConfigureAwait(false);
-                return;
+                return false;
             }
 
             var pages = await ReadTrackedNameGroupAsync(context, page.Name, token)
@@ -222,6 +244,7 @@ namespace MemoriaNote
 
             await context.SaveChangesAsync(token).ConfigureAwait(false);
             await transaction.CommitAsync(token).ConfigureAwait(false);
+            return true;
         }
 
         /// <inheritdoc/>

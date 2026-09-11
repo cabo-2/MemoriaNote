@@ -41,6 +41,24 @@ namespace MemoriaNote
         }
 
         /// <summary>
+        /// Reads a page from an explicitly identified note.
+        /// </summary>
+        /// <param name="noteId">The identifier of the owning note.</param>
+        /// <param name="pageId">The identifier of the page.</param>
+        /// <param name="token">The cancellation token for the database operation.</param>
+        /// <returns>The page, or null when it does not exist.</returns>
+        Task<Page> ReadPageAsync(
+            NoteId noteId,
+            PageId pageId,
+            CancellationToken token)
+        {
+            if (noteId == null)
+                throw new ArgumentNullException(nameof(noteId));
+
+            return ReadPageAsync(noteId.Locator, pageId, token);
+        }
+
+        /// <summary>
         /// Reads a page by its exact name and one-based sense index.
         /// </summary>
         /// <param name="dataSource">The path of the note database.</param>
@@ -67,6 +85,24 @@ namespace MemoriaNote
             CancellationToken token);
 
         /// <summary>
+        /// Reads an exact-name group from an explicitly identified note.
+        /// </summary>
+        /// <param name="noteId">The identifier of the note.</param>
+        /// <param name="name">The exact page name.</param>
+        /// <param name="token">The cancellation token for the database operation.</param>
+        /// <returns>The materialized pages in managed display order.</returns>
+        Task<IReadOnlyList<Page>> ReadPagesAsync(
+            NoteId noteId,
+            string name,
+            CancellationToken token)
+        {
+            if (noteId == null)
+                throw new ArgumentNullException(nameof(noteId));
+
+            return ReadPagesAsync(noteId.Locator, name, token);
+        }
+
+        /// <summary>
         /// Creates a page at the end of its exact-name group.
         /// </summary>
         /// <param name="dataSource">The path of the note database.</param>
@@ -83,6 +119,28 @@ namespace MemoriaNote
             CancellationToken token);
 
         /// <summary>
+        /// Creates a page in an explicitly identified note.
+        /// </summary>
+        /// <param name="noteId">The identifier of the target note.</param>
+        /// <param name="name">The page name.</param>
+        /// <param name="text">The page text.</param>
+        /// <param name="directory">The optional page directory.</param>
+        /// <param name="token">The cancellation token for the database operation.</param>
+        /// <returns>The persisted page.</returns>
+        Task<Page> CreatePageAsync(
+            NoteId noteId,
+            string name,
+            string text,
+            string directory,
+            CancellationToken token)
+        {
+            if (noteId == null)
+                throw new ArgumentNullException(nameof(noteId));
+
+            return CreatePageAsync(noteId.Locator, name, text, directory, token);
+        }
+
+        /// <summary>
         /// Updates a page identified by its stable identifier while preserving managed ordering.
         /// </summary>
         /// <param name="dataSource">The path of the note database.</param>
@@ -93,6 +151,24 @@ namespace MemoriaNote
             string dataSource,
             Page page,
             CancellationToken token);
+
+        /// <summary>
+        /// Updates a page in an explicitly identified note.
+        /// </summary>
+        /// <param name="noteId">The identifier of the owning note.</param>
+        /// <param name="page">The replacement page values.</param>
+        /// <param name="token">The cancellation token for the database operation.</param>
+        /// <returns>The persisted page.</returns>
+        Task<Page> UpdatePageAsync(
+            NoteId noteId,
+            Page page,
+            CancellationToken token)
+        {
+            if (noteId == null)
+                throw new ArgumentNullException(nameof(noteId));
+
+            return UpdatePageAsync(noteId.Locator, page, token);
+        }
 
         /// <summary>
         /// Deletes a page by its stable identifier and compacts its exact-name group.
@@ -122,6 +198,31 @@ namespace MemoriaNote
                 throw new ArgumentNullException(nameof(pageId));
 
             return DeletePageAsync(dataSource, pageId.Value, token);
+        }
+
+        /// <summary>
+        /// Attempts to delete a page from an explicitly identified note.
+        /// </summary>
+        /// <param name="noteId">The identifier of the owning note.</param>
+        /// <param name="pageId">The identifier of the page.</param>
+        /// <param name="token">The cancellation token for the database operation.</param>
+        /// <returns>True when the page was deleted; otherwise, false.</returns>
+        async Task<bool> TryDeletePageAsync(
+            NoteId noteId,
+            PageId pageId,
+            CancellationToken token)
+        {
+            if (noteId == null)
+                throw new ArgumentNullException(nameof(noteId));
+            if (pageId == null)
+                throw new ArgumentNullException(nameof(pageId));
+
+            var page = await ReadPageAsync(noteId, pageId, token).ConfigureAwait(false);
+            if (page == null)
+                return false;
+
+            await DeletePageAsync(noteId.Locator, pageId, token).ConfigureAwait(false);
+            return true;
         }
 
         /// <summary>
