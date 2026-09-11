@@ -260,37 +260,28 @@ namespace MemoriaNote
             int takeCount,
             CancellationToken token)
         {
-            var result = await SearchRepository.SearchPageSummariesAsync(
-                DataSource,
+            var startTime = DateTime.UtcNow;
+            var request = SearchRequest.ForNote(
                 searchEntry,
                 searchMethod,
+                NoteId.FromDataSource(DataSource),
                 skipCount,
-                takeCount,
-                token);
+                takeCount);
+            var result = await new SearchUseCase(SearchRepository)
+                .SearchAsync(request, token)
+                .ConfigureAwait(false);
             return new SearchResult()
             {
-                Contents = result.PageSummaries
+                Contents = result.Items
                     .Select(ToCompatibilityContent)
                     .ToList(),
-                Count = result.Count,
-                StartTime = result.StartTime,
-                EndTime = result.EndTime
+                Count = result.TotalCount,
+                StartTime = startTime,
+                EndTime = DateTime.UtcNow
             };
         }
 
-        internal Task<int> CountSearchResultsAsync(
-            string searchEntry,
-            SearchMethodType searchMethod,
-            CancellationToken token)
-        {
-            return SearchRepository.CountAsync(
-                DataSource,
-                searchEntry,
-                searchMethod,
-                token);
-        }
-
-        INoteSearchRepository SearchRepository =>
+        internal INoteSearchRepository SearchRepository =>
             _searchRepository ?? DefaultSearchRepository.Instance;
 
         INoteRepository Repository => _repository ?? DefaultRepository.Instance;
