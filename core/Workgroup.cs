@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using ReactiveUI;
 
 using System.Collections.ObjectModel;
-using System.IO;
 using ReactiveUI.Fody.Helpers;
 using DynamicData;
 using DynamicData.Binding;
@@ -23,10 +22,14 @@ namespace MemoriaNote
         {
             _notes = new ObservableCollectionExtended<Note>();
             _notes.CollectionChanged += (sender, e) => { this.RaisePropertyChanged(nameof(SelectedNoteIndex)); };
+            _compatibilityFacade = new WorkgroupCompatibilityFacade(
+                () => _notes,
+                () => _selectedNote);
         }
 
         protected Note _selectedNote;
         protected ObservableCollectionExtended<Note> _notes;
+        readonly WorkgroupCompatibilityFacade _compatibilityFacade;
 
         #region Search
         /// <summary>
@@ -62,7 +65,7 @@ namespace MemoriaNote
         /// <param name="takeCount">The maximum number of matching contents to return.</param>
         /// <param name="token">The cancellation token for the search.</param>
         /// <returns>The matching contents and total count.</returns>
-        public async Task<SearchResult> SearchAsync(
+        public Task<SearchResult> SearchAsync(
             string searchEntry,
             SearchRangeType searchRange,
             SearchMethodType searchMethod,
@@ -70,63 +73,13 @@ namespace MemoriaNote
             int takeCount,
             CancellationToken token)
         {
-            if (!Enum.IsDefined(typeof(SearchRangeType), searchRange))
-                throw new ArgumentOutOfRangeException(nameof(searchRange));
-
-            var startTime = DateTime.UtcNow;
-            var request = searchRange == SearchRangeType.Note
-                ? SearchRequest.ForNote(
-                    searchEntry,
-                    searchMethod,
-                    SelectedNote == null
-                        ? null
-                        : NoteId.FromDataSource(SelectedNote.DataSource),
-                    skipCount,
-                    takeCount)
-                : SearchRequest.ForWorkgroup(
-                    searchEntry,
-                    searchMethod,
-                    Notes.Select(note => NoteId.FromDataSource(note.DataSource)),
-                    skipCount,
-                    takeCount);
-            var result = await new SearchUseCase(ResolveSearchRepository)
-                .SearchAsync(request, token)
-                .ConfigureAwait(false);
-            return new SearchResult()
-            {
-                Contents = result.Items
-                    .Select(ToCompatibilityContent)
-                    .ToList(),
-                Count = result.TotalCount,
-                StartTime = startTime,
-                EndTime = DateTime.UtcNow
-            };
-        }
-
-        INoteSearchRepository ResolveSearchRepository(NoteId noteId)
-        {
-            return FindSearchNote(noteId)?.SearchRepository;
-        }
-
-        Content ToCompatibilityContent(PageSummary summary)
-        {
-            var content = PageSummaryContentAdapter.ToContent(summary);
-            content.Parent = FindSearchNote(summary.NoteId);
-            return content;
-        }
-
-        Note FindSearchNote(NoteId noteId)
-        {
-            var note = Notes.FirstOrDefault(candidate =>
-                NoteId.FromDataSource(candidate.DataSource) == noteId);
-            if (note != null)
-                return note;
-
-            if (SelectedNote != null &&
-                NoteId.FromDataSource(SelectedNote.DataSource) == noteId)
-                return SelectedNote;
-
-            return null;
+            return _compatibilityFacade.SearchAsync(
+                searchEntry,
+                searchRange,
+                searchMethod,
+                skipCount,
+                takeCount,
+                token);
         }
 
         #endregion
@@ -138,59 +91,8 @@ namespace MemoriaNote
         /// <returns>The page of the specified content if found in any of the notes, otherwise null.</returns>
         public Page ReadAll(IContent content)
         {
-            var owner = FindOwner(content);
-            return owner?.ReadPage(content.Guid);
-        }
-
-        private Note FindOwner(IContent content)
-        {
-            if (content == null || string.IsNullOrWhiteSpace(content.OwnerDataSource))
-                return null;
-
-            var ownerDataSource = Path.GetFullPath(content.OwnerDataSource);
-            var comparison = OperatingSystem.IsWindows()
-                ? StringComparison.OrdinalIgnoreCase
-                : StringComparison.Ordinal;
-
-            return Notes.FirstOrDefault(note =>
-                string.Equals(Path.GetFullPath(note.DataSource), ownerDataSource, comparison));
-        }
-
-        private bool ValidateOwnedContent(
-            IContent content,
-            string permissionError,
-            out Note owner,
-            out List<string> errors)
-        {
-            errors = new List<string>();
-            owner = null;
-
-            if (content == null)
-            {
-                errors.Add("The text not yet opened.");
-                return false;
-            }
-
-            owner = FindOwner(content);
-            if (owner == null)
-            {
-                errors.Add("The text owner note was not found.");
-                return false;
-            }
-
-            if (owner.Metadata.ReadOnly)
-            {
-                errors.Add(permissionError);
-                return false;
-            }
-
-            if (owner.ReadPage(content.Guid) == null)
-            {
-                errors.Add("The text was not found in its owner note.");
-                return false;
-            }
-
-            return true;
+            return _compatibilityFacade.Read(
+                WorkgroupCompatibilityFacade.CreateReference(content));
         }
 
         /// <summary>
@@ -203,17 +105,12 @@ namespace MemoriaNote
         /// <returns>True if the text creation is valid, false otherwise.</returns>
         public bool ValidateCreateText(string testName, string testText, out List<string> errors)
         {
-            errors = new List<string>();
-            if (SelectedNote.Metadata.ReadOnly)
-            {
-                errors.Add("Create text is not allowed.");
-                return false;
-            }
-            TextUtil.ValidateNameString(testName, errors);
-            if (SelectedNote.ReadPage(testName).FirstOrDefault() != null)
-                errors.Add("The text name is already in use.");
-
-            return errors.Count == 0;
+            var result = _compatibilityFacade.ValidateCreate(
+                _compatibilityFacade.CreateCreateCommand(testName, testText));
+            errors = WorkgroupCompatibilityFacade.ToErrorMessages(
+                TextManageType.Create,
+                result);
+            return result.IsSuccess;
         }
 
         /// <summary>
@@ -226,14 +123,15 @@ namespace MemoriaNote
         /// <returns>True if the text editing is valid, false otherwise.</returns>
         public bool ValidateEditText(IContent content, string testText, out List<string> errors)
         {
-            if (!ValidateOwnedContent(
-                content,
-                "Edit text is not allowed.",
-                out _,
-                out errors))
-                return false;
-
-            return TextUtil.ValidateTextString(testText, errors);
+            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var command = target == null
+                ? null
+                : new EditPageCommand(target.NoteId, target.PageId, testText);
+            var result = _compatibilityFacade.ValidateEdit(command);
+            errors = WorkgroupCompatibilityFacade.ToErrorMessages(
+                TextManageType.Edit,
+                result);
+            return result.IsSuccess;
         }
 
         /// <summary>
@@ -246,18 +144,15 @@ namespace MemoriaNote
         /// <returns>True if the text renaming is valid, false otherwise.</returns>
         public bool ValidateRenameText(IContent content, string testName, out List<string> errors)
         {
-            if (!ValidateOwnedContent(
-                content,
-                "Rename text is not allowed.",
-                out var owner,
-                out errors))
-                return false;
-
-            TextUtil.ValidateNameString(testName, errors);
-            if (owner.ReadPage(testName).FirstOrDefault() != null)
-                errors.Add("The text name is already in use.");
-
-            return errors.Count == 0;
+            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var command = target == null
+                ? null
+                : new RenamePageCommand(target.NoteId, target.PageId, testName);
+            var result = _compatibilityFacade.ValidateRename(command);
+            errors = WorkgroupCompatibilityFacade.ToErrorMessages(
+                TextManageType.Rename,
+                result);
+            return result.IsSuccess;
         }
 
         /// <summary>
@@ -269,11 +164,15 @@ namespace MemoriaNote
         /// <returns>True if the text deletion is valid, false otherwise.</returns>
         public bool ValidateDeleteText(IContent content, out List<string> errors)
         {
-            return ValidateOwnedContent(
-                content,
-                "Delete text is not allowed.",
-                out _,
-                out errors);
+            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var command = target == null
+                ? null
+                : new DeletePageCommand(target.NoteId, target.PageId);
+            var result = _compatibilityFacade.ValidateDelete(command);
+            errors = WorkgroupCompatibilityFacade.ToErrorMessages(
+                TextManageType.Delete,
+                result);
+            return result.IsSuccess;
         }
 
         /// <summary>
@@ -285,22 +184,8 @@ namespace MemoriaNote
         /// <returns>A TextManageResult indicating the result of the text creation operation.</returns>
         public TextManageResult CreateText(string newName, string newText)
         {
-            TextManageResult mr = new TextManageResult() { Operation = TextManageType.Create };
-            List<string> errors;
-            var validate = ValidateCreateText(newName, newText, out errors);
-            mr.Errors = errors;
-            if (validate)
-            {
-                var page = SelectedNote.CreatePage(newName, newText);
-                mr.Content = page.GetContent();
-                mr.Notification = "The text created successfully.";
-                mr.Result = true;
-            }
-            else
-            {
-                mr.Notification = "Failed to create the text.";
-            }
-            return mr;
+            return _compatibilityFacade.Create(
+                _compatibilityFacade.CreateCreateCommand(newName, newText));
         }
 
         /// <summary>
@@ -312,25 +197,11 @@ namespace MemoriaNote
         /// <returns>A TextManageResult indicating the result of the text editing operation.</returns>
         public TextManageResult EditText(IContent content, string newText)
         {
-            TextManageResult mr = new TextManageResult() { Operation = TextManageType.Edit };
-            List<string> errors;
-            var validate = ValidateEditText(content, newText, out errors);
-            mr.Errors = errors;
-            if (validate)
-            {
-                var owner = FindOwner(content);
-                var page = owner.ReadPage(content);
-                page.Text = newText;
-                owner.UpdatePage(page);
-                mr.Content = page.GetContent();
-                mr.Notification = "The text updated successfully.";
-                mr.Result = true;
-            }
-            else
-            {
-                mr.Notification = "Failed to update the text.";
-            }
-            return mr;
+            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var command = target == null
+                ? null
+                : new EditPageCommand(target.NoteId, target.PageId, newText);
+            return _compatibilityFacade.Edit(command);
         }
 
         /// <summary>
@@ -342,25 +213,11 @@ namespace MemoriaNote
         /// <returns>A TextManageResult indicating the result of the text renaming operation.</returns>
         public TextManageResult RenameText(IContent content, string newName)
         {
-            TextManageResult mr = new TextManageResult() { Operation = TextManageType.Rename };
-            List<string> errors;
-            var validate = ValidateRenameText(content, newName, out errors);
-            mr.Errors = errors;
-            if (validate)
-            {
-                var owner = FindOwner(content);
-                var page = owner.ReadPage(content);
-                page.Name = newName;
-                owner.UpdatePage(page);
-                mr.Content = page.GetContent();
-                mr.Notification = "The text renamed successfully.";
-                mr.Result = true;
-            }
-            else
-            {
-                mr.Notification = "Failed to rename the text.";
-            }
-            return mr;
+            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var command = target == null
+                ? null
+                : new RenamePageCommand(target.NoteId, target.PageId, newName);
+            return _compatibilityFacade.Rename(command);
         }
 
         /// <summary>
@@ -372,25 +229,11 @@ namespace MemoriaNote
         /// <returns>A TextManageResult indicating the result of the text deletion operation.</returns>
         public TextManageResult DeleteText(IContent content)
         {
-            TextManageResult mr = new TextManageResult() { Operation = TextManageType.Delete };
-            List<string> errors;
-            var validate = ValidateDeleteText(content, out errors);
-            mr.Errors = errors;
-            if (validate)
-            {
-                var owner = FindOwner(content);
-                var page = owner.ReadPage(content);
-                owner.DeletePage(page);
-                mr.Content = null;
-                mr.Notification = "The text deleted successfully.";
-                mr.Result = true;
-            }
-            else
-            {
-                mr.Content = content?.GetContent();
-                mr.Notification = "Failed to delete the text.";
-            }
-            return mr;
+            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var command = target == null
+                ? null
+                : new DeletePageCommand(target.NoteId, target.PageId);
+            return _compatibilityFacade.Delete(command, content);
         }
 
         /// <summary>

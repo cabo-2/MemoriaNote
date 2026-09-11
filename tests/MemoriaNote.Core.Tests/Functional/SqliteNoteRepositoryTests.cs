@@ -157,6 +157,35 @@ public sealed class SqliteNoteRepositoryTests
     }
 
     /// <summary>
+    /// Verifies typed deletion reports whether the transaction found its target.
+    /// </summary>
+    [Test]
+    public async Task TryDeletePageAsync_ReturnsTheTransactionalOutcome()
+    {
+        using var database = new TemporaryNoteDatabase();
+        var note = database.CreateNote("typed-delete", "Typed Delete");
+        var page = note.CreatePage("Existing", "Text");
+        var noteId = NoteId.FromDataSource(database.DatabasePath);
+        var pageId = PageId.FromGuid(page.Guid);
+
+        var deleted = await _repository.TryDeletePageAsync(
+            noteId,
+            pageId,
+            CancellationToken.None);
+        var missing = await _repository.TryDeletePageAsync(
+            noteId,
+            pageId,
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(deleted, Is.True);
+            Assert.That(missing, Is.False);
+            Assert.That(note.ReadPage(page.Guid), Is.Null);
+        }
+    }
+
+    /// <summary>
     /// Verifies that a pre-cancelled token prevents repository database access.
     /// </summary>
     [Test]
