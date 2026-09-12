@@ -244,9 +244,7 @@ public sealed class SqliteNoteSearchRepositoryTests
         using var database = new TemporaryNoteDatabase();
         var note = database.CreateNote("test-note", "Test Note");
         note.CreatePage("%", "Special heading.");
-        var workgroup = new Workgroup();
-        workgroup.Notes.Add(note);
-        workgroup.SelectedNote = note;
+        var workgroup = new Workgroup(null, new[] { note }, note);
 
         var result = await workgroup.SearchAsync(
             "%",
@@ -273,9 +271,7 @@ public sealed class SqliteNoteSearchRepositoryTests
         var content = Content.Create<Content>("Injected");
         var repository = new RecordingSearchRepository(content);
         var note = new Note(database.DatabasePath, repository);
-        var workgroup = new Workgroup();
-        workgroup.Notes.Add(note);
-        workgroup.SelectedNote = note;
+        var workgroup = new Workgroup(null, new[] { note }, note);
 
         var result = await workgroup.SearchAsync(
             "Injected",

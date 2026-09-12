@@ -100,8 +100,7 @@ public sealed class MetadataCharacteristicsTests
             .SetCreateTime(new DateTime(2026, 2, 3, 4, 5, 6)));
         var snapshot = note.Metadata;
         var tracker = DataSourceTracker.Create(snapshot);
-        var workgroup = new Workgroup();
-        workgroup.Notes.Add(note);
+        var workgroup = new Workgroup(null, new[] { note });
         var errors = new List<string>();
 
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();

@@ -95,11 +95,6 @@ public sealed class WorkgroupCountAggregationTests
 
     private static Workgroup CreateWorkgroup(params Note[] notes)
     {
-        var workgroup = new Workgroup();
-        foreach (var note in notes)
-            workgroup.Notes.Add(note);
-
-        workgroup.SelectedNote = notes.FirstOrDefault();
-        return workgroup;
+        return new Workgroup(null, notes, notes.FirstOrDefault());
     }
 }

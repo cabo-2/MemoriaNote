@@ -19,9 +19,7 @@ public sealed class NoteIdentityUsageTests
             $"same-note-id-{Guid.NewGuid():N}.db");
         var note = new Note(dataSource);
         var sameNote = new Note(dataSource);
-        var workgroup = new Workgroup();
-        workgroup.Notes.Add(note);
-        workgroup.Notes.Add(sameNote);
+        var workgroup = new Workgroup(null, new[] { note, sameNote });
         var tracker = DataSourceTracker.Create("valid-name", dataSource);
         var errors = new List<string>();
         Action validate = () => tracker.ValidateName(note, workgroup, ref errors);

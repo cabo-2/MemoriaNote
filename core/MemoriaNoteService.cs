@@ -11,8 +11,6 @@ using System.Reactive;
 using System.Reactive.Linq;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
-using DynamicData;
-using DynamicData.Binding;
 using Microsoft.EntityFrameworkCore;
 
 namespace MemoriaNote
@@ -175,14 +173,10 @@ namespace MemoriaNote
                 "Delete text");
             DeleteText = ReactiveCommand.Create(DeleteTextHandler);
 
-            Workgroup.Notes.ToObservableChangeSet()
-                .Transform(note => note.ToString())
-                .Bind(out _noteNames)
-                .Subscribe();
-
-            _selectedNoteIndex = this
-                .WhenAnyValue(x => x.Workgroup.SelectedNoteIndex)
-                .ToProperty(this, x => x.SelectedNoteIndex);
+            _noteNames = new ReadOnlyObservableCollection<string>(
+                new ObservableCollection<string>(
+                    Workgroup.Notes.Select(note => note.ToString())));
+            _selectedNoteIndex = IndexOfSelectedNote();
 
             _selectedContentsIndex = this
                 .WhenAnyValue(
@@ -229,6 +223,36 @@ namespace MemoriaNote
                 Log.Logger.Information("Default note created");
 
             return session;
+        }
+
+        /// <summary>
+        /// Selects the note at the specified presentation index.
+        /// </summary>
+        /// <param name="index">The zero-based note index.</param>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown when <paramref name="index"/> does not identify a note.
+        /// </exception>
+        public void SelectNote(int index)
+        {
+            if (index < 0 || index >= Workgroup.Notes.Count)
+                throw new ArgumentOutOfRangeException(nameof(index));
+
+            Workgroup.SelectNote(Workgroup.Notes[index]);
+            this.RaiseAndSetIfChanged(
+                ref _selectedNoteIndex,
+                index,
+                nameof(SelectedNoteIndex));
+        }
+
+        int IndexOfSelectedNote()
+        {
+            for (var index = 0; index < Workgroup.Notes.Count; index++)
+            {
+                if (Workgroup.Notes[index].Equals(Workgroup.SelectedNote))
+                    return index;
+            }
+
+            return -1;
         }
 
         /// <summary>
@@ -290,7 +314,7 @@ namespace MemoriaNote
             ContentsCount = result.Count;
             Contents = result.Contents;
             ContentViewItems.Clear();
-            ContentViewItems.Add(newContentItems);
+            ContentViewItems.AddRange(newContentItems);
             SearchNotice = newSearchNotice;
             OpenedContent = newOpenedContent;
             PlaceHolder = newPlaceHolder;
@@ -865,9 +889,9 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Gets or sets the Workgroup associated with the current instance.
+        /// Gets the Workgroup associated with the current instance.
         /// </summary>
-        [Reactive] public Workgroup Workgroup { get; set; }
+        public Workgroup Workgroup { get; }
 
         /// <summary>
         /// Handler for activating a specific functionality.
@@ -945,12 +969,12 @@ namespace MemoriaNote
         /// </summary>
         [Reactive, DataMember] public List<Content> Contents { get; set; }
 
-        readonly ObservableAsPropertyHelper<int> _selectedNoteIndex;
+        int _selectedNoteIndex;
 
         /// <summary>
         /// Gets the selected note index.
         /// </summary>
-        [IgnoreDataMember] public int SelectedNoteIndex => _selectedNoteIndex.Value;
+        [IgnoreDataMember] public int SelectedNoteIndex => _selectedNoteIndex;
 
         /// <summary>
         /// Gets or sets the collection of view items for content.
