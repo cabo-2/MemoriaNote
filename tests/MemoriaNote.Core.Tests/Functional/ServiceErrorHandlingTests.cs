@@ -55,9 +55,7 @@ public sealed class ServiceErrorHandlingTests
         using var database = new TemporaryNoteDatabase();
         var note = database.CreateNote("test-note", "Test Note");
         var content = note.CreatePage("Existing text", "Existing body").GetContent();
-        var workgroup = new Workgroup();
-        workgroup.Notes.Add(note);
-        workgroup.SelectedNote = note;
+        var workgroup = new Workgroup(null, new[] { note }, note);
         var service = new TestableService(workgroup)
         {
             EditingTitle = "New text",
@@ -95,9 +93,7 @@ public sealed class ServiceErrorHandlingTests
         var note = database.CreateNote("test-note", "Test Note");
         var page = note.CreatePage("Deleted text", "Deleted body");
         var content = page.GetContent();
-        var workgroup = new Workgroup();
-        workgroup.Notes.Add(note);
-        workgroup.SelectedNote = note;
+        var workgroup = new Workgroup(null, new[] { note }, note);
         var service = new TestableService(workgroup)
         {
             Contents = new List<Content>() { content },

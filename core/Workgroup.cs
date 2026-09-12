@@ -1,34 +1,57 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using ReactiveUI;
-
-using System.Collections.ObjectModel;
-using ReactiveUI.Fody.Helpers;
-using DynamicData;
-using DynamicData.Binding;
 
 namespace MemoriaNote
 {
     /// <summary>
     /// Represents a workgroup that contains a collection of notes and provides methods to search for content within the workgroup or within a specific note.
-    /// Implements the IWorkgroup interface and inherits from ReactiveObject for property change notification.
+    /// Implements the IWorkgroup interface without depending on presentation frameworks.
     /// </summary>
-    public class Workgroup : ReactiveObject, IWorkgroup
+    public class Workgroup : IWorkgroup
     {
-        public Workgroup()
+        /// <summary>
+        /// Initializes an empty workgroup.
+        /// </summary>
+        public Workgroup() : this(null, Array.Empty<Note>())
         {
-            _notes = new ObservableCollectionExtended<Note>();
-            _notes.CollectionChanged += (sender, e) => { this.RaisePropertyChanged(nameof(SelectedNoteIndex)); };
+        }
+
+        /// <summary>
+        /// Initializes a workgroup with a defensive copy of its notes.
+        /// </summary>
+        /// <param name="name">The workgroup name.</param>
+        /// <param name="notes">The notes contained in the workgroup.</param>
+        /// <param name="selectedNote">The initially selected note, or null.</param>
+        public Workgroup(
+            string name,
+            IEnumerable<Note> notes,
+            Note selectedNote = null)
+        {
+            if (notes == null)
+                throw new ArgumentNullException(nameof(notes));
+
+            var copiedNotes = notes.ToList();
+            if (copiedNotes.Any(note => note == null))
+            {
+                throw new ArgumentException(
+                    "The workgroup cannot contain a null note.",
+                    nameof(notes));
+            }
+
+            Name = name;
+            _notes = new ReadOnlyCollection<Note>(copiedNotes);
             _compatibilityFacade = new WorkgroupCompatibilityFacade(
                 () => _notes,
                 () => _selectedNote);
+            SelectNote(selectedNote);
         }
 
-        protected Note _selectedNote;
-        protected ObservableCollectionExtended<Note> _notes;
+        Note _selectedNote;
+        readonly IReadOnlyList<Note> _notes;
         readonly WorkgroupCompatibilityFacade _compatibilityFacade;
 
         #region Search
@@ -239,8 +262,8 @@ namespace MemoriaNote
         /// <summary>
         /// Gets the collection of notes stored in the application.
         /// </summary>
-        /// <returns>An ObservableCollectionExtended containing all the notes.</returns>
-        public ObservableCollectionExtended<Note> Notes => _notes;
+        /// <returns>A read-only list containing all the notes.</returns>
+        public IReadOnlyList<Note> Notes => _notes;
 
         /// <summary>
         /// Retrieves a list of data sources used by the notes in the application.
@@ -249,42 +272,48 @@ namespace MemoriaNote
         public List<string> UseDataSources => _notes.Select(note => note.DataSource).ToList();
 
         /// <summary>
-        /// Gets or sets the currently selected note in the application.
-        /// If the selected note is changed, raises property changed events for the SelectedNoteIndex property.
+        /// Gets the currently selected note in the application.
         /// </summary>
-        public Note SelectedNote
-        {
-            get => _selectedNote;
-            set
-            {
-                if (!object.Equals(_selectedNote, value))
-                {
-                    this.RaiseAndSetIfChanged(ref _selectedNote, value);
-                    this.RaisePropertyChanged(nameof(SelectedNoteIndex));
-                }
-            }
-        }
+        public Note SelectedNote => _selectedNote;
+
         /// <summary>
-        /// Gets or sets the index of the currently selected note in the application.
-        /// If the selected note index is changed, sets the SelectedNote property to the note at the specified index in the list of notes.
+        /// Selects a note contained in this workgroup, or clears the selection.
         /// </summary>
-        public int SelectedNoteIndex
+        /// <param name="note">The note to select, or null to clear the selection.</param>
+        /// <exception cref="ArgumentException">
+        /// Thrown when <paramref name="note"/> does not belong to this workgroup.
+        /// </exception>
+        public void SelectNote(Note note)
         {
-            get => _notes.IndexOf(_selectedNote);
-            set => SelectedNote = _notes[value];
+            if (note == null)
+            {
+                _selectedNote = null;
+                return;
+            }
+
+            var noteId = NoteId.FromDataSource(note.DataSource);
+            var ownedNote = _notes.FirstOrDefault(candidate =>
+                NoteId.FromDataSource(candidate.DataSource) == noteId);
+            if (ownedNote == null)
+            {
+                throw new ArgumentException(
+                    "The selected note must belong to the workgroup.",
+                    nameof(note));
+            }
+
+            _selectedNote = ownedNote;
         }
+
         /// <summary>
         /// Gets the name of the currently selected note.
         /// </summary>
         /// <returns>A string representing the name of the currently selected note.</returns>
-        public string SelectedNoteName => SelectedNote.ToString();
+        public string SelectedNoteName => SelectedNote?.ToString();
 
         /// <summary>
-        /// Gets or sets the name of the text content.
-        /// If the name is changed, raises property changed events for the Name property.
-        /// Overrides the ToString method to return the name if it is not null, otherwise returns the base ToString method result.
+        /// Gets or sets the workgroup name.
         /// </summary>
-        [Reactive] public string Name { get; set; }
+        public string Name { get; set; }
 
         /// <summary>
         /// Overrides the default ToString method to return the name of the text content if it is not null.

@@ -193,12 +193,7 @@ public sealed class WorkgroupOwnershipTests
 
     private static Workgroup CreateWorkgroup(Note selectedNote, params Note[] notes)
     {
-        var workgroup = new Workgroup();
-        foreach (var note in notes)
-            workgroup.Notes.Add(note);
-
-        workgroup.SelectedNote = selectedNote;
-        return workgroup;
+        return new Workgroup(null, notes, selectedNote);
     }
 
     private static async Task<Content> FindResultAsync(Workgroup workgroup, Note owner, Guid pageId)

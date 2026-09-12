@@ -93,7 +93,7 @@ namespace MemoriaNote.Cli
                         if (ViewModel.SelectedNoteIndex != i)
                         {
                             ConfigurationCli.Instance.Workgroup.SelectedNoteName = ViewModel.NoteNames[i].ToString();
-                            ViewModel.Workgroup.SelectedNote = ViewModel.Workgroup.Notes[i];
+                            ViewModel.SelectNote(i);
 
                             Log.Logger.Debug($"Selected note changed: {ConfigurationCli.Instance.Workgroup.SelectedNoteName}");
                             Controller.RequestHome();

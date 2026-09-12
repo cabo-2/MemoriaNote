@@ -38,19 +38,12 @@ namespace MemoriaNote
         /// <returns>A new instance of Workgroup with the specified name, notes, and selected note.</returns>
         public virtual Workgroup Build()
         {
-            var wg = new Workgroup();
-            wg.Name = this.Name;
-            wg.Notes.AddRange(GetNoteItems(this.UseDataSources));
-            if (this.SelectedNoteName != null)
-            {
-                wg.SelectedNote = wg.Notes.FirstOrDefault(n => SelectedNoteName == n.Metadata.Name);
-                if (wg.SelectedNote == null)
-                    wg.SelectedNote = wg.Notes.FirstOrDefault();
-            }
-            else
-                wg.SelectedNote = wg.Notes.FirstOrDefault();
-
-            return wg;
+            var notes = GetNoteItems(this.UseDataSources);
+            var selectedNote = this.SelectedNoteName == null
+                ? notes.FirstOrDefault()
+                : notes.FirstOrDefault(n => SelectedNoteName == n.Metadata.Name) ??
+                    notes.FirstOrDefault();
+            return new Workgroup(this.Name, notes, selectedNote);
         }
 
         /// <summary>
