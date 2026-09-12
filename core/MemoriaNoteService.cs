@@ -22,17 +22,17 @@ namespace MemoriaNote
     /// </summary>
     public class MemoriaNoteService : ReactiveObject
     {
-        readonly INoteMigrator _noteMigrator;
+        readonly IMemoriaNoteApplicationService _applicationService;
 
         /// <summary>
         /// Initializes the service from the configured workgroup.
         /// </summary>
-        public MemoriaNoteService() : this(NotePersistence.CreateMigrator())
+        public MemoriaNoteService() : this(CreateConfiguredSession())
         {
         }
 
-        MemoriaNoteService(INoteMigrator noteMigrator)
-            : this(CreateConfiguredWorkgroup(noteMigrator), noteMigrator)
+        MemoriaNoteService(ApplicationSession session)
+            : this(session.Workgroup, session.ApplicationService)
         {
         }
 
@@ -41,20 +41,24 @@ namespace MemoriaNote
         /// </summary>
         /// <param name="workgroup">The workgroup used by the service.</param>
         protected MemoriaNoteService(Workgroup workgroup)
-            : this(workgroup, NotePersistence.CreateMigrator())
+            : this(
+                workgroup,
+                ApplicationComposition.Compose(workgroup).ApplicationService)
         {
         }
 
         /// <summary>
-        /// Initializes the service with an explicit workgroup and note migrator.
+        /// Initializes the adapter with an explicit workgroup and application service.
         /// </summary>
         /// <param name="workgroup">The workgroup used by the service.</param>
-        /// <param name="noteMigrator">The service used for note database lifecycle operations.</param>
-        protected MemoriaNoteService(Workgroup workgroup, INoteMigrator noteMigrator)
+        /// <param name="applicationService">The UI-independent application service.</param>
+        protected MemoriaNoteService(
+            Workgroup workgroup,
+            IMemoriaNoteApplicationService applicationService)
         {
             Workgroup = workgroup ?? throw new ArgumentNullException(nameof(workgroup));
-            _noteMigrator = noteMigrator ??
-                throw new ArgumentNullException(nameof(noteMigrator));
+            _applicationService = applicationService ??
+                throw new ArgumentNullException(nameof(applicationService));
 
             ActivateHandler = async () =>
             {
@@ -84,11 +88,17 @@ namespace MemoriaNote
                 x => x.MaxViewResultCount,
                 x => x.ContentsCount,
                 (pi, maxView, count) =>
-                    ViewPageIndexToContentsIndex(pi.Item1, pi.Item2, maxView) + maxView < count);
+                    _applicationService.GetNextPageOffset(
+                        ViewPageIndexToContentsIndex(pi.Item1, pi.Item2, maxView),
+                        maxView,
+                        count).HasValue);
 
             PageNext = ReactiveCommand.CreateFromTask(
                 () => OnSearchContentsAsync(SearchEntry, SearchRange, SearchMethod,
-                        SelectedContentsIndex + MaxViewResultCount),
+                        _applicationService.GetNextPageOffset(
+                            SelectedContentsIndex,
+                            MaxViewResultCount,
+                            ContentsCount) ?? SelectedContentsIndex),
                 canPageNext
             );
 
@@ -97,11 +107,15 @@ namespace MemoriaNote
                 x => x.MaxViewResultCount,
                 x => x.ContentsCount,
                 (pi, maxView, count) =>
-                    0 <= ViewPageIndexToContentsIndex(pi.Item1, pi.Item2, maxView) - maxView);
+                    _applicationService.GetPreviousPageOffset(
+                        ViewPageIndexToContentsIndex(pi.Item1, pi.Item2, maxView),
+                        maxView).HasValue);
 
             PagePrev = ReactiveCommand.CreateFromTask(
                 () => OnSearchContentsAsync(SearchEntry, SearchRange, SearchMethod,
-                        SelectedContentsIndex - MaxViewResultCount),
+                        _applicationService.GetPreviousPageOffset(
+                            SelectedContentsIndex,
+                            MaxViewResultCount) ?? SelectedContentsIndex),
                 canPagePrev
             );
 
@@ -110,16 +124,55 @@ namespace MemoriaNote
                 "Open text");
             OpenText = ReactiveCommand.Create(OpenTextHandler);
 
-            CreateTextHandler = () => OnCreateText(EditingTitle.ToString(), EditingText.ToString(), OnTextManageResultCallback);
+            CreateTextHandler = () => ExecuteTextManagement(
+                () => CreateTextAsync(
+                        EditingTitle.ToString(),
+                        EditingText.ToString(),
+                        CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult(),
+                TextManageType.Create,
+                SelectedNoteId(),
+                null,
+                "Create text");
             CreateText = ReactiveCommand.Create(CreateTextHandler);
 
-            EditTextHandler = () => OnEditText(OpenedContent?.GetContent(), EditingText.ToString(), OnTextManageResultCallback);
+            EditTextHandler = () => ExecuteTextManagement(
+                () => EditTextAsync(
+                        OpenedContent?.GetContent(),
+                        EditingText.ToString(),
+                        CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult(),
+                TextManageType.Edit,
+                OwnerNoteId(OpenedContent),
+                OpenedContent,
+                "Edit text");
             EditText = ReactiveCommand.Create(EditTextHandler);
 
-            RenameTextHandler = () => OnRenameText(OpenedContent?.GetContent(), EditingTitle.ToString(), OnTextManageResultCallback);
+            RenameTextHandler = () => ExecuteTextManagement(
+                () => RenameTextAsync(
+                        OpenedContent?.GetContent(),
+                        EditingTitle.ToString(),
+                        CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult(),
+                TextManageType.Rename,
+                OwnerNoteId(OpenedContent),
+                OpenedContent,
+                "Rename text");
             RenameText = ReactiveCommand.Create(RenameTextHandler);
 
-            DeleteTextHandler = () => OnDeleteText(OpenedContent?.GetContent(), OnTextManageResultCallback);
+            DeleteTextHandler = () => ExecuteTextManagement(
+                () => DeleteTextAsync(
+                        OpenedContent?.GetContent(),
+                        CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult(),
+                TextManageType.Delete,
+                OwnerNoteId(OpenedContent),
+                OpenedContent,
+                "Delete text");
             DeleteText = ReactiveCommand.Create(DeleteTextHandler);
 
             Workgroup.Notes.ToObservableChangeSet()
@@ -156,47 +209,35 @@ namespace MemoriaNote
                 .ToProperty(this, x => x.SearchMethodString);
         }
 
-        private static Workgroup CreateConfiguredWorkgroup(INoteMigrator noteMigrator)
+        static ApplicationSession CreateConfiguredSession()
         {
-            if (!File.Exists(Configuration.Instance.DefaultDataSourcePath))
-            {
-                noteMigrator.CreateAsync(
-                        Configuration.Instance.DefaultNoteName,
-                        Configuration.Instance.DefaultNoteTitle,
-                        Configuration.Instance.DefaultDataSourcePath,
-                        CancellationToken.None)
-                    .GetAwaiter()
-                    .GetResult();
+            var configuration = Configuration.Instance ??
+                throw new InvalidOperationException("The application configuration is not initialized.");
+            var request = new ApplicationStartupRequest(
+                configuration.DefaultNoteName,
+                configuration.DefaultNoteTitle,
+                configuration.DefaultDataSourcePath,
+                configuration.DataSources);
+            var startupService = new ApplicationStartupService(
+                NotePersistence.CreateMigrator(),
+                new FileNoteDataSourceProbe(),
+                new ConfiguredWorkgroupLoader(configuration.Workgroup));
+            var session = startupService.StartAsync(request, CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+            if (session.DefaultNoteCreated)
                 Log.Logger.Information("Default note created");
-            }
 
-            return Configuration.Instance.Workgroup.Build();
+            return session;
         }
 
         /// <summary>
-        /// Method to be called when the MemoriaNote service is activated.
-        /// This method triggers database migration and logs the activation information.
+        /// Handles presentation activation after application startup has completed.
         /// </summary>
         protected virtual void OnActivate()
         {
-            // Perform database migration for each data source in the configuration
-            DatabaseMigrate();
             // Log information that MemoriaNote service has been activated
             Log.Logger.Information("MemoriaNote service has been activated");
-        }
-
-        /// <summary>
-        /// Method to migrate the database for each data source in the configuration.
-        /// This method iterates through each data source and performs the migration.
-        /// </summary>
-        protected void DatabaseMigrate()
-        {
-            foreach (var dataSource in Configuration.Instance.DataSources)
-            {
-                _noteMigrator.MigrateAsync(dataSource, CancellationToken.None)
-                    .GetAwaiter()
-                    .GetResult();
-            }
         }
 
         /// <summary>
@@ -221,8 +262,12 @@ namespace MemoriaNote
             if (result.Contents.Count > 0)
             {
                 newOpenedContent = result.Contents[newViewPageIndex.Item2];
-                var page = Workgroup.ReadAll(newOpenedContent);
-                if (page == null)
+                var readResult = ReadTextAsync(
+                        newOpenedContent,
+                        CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult();
+                if (!readResult.IsSuccess)
                 {
                     Log.Logger.Warning(
                         "Search result {ContentId} was not found in its owner note.",
@@ -230,6 +275,7 @@ namespace MemoriaNote
                     return;
                 }
 
+                var page = SetPageParent(readResult.Page, OwnerNoteId(newOpenedContent));
                 newPlaceHolder = PlaceHolderString(newContentsIndex, result.Count);
                 newEditingTitle = newOpenedContent.Name;
                 newEditingText = page.Text;
@@ -284,8 +330,10 @@ namespace MemoriaNote
                 // Retrieve the selected content based on the view page index
                 var content = this.Contents[this.ContentsViewPageIndex.Item2];
                 // Read the text content of the selected content
-                var page = Workgroup.ReadAll(content);
-                if (page == null)
+                var readResult = ReadTextAsync(content, CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult();
+                if (!readResult.IsSuccess)
                 {
                     Log.Logger.Warning(
                         "Text {ContentId} was not found in its owner note.",
@@ -293,6 +341,7 @@ namespace MemoriaNote
                     return;
                 }
 
+                var page = SetPageParent(readResult.Page, OwnerNoteId(content));
                 // Set the placeholder text based on the selected content index and total contents count
                 this.PlaceHolder = PlaceHolderString(this.SelectedContentsIndex, this.ContentsCount);
                 // Set the opened content to the selected content
@@ -368,13 +417,91 @@ namespace MemoriaNote
             int takeCount,
             CancellationToken token)
         {
-            return Workgroup.SearchAsync(
-                searchEntry,
-                searchRange,
-                searchMethod,
-                skipCount,
-                takeCount,
+            return SearchApplicationAsync(
+                CreateSearchRequest(
+                    searchEntry,
+                    searchRange,
+                    searchMethod,
+                    skipCount,
+                    takeCount),
                 token);
+        }
+
+        async Task<SearchResult> SearchApplicationAsync(
+            SearchRequest request,
+            CancellationToken token)
+        {
+            var startTime = DateTime.UtcNow;
+            var result = await _applicationService.SearchAsync(request, token)
+                .ConfigureAwait(false);
+            return new SearchResult
+            {
+                Contents = result.Items.Select(ToCompatibilityContent).ToList(),
+                Count = result.TotalCount,
+                StartTime = startTime,
+                EndTime = DateTime.UtcNow
+            };
+        }
+
+        SearchRequest CreateSearchRequest(
+            string searchEntry,
+            SearchRangeType searchRange,
+            SearchMethodType searchMethod,
+            int offset,
+            int limit)
+        {
+            if (!Enum.IsDefined(typeof(SearchRangeType), searchRange))
+                throw new ArgumentOutOfRangeException(nameof(searchRange));
+
+            return searchRange == SearchRangeType.Note
+                ? SearchRequest.ForNote(
+                    searchEntry,
+                    searchMethod,
+                    SelectedNoteId(),
+                    offset,
+                    limit)
+                : SearchRequest.ForWorkgroup(
+                    searchEntry,
+                    searchMethod,
+                    Workgroup.Notes.Select(note => NoteId.FromDataSource(note.DataSource)),
+                    offset,
+                    limit);
+        }
+
+        Content ToCompatibilityContent(PageSummary summary)
+        {
+            var content = PageSummaryContentAdapter.ToContent(summary);
+            content.Parent = ResolveNote(summary.NoteId);
+            return content;
+        }
+
+        NoteId SelectedNoteId()
+        {
+            return Workgroup.SelectedNote == null
+                ? null
+                : NoteId.FromDataSource(Workgroup.SelectedNote.DataSource);
+        }
+
+        static NoteId OwnerNoteId(IContent content)
+        {
+            return WorkgroupCompatibilityFacade.CreateReference(content)?.NoteId;
+        }
+
+        Note ResolveNote(NoteId noteId)
+        {
+            if (noteId == null)
+                return null;
+
+            return Workgroup.Notes.FirstOrDefault(note =>
+                NoteId.FromDataSource(note.DataSource) == noteId);
+        }
+
+        Page SetPageParent(Page page, NoteId noteId)
+        {
+            if (page != null)
+                page.Parent = ResolveNote(noteId);
+
+            return page;
         }
 
         /// <summary>
@@ -448,18 +575,70 @@ namespace MemoriaNote
         }
         #endregion
 
-        /// <summary>
-        /// Handles the creation of a new text with the specified name and content, providing the result to the callback function.
-        /// </summary>
-        /// <param name="newName">The name of the new text.</param>
-        /// <param name="newText">The content of the new text.</param>
-        /// <param name="result">The callback function to receive the result of the create text operation.</param>
-        protected void OnCreateText(string newName, string newText, Action<TextManageResult> result)
+        /// <summary>Creates a page through the UI-independent application service.</summary>
+        protected virtual Task<PageOperationResult> CreateTextAsync(
+            string newName,
+            string newText,
+            CancellationToken token)
         {
-            ExecuteTextManagement(
-                () => Workgroup.CreateText(newName, newText),
-                result,
-                "Create text");
+            var noteId = SelectedNoteId();
+            return noteId == null
+                ? Task.FromResult(MissingOwner())
+                : _applicationService.CreateAsync(
+                    new CreatePageCommand(noteId, newName, newText),
+                    token);
+        }
+
+        /// <summary>Edits a page through the UI-independent application service.</summary>
+        protected virtual Task<PageOperationResult> EditTextAsync(
+            Content content,
+            string newText,
+            CancellationToken token)
+        {
+            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            return target == null
+                ? Task.FromResult(PageNotSelected())
+                : _applicationService.EditAsync(
+                    new EditPageCommand(target.NoteId, target.PageId, newText),
+                    token);
+        }
+
+        /// <summary>Renames a page through the UI-independent application service.</summary>
+        protected virtual Task<PageOperationResult> RenameTextAsync(
+            Content content,
+            string newName,
+            CancellationToken token)
+        {
+            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            return target == null
+                ? Task.FromResult(PageNotSelected())
+                : _applicationService.RenameAsync(
+                    new RenamePageCommand(target.NoteId, target.PageId, newName),
+                    token);
+        }
+
+        /// <summary>Deletes a page through the UI-independent application service.</summary>
+        protected virtual Task<PageOperationResult> DeleteTextAsync(
+            Content content,
+            CancellationToken token)
+        {
+            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            return target == null
+                ? Task.FromResult(PageNotSelected())
+                : _applicationService.DeleteAsync(
+                    new DeletePageCommand(target.NoteId, target.PageId),
+                    token);
+        }
+
+        /// <summary>Reads a page through the UI-independent application service.</summary>
+        protected virtual Task<PageOperationResult> ReadTextAsync(
+            IContent content,
+            CancellationToken token)
+        {
+            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            return target == null
+                ? Task.FromResult(PageNotSelected())
+                : _applicationService.ReadAsync(target, token);
         }
 
         /// <summary>
@@ -473,29 +652,22 @@ namespace MemoriaNote
         {
             try
             {
-                var validation = Workgroup.ValidateCreateText(newName, newText, out var errors);
-                EditingErrors = errors;
-                return validation;
+                var noteId = SelectedNoteId();
+                var result = noteId == null
+                    ? MissingOwner()
+                    : _applicationService.ValidateCreateAsync(
+                            new CreatePageCommand(noteId, newName, newText),
+                            CancellationToken.None)
+                        .GetAwaiter()
+                        .GetResult();
+                EditingErrors = ToErrorMessages(TextManageType.Create, result);
+                return result.IsSuccess;
             }
             catch (Exception exception) when (IsInfrastructureException(exception))
             {
                 LogInfrastructureError(exception, "Validate text creation");
                 return false;
             }
-        }
-
-        /// <summary>
-        /// Handles the editing of a text content with the specified new text, providing the result to the callback function.
-        /// </summary>
-        /// <param name="content">The content to be edited.</param>
-        /// <param name="newText">The new text content.</param>
-        /// <param name="result">The callback function to receive the result of the edit text operation.</param>
-        protected void OnEditText(Content content, string newText, Action<TextManageResult> result)
-        {
-            ExecuteTextManagement(
-                () => Workgroup.EditText(content, newText),
-                result,
-                "Edit text");
         }
 
         /// <summary>
@@ -509,29 +681,22 @@ namespace MemoriaNote
         {
             try
             {
-                var validation = Workgroup.ValidateEditText(content, newText, out var errors);
-                EditingErrors = errors;
-                return validation;
+                var target = WorkgroupCompatibilityFacade.CreateReference(content);
+                var result = target == null
+                    ? PageNotSelected()
+                    : _applicationService.ValidateEditAsync(
+                            new EditPageCommand(target.NoteId, target.PageId, newText),
+                            CancellationToken.None)
+                        .GetAwaiter()
+                        .GetResult();
+                EditingErrors = ToErrorMessages(TextManageType.Edit, result);
+                return result.IsSuccess;
             }
             catch (Exception exception) when (IsInfrastructureException(exception))
             {
                 LogInfrastructureError(exception, "Validate text editing");
                 return false;
             }
-        }
-
-        /// <summary>
-        /// Handles the renaming of a text with the specified new name, providing the result to the callback function.
-        /// </summary>
-        /// <param name="content">The content of the text to be renamed.</param>
-        /// <param name="newName">The new name for the text.</param>
-        /// <param name="result">The callback function to receive the result of the rename text operation.</param>
-        protected void OnRenameText(Content content, string newName, Action<TextManageResult> result)
-        {
-            ExecuteTextManagement(
-                () => Workgroup.RenameText(content, newName),
-                result,
-                "Rename text");
         }
 
         /// <summary>
@@ -545,28 +710,22 @@ namespace MemoriaNote
         {
             try
             {
-                var validation = Workgroup.ValidateRenameText(content, newName, out var errors);
-                EditingErrors = errors;
-                return validation;
+                var target = WorkgroupCompatibilityFacade.CreateReference(content);
+                var result = target == null
+                    ? PageNotSelected()
+                    : _applicationService.ValidateRenameAsync(
+                            new RenamePageCommand(target.NoteId, target.PageId, newName),
+                            CancellationToken.None)
+                        .GetAwaiter()
+                        .GetResult();
+                EditingErrors = ToErrorMessages(TextManageType.Rename, result);
+                return result.IsSuccess;
             }
             catch (Exception exception) when (IsInfrastructureException(exception))
             {
                 LogInfrastructureError(exception, "Validate text renaming");
                 return false;
             }
-        }
-
-        /// <summary>
-        /// Handles the deletion of a text content with the specified content, providing the result to the callback function.
-        /// </summary>
-        /// <param name="content">The content to be deleted.</param>
-        /// <param name="result">The callback function to receive the result of the delete text operation.</param>
-        protected void OnDeleteText(Content content, Action<TextManageResult> result)
-        {
-            ExecuteTextManagement(
-                () => Workgroup.DeleteText(content),
-                result,
-                "Delete text");
         }
 
         /// <summary>
@@ -579,9 +738,16 @@ namespace MemoriaNote
         {
             try
             {
-                var validation = Workgroup.ValidateDeleteText(content, out var errors);
-                EditingErrors = errors;
-                return validation;
+                var target = WorkgroupCompatibilityFacade.CreateReference(content);
+                var result = target == null
+                    ? PageNotSelected()
+                    : _applicationService.ValidateDeleteAsync(
+                            new DeletePageCommand(target.NoteId, target.PageId),
+                            CancellationToken.None)
+                        .GetAwaiter()
+                        .GetResult();
+                EditingErrors = ToErrorMessages(TextManageType.Delete, result);
+                return result.IsSuccess;
             }
             catch (Exception exception) when (IsInfrastructureException(exception))
             {
@@ -591,20 +757,71 @@ namespace MemoriaNote
         }
 
         private void ExecuteTextManagement(
-            Func<TextManageResult> operation,
-            Action<TextManageResult> result,
+            Func<PageOperationResult> operation,
+            TextManageType operationType,
+            NoteId noteId,
+            IContent originalContent,
             string operationName)
         {
             try
             {
-                var manageResult = operation();
-                if (manageResult != null)
-                    result(manageResult);
+                var result = operation();
+                OnTextManageResultCallback(ToTextManageResult(
+                    operationType,
+                    result,
+                    noteId,
+                    originalContent));
             }
             catch (Exception exception) when (IsInfrastructureException(exception))
             {
                 LogInfrastructureError(exception, operationName);
             }
+        }
+
+        TextManageResult ToTextManageResult(
+            TextManageType operation,
+            PageOperationResult result,
+            NoteId noteId,
+            IContent originalContent)
+        {
+            var page = result.IsSuccess
+                ? SetPageParent(result.Page, noteId)
+                : null;
+            return new TextManageResult
+            {
+                Operation = operation,
+                Result = result.IsSuccess,
+                Content = page?.GetContent() ??
+                    (operation == TextManageType.Delete && !result.IsSuccess
+                        ? originalContent?.GetContent()
+                        : null),
+                Errors = ToErrorMessages(operation, result),
+                Notification = result.IsSuccess
+                    ? PageOperationMessageMapper.ToSuccessNotification(operation)
+                    : PageOperationMessageMapper.ToFailureNotification(operation)
+            };
+        }
+
+        static List<string> ToErrorMessages(
+            TextManageType operation,
+            PageOperationResult result)
+        {
+            return result.Errors
+                .Select(error => PageOperationMessageMapper.ToErrorMessage(operation, error))
+                .ToList();
+        }
+
+        static PageOperationResult MissingOwner()
+        {
+            return PageOperationResult.Failed(
+                PageOperationStatus.OwnerNotFound,
+                PageErrorCode.OwnerNotFound);
+        }
+
+        static PageOperationResult PageNotSelected()
+        {
+            return PageOperationResult.ValidationFailed(
+                new[] { PageErrorCode.PageNotSelected });
         }
 
         private static void ExecuteInfrastructureOperation(
