@@ -17,6 +17,9 @@ namespace MemoriaNote
     [DataContract]
     public class Configuration : ConfigurationBase
     {
+        const string ApplicationDataDirectoryEnvironmentVariable =
+            "MEMORIA_NOTE_APPLICATION_DATA_DIRECTORY";
+
         /// <summary>
         /// Represents a list of data sources used by the application
         /// </summary>
@@ -175,9 +178,22 @@ namespace MemoriaNote
         public virtual string ConfigurationFilename => "configuration.json";
 
         /// <summary>
-        /// Represents the directory where application data is stored
+        /// Represents the directory where application data is stored.
+        /// An explicit environment override is used when present.
         /// </summary>
-        public virtual string ApplicationDataDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ApplicationName);
+        public virtual string ApplicationDataDirectory
+        {
+            get
+            {
+                var configuredDirectory = Environment.GetEnvironmentVariable(
+                    ApplicationDataDirectoryEnvironmentVariable);
+                return string.IsNullOrWhiteSpace(configuredDirectory)
+                    ? Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                        ApplicationName)
+                    : configuredDirectory;
+            }
+        }
         
         /// <summary>
         /// Represents the full path to the configuration file
