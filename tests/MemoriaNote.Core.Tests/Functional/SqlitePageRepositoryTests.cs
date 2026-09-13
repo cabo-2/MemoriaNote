@@ -68,7 +68,7 @@ public sealed class SqlitePageRepositoryTests
             "Archive",
             2,
             CancellationToken.None);
-        var contents = await _repository.ReadContentsAsync(
+        var contents = await _repository.ListPageSummariesAsync(
             database.DatabasePath,
             0,
             10,
@@ -86,14 +86,15 @@ public sealed class SqlitePageRepositoryTests
             Assert.That(updated.Text, Is.EqualTo("Updated text"));
             Assert.That(byId?.Guid, Is.EqualTo(second.Guid));
             Assert.That(byName?.Guid, Is.EqualTo(second.Guid));
-            Assert.That(contents.Select(content => content.Guid), Is.EquivalentTo(new[]
+            Assert.That(contents.Select(summary => summary.PageId.Value), Is.EquivalentTo(new[]
             {
                 first.Guid,
                 second.Guid,
                 archive.Guid
             }));
             Assert.That(
-                contents.All(content => content.OwnerDataSource == Path.GetFullPath(database.DatabasePath)),
+                contents.All(summary =>
+                    summary.NotebookId == NotebookId.FromDatabasePath(database.DatabasePath)),
                 Is.True);
             Assert.That(
                 await _repository.CountPagesAsync(database.DatabasePath, CancellationToken.None),

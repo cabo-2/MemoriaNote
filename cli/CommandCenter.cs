@@ -136,7 +136,7 @@ namespace MemoriaNote.Cli
                     SearchRange = SearchRangeType.Notebook,
                     SearchMethod = SearchMethodType.Heading,
                     EditingTitle = name,
-                    EditingState = TextManageType.Create
+                    EditingState = EditorMode.Create
                 };
                 var sc = new ScreenController();
                 sc.RequestManage();
@@ -247,7 +247,7 @@ namespace MemoriaNote.Cli
             return indexWidth;
         }
 
-        static int GetMaxNameLength(List<Content> list)
+        static int GetMaxNameLength(List<PageSummary> list)
         {
             int textWidth = 0;
             foreach (var content in list)
@@ -277,7 +277,7 @@ namespace MemoriaNote.Cli
             Console.WriteLine(buffer.ToString());
         }
 
-        static void WriteLineList(List<Content> contents, int totalCount)
+        static void WriteLineList(List<PageSummary> contents, int totalCount)
         {
             if (totalCount < 0)
                 throw new ArgumentException(nameof(totalCount));
@@ -293,7 +293,7 @@ namespace MemoriaNote.Cli
                 buffer.Append("|");
                 buffer.Append(num.ToString().PadLeft(indexWidth, '0'));
                 buffer.Append(" | ");
-                buffer.Append(content.Guid.ToHashId());
+                buffer.Append(content.PageId.Value.ToHashId());
                 buffer.Append(" | ");
                 var name = content.Name;
                 buffer.Append(name.Substring(0, Math.Min(name.Length, nameWidth)));
@@ -313,7 +313,7 @@ namespace MemoriaNote.Cli
             Console.WriteLine("Total count: " + totalCount.ToString());
         }
 
-        static void WriteLineCompletion(List<Content> contents, int totalCount)
+        static void WriteLineCompletion(List<PageSummary> contents, int totalCount)
         {
             if (totalCount < 0)
                 throw new ArgumentException(nameof(totalCount));

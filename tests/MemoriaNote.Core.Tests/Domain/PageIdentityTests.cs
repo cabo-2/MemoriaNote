@@ -3,7 +3,7 @@ using NUnit.Framework;
 namespace MemoriaNote.Core.Tests.Domain;
 
 /// <summary>
-/// Verifies identity-based equality for page and compatibility content entities.
+/// Verifies identity-based equality for page entities.
 /// </summary>
 [TestFixture]
 public sealed class PageIdentityTests
@@ -30,8 +30,6 @@ public sealed class PageIdentityTests
         page.CreateTime = page.CreateTime.AddDays(-1);
         page.UpdateTime = page.UpdateTime.AddDays(1);
         page.IsErased = true;
-        page.OwnerDataSource = "changed-owner.db";
-        page.Parent = new object();
         page.Text = "changed text";
 
         using (Assert.EnterMultipleScope())
@@ -47,23 +45,21 @@ public sealed class PageIdentityTests
     }
 
     /// <summary>
-    /// Verifies that Page and Content use one consistent identity contract.
+    /// Verifies that pages with the same stable identifier are equal symmetrically.
     /// </summary>
     [Test]
-    public void PageAndContent_WithSameId_AreEqualSymmetrically()
+    public void Pages_WithSameId_AreEqualSymmetrically()
     {
         var page = Page.Create("Page", "text");
-        var content = page.GetContent();
+        var samePage = Page.Create("Copy", "different text");
+        samePage.Guid = page.Guid;
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(page.EntityEquals(content), Is.True);
-            Assert.That(content.EntityEquals(page), Is.True);
-            Assert.That(page.Equals((object)content), Is.True);
-            Assert.That(content.Equals((object)page), Is.True);
-            Assert.That(Content.EntityEquals(page, content), Is.True);
-            Assert.That(Content.Equals(page, content), Is.True);
-            Assert.That(page.GetHashCode(), Is.EqualTo(content.GetHashCode()));
+            Assert.That(page.Equals(samePage), Is.True);
+            Assert.That(samePage.Equals(page), Is.True);
+            Assert.That(page.Equals((object)samePage), Is.True);
+            Assert.That(page.GetHashCode(), Is.EqualTo(samePage.GetHashCode()));
         }
     }
 
@@ -76,16 +72,13 @@ public sealed class PageIdentityTests
         var page = Page.Create("Page", "text")!;
         var differentPage = Page.Create("Page", "text");
         object pageObject = page;
-        IContent pageContent = page;
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(page.Equals(default(Page)), Is.False);
             Assert.That(pageObject.Equals(null), Is.False);
-            Assert.That(pageContent.EntityEquals(default(IContent)), Is.False);
             Assert.That(pageObject!.Equals("not content"), Is.False);
             Assert.That(page!.Equals(differentPage), Is.False);
-            Assert.That(Content.Equals(page, differentPage), Is.False);
         }
     }
 
@@ -102,7 +95,6 @@ public sealed class PageIdentityTests
         {
             Assert.That(page.Equals(page), Is.True);
             Assert.That(page.Equals(other), Is.False);
-            Assert.That(page.EntityEquals(other), Is.False);
             Assert.That(GetHashCode(page), Throws.TypeOf<InvalidOperationException>());
             Assert.That(AddToHashSet(page), Throws.TypeOf<InvalidOperationException>());
         }

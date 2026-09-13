@@ -34,9 +34,9 @@ public sealed class WorkspaceCountAggregationTests
         thirdNote.CreatePage("Alpha", "Shared marker in the third note.");
         var workspace = CreateWorkspace(firstNote, secondNote, thirdNote);
 
-        var result = await workspace.SearchAsync(
+        var result = await SearchAsync(
+            workspace,
             searchEntry,
-            SearchRangeType.Workspace,
             searchMethod,
             1,
             2,
@@ -44,16 +44,16 @@ public sealed class WorkspaceCountAggregationTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.Count, Is.EqualTo(4));
+            Assert.That(result.TotalCount, Is.EqualTo(4));
             Assert.That(
-                result.Contents.Select(content => content.Guid),
+                result.Items.Select(summary => summary.PageId.Value),
                 Is.EqualTo(new[] { firstBeta.Guid, secondAlpha.Guid }));
             Assert.That(
-                result.Contents.Select(content => content.OwnerDataSource),
+                result.Items.Select(summary => summary.NotebookId),
                 Is.EqualTo(new[]
                 {
-                    Path.GetFullPath(firstNote.DatabasePath),
-                    Path.GetFullPath(secondNote.DatabasePath)
+                    NotebookId.FromDatabasePath(firstNote.DatabasePath),
+                    NotebookId.FromDatabasePath(secondNote.DatabasePath)
                 }));
         }
     }
@@ -77,9 +77,9 @@ public sealed class WorkspaceCountAggregationTests
 
         try
         {
-            await workspace.SearchAsync(
+            await SearchAsync(
+                workspace,
                 "marker",
-                SearchRangeType.Workspace,
                 searchMethod,
                 0,
                 10,
@@ -96,5 +96,25 @@ public sealed class WorkspaceCountAggregationTests
     private static Workspace CreateWorkspace(params Notebook[] notes)
     {
         return new Workspace(null, notes, notes.FirstOrDefault());
+    }
+
+    private static Task<SearchPage> SearchAsync(
+        Workspace workspace,
+        string query,
+        SearchMethodType method,
+        int offset,
+        int limit,
+        CancellationToken token)
+    {
+        var request = SearchRequest.ForWorkspace(
+            query,
+            method,
+            workspace.Notebooks.Select(notebook =>
+                NotebookId.FromDatabasePath(notebook.DatabasePath)),
+            offset,
+            limit);
+        return ApplicationComposition.Compose(workspace)
+            .ApplicationService
+            .SearchAsync(request, token);
     }
 }

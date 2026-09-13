@@ -49,7 +49,7 @@ namespace MemoriaNote
         /// Gets or sets the Page summary read model maintained by SQLite triggers.
         /// Application writes must treat Pages as authoritative.
         /// </summary>
-        public DbSet<Content> Contents { get; set; }
+        public DbSet<PageSummaryRecord> Contents { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -76,10 +76,11 @@ namespace MemoriaNote
             modelBuilder.Entity<Page>()
                 .HasIndex(e => new { e.Name, e.Index });             
 
-            modelBuilder.Entity<Content>()
+            modelBuilder.Entity<PageSummaryRecord>()
+                .ToTable("Contents")
                 .HasKey(e => e.Uuid);
 
-            modelBuilder.Entity<Content>()
+            modelBuilder.Entity<PageSummaryRecord>()
                 .HasIndex(e => new { e.Name, e.Index });
         }
 

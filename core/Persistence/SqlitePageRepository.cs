@@ -56,7 +56,7 @@ namespace MemoriaNote
                 .AsNoTracking()
                 .SingleOrDefaultAsync(candidate => candidate.Uuid == uuid, token)
                 .ConfigureAwait(false);
-            return SetOwner(page, context.DatabasePath);
+            return page;
         }
 
         /// <inheritdoc/>
@@ -74,7 +74,7 @@ namespace MemoriaNote
                     candidate => candidate.Name == heading && candidate.Index == ordinal,
                     token)
                 .ConfigureAwait(false);
-            return SetOwner(page, context.DatabasePath);
+            return page;
         }
 
         /// <inheritdoc/>
@@ -92,7 +92,6 @@ namespace MemoriaNote
                 .ThenBy(page => page.Rowid)
                 .ToListAsync(token)
                 .ConfigureAwait(false);
-            pages.ForEach(page => SetOwner(page, context.DatabasePath));
             return pages;
         }
 
@@ -119,7 +118,7 @@ namespace MemoriaNote
 
             await context.SaveChangesAsync(token).ConfigureAwait(false);
             await transaction.CommitAsync(token).ConfigureAwait(false);
-            return SetOwner(page, context.DatabasePath);
+            return page;
         }
 
         /// <inheritdoc/>
@@ -171,7 +170,7 @@ namespace MemoriaNote
 
             await context.SaveChangesAsync(token).ConfigureAwait(false);
             await transaction.CommitAsync(token).ConfigureAwait(false);
-            return SetOwner(persistedPage, context.DatabasePath);
+            return persistedPage;
         }
 
         /// <inheritdoc/>
@@ -256,24 +255,6 @@ namespace MemoriaNote
         }
 
         /// <inheritdoc/>
-        public async Task<IReadOnlyList<Content>> ReadContentsAsync(
-            string databasePath,
-            int skipCount,
-            int takeCount,
-            CancellationToken token)
-        {
-            var summaries = await ListPageSummariesAsync(
-                    databasePath,
-                    skipCount,
-                    takeCount,
-                    token)
-                .ConfigureAwait(false);
-            return summaries
-                .Select(PageSummaryContentAdapter.ToContent)
-                .ToList();
-        }
-
-        /// <inheritdoc/>
         public async Task<IReadOnlyList<PageSummary>> ListPageSummariesAsync(
             string databasePath,
             int skipCount,
@@ -291,7 +272,7 @@ namespace MemoriaNote
                 .ConfigureAwait(false);
             var notebookId = NotebookId.FromDatabasePath(context.DatabasePath);
             return contents
-                .Select(content => PageSummaryMapper.FromContent(notebookId, content))
+                .Select(record => PageSummaryMapper.FromRecord(notebookId, record))
                 .ToList()
                 .AsReadOnly();
         }
@@ -330,12 +311,5 @@ namespace MemoriaNote
             }
         }
 
-        static T SetOwner<T>(T content, string databasePath) where T : class, IContent
-        {
-            if (content != null)
-                content.OwnerDataSource = databasePath;
-
-            return content;
-        }
     }
 }

@@ -25,64 +25,7 @@ namespace MemoriaNote
         }
 
         /// <inheritdoc/>
-        public async Task<SearchResult> SearchAsync(
-            string databasePath,
-            string searchEntry,
-            SearchMethodType searchMethod,
-            int skipCount,
-            int takeCount,
-            CancellationToken token)
-        {
-            var startTime = DateTime.UtcNow;
-            var request = SearchRequest.ForNotebook(
-                searchEntry,
-                searchMethod,
-                NotebookId.FromDatabasePath(databasePath),
-                skipCount,
-                takeCount);
-            var result = await new SearchUseCase(this)
-                .SearchAsync(request, token)
-                .ConfigureAwait(false);
-            return new SearchResult()
-            {
-                Contents = result.Items
-                    .Select(PageSummaryContentAdapter.ToContent)
-                    .ToList(),
-                Count = result.TotalCount,
-                StartTime = startTime,
-                EndTime = DateTime.UtcNow
-            };
-        }
-
-        /// <inheritdoc/>
-        public async Task<NoteSearchResult> SearchPageSummariesAsync(
-            string databasePath,
-            string searchEntry,
-            SearchMethodType searchMethod,
-            int skipCount,
-            int takeCount,
-            CancellationToken token)
-        {
-            token.ThrowIfCancellationRequested();
-            var startTime = DateTime.UtcNow;
-            using var context = _databaseFactory.CreateDbContext(databasePath);
-            var query = CreateQuery(context, searchEntry, searchMethod);
-            var count = await query.CountMatchesAsync(token);
-            var contents = await query.ReadAsync(skipCount, takeCount, token);
-            var notebookId = NotebookId.FromDatabasePath(context.DatabasePath);
-            var summaries = contents
-                .Select(content => PageSummaryMapper.FromContent(notebookId, content))
-                .ToList();
-
-            return new NoteSearchResult(
-                summaries,
-                count,
-                startTime,
-                DateTime.UtcNow);
-        }
-
-        /// <inheritdoc/>
-        public async Task<IReadOnlyList<PageSummary>> SearchPageSummariesAsync(
+        public async Task<IReadOnlyList<PageSummary>> SearchAsync(
             NotebookId notebookId,
             string searchEntry,
             SearchMethodType searchMethod,
@@ -96,21 +39,26 @@ namespace MemoriaNote
             token.ThrowIfCancellationRequested();
             using var context = _databaseFactory.CreateDbContext(notebookId.Locator);
             var query = CreateQuery(context, searchEntry, searchMethod);
-            var contents = await query.ReadAsync(skipCount, takeCount, token);
-            return contents
-                .Select(content => PageSummaryMapper.FromContent(notebookId, content))
-                .ToList();
+            return await query.ReadAsync(
+                    notebookId,
+                    skipCount,
+                    takeCount,
+                    token)
+                .ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
         public async Task<int> CountMatchesAsync(
-            string databasePath,
+            NotebookId notebookId,
             string searchEntry,
             SearchMethodType searchMethod,
             CancellationToken token)
         {
+            if (notebookId == null)
+                throw new ArgumentNullException(nameof(notebookId));
+
             token.ThrowIfCancellationRequested();
-            using var context = _databaseFactory.CreateDbContext(databasePath);
+            using var context = _databaseFactory.CreateDbContext(notebookId.Locator);
             var query = CreateQuery(context, searchEntry, searchMethod);
             return await query.CountMatchesAsync(token);
         }
@@ -172,16 +120,19 @@ namespace MemoriaNote
 
         sealed class SqliteSearchQuery
         {
-            readonly IQueryable<Content> _contents;
+            readonly IQueryable<PageSummaryRecord> _contents;
             readonly IQueryable<Page> _pages;
 
-            SqliteSearchQuery(IQueryable<Content> contents, IQueryable<Page> pages)
+            SqliteSearchQuery(
+                IQueryable<PageSummaryRecord> contents,
+                IQueryable<Page> pages)
             {
                 _contents = contents;
                 _pages = pages;
             }
 
-            internal static SqliteSearchQuery FromContents(IQueryable<Content> contents)
+            internal static SqliteSearchQuery FromContents(
+                IQueryable<PageSummaryRecord> contents)
             {
                 return new SqliteSearchQuery(contents, null);
             }
@@ -199,19 +150,24 @@ namespace MemoriaNote
                 return _pages.CountAsync(token);
             }
 
-            internal async Task<List<Content>> ReadAsync(
+            internal async Task<IReadOnlyList<PageSummary>> ReadAsync(
+                NotebookId notebookId,
                 int skipCount,
                 int takeCount,
                 CancellationToken token)
             {
                 if (_contents != null)
                 {
-                    return await _contents
+                    var records = await _contents
                         .OrderBy(content => EF.Functions.Collate(content.Name, "NOCASE"))
                         .ThenBy(content => content.Index)
                         .Skip(skipCount)
                         .Take(takeCount)
-                        .ToListAsync(token);
+                        .ToListAsync(token)
+                        .ConfigureAwait(false);
+                    return records
+                        .Select(record => PageSummaryMapper.FromRecord(notebookId, record))
+                        .ToList();
                 }
 
                 var pages = await _pages
@@ -220,7 +176,9 @@ namespace MemoriaNote
                     .Skip(skipCount)
                     .Take(takeCount)
                     .ToListAsync(token);
-                return pages.ConvertAll(page => page.GetContent());
+                return pages
+                    .Select(page => PageSummaryMapper.FromPage(notebookId, page))
+                    .ToList();
             }
         }
 

@@ -86,7 +86,7 @@ public sealed class TypedPageSummaryRepositoryTests
     /// <param name="searchMethod">The SQLite search path to exercise.</param>
     [TestCase(SearchMethodType.Heading)]
     [TestCase(SearchMethodType.FullText)]
-    public async Task SearchPageSummariesAsync_ReturnsTypedOwner(
+    public async Task SearchAsync_ReturnsTypedOwner(
         SearchMethodType searchMethod)
     {
         using var database = new TemporaryNotebookDatabase();
@@ -94,18 +94,24 @@ public sealed class TypedPageSummaryRepositoryTests
         var created = note.CreatePage("Marker", "Marker body");
         var repository = new SqlitePageSearchRepository(_databaseFactory);
 
-        var result = await repository.SearchPageSummariesAsync(
-            database.DatabasePath,
+        var notebookId = NotebookId.FromDatabasePath(database.DatabasePath);
+        var result = await repository.SearchAsync(
+            notebookId,
             "Marker",
             searchMethod,
             0,
             10,
             CancellationToken.None);
-        var summary = result.PageSummaries.Single();
+        var summary = result.Single();
+        var count = await repository.CountMatchesAsync(
+            notebookId,
+            "Marker",
+            searchMethod,
+            CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.Count, Is.EqualTo(1));
+            Assert.That(count, Is.EqualTo(1));
             Assert.That(summary.NotebookId, Is.EqualTo(NotebookId.FromDatabasePath(database.DatabasePath)));
             Assert.That(summary.PageId.Value, Is.EqualTo(created.Guid));
         }

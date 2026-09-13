@@ -234,20 +234,6 @@ namespace MemoriaNote
         Task<int> CountPagesAsync(string databasePath, CancellationToken token);
 
         /// <summary>
-        /// Reads a page of materialized content summaries in row order.
-        /// </summary>
-        /// <param name="databasePath">The path of the notebook database.</param>
-        /// <param name="skipCount">The number of summaries to skip.</param>
-        /// <param name="takeCount">The maximum number of summaries to return.</param>
-        /// <param name="token">The cancellation token for the database operation.</param>
-        /// <returns>The materialized content summaries.</returns>
-        Task<IReadOnlyList<Content>> ReadContentsAsync(
-            string databasePath,
-            int skipCount,
-            int takeCount,
-            CancellationToken token);
-
-        /// <summary>
         /// Reads an owner-qualified page of immutable summaries in row order.
         /// </summary>
         /// <param name="databasePath">The path of the notebook database.</param>
@@ -255,24 +241,10 @@ namespace MemoriaNote
         /// <param name="takeCount">The maximum number of summaries to return.</param>
         /// <param name="token">The cancellation token for the database operation.</param>
         /// <returns>The immutable, owner-qualified page summaries.</returns>
-        async Task<IReadOnlyList<PageSummary>> ListPageSummariesAsync(
+        Task<IReadOnlyList<PageSummary>> ListPageSummariesAsync(
             string databasePath,
             int skipCount,
             int takeCount,
-            CancellationToken token)
-        {
-            var contents = await ReadContentsAsync(
-                    databasePath,
-                    skipCount,
-                    takeCount,
-                    token)
-                .ConfigureAwait(false);
-            var notebookId = NotebookId.FromDatabasePath(databasePath);
-            var summaries = new List<PageSummary>(contents.Count);
-            foreach (var content in contents)
-                summaries.Add(PageSummaryMapper.FromContent(notebookId, content));
-
-            return summaries.AsReadOnly();
-        }
+            CancellationToken token);
     }
 }

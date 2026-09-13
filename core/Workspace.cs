@@ -1,9 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace MemoriaNote
 {
@@ -12,6 +10,9 @@ namespace MemoriaNote
     /// </summary>
     public class Workspace
     {
+        readonly IReadOnlyList<Notebook> _notebooks;
+        Notebook _selectedNotebook;
+
         /// <summary>
         /// Initializes an empty workspace.
         /// </summary>
@@ -24,7 +25,7 @@ namespace MemoriaNote
         /// </summary>
         /// <param name="name">The workspace name.</param>
         /// <param name="notebooks">The notebooks contained in the workspace.</param>
-        /// <param name="selectedNotebook">The initially selected note, or null.</param>
+        /// <param name="selectedNotebook">The initially selected notebook, or null.</param>
         public Workspace(
             string name,
             IEnumerable<Notebook> notebooks,
@@ -43,242 +44,28 @@ namespace MemoriaNote
 
             Name = name;
             _notebooks = new ReadOnlyCollection<Notebook>(copiedNotebooks);
-            _compatibilityFacade = new WorkspaceCompatibilityFacade(
-                () => _notebooks,
-                () => _selectedNotebook);
             SelectNotebook(selectedNotebook);
         }
 
-        Notebook _selectedNotebook;
-        readonly IReadOnlyList<Notebook> _notebooks;
-        readonly WorkspaceCompatibilityFacade _compatibilityFacade;
-
-        #region Search
         /// <summary>
-        /// Asynchronously searches the selected note or the entire workspace.
+        /// Gets the notebooks stored in this workspace.
         /// </summary>
-        /// <param name="searchEntry">The search entry to match.</param>
-        /// <param name="searchRange">The range to search.</param>
-        /// <param name="searchMethod">The search method to use.</param>
-        /// <param name="token">The cancellation token for the search.</param>
-        /// <returns>The matching contents and total count.</returns>
-        public Task<SearchResult> SearchAsync(
-            string searchEntry,
-            SearchRangeType searchRange,
-            SearchMethodType searchMethod,
-            CancellationToken token)
-        {
-            return SearchAsync(
-                searchEntry,
-                searchRange,
-                searchMethod,
-                0,
-                int.MaxValue,
-                token);
-        }
-
-        /// <summary>
-        /// Asynchronously searches the selected note or the entire workspace using paging values.
-        /// </summary>
-        /// <param name="searchEntry">The search entry to match.</param>
-        /// <param name="searchRange">The range to search.</param>
-        /// <param name="searchMethod">The search method to use.</param>
-        /// <param name="skipCount">The number of matching contents to skip.</param>
-        /// <param name="takeCount">The maximum number of matching contents to return.</param>
-        /// <param name="token">The cancellation token for the search.</param>
-        /// <returns>The matching contents and total count.</returns>
-        public Task<SearchResult> SearchAsync(
-            string searchEntry,
-            SearchRangeType searchRange,
-            SearchMethodType searchMethod,
-            int skipCount,
-            int takeCount,
-            CancellationToken token)
-        {
-            return _compatibilityFacade.SearchAsync(
-                searchEntry,
-                searchRange,
-                searchMethod,
-                skipCount,
-                takeCount,
-                token);
-        }
-
-        #endregion
-
-        /// <summary>
-        /// Reads the specified content from the note identified by its owner data source.
-        /// </summary>
-        /// <param name="content">The content to read from the notes.</param>
-        /// <returns>The page of the specified content if found in any of the notes, otherwise null.</returns>
-        public Page ReadAll(IContent content)
-        {
-            return _compatibilityFacade.Read(
-                WorkspaceCompatibilityFacade.CreateReference(content));
-        }
-
-        /// <summary>
-        /// Validates the creation of a new text with the specified name and text content.
-        /// Checks if the selected note allows text creation, validates the text name, and checks if the name is already in use.
-        /// </summary>
-        /// <param name="testName">The name of the text to be created.</param>
-        /// <param name="testText">The content of the text to be created.</param>
-        /// <param name="errors">A list of error messages if validation fails.</param>
-        /// <returns>True if the text creation is valid, false otherwise.</returns>
-        public bool ValidateCreateText(string testName, string testText, out List<string> errors)
-        {
-            var result = _compatibilityFacade.ValidateCreate(
-                _compatibilityFacade.CreateCreateCommand(testName, testText));
-            errors = WorkspaceCompatibilityFacade.ToErrorMessages(
-                TextManageType.Create,
-                result);
-            return result.IsSuccess;
-        }
-
-        /// <summary>
-        /// Validates the editing of the text content with the specified content and updates the list of errors if validation fails.
-        /// Checks if the owning note allows text editing, validates the text content, and returns the validation result.
-        /// </summary>
-        /// <param name="content">The content to be edited in the text.</param>
-        /// <param name="testText">The updated content of the text to be edited.</param>
-        /// <param name="errors">A list of error messages if validation fails.</param>
-        /// <returns>True if the text editing is valid, false otherwise.</returns>
-        public bool ValidateEditText(IContent content, string testText, out List<string> errors)
-        {
-            var target = WorkspaceCompatibilityFacade.CreateReference(content);
-            var command = target == null
-                ? null
-                : new EditPageCommand(target.NotebookId, target.PageId, testText);
-            var result = _compatibilityFacade.ValidateEdit(command);
-            errors = WorkspaceCompatibilityFacade.ToErrorMessages(
-                TextManageType.Edit,
-                result);
-            return result.IsSuccess;
-        }
-
-        /// <summary>
-        /// Validates the renaming of the text with the specified content name and updates the list of errors if validation fails.
-        /// Checks if the owning note allows text renaming, validates the new text name, and checks if the name is already in use there.
-        /// </summary>
-        /// <param name="content">The content of the text to be renamed.</param>
-        /// <param name="testName">The new name for the text.</param>
-        /// <param name="errors">A list of error messages if validation fails.</param>
-        /// <returns>True if the text renaming is valid, false otherwise.</returns>
-        public bool ValidateRenameText(IContent content, string testName, out List<string> errors)
-        {
-            var target = WorkspaceCompatibilityFacade.CreateReference(content);
-            var command = target == null
-                ? null
-                : new RenamePageCommand(target.NotebookId, target.PageId, testName);
-            var result = _compatibilityFacade.ValidateRename(command);
-            errors = WorkspaceCompatibilityFacade.ToErrorMessages(
-                TextManageType.Rename,
-                result);
-            return result.IsSuccess;
-        }
-
-        /// <summary>
-        /// Validates the deletion of the text content with the specified content and updates the list of errors if validation fails.
-        /// Checks if the owning note allows text deletion, validates the content, and returns the validation result.
-        /// </summary>
-        /// <param name="content">The content to be deleted from the text.</param>
-        /// <param name="errors">A list of error messages if validation fails.</param>
-        /// <returns>True if the text deletion is valid, false otherwise.</returns>
-        public bool ValidateDeleteText(IContent content, out List<string> errors)
-        {
-            var target = WorkspaceCompatibilityFacade.CreateReference(content);
-            var command = target == null
-                ? null
-                : new DeletePageCommand(target.NotebookId, target.PageId);
-            var result = _compatibilityFacade.ValidateDelete(command);
-            errors = WorkspaceCompatibilityFacade.ToErrorMessages(
-                TextManageType.Delete,
-                result);
-            return result.IsSuccess;
-        }
-
-        /// <summary>
-        /// Creates a new text with the specified name and text content.
-        /// Validates if the selected note allows text creation, checks the validity of the text name, and verifies if the name is already in use.
-        /// </summary>
-        /// <param name="newName">The name of the text to be created.</param>
-        /// <param name="newText">The content of the text to be created.</param>
-        /// <returns>A TextManageResult indicating the result of the text creation operation.</returns>
-        public TextManageResult CreateText(string newName, string newText)
-        {
-            return _compatibilityFacade.Create(
-                _compatibilityFacade.CreateCreateCommand(newName, newText));
-        }
-
-        /// <summary>
-        /// Updates the content of a text with the specified new text content.
-        /// Validates if the owning note allows text editing, checks the text content, and updates that note if validation passes.
-        /// </summary>
-        /// <param name="content">The content of the text to be edited.</param>
-        /// <param name="newText">The new content for the text.</param>
-        /// <returns>A TextManageResult indicating the result of the text editing operation.</returns>
-        public TextManageResult EditText(IContent content, string newText)
-        {
-            var target = WorkspaceCompatibilityFacade.CreateReference(content);
-            var command = target == null
-                ? null
-                : new EditPageCommand(target.NotebookId, target.PageId, newText);
-            return _compatibilityFacade.Edit(command);
-        }
-
-        /// <summary>
-        /// Renames the text content with the specified new name and updates the list of errors if validation fails.
-        /// Validates if the owning note allows text renaming and whether the new name is already in use there.
-        /// </summary>
-        /// <param name="content">The content of the text to be renamed.</param>
-        /// <param name="newName">The new name for the text.</param>
-        /// <returns>A TextManageResult indicating the result of the text renaming operation.</returns>
-        public TextManageResult RenameText(IContent content, string newName)
-        {
-            var target = WorkspaceCompatibilityFacade.CreateReference(content);
-            var command = target == null
-                ? null
-                : new RenamePageCommand(target.NotebookId, target.PageId, newName);
-            return _compatibilityFacade.Rename(command);
-        }
-
-        /// <summary>
-        /// Deletes the text content specified by the input content parameter.
-        /// Validates if the selected note allows text deletion, checks the validity of the content, and updates the list of errors if validation fails.
-        /// If validation passes, deletes the text content and returns a TextManageResult indicating the result of the delete operation.
-        /// </summary>
-        /// <param name="content">The content of the text to be deleted.</param>
-        /// <returns>A TextManageResult indicating the result of the text deletion operation.</returns>
-        public TextManageResult DeleteText(IContent content)
-        {
-            var target = WorkspaceCompatibilityFacade.CreateReference(content);
-            var command = target == null
-                ? null
-                : new DeletePageCommand(target.NotebookId, target.PageId);
-            return _compatibilityFacade.Delete(command, content);
-        }
-
-        /// <summary>
-        /// Gets the collection of notes stored in the application.
-        /// </summary>
-        /// <returns>A read-only list containing all the notes.</returns>
         public IReadOnlyList<Notebook> Notebooks => _notebooks;
 
         /// <summary>
-        /// Retrieves a list of data sources used by the notes in the application.
+        /// Gets the notebook database paths in workspace order.
         /// </summary>
-        /// <returns>A list of strings representing the data sources used by the notes.</returns>
         public List<string> NotebookDatabasePaths => _notebooks
             .Select(notebook => notebook.DatabasePath)
             .ToList();
 
         /// <summary>
-        /// Gets the currently selected note in the application.
+        /// Gets the currently selected notebook.
         /// </summary>
         public Notebook SelectedNotebook => _selectedNotebook;
 
         /// <summary>
-        /// Selects a note contained in this workspace, or clears the selection.
+        /// Selects a notebook contained in this workspace, or clears the selection.
         /// </summary>
         /// <param name="notebook">The notebook to select, or null to clear the selection.</param>
         /// <exception cref="ArgumentException">
@@ -306,9 +93,8 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Gets the name of the currently selected note.
+        /// Gets the name of the currently selected notebook.
         /// </summary>
-        /// <returns>A string representing the name of the currently selected note.</returns>
         public string SelectedNotebookName => SelectedNotebook?.ToString();
 
         /// <summary>
@@ -316,10 +102,7 @@ namespace MemoriaNote
         /// </summary>
         public string Name { get; set; }
 
-        /// <summary>
-        /// Overrides the default ToString method to return the name of the text content if it is not null.
-        /// If the name is null, the base ToString method result is returned.
-        /// </summary>
+        /// <inheritdoc/>
         public override string ToString()
         {
             return Name ?? base.ToString();

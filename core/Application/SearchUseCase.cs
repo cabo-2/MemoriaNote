@@ -76,7 +76,7 @@ namespace MemoriaNote
                 var takeCount = Math.Min(
                     remainingLimit,
                     target.Count - remainingOffset);
-                var noteItems = await target.Repository.SearchPageSummariesAsync(
+                var noteItems = await target.Repository.SearchAsync(
                         target.NotebookId,
                         request.Query,
                         request.Method,

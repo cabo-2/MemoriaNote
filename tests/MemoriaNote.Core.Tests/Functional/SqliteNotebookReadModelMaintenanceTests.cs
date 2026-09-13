@@ -257,32 +257,29 @@ public sealed class SqliteNotebookReadModelMaintenanceTests
         var report = await CreateMaintenance().RebuildReadModelsAsync(
             database.DatabasePath,
             CancellationToken.None);
-        var heading = await note.SearchAsync(
+        var heading = await SearchAsync(
+            note,
             "Rebuild Target",
             SearchMethodType.Heading,
-            0,
-            10,
             CancellationToken.None);
-        var fullText = await note.SearchAsync(
+        var fullText = await SearchAsync(
+            note,
             "quasar",
             SearchMethodType.FullText,
-            0,
-            10,
             CancellationToken.None);
-        var empty = await note.SearchAsync(
+        var empty = await SearchAsync(
+            note,
             string.Empty,
             SearchMethodType.Heading,
-            0,
-            10,
             CancellationToken.None);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(report.IsConsistent, Is.True);
             Assert.That(report.PageCount, Is.EqualTo(1));
             Assert.That(report.ContentCount, Is.EqualTo(1));
-            Assert.That(heading.Contents.Single().Guid, Is.EqualTo(page.Guid));
-            Assert.That(fullText.Contents.Single().Guid, Is.EqualTo(page.Guid));
-            Assert.That(empty.Contents.Single().Guid, Is.EqualTo(page.Guid));
+            Assert.That(heading.Items.Single().PageId.Value, Is.EqualTo(page.Guid));
+            Assert.That(fullText.Items.Single().PageId.Value, Is.EqualTo(page.Guid));
+            Assert.That(empty.Items.Single().PageId.Value, Is.EqualTo(page.Guid));
         }
     }
 
@@ -384,6 +381,19 @@ public sealed class SqliteNotebookReadModelMaintenanceTests
     private INotebookReadModelMaintenance CreateMaintenance()
     {
         return new SqliteNotebookReadModelMaintenance(_factory);
+    }
+
+    private Task<SearchPage> SearchAsync(
+        Notebook notebook,
+        string query,
+        SearchMethodType method,
+        CancellationToken token)
+    {
+        var notebookId = NotebookId.FromDatabasePath(notebook.DatabasePath);
+        var repository = new SqlitePageSearchRepository(_factory);
+        return new SearchUseCase(repository).SearchAsync(
+            SearchRequest.ForNotebook(query, method, notebookId, 0, 10),
+            token);
     }
 
     private async Task AssertConsistentAsync(string dataSource, int pageCount)

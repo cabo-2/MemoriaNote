@@ -30,7 +30,7 @@ public sealed class SqlitePageSearchRepositoryTests
         note.CreatePage("Unrelated", "Another page.");
 
         var result = await _repository.SearchAsync(
-            database.DatabasePath,
+            NotebookId.FromDatabasePath(database.DatabasePath),
             searchEntry,
             SearchMethodType.Heading,
             0,
@@ -39,13 +39,13 @@ public sealed class SqlitePageSearchRepositoryTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.Count, Is.EqualTo(1));
+            Assert.That(result, Has.Count.EqualTo(1));
             Assert.That(
-                result.Contents.Select(content => content.Guid),
+                result.Select(summary => summary.PageId.Value),
                 Is.EqualTo(new[] { expected.Guid }));
             Assert.That(
-                result.Contents.Single().OwnerDataSource,
-                Is.EqualTo(Path.GetFullPath(database.DatabasePath)));
+                result.Single().NotebookId,
+                Is.EqualTo(NotebookId.FromDatabasePath(database.DatabasePath)));
         }
     }
 
@@ -68,17 +68,16 @@ public sealed class SqlitePageSearchRepositoryTests
         var page = note.CreatePage(searchEntry, "Special heading body.");
 
         var result = await _repository.SearchAsync(
-            database.DatabasePath,
+            NotebookId.FromDatabasePath(database.DatabasePath),
             searchEntry,
             SearchMethodType.Heading,
             0,
             10,
             CancellationToken.None);
 
-        Assert.That(result.Count, Is.EqualTo(expectedCount));
-        Assert.That(result.Contents, Has.Count.EqualTo(expectedCount));
+        Assert.That(result, Has.Count.EqualTo(expectedCount));
         if (expectedCount == 1)
-            Assert.That(result.Contents.Single().Guid, Is.EqualTo(page.Guid));
+            Assert.That(result.Single().PageId.Value, Is.EqualTo(page.Guid));
     }
 
     /// <summary>
@@ -103,7 +102,7 @@ public sealed class SqlitePageSearchRepositoryTests
         note.CreatePage("Symbols", "100% under_score.");
 
         var result = await _repository.SearchAsync(
-            database.DatabasePath,
+            NotebookId.FromDatabasePath(database.DatabasePath),
             searchEntry,
             SearchMethodType.FullText,
             0,
@@ -112,13 +111,12 @@ public sealed class SqlitePageSearchRepositoryTests
 
         if (expectedPageName == null)
         {
-            Assert.That(result.Count, Is.Zero);
-            Assert.That(result.Contents, Is.Empty);
+            Assert.That(result, Is.Empty);
         }
         else
         {
-            Assert.That(result.Count, Is.EqualTo(1));
-            Assert.That(result.Contents.Single().Name, Is.EqualTo(expectedPageName));
+            Assert.That(result, Has.Count.EqualTo(1));
+            Assert.That(result.Single().Name, Is.EqualTo(expectedPageName));
         }
     }
 
@@ -141,19 +139,19 @@ public sealed class SqlitePageSearchRepositoryTests
         note.CreatePage("Alphabet", "No matching body token.");
 
         var count = await _repository.CountMatchesAsync(
-            database.DatabasePath,
+            NotebookId.FromDatabasePath(database.DatabasePath),
             searchEntry,
             searchMethod,
             CancellationToken.None);
         var result = await _repository.SearchAsync(
-            database.DatabasePath,
+            NotebookId.FromDatabasePath(database.DatabasePath),
             searchEntry,
             searchMethod,
             0,
             1,
             CancellationToken.None);
 
-        Assert.That(count, Is.EqualTo(result.Count));
+        Assert.That(result, Has.Count.EqualTo(Math.Min(count, 1)));
     }
 
     /// <summary>
@@ -172,7 +170,7 @@ public sealed class SqlitePageSearchRepositoryTests
         try
         {
             await _repository.SearchAsync(
-                database.DatabasePath,
+                NotebookId.FromDatabasePath(database.DatabasePath),
                 "marker",
                 SearchMethodType.FullText,
                 0,
@@ -187,7 +185,7 @@ public sealed class SqlitePageSearchRepositoryTests
         try
         {
             await _repository.CountMatchesAsync(
-                database.DatabasePath,
+                NotebookId.FromDatabasePath(database.DatabasePath),
                 "marker",
                 SearchMethodType.FullText,
                 cancellation.Token);
@@ -220,7 +218,7 @@ public sealed class SqlitePageSearchRepositoryTests
         try
         {
             await _repository.SearchAsync(
-                database.DatabasePath,
+                NotebookId.FromDatabasePath(database.DatabasePath),
                 "marker",
                 SearchMethodType.FullText,
                 0,
@@ -246,18 +244,20 @@ public sealed class SqlitePageSearchRepositoryTests
         note.CreatePage("%", "Special heading.");
         var workspace = new Workspace(null, new[] { note }, note);
 
-        var result = await workspace.SearchAsync(
+        var request = SearchRequest.ForWorkspace(
             "%",
-            SearchRangeType.Workspace,
             SearchMethodType.Heading,
+            new[] { NotebookId.FromDatabasePath(note.DatabasePath) },
             0,
-            10,
-            CancellationToken.None);
+            10);
+        var result = await ApplicationComposition.Compose(workspace)
+            .ApplicationService
+            .SearchAsync(request, CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.Count, Is.Zero);
-            Assert.That(result.Contents, Is.Empty);
+            Assert.That(result.TotalCount, Is.Zero);
+            Assert.That(result.Items, Is.Empty);
         }
     }
 
@@ -268,48 +268,54 @@ public sealed class SqlitePageSearchRepositoryTests
     public async Task WorkspaceSearch_InjectedRepository_PreservesOwnerInformation()
     {
         using var database = new TemporaryNotebookDatabase();
-        var content = Content.Create<Content>("Injected");
-        var repository = new RecordingSearchRepository(content);
-        var note = new Notebook(database.DatabasePath, repository);
-        var workspace = new Workspace(null, new[] { note }, note);
-
-        var result = await workspace.SearchAsync(
+        var notebookId = NotebookId.FromDatabasePath(database.DatabasePath);
+        var summary = new PageSummary(
+            notebookId,
+            PageId.FromGuid(Guid.NewGuid()),
             "Injected",
-            SearchRangeType.Workspace,
-            SearchMethodType.Heading,
-            0,
-            10,
+            1,
+            new Dictionary<string, string>(),
+            nameof(Page),
+            DateTime.UtcNow,
+            DateTime.UtcNow,
+            false);
+        var repository = new RecordingSearchRepository(summary);
+        var note = new Notebook(database.DatabasePath, repository);
+        var result = await new SearchUseCase(repository).SearchAsync(
+            SearchRequest.ForWorkspace(
+                "Injected",
+                SearchMethodType.Heading,
+                new[] { notebookId },
+                0,
+                10),
             CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
-            var returnedContent = result.Contents.Single();
+            var returnedSummary = result.Items.Single();
             Assert.That(repository.CountCallCount, Is.EqualTo(1));
             Assert.That(repository.SearchCallCount, Is.EqualTo(1));
-            Assert.That(result.Count, Is.EqualTo(1));
-            Assert.That(returnedContent.Guid, Is.EqualTo(content.Guid));
-            Assert.That(returnedContent.Parent, Is.SameAs(note));
-            Assert.That(
-                returnedContent.OwnerDataSource,
-                Is.EqualTo(Path.GetFullPath(database.DatabasePath)));
+            Assert.That(result.TotalCount, Is.EqualTo(1));
+            Assert.That(returnedSummary.PageId, Is.EqualTo(summary.PageId));
+            Assert.That(returnedSummary.NotebookId, Is.EqualTo(notebookId));
         }
     }
 
     sealed class RecordingSearchRepository : IPageSearchRepository
     {
-        readonly Content _content;
+        readonly PageSummary _summary;
 
-        internal RecordingSearchRepository(Content content)
+        internal RecordingSearchRepository(PageSummary summary)
         {
-            _content = content;
+            _summary = summary;
         }
 
         internal int CountCallCount { get; private set; }
 
         internal int SearchCallCount { get; private set; }
 
-        public Task<SearchResult> SearchAsync(
-            string dataSource,
+        public Task<IReadOnlyList<PageSummary>> SearchAsync(
+            NotebookId notebookId,
             string searchEntry,
             SearchMethodType searchMethod,
             int skipCount,
@@ -317,17 +323,11 @@ public sealed class SqlitePageSearchRepositoryTests
             CancellationToken token)
         {
             SearchCallCount++;
-            return Task.FromResult(new SearchResult()
-            {
-                Contents = new List<Content>() { _content },
-                Count = 1,
-                StartTime = DateTime.UtcNow,
-                EndTime = DateTime.UtcNow
-            });
+            return Task.FromResult<IReadOnlyList<PageSummary>>(new[] { _summary });
         }
 
         public Task<int> CountMatchesAsync(
-            string dataSource,
+            NotebookId notebookId,
             string searchEntry,
             SearchMethodType searchMethod,
             CancellationToken token)

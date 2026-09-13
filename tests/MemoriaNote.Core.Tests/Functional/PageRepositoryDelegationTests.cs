@@ -17,15 +17,14 @@ public sealed class PageRepositoryDelegationTests
         var repository = new RecordingNoteRepository();
         var dataSource = Path.Combine(Path.GetTempPath(), "delegated-note.db");
         var note = new Notebook(dataSource, repository);
-        var content = Content.Create<Content>("Delegated");
-        content.Rowid = 42;
+        var page = Page.Create("Delegated", string.Empty);
 
-        note.DeletePage(content);
+        note.DeletePage(page.Guid);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(repository.DeleteDataSource, Is.EqualTo(dataSource));
-            Assert.That(repository.DeletedPageId, Is.EqualTo(content.Guid));
+            Assert.That(repository.DeletedPageId, Is.EqualTo(page.Guid));
         }
     }
 
@@ -93,7 +92,7 @@ public sealed class PageRepositoryDelegationTests
             throw new NotSupportedException();
         }
 
-        public Task<IReadOnlyList<Content>> ReadContentsAsync(
+        public Task<IReadOnlyList<PageSummary>> ListPageSummariesAsync(
             string dataSource,
             int skipCount,
             int takeCount,

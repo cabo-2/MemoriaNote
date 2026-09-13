@@ -14,7 +14,7 @@ namespace MemoriaNote
         /// <param name="error">The machine-readable error code.</param>
         /// <returns>The existing English error message.</returns>
         public static string ToErrorMessage(
-            TextManageType operation,
+            PageOperationKind operation,
             PageErrorCode error)
         {
             return error switch
@@ -26,10 +26,10 @@ namespace MemoriaNote
                 PageErrorCode.PageNotFound => "The text was not found in its owner note.",
                 PageErrorCode.ReadOnly => operation switch
                 {
-                    TextManageType.Create => "Create text is not allowed.",
-                    TextManageType.Edit => "Edit text is not allowed.",
-                    TextManageType.Rename => "Rename text is not allowed.",
-                    TextManageType.Delete => "Delete text is not allowed.",
+                    PageOperationKind.Create => "Create text is not allowed.",
+                    PageOperationKind.Edit => "Edit text is not allowed.",
+                    PageOperationKind.Rename => "Rename text is not allowed.",
+                    PageOperationKind.Delete => "Delete text is not allowed.",
                     _ => throw new ArgumentOutOfRangeException(nameof(operation))
                 },
                 _ => throw new ArgumentOutOfRangeException(nameof(error))
@@ -41,14 +41,14 @@ namespace MemoriaNote
         /// </summary>
         /// <param name="operation">The page operation.</param>
         /// <returns>The existing English success notification.</returns>
-        public static string ToSuccessNotification(TextManageType operation)
+        public static string ToSuccessNotification(PageOperationKind operation)
         {
             return operation switch
             {
-                TextManageType.Create => "The text created successfully.",
-                TextManageType.Edit => "The text updated successfully.",
-                TextManageType.Rename => "The text renamed successfully.",
-                TextManageType.Delete => "The text deleted successfully.",
+                PageOperationKind.Create => "The text created successfully.",
+                PageOperationKind.Edit => "The text updated successfully.",
+                PageOperationKind.Rename => "The text renamed successfully.",
+                PageOperationKind.Delete => "The text deleted successfully.",
                 _ => throw new ArgumentOutOfRangeException(nameof(operation))
             };
         }
@@ -58,14 +58,14 @@ namespace MemoriaNote
         /// </summary>
         /// <param name="operation">The page operation.</param>
         /// <returns>The existing English failure notification.</returns>
-        public static string ToFailureNotification(TextManageType operation)
+        public static string ToFailureNotification(PageOperationKind operation)
         {
             return operation switch
             {
-                TextManageType.Create => "Failed to create the text.",
-                TextManageType.Edit => "Failed to update the text.",
-                TextManageType.Rename => "Failed to rename the text.",
-                TextManageType.Delete => "Failed to delete the text.",
+                PageOperationKind.Create => "Failed to create the text.",
+                PageOperationKind.Edit => "Failed to update the text.",
+                PageOperationKind.Rename => "Failed to rename the text.",
+                PageOperationKind.Delete => "Failed to delete the text.",
                 _ => throw new ArgumentOutOfRangeException(nameof(operation))
             };
         }

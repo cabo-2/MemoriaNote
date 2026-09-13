@@ -32,7 +32,7 @@ namespace MemoriaNote.Cli
         }
 
         /// <summary>
-        /// Method to start the editing process based on the current TextManageType in the ViewModel.
+        /// Method to start the editing process based on the current EditorMode in the ViewModel.
         /// </summary>
         protected void Start()
         {
@@ -42,19 +42,19 @@ namespace MemoriaNote.Cli
             // Check the current editing state in the ViewModel and execute the corresponding method.
             switch (ViewModel.EditingState)
             {
-                case TextManageType.Create:
+                case EditorMode.Create:
                     // Start the process for creating a new text.
                     OnCreateText(editor);
                     break;
-                case TextManageType.Edit:
+                case EditorMode.Edit:
                     // Start the process for editing an existing text.
                     OnEditText(editor);
                     break;
-                case TextManageType.Rename:
+                case EditorMode.Rename:
                     // Start the process for renaming a text.
                     OnRenameText(editor);
                     break;
-                case TextManageType.Delete:
+                case EditorMode.Delete:
                     // Start the process for deleting a text.
                     OnDeleteText(editor);
                     break;
@@ -65,7 +65,7 @@ namespace MemoriaNote.Cli
             }
 
             // Reset the editing state to None after completing the editing process.
-            ViewModel.EditingState = TextManageType.None;
+            ViewModel.EditingState = EditorMode.None;
         }
 
         protected void OnCreateText(ITerminalEditor editor)
@@ -86,21 +86,21 @@ namespace MemoriaNote.Cli
 
         protected void OnRenameText(ITerminalEditor editor)
         {
-            if (EnterName(editor, TextManageType.Rename))
+            if (EnterName(editor, EditorMode.Rename))
                 Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.RenameText);
         }
         
         protected void OnDeleteText(ITerminalEditor editor)
         {
-            if (EnterName(editor, TextManageType.Delete))
+            if (EnterName(editor, EditorMode.Delete))
                 Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.DeleteText);
         }
 
-        protected bool EnterName(ITerminalEditor editor, TextManageType type)
+        protected bool EnterName(ITerminalEditor editor, EditorMode type)
         {
-            if (type == TextManageType.Rename)
+            if (type == EditorMode.Rename)
                 editor.FileName = "Rename text";
-            else if (type == TextManageType.Delete)
+            else if (type == EditorMode.Delete)
                 editor.FileName = "Delete text";
             else
                 editor.FileName = "New text";
@@ -134,15 +134,15 @@ namespace MemoriaNote.Cli
             return true;
         }
 
-        static string AddNameComment(string name, TextManageType type)
+        static string AddNameComment(string name, EditorMode type)
         {
             StringBuilder buffer = new StringBuilder();
             buffer.AppendLine(name);
             buffer.AppendLine();
 
-            if (type == TextManageType.Rename)
+            if (type == EditorMode.Rename)
                 buffer.AppendLine("#### Enter the name to be renamed ####");
-            else if (type == TextManageType.Delete)
+            else if (type == EditorMode.Delete)
                 buffer.AppendLine("#### Enter the name to be deleted ####");
             else
                 buffer.AppendLine("#### Enter a name to be created ####");

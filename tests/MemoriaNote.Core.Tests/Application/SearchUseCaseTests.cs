@@ -238,7 +238,7 @@ public sealed class SearchUseCaseTests
             name,
             1,
             new Dictionary<string, string>(),
-            nameof(Content),
+            nameof(Page),
             DateTime.UtcNow,
             DateTime.UtcNow,
             false);
@@ -274,7 +274,7 @@ public sealed class SearchUseCaseTests
             return Task.FromResult(_items[notebookId].Count);
         }
 
-        public Task<IReadOnlyList<PageSummary>> SearchPageSummariesAsync(
+        public Task<IReadOnlyList<PageSummary>> SearchAsync(
             NotebookId notebookId,
             string searchEntry,
             SearchMethodType searchMethod,
@@ -293,25 +293,6 @@ public sealed class SearchUseCaseTests
             return Task.FromResult(result);
         }
 
-        public Task<SearchResult> SearchAsync(
-            string dataSource,
-            string searchEntry,
-            SearchMethodType searchMethod,
-            int skipCount,
-            int takeCount,
-            CancellationToken token)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task<int> CountMatchesAsync(
-            string dataSource,
-            string searchEntry,
-            SearchMethodType searchMethod,
-            CancellationToken token)
-        {
-            throw new NotSupportedException();
-        }
     }
 
     sealed record SearchCall(

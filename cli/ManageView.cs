@@ -130,7 +130,7 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.F5, "~F5~ New   ", () => {
                         Log.Logger.Debug("Push F5 Function");
 
-                        ViewModel.EditingState = TextManageType.Create;
+                        ViewModel.EditingState = EditorMode.Create;
                         ViewModel.EditingTitle = ViewModel.SearchEntry;
                         Controller.RequestManage ();
                         Controller.RequestEditor ();
@@ -139,7 +139,7 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.F6, "~F6~ Edit  ", () => {
                         Log.Logger.Debug("Push F6 Function");
 
-                        ViewModel.EditingState = TextManageType.Edit;
+                        ViewModel.EditingState = EditorMode.Edit;
                         Controller.RequestManage ();
                         Controller.RequestEditor ();
                         Application.RequestStop ();
@@ -147,7 +147,7 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.F7, "~F7~ Rename", () => {
                         Log.Logger.Debug("Push F7 Function");
 
-                        ViewModel.EditingState = TextManageType.Rename;
+                        ViewModel.EditingState = EditorMode.Rename;
                         Controller.RequestManage ();
                         Controller.RequestEditor ();
                         Application.RequestStop ();
@@ -155,7 +155,7 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.F8, "~F8~ Delete", () => {
                         Log.Logger.Debug("Push F8 Function");
 
-                        ViewModel.EditingState = TextManageType.Delete;
+                        ViewModel.EditingState = EditorMode.Delete;
                         Controller.RequestManage ();
                         Controller.RequestEditor ();
                         Application.RequestStop ();
@@ -209,12 +209,12 @@ namespace MemoriaNote.Cli
             searchTextField.KeyDown += (e) =>
             {
                 if (e.KeyEvent.Key == Key.Enter &&
-                    ViewModel.EditingState == TextManageType.None)
+                    ViewModel.EditingState == EditorMode.None)
                 {
                     if (!string.IsNullOrWhiteSpace(ViewModel.EditingTitle) &&
                          ViewModel.EditingTitle == ViewModel.SearchEntry)
                     {
-                        ViewModel.EditingState = TextManageType.Edit;
+                        ViewModel.EditingState = EditorMode.Edit;
                         Controller.RequestManage();
                         Controller.RequestEditor();
                         Application.RequestStop();
@@ -223,7 +223,7 @@ namespace MemoriaNote.Cli
                     else if (string.IsNullOrWhiteSpace(ViewModel.EditingTitle) &&
                             !string.IsNullOrWhiteSpace(ViewModel.SearchEntry))
                     {
-                        ViewModel.EditingState = TextManageType.Create;
+                        ViewModel.EditingState = EditorMode.Create;
                         ViewModel.EditingTitle = ViewModel.SearchEntry;
                         Controller.RequestManage();
                         Controller.RequestEditor();
@@ -291,9 +291,9 @@ namespace MemoriaNote.Cli
                 if (e.KeyEvent.Key == Key.Enter)
                 {
                     if (!string.IsNullOrWhiteSpace(ViewModel.EditingTitle) &&
-                        ViewModel.EditingState == TextManageType.None)
+                        ViewModel.EditingState == EditorMode.None)
                     {
-                        ViewModel.EditingState = TextManageType.Edit;
+                        ViewModel.EditingState = EditorMode.Edit;
                         Controller.RequestManage();
                         Controller.RequestEditor();
                         Application.RequestStop();

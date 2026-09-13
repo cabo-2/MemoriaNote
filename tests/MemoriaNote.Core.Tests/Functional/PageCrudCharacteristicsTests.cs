@@ -28,7 +28,7 @@ public sealed class PageCrudCharacteristicsTests
             Assert.That(created.Rowid, Is.GreaterThan(0));
             Assert.That(created.Guid, Is.Not.EqualTo(Guid.Empty));
             Assert.That(created.Index, Is.EqualTo(1));
-            // Content.Create<T> currently stores the generic parameter name.
+            // Page creation retains the persisted CLR type discriminator.
             Assert.That(created.ContentType, Is.EqualTo("T"));
             Assert.That(created.TagDict[PageTag.Dir], Is.EqualTo("journal/2026"));
             Assert.That(created.CreateTime, Is.EqualTo(created.UpdateTime));
@@ -38,7 +38,7 @@ public sealed class PageCrudCharacteristicsTests
 
         AssertPage(note.ReadPage("Entry", 1), created, "Initial text");
         AssertPage(note.ReadPage(created.Guid), created, "Initial text");
-        AssertPage(note.ReadPage((IContent)created), created, "Initial text");
+        AssertPage(note.ReadPage(created.Guid), created, "Initial text");
 
         var pagesByName = note.ReadPage("Entry").ToList();
         Assert.That(pagesByName, Has.Count.EqualTo(1));
@@ -130,7 +130,7 @@ public sealed class PageCrudCharacteristicsTests
         var second = note.CreatePage("Daily", "Second text");
         var separate = note.CreatePage("Separate", "Separate text");
 
-        note.DeletePage((IContent)first);
+        note.DeletePage(first.Guid);
         using var context = new NotebookDbContext(database.DatabasePath);
         var remainingContent = context.Contents.Single(content => content.Uuid == second.Uuid);
 

@@ -27,9 +27,9 @@ public sealed class WorkspaceFullTextSearchTests
         secondNote.CreatePage("Marker", "The heading alone contains the query.");
         var workspace = CreateWorkspace(firstNote, secondNote);
 
-        var result = await workspace.SearchAsync(
+        var result = await SearchAsync(
+            workspace,
             "marker",
-            SearchRangeType.Workspace,
             SearchMethodType.FullText,
             0,
             10,
@@ -55,9 +55,9 @@ public sealed class WorkspaceFullTextSearchTests
         var secondBeta = secondNote.CreatePage("Beta", "Third text");
         var workspace = CreateWorkspace(firstNote, secondNote);
 
-        var result = await workspace.SearchAsync(
+        var result = await SearchAsync(
+            workspace,
             "   ",
-            SearchRangeType.Workspace,
             SearchMethodType.FullText,
             0,
             10,
@@ -84,9 +84,9 @@ public sealed class WorkspaceFullTextSearchTests
         secondNote.CreatePage("Second Prefix", "An orbiting probe reported back.");
         var workspace = CreateWorkspace(firstNote, secondNote);
 
-        var result = await workspace.SearchAsync(
+        var result = await SearchAsync(
+            workspace,
             "orbit*",
-            SearchRangeType.Workspace,
             SearchMethodType.FullText,
             0,
             10,
@@ -113,9 +113,9 @@ public sealed class WorkspaceFullTextSearchTests
         secondNote.CreatePage("Beta", "Shared marker.");
         var workspace = CreateWorkspace(firstNote, secondNote);
 
-        var result = await workspace.SearchAsync(
+        var result = await SearchAsync(
+            workspace,
             "marker",
-            SearchRangeType.Workspace,
             SearchMethodType.FullText,
             1,
             2,
@@ -132,21 +132,41 @@ public sealed class WorkspaceFullTextSearchTests
     }
 
     private static void AssertWorkspaceResult(
-        SearchResult result,
+        SearchPage result,
         int expectedTotalCount,
         IEnumerable<Guid> expectedPageIds,
         IEnumerable<Notebook> expectedOwners)
     {
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.Count, Is.EqualTo(expectedTotalCount));
+            Assert.That(result.TotalCount, Is.EqualTo(expectedTotalCount));
             Assert.That(
-                result.Contents.Select(content => content.Guid),
+                result.Items.Select(summary => summary.PageId.Value),
                 Is.EqualTo(expectedPageIds));
             Assert.That(
-                result.Contents.Select(content => content.OwnerDataSource),
-                Is.EqualTo(expectedOwners.Select(note => Path.GetFullPath(note.DatabasePath))));
-            Assert.That(result.StartTime, Is.LessThanOrEqualTo(result.EndTime));
+                result.Items.Select(summary => summary.NotebookId),
+                Is.EqualTo(expectedOwners.Select(note =>
+                    NotebookId.FromDatabasePath(note.DatabasePath))));
         }
+    }
+
+    private static Task<SearchPage> SearchAsync(
+        Workspace workspace,
+        string query,
+        SearchMethodType method,
+        int offset,
+        int limit,
+        CancellationToken token)
+    {
+        var request = SearchRequest.ForWorkspace(
+            query,
+            method,
+            workspace.Notebooks.Select(notebook =>
+                NotebookId.FromDatabasePath(notebook.DatabasePath)),
+            offset,
+            limit);
+        return ApplicationComposition.Compose(workspace)
+            .ApplicationService
+            .SearchAsync(request, token);
     }
 }
