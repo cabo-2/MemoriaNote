@@ -23,7 +23,7 @@ public sealed class SearchRequestTests
     [Test]
     public void ForNote_WithoutTarget_CreatesAnEmptyNoteContext()
     {
-        var request = SearchRequest.ForNote(
+        var request = SearchRequest.ForNotebook(
             null!,
             SearchMethodType.Heading,
             null!,
@@ -34,8 +34,8 @@ public sealed class SearchRequestTests
         {
             Assert.That(request.Query, Is.Empty);
             Assert.That(request.Method, Is.EqualTo(SearchMethodType.Heading));
-            Assert.That(request.Scope, Is.EqualTo(SearchRangeType.Note));
-            Assert.That(request.NoteIds, Is.Empty);
+            Assert.That(request.Scope, Is.EqualTo(SearchRangeType.Notebook));
+            Assert.That(request.NotebookIds, Is.Empty);
             Assert.That(request.Offset, Is.Zero);
             Assert.That(request.Limit, Is.Zero);
         }
@@ -47,9 +47,9 @@ public sealed class SearchRequestTests
     [Test]
     public void ForWorkspace_CopiesOrderedTargets()
     {
-        var first = CreateNoteId("first");
-        var second = CreateNoteId("second");
-        var targets = new List<NoteId> { first, second };
+        var first = CreateNotebookId("first");
+        var second = CreateNotebookId("second");
+        var targets = new List<NotebookId> { first, second };
 
         var request = SearchRequest.ForWorkspace(
             "query",
@@ -61,7 +61,7 @@ public sealed class SearchRequestTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(request.NoteIds, Is.EqualTo(new[] { first, second }));
+            Assert.That(request.NotebookIds, Is.EqualTo(new[] { first, second }));
             Assert.That(request.Scope, Is.EqualTo(SearchRangeType.Workspace));
             Assert.That(request.Offset, Is.EqualTo(2));
             Assert.That(request.Limit, Is.EqualTo(3));
@@ -80,7 +80,7 @@ public sealed class SearchRequestTests
         Action createRequest = () => SearchRequest.ForWorkspace(
             "query",
             SearchMethodType.Heading,
-            Array.Empty<NoteId>(),
+            Array.Empty<NotebookId>(),
             offset,
             limit);
 
@@ -93,10 +93,10 @@ public sealed class SearchRequestTests
     [Test]
     public void Factory_UndefinedMethod_Throws()
     {
-        Action createRequest = () => SearchRequest.ForNote(
+        Action createRequest = () => SearchRequest.ForNotebook(
             "query",
             (SearchMethodType)99,
-            CreateNoteId("invalid-method"),
+            CreateNotebookId("invalid-method"),
             0,
             10);
 
@@ -112,15 +112,15 @@ public sealed class SearchRequestTests
         Action createRequest = () => SearchRequest.ForWorkspace(
             "query",
             SearchMethodType.Heading,
-            new NoteId[] { null! },
+            new NotebookId[] { null! },
             0,
             10);
 
         Assert.That(createRequest, Throws.TypeOf<ArgumentException>());
     }
 
-    static NoteId CreateNoteId(string name)
+    static NotebookId CreateNotebookId(string name)
     {
-        return NoteId.FromDataSource(Path.Combine(Path.GetTempPath(), $"{name}.db"));
+        return NotebookId.FromDatabasePath(Path.Combine(Path.GetTempPath(), $"{name}.db"));
     }
 }

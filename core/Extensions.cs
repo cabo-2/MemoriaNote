@@ -126,7 +126,7 @@ namespace MemoriaNote
         {
             switch (range)
             {
-                case SearchRangeType.Note:
+                case SearchRangeType.Notebook:
                     return "A note   ";
                 case SearchRangeType.Workspace:
                 default:

@@ -5,14 +5,14 @@ using System.Threading.Tasks;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Provides materialized search results for a single note database.
+    /// Provides materialized search results for a single notebook database.
     /// </summary>
-    public interface INoteSearchRepository
+    public interface IPageSearchRepository
     {
         /// <summary>
-        /// Searches a note and returns an ordered page together with the unpaged total count.
+        /// Searches a notebook and returns an ordered page together with the unpaged total count.
         /// </summary>
-        /// <param name="dataSource">The path of the note database.</param>
+        /// <param name="databasePath">The path of the notebook database.</param>
         /// <param name="searchEntry">The search entry to match.</param>
         /// <param name="searchMethod">The search method to use.</param>
         /// <param name="skipCount">The number of matches to skip.</param>
@@ -20,7 +20,7 @@ namespace MemoriaNote
         /// <param name="token">The cancellation token for database operations.</param>
         /// <returns>The ordered search results and total count.</returns>
         Task<SearchResult> SearchAsync(
-            string dataSource,
+            string databasePath,
             string searchEntry,
             SearchMethodType searchMethod,
             int skipCount,
@@ -28,10 +28,10 @@ namespace MemoriaNote
             CancellationToken token);
 
         /// <summary>
-        /// Searches a note and returns immutable, owner-qualified page summaries together with the
+        /// Searches a notebook and returns immutable, owner-qualified page summaries together with the
         /// unpaged total count.
         /// </summary>
-        /// <param name="dataSource">The path of the note database.</param>
+        /// <param name="databasePath">The path of the notebook database.</param>
         /// <param name="searchEntry">The search entry to match.</param>
         /// <param name="searchMethod">The search method to use.</param>
         /// <param name="skipCount">The number of matches to skip.</param>
@@ -39,7 +39,7 @@ namespace MemoriaNote
         /// <param name="token">The cancellation token for database operations.</param>
         /// <returns>The typed, ordered search results and total count.</returns>
         async Task<NoteSearchResult> SearchPageSummariesAsync(
-            string dataSource,
+            string databasePath,
             string searchEntry,
             SearchMethodType searchMethod,
             int skipCount,
@@ -47,19 +47,19 @@ namespace MemoriaNote
             CancellationToken token)
         {
             var result = await SearchAsync(
-                    dataSource,
+                    databasePath,
                     searchEntry,
                     searchMethod,
                     skipCount,
                     takeCount,
                     token)
                 .ConfigureAwait(false);
-            var noteId = NoteId.FromDataSource(dataSource);
+            var notebookId = NotebookId.FromDatabasePath(databasePath);
             var summaries = new PageSummary[result.Contents.Count];
             for (var index = 0; index < result.Contents.Count; index++)
             {
                 summaries[index] = PageSummaryMapper.FromContent(
-                    noteId,
+                    notebookId,
                     result.Contents[index]);
             }
 
@@ -71,9 +71,9 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Searches a note and returns immutable, owner-qualified page summaries.
+        /// Searches a notebook and returns immutable, owner-qualified page summaries.
         /// </summary>
-        /// <param name="noteId">The identifier of the note database.</param>
+        /// <param name="notebookId">The identifier of the notebook database.</param>
         /// <param name="searchEntry">The search entry to match.</param>
         /// <param name="searchMethod">The search method to use.</param>
         /// <param name="skipCount">The number of matches to skip.</param>
@@ -81,18 +81,18 @@ namespace MemoriaNote
         /// <param name="token">The cancellation token for database operations.</param>
         /// <returns>The typed, ordered search results.</returns>
         async Task<IReadOnlyList<PageSummary>> SearchPageSummariesAsync(
-            NoteId noteId,
+            NotebookId notebookId,
             string searchEntry,
             SearchMethodType searchMethod,
             int skipCount,
             int takeCount,
             CancellationToken token)
         {
-            if (noteId == null)
-                throw new System.ArgumentNullException(nameof(noteId));
+            if (notebookId == null)
+                throw new System.ArgumentNullException(nameof(notebookId));
 
             var result = await SearchPageSummariesAsync(
-                    noteId.Locator,
+                    notebookId.Locator,
                     searchEntry,
                     searchMethod,
                     skipCount,
@@ -103,37 +103,37 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Counts every match in a note without applying paging.
+        /// Counts every match in a notebook without applying paging.
         /// </summary>
-        /// <param name="dataSource">The path of the note database.</param>
+        /// <param name="databasePath">The path of the notebook database.</param>
         /// <param name="searchEntry">The search entry to match.</param>
         /// <param name="searchMethod">The search method to use.</param>
         /// <param name="token">The cancellation token for the database operation.</param>
         /// <returns>The number of matching contents.</returns>
-        Task<int> CountAsync(
-            string dataSource,
+        Task<int> CountMatchesAsync(
+            string databasePath,
             string searchEntry,
             SearchMethodType searchMethod,
             CancellationToken token);
 
         /// <summary>
-        /// Counts every match in a typed note target without applying paging.
+        /// Counts every match in a typed notebook target without applying paging.
         /// </summary>
-        /// <param name="noteId">The identifier of the note database.</param>
+        /// <param name="notebookId">The identifier of the notebook database.</param>
         /// <param name="searchEntry">The search entry to match.</param>
         /// <param name="searchMethod">The search method to use.</param>
         /// <param name="token">The cancellation token for the database operation.</param>
         /// <returns>The number of matching pages.</returns>
-        Task<int> CountAsync(
-            NoteId noteId,
+        Task<int> CountMatchesAsync(
+            NotebookId notebookId,
             string searchEntry,
             SearchMethodType searchMethod,
             CancellationToken token)
         {
-            if (noteId == null)
-                throw new System.ArgumentNullException(nameof(noteId));
+            if (notebookId == null)
+                throw new System.ArgumentNullException(nameof(notebookId));
 
-            return CountAsync(noteId.Locator, searchEntry, searchMethod, token);
+            return CountMatchesAsync(notebookId.Locator, searchEntry, searchMethod, token);
         }
     }
 }

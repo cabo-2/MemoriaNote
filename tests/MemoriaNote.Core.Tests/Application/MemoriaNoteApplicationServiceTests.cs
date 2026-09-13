@@ -14,11 +14,11 @@ public sealed class MemoriaNoteApplicationServiceTests
     [Test]
     public async Task SearchAsync_DelegatesTheTypedRequest()
     {
-        var noteId = CreateNoteId("search");
-        var request = SearchRequest.ForNote(
+        var notebookId = CreateNotebookId("search");
+        var request = SearchRequest.ForNotebook(
             "query",
             SearchMethodType.Heading,
-            noteId,
+            notebookId,
             2,
             5);
         using var cancellation = new CancellationTokenSource();
@@ -88,13 +88,13 @@ public sealed class MemoriaNoteApplicationServiceTests
     [Test]
     public async Task PageOperations_DelegateTypedCommandsAndResults()
     {
-        var noteId = CreateNoteId("pages");
+        var notebookId = CreateNotebookId("pages");
         var pageId = PageId.FromGuid(Guid.NewGuid());
-        var reference = new PageReference(noteId, pageId);
-        var create = new CreatePageCommand(noteId, "Created", "Text");
-        var edit = new EditPageCommand(noteId, pageId, "Edited");
-        var rename = new RenamePageCommand(noteId, pageId, "Renamed");
-        var delete = new DeletePageCommand(noteId, pageId);
+        var reference = new PageReference(notebookId, pageId);
+        var create = new CreatePageCommand(notebookId, "Created", "Text");
+        var edit = new EditPageCommand(notebookId, pageId, "Edited");
+        var rename = new RenamePageCommand(notebookId, pageId, "Renamed");
+        var delete = new DeletePageCommand(notebookId, pageId);
         var pageUseCase = new FakePageUseCase();
         var service = new MemoriaNoteApplicationService(
             new FakeSearchUseCase(new SearchPage(Array.Empty<PageSummary>(), 0, 0, 0)),
@@ -135,7 +135,7 @@ public sealed class MemoriaNoteApplicationServiceTests
         var request = SearchRequest.ForWorkspace(
             "query",
             SearchMethodType.Heading,
-            Array.Empty<NoteId>(),
+            Array.Empty<NotebookId>(),
             0,
             10);
         var infrastructure = new IOException("Database unavailable.");
@@ -197,9 +197,9 @@ public sealed class MemoriaNoteApplicationServiceTests
             new FakePageUseCase());
     }
 
-    static NoteId CreateNoteId(string name)
+    static NotebookId CreateNotebookId(string name)
     {
-        return NoteId.FromDataSource(Path.Combine(Path.GetTempPath(), $"{name}.db"));
+        return NotebookId.FromDatabasePath(Path.Combine(Path.GetTempPath(), $"{name}.db"));
     }
 
     sealed class FakeSearchUseCase : ISearchUseCase

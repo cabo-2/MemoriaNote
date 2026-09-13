@@ -12,11 +12,11 @@ namespace MemoriaNote.Core.Tests.Functional;
 [TestFixture]
 [Category("Functional")]
 [NonParallelizable]
-public sealed class SqliteNoteMetadataRepositoryTests
+public sealed class SqliteNotebookMetadataRepositoryTests
 {
-    readonly INoteMetadataRepository _repository =
-        new SqliteNoteMetadataRepository(
-            new SqliteNoteDatabaseFactory(NullLoggerFactory.Instance));
+    readonly INotebookMetadataRepository _repository =
+        new SqliteNotebookMetadataRepository(
+            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
 
     /// <summary>
     /// Verifies that one update materializes all persisted values as a snapshot.
@@ -24,10 +24,10 @@ public sealed class SqliteNoteMetadataRepositoryTests
     [Test]
     public async Task UpdateAsync_PersistsAllRequestedValuesTogether()
     {
-        using var database = new TemporaryNoteDatabase();
-        database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("test-note", "Test Note");
         var createTime = new DateTime(2026, 1, 2, 9, 10, 11);
-        var update = new NoteMetadataUpdate()
+        var update = new NotebookMetadataPatch()
             .SetName("renamed-note")
             .SetTitle("Renamed Note")
             .SetVersion("updated-version")
@@ -59,7 +59,7 @@ public sealed class SqliteNoteMetadataRepositoryTests
             Assert.That(reopened.Metadata.CreateTime, Is.EqualTo(createTime));
         }
 
-        using var context = new NoteDbContext(database.DatabasePath);
+        using var context = new NotebookDbContext(database.DatabasePath);
         Assert.That(
             context.Metadata.Find(NoteKeyValue.CreateTime)?.Value,
             Is.EqualTo("20260102091011"));
@@ -71,14 +71,14 @@ public sealed class SqliteNoteMetadataRepositoryTests
     [Test]
     public async Task UpdateAsync_UsesOneContextAndOneSaveChangesAsync()
     {
-        using var database = new TemporaryNoteDatabase();
-        database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("test-note", "Test Note");
         var factory = new CountingDatabaseFactory();
-        var repository = new SqliteNoteMetadataRepository(factory);
+        var repository = new SqliteNotebookMetadataRepository(factory);
 
         await repository.UpdateAsync(
             database.DatabasePath,
-            new NoteMetadataUpdate()
+            new NotebookMetadataPatch()
                 .SetName("renamed-note")
                 .SetTitle("Renamed Note"),
             CancellationToken.None);
@@ -96,9 +96,9 @@ public sealed class SqliteNoteMetadataRepositoryTests
     [Test]
     public async Task LoadAsync_WithExistingCreateTime_LeavesStoredValueUnchanged()
     {
-        using var database = new TemporaryNoteDatabase();
-        database.CreateNote("test-note", "Test Note");
-        using (var context = new NoteDbContext(database.DatabasePath))
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("test-note", "Test Note");
+        using (var context = new NotebookDbContext(database.DatabasePath))
         {
             context.Metadata.Add(new NoteKeyValue
             {
@@ -112,7 +112,7 @@ public sealed class SqliteNoteMetadataRepositoryTests
             database.DatabasePath,
             CancellationToken.None);
 
-        using var verification = new NoteDbContext(database.DatabasePath);
+        using var verification = new NotebookDbContext(database.DatabasePath);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.HasIssues, Is.False);
@@ -131,9 +131,9 @@ public sealed class SqliteNoteMetadataRepositoryTests
     [Test]
     public async Task LoadAsync_WithMissingAndMalformedValues_ReturnsClassifiableIssues()
     {
-        using var database = new TemporaryNoteDatabase();
-        database.CreateNote("test-note", "Test Note");
-        using (var context = new NoteDbContext(database.DatabasePath))
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("test-note", "Test Note");
+        using (var context = new NotebookDbContext(database.DatabasePath))
         {
             var title = context.Metadata.Find(NoteKeyValue.Title);
             context.Metadata.Remove(title!);
@@ -165,9 +165,9 @@ public sealed class SqliteNoteMetadataRepositoryTests
                 result.Issues.Select(issue => (issue.Kind, issue.Key)),
                 Is.EquivalentTo(new[]
                 {
-                    (MetadataLoadIssueKind.MissingKey, NoteKeyValue.Title),
-                    (MetadataLoadIssueKind.InvalidBoolean, NoteKeyValue.ReadOnly),
-                    (MetadataLoadIssueKind.InvalidCreateTime, NoteKeyValue.CreateTime)
+                    (MetadataIssueKind.MissingKey, NoteKeyValue.Title),
+                    (MetadataIssueKind.InvalidBoolean, NoteKeyValue.ReadOnly),
+                    (MetadataIssueKind.InvalidCreateTime, NoteKeyValue.CreateTime)
                 }));
         }
     }
@@ -178,9 +178,9 @@ public sealed class SqliteNoteMetadataRepositoryTests
     [Test]
     public void UpdateAsync_WhenOneRowFails_RollsBackEveryValue()
     {
-        using var database = new TemporaryNoteDatabase();
-        database.CreateNote("test-note", "Test Note");
-        using (var context = new NoteDbContext(database.DatabasePath))
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("test-note", "Test Note");
+        using (var context = new NotebookDbContext(database.DatabasePath))
         {
             context.Database.ExecuteSqlRaw(
                 "CREATE TRIGGER Metadata_Update_Fail " +
@@ -189,7 +189,7 @@ public sealed class SqliteNoteMetadataRepositoryTests
                 "BEGIN SELECT RAISE(ABORT, 'forced metadata failure'); END;");
         }
 
-        var update = new NoteMetadataUpdate()
+        var update = new NotebookMetadataPatch()
             .SetName("partially-renamed")
             .SetTitle("Rejected title");
 
@@ -199,7 +199,7 @@ public sealed class SqliteNoteMetadataRepositoryTests
                 update,
                 CancellationToken.None)));
 
-        using var verification = new NoteDbContext(database.DatabasePath);
+        using var verification = new NotebookDbContext(database.DatabasePath);
         var values = verification.Metadata.ToDictionary(entry => entry.Key, entry => entry.Value);
         using (Assert.EnterMultipleScope())
         {
@@ -214,7 +214,7 @@ public sealed class SqliteNoteMetadataRepositoryTests
     [Test]
     public void LoadAsync_WithPreCancelledToken_DoesNotCreateDatabase()
     {
-        using var database = new TemporaryNoteDatabase();
+        using var database = new TemporaryNotebookDatabase();
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
@@ -223,13 +223,13 @@ public sealed class SqliteNoteMetadataRepositoryTests
         Assert.That(File.Exists(database.DatabasePath), Is.False);
     }
 
-    sealed class CountingDatabaseFactory : INoteDatabaseFactory
+    sealed class CountingDatabaseFactory : INotebookDbContextFactory
     {
         internal int ContextCount { get; private set; }
 
         internal int SaveChangesAsyncCount { get; private set; }
 
-        public NoteDbContext Create(string dataSource)
+        public NotebookDbContext CreateDbContext(string dataSource)
         {
             ContextCount++;
             var normalizedDataSource = Path.GetFullPath(dataSource);
@@ -237,7 +237,7 @@ public sealed class SqliteNoteMetadataRepositoryTests
             {
                 DataSource = normalizedDataSource
             }.ToString();
-            var options = new DbContextOptionsBuilder<NoteDbContext>()
+            var options = new DbContextOptionsBuilder<NotebookDbContext>()
                 .UseSqlite(connectionString)
                 .Options;
             return new CountingNoteDbContext(
@@ -247,17 +247,17 @@ public sealed class SqliteNoteMetadataRepositoryTests
         }
     }
 
-    sealed class CountingNoteDbContext : NoteDbContext
+    sealed class CountingNoteDbContext : NotebookDbContext
     {
         readonly Action _onSaveChangesAsync;
 
         internal CountingNoteDbContext(
-            DbContextOptions<NoteDbContext> options,
+            DbContextOptions<NotebookDbContext> options,
             string dataSource,
             Action onSaveChangesAsync)
             : base(options)
         {
-            DataSource = dataSource;
+            DatabasePath = dataSource;
             _onSaveChangesAsync = onSaveChangesAsync;
         }
 

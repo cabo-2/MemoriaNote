@@ -1,5 +1,8 @@
 using MemoriaNote.Core.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
@@ -11,21 +14,21 @@ namespace MemoriaNote.Core.Tests.Functional;
 [TestFixture]
 [Category("Functional")]
 [NonParallelizable]
-public sealed class NoteDatabaseFactoryTests
+public sealed class NotebookDbContextFactoryTests
 {
-    readonly INoteDatabaseFactory _factory =
-        new SqliteNoteDatabaseFactory(NullLoggerFactory.Instance);
+    readonly INotebookDbContextFactory _factory =
+        new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
 
     /// <summary>
     /// Verifies that invalid note data source paths are rejected before a context is created.
     /// </summary>
     [Test]
-    public void Create_InvalidDataSource_ThrowsArgumentException()
+    public void CreateDbContext_InvalidDatabasePath_ThrowsArgumentException()
     {
-        Action createWithNull = () => _factory.Create(null!);
-        Action createWithEmpty = () => _factory.Create(string.Empty);
-        Action createWithWhitespace = () => _factory.Create("   ");
-        Action createWithMemoryDataSource = () => _factory.Create(":memory:");
+        Action createWithNull = () => _factory.CreateDbContext(null!);
+        Action createWithEmpty = () => _factory.CreateDbContext(string.Empty);
+        Action createWithWhitespace = () => _factory.CreateDbContext("   ");
+        Action createWithMemoryDataSource = () => _factory.CreateDbContext(":memory:");
 
         Assert.Throws<ArgumentNullException>(createWithNull);
         Assert.Throws<ArgumentException>(createWithEmpty);
@@ -37,17 +40,17 @@ public sealed class NoteDatabaseFactoryTests
     /// Verifies that the factory normalizes paths and safely builds SQLite connection strings.
     /// </summary>
     [Test]
-    public void Create_RelativeSegmentsAndConnectionStringCharacters_NormalizesPath()
+    public void CreateDbContext_RelativeSegmentsAndConnectionStringCharacters_NormalizesPath()
     {
-        using var database = new TemporaryNoteDatabase();
+        using var database = new TemporaryNotebookDatabase();
         var dataSource = Path.Combine(database.DirectoryPath, ".", "factory;note.db");
         var expectedDataSource = Path.GetFullPath(dataSource);
 
-        using var context = _factory.Create(dataSource);
+        using var context = _factory.CreateDbContext(dataSource);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(context.DataSource, Is.EqualTo(expectedDataSource));
+            Assert.That(context.DatabasePath, Is.EqualTo(expectedDataSource));
             Assert.That(
                 context.Database.GetDbConnection().DataSource,
                 Is.EqualTo(expectedDataSource));
@@ -61,12 +64,12 @@ public sealed class NoteDatabaseFactoryTests
     [Test]
     public void OptionsConstructor_WithConfiguredDatabase_UsesExternalOptions()
     {
-        using var database = new TemporaryNoteDatabase();
-        var options = new DbContextOptionsBuilder<NoteDbContext>()
+        using var database = new TemporaryNotebookDatabase();
+        var options = new DbContextOptionsBuilder<NotebookDbContext>()
             .UseSqlite($"Data Source={database.DatabasePath}")
             .Options;
 
-        using var context = new NoteDbContext(options);
+        using var context = new NotebookDbContext(options);
         context.Database.Migrate();
 
         Assert.That(File.Exists(database.DatabasePath), Is.True);
@@ -76,13 +79,13 @@ public sealed class NoteDatabaseFactoryTests
     /// Verifies that contexts for different notes retain independent options and data.
     /// </summary>
     [Test]
-    public void Create_ForDifferentNotes_DoesNotMixDatabases()
+    public void CreateDbContext_ForDifferentNotebooks_DoesNotMixDatabases()
     {
-        using var database = new TemporaryNoteDatabase();
+        using var database = new TemporaryNotebookDatabase();
         var firstPath = Path.Combine(database.DirectoryPath, "first.db");
         var secondPath = Path.Combine(database.DirectoryPath, "second.db");
 
-        using (var firstContext = _factory.Create(firstPath))
+        using (var firstContext = _factory.CreateDbContext(firstPath))
         {
             firstContext.Database.Migrate();
             firstContext.Metadata.Add(new NoteKeyValue
@@ -93,7 +96,7 @@ public sealed class NoteDatabaseFactoryTests
             firstContext.SaveChanges();
         }
 
-        using (var secondContext = _factory.Create(secondPath))
+        using (var secondContext = _factory.CreateDbContext(secondPath))
         {
             secondContext.Database.Migrate();
             secondContext.Metadata.Add(new NoteKeyValue
@@ -104,8 +107,8 @@ public sealed class NoteDatabaseFactoryTests
             secondContext.SaveChanges();
         }
 
-        using var reopenedFirstContext = _factory.Create(firstPath);
-        using var reopenedSecondContext = _factory.Create(secondPath);
+        using var reopenedFirstContext = _factory.CreateDbContext(firstPath);
+        using var reopenedSecondContext = _factory.CreateDbContext(secondPath);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(
@@ -121,12 +124,12 @@ public sealed class NoteDatabaseFactoryTests
     /// Verifies that a database created by the existing API can be opened through the factory.
     /// </summary>
     [Test]
-    public void Create_ForExistingMigratedNote_PreservesSchemaAndMetadata()
+    public void CreateDbContext_ForExistingMigratedNotebook_PreservesSchemaAndMetadata()
     {
-        using var database = new TemporaryNoteDatabase();
-        database.CreateNote("existing", "Existing note");
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("existing", "Existing note");
 
-        using var context = _factory.Create(database.DatabasePath);
+        using var context = _factory.CreateDbContext(database.DatabasePath);
 
         using (Assert.EnterMultipleScope())
         {
@@ -144,13 +147,37 @@ public sealed class NoteDatabaseFactoryTests
     }
 
     /// <summary>
+    /// Verifies that the renamed context model introduces no operations beyond the existing
+    /// migration snapshot.
+    /// </summary>
+    [Test]
+    public void Model_MatchesExistingMigrationSnapshot()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        using var context = _factory.CreateDbContext(database.DatabasePath);
+        var migrationsAssembly = context.GetService<IMigrationsAssembly>();
+        var modelDiffer = context.GetService<IMigrationsModelDiffer>();
+        var modelInitializer = context.GetService<IModelRuntimeInitializer>();
+        var snapshotModel = modelInitializer.Initialize(
+            migrationsAssembly.ModelSnapshot!.Model,
+            designTime: true);
+        var currentModel = context.GetService<IDesignTimeModel>().Model;
+
+        var operations = modelDiffer.GetDifferences(
+            snapshotModel.GetRelationalModel(),
+            currentModel.GetRelationalModel());
+
+        Assert.That(operations, Is.Empty);
+    }
+
+    /// <summary>
     /// Verifies that disposing a factory-created context prevents further database access.
     /// </summary>
     [Test]
     public void Dispose_FactoryCreatedContext_PreventsFurtherUse()
     {
-        using var database = new TemporaryNoteDatabase();
-        var context = _factory.Create(database.DatabasePath);
+        using var database = new TemporaryNotebookDatabase();
+        var context = _factory.CreateDbContext(database.DatabasePath);
         context.Dispose();
         Action accessDisposedContext = () => context.Database.OpenConnection();
 

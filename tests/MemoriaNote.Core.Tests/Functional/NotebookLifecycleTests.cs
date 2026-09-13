@@ -10,7 +10,7 @@ namespace MemoriaNote.Core.Tests.Functional;
 [TestFixture]
 [Category("Functional")]
 [NonParallelizable]
-public sealed class NoteLifecycleTests
+public sealed class NotebookLifecycleTests
 {
     /// <summary>
     /// Verifies that page changes remain synchronized with heading and full-text search.
@@ -18,18 +18,18 @@ public sealed class NoteLifecycleTests
     [Test]
     public async Task NewDatabase_CanCompletePageLifecycleAndSynchronizeSearchIndexes()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(File.Exists(database.DatabasePath), Is.True);
             Assert.That(note.Metadata.Name, Is.EqualTo("test-note"));
             Assert.That(note.Metadata.Title, Is.EqualTo("Test Note"));
-            Assert.That(note.Metadata.Version, Is.EqualTo(NoteDbContext.CurrentVersion));
+            Assert.That(note.Metadata.Version, Is.EqualTo(NotebookDbContext.CurrentVersion));
         }
 
-        using (var context = new NoteDbContext(database.DatabasePath))
+        using (var context = new NotebookDbContext(database.DatabasePath))
         {
             Assert.That(
                 context.Database.GetAppliedMigrations(),
@@ -65,7 +65,7 @@ public sealed class NoteLifecycleTests
         AssertEmptyResult(await SearchAsync(note, "Renamed", SearchMethodType.Heading));
         AssertEmptyResult(await SearchAsync(note, "nebula", SearchMethodType.FullText));
 
-        using var finalContext = new NoteDbContext(database.DatabasePath);
+        using var finalContext = new NotebookDbContext(database.DatabasePath);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(finalContext.Pages.Count(), Is.Zero);
@@ -74,7 +74,7 @@ public sealed class NoteLifecycleTests
     }
 
     private static Task<SearchResult> SearchAsync(
-        Note note,
+        Notebook note,
         string searchEntry,
         SearchMethodType searchMethod)
     {

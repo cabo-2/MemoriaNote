@@ -14,18 +14,18 @@ public sealed class SearchUseCaseTests
     [Test]
     public async Task SearchAsync_NoteScope_ReturnsTheRequestedSlice()
     {
-        var noteId = CreateNoteId("note-scope");
-        var first = CreateSummary(noteId, "Alpha");
-        var second = CreateSummary(noteId, "Beta");
+        var notebookId = CreateNotebookId("note-scope");
+        var first = CreateSummary(notebookId, "Alpha");
+        var second = CreateSummary(notebookId, "Beta");
         var repository = new FakeSearchRepository(
-            new Dictionary<NoteId, IReadOnlyList<PageSummary>>
+            new Dictionary<NotebookId, IReadOnlyList<PageSummary>>
             {
-                [noteId] = new[] { first, second }
+                [notebookId] = new[] { first, second }
             });
-        var request = SearchRequest.ForNote(
+        var request = SearchRequest.ForNotebook(
             "marker",
             SearchMethodType.FullText,
-            noteId,
+            notebookId,
             1,
             1);
 
@@ -50,8 +50,8 @@ public sealed class SearchUseCaseTests
     public async Task SearchAsync_NoteScopeWithoutTarget_ReturnsEmptyPage()
     {
         var repository = new FakeSearchRepository(
-            new Dictionary<NoteId, IReadOnlyList<PageSummary>>());
-        var request = SearchRequest.ForNote(
+            new Dictionary<NotebookId, IReadOnlyList<PageSummary>>());
+        var request = SearchRequest.ForNotebook(
             "query",
             SearchMethodType.Heading,
             null!,
@@ -78,15 +78,15 @@ public sealed class SearchUseCaseTests
     [Test]
     public async Task SearchAsync_WorkspaceScope_PagesAcrossNotesInTargetOrder()
     {
-        var firstNoteId = CreateNoteId("first-workspace");
-        var secondNoteId = CreateNoteId("second-workspace");
-        var thirdNoteId = CreateNoteId("third-workspace");
+        var firstNoteId = CreateNotebookId("first-workspace");
+        var secondNoteId = CreateNotebookId("second-workspace");
+        var thirdNoteId = CreateNotebookId("third-workspace");
         var firstAlpha = CreateSummary(firstNoteId, "Alpha");
         var firstBeta = CreateSummary(firstNoteId, "Beta");
         var secondAlpha = CreateSummary(secondNoteId, "Alpha");
         var thirdAlpha = CreateSummary(thirdNoteId, "Alpha");
         var repository = new FakeSearchRepository(
-            new Dictionary<NoteId, IReadOnlyList<PageSummary>>
+            new Dictionary<NotebookId, IReadOnlyList<PageSummary>>
             {
                 [firstNoteId] = new[] { firstAlpha, firstBeta },
                 [secondNoteId] = new[] { secondAlpha },
@@ -107,10 +107,10 @@ public sealed class SearchUseCaseTests
             Assert.That(result.Items, Is.EqualTo(new[] { firstBeta, secondAlpha }));
             Assert.That(result.TotalCount, Is.EqualTo(4));
             Assert.That(
-                repository.CountCalls.Select(call => call.NoteId),
+                repository.CountCalls.Select(call => call.NotebookId),
                 Is.EqualTo(new[] { firstNoteId, secondNoteId, thirdNoteId }));
             Assert.That(
-                repository.SearchCalls.Select(call => call.NoteId),
+                repository.SearchCalls.Select(call => call.NotebookId),
                 Is.EqualTo(new[] { firstNoteId, secondNoteId }));
             Assert.That(
                 repository.SearchCalls.Select(call => (call.Offset, call.Limit)),
@@ -128,20 +128,20 @@ public sealed class SearchUseCaseTests
     [TestCase(0, 0)]
     public async Task SearchAsync_EmptySlice_RetainsTotalCount(int offset, int limit)
     {
-        var noteId = CreateNoteId($"boundary-{offset}-{limit}");
+        var notebookId = CreateNotebookId($"boundary-{offset}-{limit}");
         var repository = new FakeSearchRepository(
-            new Dictionary<NoteId, IReadOnlyList<PageSummary>>
+            new Dictionary<NotebookId, IReadOnlyList<PageSummary>>
             {
-                [noteId] = new[]
+                [notebookId] = new[]
                 {
-                    CreateSummary(noteId, "Alpha"),
-                    CreateSummary(noteId, "Beta")
+                    CreateSummary(notebookId, "Alpha"),
+                    CreateSummary(notebookId, "Beta")
                 }
             });
         var request = SearchRequest.ForWorkspace(
             "*",
             SearchMethodType.Heading,
-            new[] { noteId },
+            new[] { notebookId },
             offset,
             limit);
 
@@ -163,12 +163,12 @@ public sealed class SearchUseCaseTests
     [Test]
     public void SearchAsync_CountCancellation_IsPropagated()
     {
-        var noteId = CreateNoteId("count-cancellation");
+        var notebookId = CreateNotebookId("count-cancellation");
         using var cancellation = new CancellationTokenSource();
         var repository = new FakeSearchRepository(
-            new Dictionary<NoteId, IReadOnlyList<PageSummary>>
+            new Dictionary<NotebookId, IReadOnlyList<PageSummary>>
             {
-                [noteId] = new[] { CreateSummary(noteId, "Alpha") }
+                [notebookId] = new[] { CreateSummary(notebookId, "Alpha") }
             })
         {
             BeforeCount = token =>
@@ -177,10 +177,10 @@ public sealed class SearchUseCaseTests
                 token.ThrowIfCancellationRequested();
             }
         };
-        var request = SearchRequest.ForNote(
+        var request = SearchRequest.ForNotebook(
             "query",
             SearchMethodType.Heading,
-            noteId,
+            notebookId,
             0,
             1);
         Func<Task> search = () => new SearchUseCase(repository)
@@ -197,12 +197,12 @@ public sealed class SearchUseCaseTests
     [Test]
     public void SearchAsync_QueryCancellation_IsPropagated()
     {
-        var noteId = CreateNoteId("query-cancellation");
+        var notebookId = CreateNotebookId("query-cancellation");
         using var cancellation = new CancellationTokenSource();
         var repository = new FakeSearchRepository(
-            new Dictionary<NoteId, IReadOnlyList<PageSummary>>
+            new Dictionary<NotebookId, IReadOnlyList<PageSummary>>
             {
-                [noteId] = new[] { CreateSummary(noteId, "Alpha") }
+                [notebookId] = new[] { CreateSummary(notebookId, "Alpha") }
             })
         {
             BeforeSearch = token =>
@@ -211,10 +211,10 @@ public sealed class SearchUseCaseTests
                 token.ThrowIfCancellationRequested();
             }
         };
-        var request = SearchRequest.ForNote(
+        var request = SearchRequest.ForNotebook(
             "query",
             SearchMethodType.Heading,
-            noteId,
+            notebookId,
             0,
             1);
         Func<Task> search = () => new SearchUseCase(repository)
@@ -225,15 +225,15 @@ public sealed class SearchUseCaseTests
             Throws.InstanceOf<OperationCanceledException>());
     }
 
-    static NoteId CreateNoteId(string name)
+    static NotebookId CreateNotebookId(string name)
     {
-        return NoteId.FromDataSource(Path.Combine(Path.GetTempPath(), $"{name}.db"));
+        return NotebookId.FromDatabasePath(Path.Combine(Path.GetTempPath(), $"{name}.db"));
     }
 
-    static PageSummary CreateSummary(NoteId noteId, string name)
+    static PageSummary CreateSummary(NotebookId notebookId, string name)
     {
         return new PageSummary(
-            noteId,
+            notebookId,
             PageId.FromGuid(Guid.NewGuid()),
             name,
             1,
@@ -244,12 +244,12 @@ public sealed class SearchUseCaseTests
             false);
     }
 
-    sealed class FakeSearchRepository : INoteSearchRepository
+    sealed class FakeSearchRepository : IPageSearchRepository
     {
-        readonly IReadOnlyDictionary<NoteId, IReadOnlyList<PageSummary>> _items;
+        readonly IReadOnlyDictionary<NotebookId, IReadOnlyList<PageSummary>> _items;
 
         internal FakeSearchRepository(
-            IReadOnlyDictionary<NoteId, IReadOnlyList<PageSummary>> items)
+            IReadOnlyDictionary<NotebookId, IReadOnlyList<PageSummary>> items)
         {
             _items = items;
         }
@@ -262,20 +262,20 @@ public sealed class SearchUseCaseTests
 
         internal Action<CancellationToken>? BeforeSearch { get; init; }
 
-        public Task<int> CountAsync(
-            NoteId noteId,
+        public Task<int> CountMatchesAsync(
+            NotebookId notebookId,
             string searchEntry,
             SearchMethodType searchMethod,
             CancellationToken token)
         {
-            CountCalls.Add(new SearchCall(noteId, searchEntry, searchMethod, 0, 0));
+            CountCalls.Add(new SearchCall(notebookId, searchEntry, searchMethod, 0, 0));
             BeforeCount?.Invoke(token);
             token.ThrowIfCancellationRequested();
-            return Task.FromResult(_items[noteId].Count);
+            return Task.FromResult(_items[notebookId].Count);
         }
 
         public Task<IReadOnlyList<PageSummary>> SearchPageSummariesAsync(
-            NoteId noteId,
+            NotebookId notebookId,
             string searchEntry,
             SearchMethodType searchMethod,
             int skipCount,
@@ -283,10 +283,10 @@ public sealed class SearchUseCaseTests
             CancellationToken token)
         {
             SearchCalls.Add(
-                new SearchCall(noteId, searchEntry, searchMethod, skipCount, takeCount));
+                new SearchCall(notebookId, searchEntry, searchMethod, skipCount, takeCount));
             BeforeSearch?.Invoke(token);
             token.ThrowIfCancellationRequested();
-            IReadOnlyList<PageSummary> result = _items[noteId]
+            IReadOnlyList<PageSummary> result = _items[notebookId]
                 .Skip(skipCount)
                 .Take(takeCount)
                 .ToList();
@@ -304,7 +304,7 @@ public sealed class SearchUseCaseTests
             throw new NotSupportedException();
         }
 
-        public Task<int> CountAsync(
+        public Task<int> CountMatchesAsync(
             string dataSource,
             string searchEntry,
             SearchMethodType searchMethod,
@@ -315,7 +315,7 @@ public sealed class SearchUseCaseTests
     }
 
     sealed record SearchCall(
-        NoteId NoteId,
+        NotebookId NotebookId,
         string Query,
         SearchMethodType Method,
         int Offset,

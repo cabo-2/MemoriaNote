@@ -15,7 +15,7 @@ namespace MemoriaNote
         /// <summary>
         /// Initializes an empty workspace.
         /// </summary>
-        public Workspace() : this(null, Array.Empty<Note>())
+        public Workspace() : this(null, Array.Empty<Notebook>())
         {
         }
 
@@ -27,8 +27,8 @@ namespace MemoriaNote
         /// <param name="selectedNotebook">The initially selected note, or null.</param>
         public Workspace(
             string name,
-            IEnumerable<Note> notebooks,
-            Note selectedNotebook = null)
+            IEnumerable<Notebook> notebooks,
+            Notebook selectedNotebook = null)
         {
             if (notebooks == null)
                 throw new ArgumentNullException(nameof(notebooks));
@@ -42,15 +42,15 @@ namespace MemoriaNote
             }
 
             Name = name;
-            _notebooks = new ReadOnlyCollection<Note>(copiedNotebooks);
+            _notebooks = new ReadOnlyCollection<Notebook>(copiedNotebooks);
             _compatibilityFacade = new WorkspaceCompatibilityFacade(
                 () => _notebooks,
                 () => _selectedNotebook);
             SelectNotebook(selectedNotebook);
         }
 
-        Note _selectedNotebook;
-        readonly IReadOnlyList<Note> _notebooks;
+        Notebook _selectedNotebook;
+        readonly IReadOnlyList<Notebook> _notebooks;
         readonly WorkspaceCompatibilityFacade _compatibilityFacade;
 
         #region Search
@@ -148,7 +148,7 @@ namespace MemoriaNote
             var target = WorkspaceCompatibilityFacade.CreateReference(content);
             var command = target == null
                 ? null
-                : new EditPageCommand(target.NoteId, target.PageId, testText);
+                : new EditPageCommand(target.NotebookId, target.PageId, testText);
             var result = _compatibilityFacade.ValidateEdit(command);
             errors = WorkspaceCompatibilityFacade.ToErrorMessages(
                 TextManageType.Edit,
@@ -169,7 +169,7 @@ namespace MemoriaNote
             var target = WorkspaceCompatibilityFacade.CreateReference(content);
             var command = target == null
                 ? null
-                : new RenamePageCommand(target.NoteId, target.PageId, testName);
+                : new RenamePageCommand(target.NotebookId, target.PageId, testName);
             var result = _compatibilityFacade.ValidateRename(command);
             errors = WorkspaceCompatibilityFacade.ToErrorMessages(
                 TextManageType.Rename,
@@ -189,7 +189,7 @@ namespace MemoriaNote
             var target = WorkspaceCompatibilityFacade.CreateReference(content);
             var command = target == null
                 ? null
-                : new DeletePageCommand(target.NoteId, target.PageId);
+                : new DeletePageCommand(target.NotebookId, target.PageId);
             var result = _compatibilityFacade.ValidateDelete(command);
             errors = WorkspaceCompatibilityFacade.ToErrorMessages(
                 TextManageType.Delete,
@@ -222,7 +222,7 @@ namespace MemoriaNote
             var target = WorkspaceCompatibilityFacade.CreateReference(content);
             var command = target == null
                 ? null
-                : new EditPageCommand(target.NoteId, target.PageId, newText);
+                : new EditPageCommand(target.NotebookId, target.PageId, newText);
             return _compatibilityFacade.Edit(command);
         }
 
@@ -238,7 +238,7 @@ namespace MemoriaNote
             var target = WorkspaceCompatibilityFacade.CreateReference(content);
             var command = target == null
                 ? null
-                : new RenamePageCommand(target.NoteId, target.PageId, newName);
+                : new RenamePageCommand(target.NotebookId, target.PageId, newName);
             return _compatibilityFacade.Rename(command);
         }
 
@@ -254,7 +254,7 @@ namespace MemoriaNote
             var target = WorkspaceCompatibilityFacade.CreateReference(content);
             var command = target == null
                 ? null
-                : new DeletePageCommand(target.NoteId, target.PageId);
+                : new DeletePageCommand(target.NotebookId, target.PageId);
             return _compatibilityFacade.Delete(command, content);
         }
 
@@ -262,47 +262,47 @@ namespace MemoriaNote
         /// Gets the collection of notes stored in the application.
         /// </summary>
         /// <returns>A read-only list containing all the notes.</returns>
-        public IReadOnlyList<Note> Notebooks => _notebooks;
+        public IReadOnlyList<Notebook> Notebooks => _notebooks;
 
         /// <summary>
         /// Retrieves a list of data sources used by the notes in the application.
         /// </summary>
         /// <returns>A list of strings representing the data sources used by the notes.</returns>
         public List<string> NotebookDatabasePaths => _notebooks
-            .Select(notebook => notebook.DataSource)
+            .Select(notebook => notebook.DatabasePath)
             .ToList();
 
         /// <summary>
         /// Gets the currently selected note in the application.
         /// </summary>
-        public Note SelectedNotebook => _selectedNotebook;
+        public Notebook SelectedNotebook => _selectedNotebook;
 
         /// <summary>
         /// Selects a note contained in this workspace, or clears the selection.
         /// </summary>
-        /// <param name="note">The note to select, or null to clear the selection.</param>
+        /// <param name="notebook">The notebook to select, or null to clear the selection.</param>
         /// <exception cref="ArgumentException">
-        /// Thrown when <paramref name="note"/> does not belong to this workspace.
+        /// Thrown when <paramref name="notebook"/> does not belong to this workspace.
         /// </exception>
-        public void SelectNotebook(Note note)
+        public void SelectNotebook(Notebook notebook)
         {
-            if (note == null)
+            if (notebook == null)
             {
                 _selectedNotebook = null;
                 return;
             }
 
-            var noteId = NoteId.FromDataSource(note.DataSource);
-            var ownedNote = _notebooks.FirstOrDefault(candidate =>
-                NoteId.FromDataSource(candidate.DataSource) == noteId);
-            if (ownedNote == null)
+            var notebookId = NotebookId.FromDatabasePath(notebook.DatabasePath);
+            var ownedNotebook = _notebooks.FirstOrDefault(candidate =>
+                NotebookId.FromDatabasePath(candidate.DatabasePath) == notebookId);
+            if (ownedNotebook == null)
             {
                 throw new ArgumentException(
                     "The selected note must belong to the workspace.",
-                    nameof(note));
+                    nameof(notebook));
             }
 
-            _selectedNotebook = ownedNote;
+            _selectedNotebook = ownedNotebook;
         }
 
         /// <summary>

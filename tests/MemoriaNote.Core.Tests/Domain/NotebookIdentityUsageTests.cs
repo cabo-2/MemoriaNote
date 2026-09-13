@@ -6,19 +6,19 @@ namespace MemoriaNote.Core.Tests.Domain;
 /// Verifies that note comparisons use normalized note identifiers where identity is required.
 /// </summary>
 [TestFixture]
-public sealed class NoteIdentityUsageTests
+public sealed class NotebookIdentityUsageTests
 {
     /// <summary>
     /// Verifies that a second object for the same note is excluded from duplicate-name checks.
     /// </summary>
     [Test]
-    public void ValidateName_SameNoteIdInDifferentObject_IsExcluded()
+    public void ValidateName_SameNotebookIdInDifferentObject_IsExcluded()
     {
         var dataSource = Path.Combine(
             Path.GetTempPath(),
             $"same-note-id-{Guid.NewGuid():N}.db");
-        var note = new Note(dataSource);
-        var sameNote = new Note(dataSource);
+        var note = new Notebook(dataSource);
+        var sameNote = new Notebook(dataSource);
         var workspace = new Workspace(null, new[] { note, sameNote });
         var tracker = DataSourceTracker.Create("valid-name", dataSource);
         var errors = new List<string>();

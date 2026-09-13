@@ -10,26 +10,39 @@ using Serilog;
 
 namespace MemoriaNote
 {
-    public class NoteDbContext : DbContext
+    /// <summary>
+    /// Provides Entity Framework access to one notebook's SQLite database.
+    /// </summary>
+    public class NotebookDbContext : DbContext
     {
-        public NoteDbContext() { }
-        public NoteDbContext(string dataSource)
+        /// <summary>
+        /// Initializes a notebook context that uses its configured database path.
+        /// </summary>
+        public NotebookDbContext() { }
+
+        /// <summary>
+        /// Initializes a notebook context for the specified SQLite database path.
+        /// </summary>
+        /// <param name="databasePath">The notebook database path.</param>
+        public NotebookDbContext(string databasePath)
         {
-            DataSource = dataSource;
+            DatabasePath = databasePath;
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="NoteDbContext"/> class using
+        /// Initializes a new instance of the <see cref="NotebookDbContext"/> class using
         /// externally configured Entity Framework Core options.
         /// </summary>
         /// <param name="options">The options used to configure this context.</param>
-        public NoteDbContext(DbContextOptions<NoteDbContext> options)
+        public NotebookDbContext(DbContextOptions<NotebookDbContext> options)
             : base(options)
         {
         }
 
+        /// <summary>Gets or sets the persisted notebook metadata values.</summary>
         public DbSet<NoteKeyValue> Metadata { get; set; }
 
+        /// <summary>Gets or sets the authoritative pages.</summary>
         public DbSet<Page> Pages { get; set; }
 
         /// <summary>
@@ -45,7 +58,7 @@ namespace MemoriaNote
 
             optionsBuilder
                 .UseLoggerFactory(MyLoggerFactory)
-                .UseSqlite("Data Source=" + (DataSource ?? ":memory:"));
+                .UseSqlite("Data Source=" + (DatabasePath ?? ":memory:"));
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -70,10 +83,13 @@ namespace MemoriaNote
                 .HasIndex(e => new { e.Name, e.Index });
         }
 
-        public string DataSource { get; set; }
+        /// <summary>Gets or sets the SQLite database path used by this context.</summary>
+        public string DatabasePath { get; set; }
 
+        /// <summary>Gets the current notebook storage format version.</summary>
         public static string CurrentVersion { get => "1"; }
 
+        /// <summary>Gets the shared Entity Framework logger factory.</summary>
         public static ILoggerFactory MyLoggerFactory {
             get
             {

@@ -15,8 +15,8 @@ public sealed class PresentationWorkspaceAdapterTests
     [Test]
     public void SelectNotebook_UpdatesSelectionAndRaisesIndexNotification()
     {
-        var first = CreateNote("first");
-        var second = CreateNote("second");
+        var first = CreateNotebook("first");
+        var second = CreateNotebook("second");
         var service = new TestableService(
             new Workspace(null, new[] { first, second }, first));
         var changedProperties = new List<string?>();
@@ -42,7 +42,7 @@ public sealed class PresentationWorkspaceAdapterTests
     [Test]
     public void SelectNotebook_InvalidIndex_IsRejectedWithoutChangingSelection()
     {
-        var note = CreateNote("selected");
+        var note = CreateNotebook("selected");
         var service = new TestableService(
             new Workspace(null, new[] { note }, note));
 
@@ -56,9 +56,9 @@ public sealed class PresentationWorkspaceAdapterTests
         }
     }
 
-    static Note CreateNote(string name)
+    static Notebook CreateNotebook(string name)
     {
-        return new Note(Path.Combine(
+        return new Notebook(Path.Combine(
             Path.GetTempPath(),
             $"adapter-{name}-{Guid.NewGuid():N}.db"));
     }

@@ -18,8 +18,8 @@ public sealed class PageCrudCharacteristicsTests
     [Test]
     public void CreatePage_PersistsFieldsAndSupportsAllReadPaths()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
 
         var created = note.CreatePage("Entry", "Initial text", "journal/2026");
 
@@ -51,8 +51,8 @@ public sealed class PageCrudCharacteristicsTests
     [Test]
     public void UpdatePage_PersistsChangesAndPreservesSenseIndexes()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var first = note.CreatePage("Daily", "First text");
         var second = note.CreatePage("Daily", "Second text");
         var originalCreateTime = second.CreateTime;
@@ -88,8 +88,8 @@ public sealed class PageCrudCharacteristicsTests
     [Test]
     public void UpdatePage_WhenRenamed_AppendsAndCompactsAffectedGroups()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var firstDaily = note.CreatePage("Daily", "First daily text");
         var renamed = note.CreatePage("Daily", "Second daily text");
         var existingArchive = note.CreatePage("Archive", "Archived text");
@@ -99,7 +99,7 @@ public sealed class PageCrudCharacteristicsTests
 
         var dailyPages = note.ReadPage("Daily").ToList();
         var archivePages = note.ReadPage("Archive").ToList();
-        using var context = new NoteDbContext(database.DatabasePath);
+        using var context = new NotebookDbContext(database.DatabasePath);
         var dailyContents = context.Contents.Where(content => content.Name == "Daily").ToList();
         var archiveContents = context.Contents.Where(content => content.Name == "Archive").ToList();
 
@@ -124,14 +124,14 @@ public sealed class PageCrudCharacteristicsTests
     [Test]
     public void DeletePage_RemovesTargetsAndCompactsRemainingIndexes()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var first = note.CreatePage("Daily", "First text");
         var second = note.CreatePage("Daily", "Second text");
         var separate = note.CreatePage("Separate", "Separate text");
 
         note.DeletePage((IContent)first);
-        using var context = new NoteDbContext(database.DatabasePath);
+        using var context = new NotebookDbContext(database.DatabasePath);
         var remainingContent = context.Contents.Single(content => content.Uuid == second.Uuid);
 
         using (Assert.EnterMultipleScope())
@@ -159,8 +159,8 @@ public sealed class PageCrudCharacteristicsTests
     [Test]
     public void UpdatePage_WhenIndexIsChangedByCaller_PreservesManagedOrder()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var first = note.CreatePage("Term", "First meaning");
         var second = note.CreatePage("Term", "Second meaning");
         var third = note.CreatePage("Term", "Third meaning");
@@ -190,12 +190,12 @@ public sealed class PageCrudCharacteristicsTests
     [Test]
     public void CreatePage_WhenIndexesContainGap_NormalizesTheGroup()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var first = note.CreatePage("Term", "First meaning");
         var second = note.CreatePage("Term", "Second meaning");
 
-        using (var context = new NoteDbContext(database.DatabasePath))
+        using (var context = new NotebookDbContext(database.DatabasePath))
         {
             context.Pages.Single(page => page.Uuid == second.Uuid).Index = 4;
             context.SaveChanges();
@@ -222,15 +222,15 @@ public sealed class PageCrudCharacteristicsTests
     [Test]
     public void UpdatePage_WhenPersistenceFails_RollsBackRenameAndIndexes()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var first = note.CreatePage("Source", "First source meaning");
         var renamed = note.CreatePage("Source", "Second source meaning");
         var destination = note.CreatePage("Destination", "Destination meaning");
         var renamedGuid = renamed.Guid;
         var renamedUpdateTime = renamed.UpdateTime;
 
-        using (var context = new NoteDbContext(database.DatabasePath))
+        using (var context = new NotebookDbContext(database.DatabasePath))
         {
             context.Database.ExecuteSqlRaw($@"
                 CREATE TRIGGER FailPageRename

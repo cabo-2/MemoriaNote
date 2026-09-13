@@ -52,9 +52,9 @@ namespace MemoriaNote
             return new Workspace(Name, notebooks, selectedNotebook);
         }
 
-        static List<Note> CreateNotebooks(IEnumerable<string> databasePaths)
+        static List<Notebook> CreateNotebooks(IEnumerable<string> databasePaths)
         {
-            return databasePaths.Select(databasePath => new Note(databasePath)).ToList();
+            return databasePaths.Select(databasePath => new Notebook(databasePath)).ToList();
         }
 
         /// <summary>

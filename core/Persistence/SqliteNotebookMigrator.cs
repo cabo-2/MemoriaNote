@@ -8,21 +8,21 @@ using Microsoft.EntityFrameworkCore;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Manages note database creation and migration for SQLite data sources.
+    /// Manages notebook database creation and migration for SQLite data sources.
     /// </summary>
-    public sealed class SqliteNoteMigrator : INoteMigrator
+    public sealed class SqliteNotebookMigrator : INotebookMigrator
     {
-        readonly INoteDatabaseFactory _databaseFactory;
-        readonly INoteMetadataRepository _metadataRepository;
+        readonly INotebookDbContextFactory _databaseFactory;
+        readonly INotebookMetadataRepository _metadataRepository;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="SqliteNoteMigrator"/> class.
+        /// Initializes a new instance of the <see cref="SqliteNotebookMigrator"/> class.
         /// </summary>
         /// <param name="databaseFactory">The factory used to create database contexts.</param>
         /// <param name="metadataRepository">The repository used to persist metadata.</param>
-        public SqliteNoteMigrator(
-            INoteDatabaseFactory databaseFactory,
-            INoteMetadataRepository metadataRepository)
+        public SqliteNotebookMigrator(
+            INotebookDbContextFactory databaseFactory,
+            INotebookMetadataRepository metadataRepository)
         {
             _databaseFactory = databaseFactory ??
                 throw new ArgumentNullException(nameof(databaseFactory));
@@ -31,17 +31,17 @@ namespace MemoriaNote
         }
 
         /// <inheritdoc/>
-        public async Task<Note> CreateAsync(
+        public async Task<Notebook> CreateAsync(
             string name,
             string title,
-            string dataSource,
+            string databasePath,
             CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
 
-            using var context = _databaseFactory.Create(dataSource);
-            var normalizedDataSource = context.DataSource;
-            if (File.Exists(normalizedDataSource))
+            using var context = _databaseFactory.CreateDbContext(databasePath);
+            var normalizedDatabasePath = context.DatabasePath;
+            if (File.Exists(normalizedDatabasePath))
                 throw new ArgumentException("File exists");
 
             var ownsDatabase = false;
@@ -50,66 +50,66 @@ namespace MemoriaNote
                 try
                 {
                     using var reservation = new FileStream(
-                        normalizedDataSource,
+                        normalizedDatabasePath,
                         FileMode.CreateNew,
                         FileAccess.Write,
                         FileShare.None);
                     ownsDatabase = true;
                 }
-                catch (IOException) when (File.Exists(normalizedDataSource))
+                catch (IOException) when (File.Exists(normalizedDatabasePath))
                 {
                     throw new ArgumentException("File exists");
                 }
 
                 await context.Database.MigrateAsync(token).ConfigureAwait(false);
                 var metadata = await _metadataRepository.UpdateAsync(
-                        normalizedDataSource,
-                        new NoteMetadataUpdate()
+                        normalizedDatabasePath,
+                        new NotebookMetadataPatch()
                             .SetName(name)
                             .SetTitle(title)
-                            .SetVersion(NoteDbContext.CurrentVersion),
+                            .SetVersion(NotebookDbContext.CurrentVersion),
                         token)
                     .ConfigureAwait(false);
 
-                return new Note(normalizedDataSource, _metadataRepository, metadata);
+                return new Notebook(normalizedDatabasePath, _metadataRepository, metadata);
             }
             catch
             {
                 context.Dispose();
                 if (ownsDatabase)
-                    DeleteCreatedDatabase(normalizedDataSource);
+                    DeleteCreatedDatabase(normalizedDatabasePath);
                 throw;
             }
         }
 
         /// <inheritdoc/>
-        public async Task MigrateAsync(string dataSource, CancellationToken token)
+        public async Task MigrateAsync(string databasePath, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
 
-            using (var context = _databaseFactory.Create(dataSource))
+            using (var context = _databaseFactory.CreateDbContext(databasePath))
             {
-                if (!File.Exists(context.DataSource))
+                if (!File.Exists(context.DatabasePath))
                     throw new ArgumentException("File does not exists");
 
                 await context.Database.MigrateAsync(token).ConfigureAwait(false);
-                dataSource = context.DataSource;
+                databasePath = context.DatabasePath;
             }
 
             await _metadataRepository.UpdateAsync(
-                    dataSource,
-                    new NoteMetadataUpdate().SetVersion(NoteDbContext.CurrentVersion),
+                    databasePath,
+                    new NotebookMetadataPatch().SetVersion(NotebookDbContext.CurrentVersion),
                     token)
                 .ConfigureAwait(false);
         }
 
-        static void DeleteCreatedDatabase(string dataSource)
+        static void DeleteCreatedDatabase(string databasePath)
         {
             SqliteConnection.ClearAllPools();
-            DeleteIfExists(dataSource);
-            DeleteIfExists(dataSource + "-journal");
-            DeleteIfExists(dataSource + "-shm");
-            DeleteIfExists(dataSource + "-wal");
+            DeleteIfExists(databasePath);
+            DeleteIfExists(databasePath + "-journal");
+            DeleteIfExists(databasePath + "-shm");
+            DeleteIfExists(databasePath + "-wal");
         }
 
         static void DeleteIfExists(string path)

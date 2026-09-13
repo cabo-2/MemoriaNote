@@ -17,10 +17,10 @@ public sealed class WorkspaceOwnershipTests
     [Test]
     public async Task WorkspaceSearch_ReturnsTheOwnerForEveryResult()
     {
-        using var firstDatabase = new TemporaryNoteDatabase();
-        using var secondDatabase = new TemporaryNoteDatabase();
-        var firstNote = firstDatabase.CreateNote("first-note", "First Note");
-        var secondNote = secondDatabase.CreateNote("second-note", "Second Note");
+        using var firstDatabase = new TemporaryNotebookDatabase();
+        using var secondDatabase = new TemporaryNotebookDatabase();
+        var firstNote = firstDatabase.CreateNotebook("first-note", "First Note");
+        var secondNote = secondDatabase.CreateNotebook("second-note", "Second Note");
         firstNote.CreatePage("First", "First text");
         secondNote.CreatePage("Second", "Second text");
         var workspace = CreateWorkspace(firstNote, firstNote, secondNote);
@@ -38,10 +38,10 @@ public sealed class WorkspaceOwnershipTests
         {
             Assert.That(
                 result.Contents[0].OwnerDataSource,
-                Is.EqualTo(Path.GetFullPath(firstNote.DataSource)));
+                Is.EqualTo(Path.GetFullPath(firstNote.DatabasePath)));
             Assert.That(
                 result.Contents[1].OwnerDataSource,
-                Is.EqualTo(Path.GetFullPath(secondNote.DataSource)));
+                Is.EqualTo(Path.GetFullPath(secondNote.DatabasePath)));
         }
     }
 
@@ -51,10 +51,10 @@ public sealed class WorkspaceOwnershipTests
     [Test]
     public async Task EditText_UsesTheOwnerInsteadOfTheSelectedNotebook()
     {
-        using var selectedDatabase = new TemporaryNoteDatabase();
-        using var ownerDatabase = new TemporaryNoteDatabase();
-        var selectedNotebook = selectedDatabase.CreateNote("selected-note", "Selected Note");
-        var ownerNote = ownerDatabase.CreateNote("owner-note", "Owner Note");
+        using var selectedDatabase = new TemporaryNotebookDatabase();
+        using var ownerDatabase = new TemporaryNotebookDatabase();
+        var selectedNotebook = selectedDatabase.CreateNotebook("selected-note", "Selected Note");
+        var ownerNote = ownerDatabase.CreateNotebook("owner-note", "Owner Note");
         var selectedPage = selectedNotebook.CreatePage("Shared", "Selected text");
         var ownerPage = ownerNote.CreatePage("Shared", "Owner text");
         var workspace = CreateWorkspace(selectedNotebook, selectedNotebook, ownerNote);
@@ -70,7 +70,7 @@ public sealed class WorkspaceOwnershipTests
             Assert.That(result.Result, Is.True);
             Assert.That(
                 result.Content.OwnerDataSource,
-                Is.EqualTo(Path.GetFullPath(ownerNote.DataSource)));
+                Is.EqualTo(Path.GetFullPath(ownerNote.DatabasePath)));
             Assert.That(selectedNotebook.ReadPage(selectedPage.Guid)?.Text, Is.EqualTo("Selected text"));
             Assert.That(ownerNote.ReadPage(ownerPage.Guid)?.Text, Is.EqualTo("Edited owner text"));
         }
@@ -82,10 +82,10 @@ public sealed class WorkspaceOwnershipTests
     [Test]
     public async Task RenameText_UsesTheOwnerForDuplicateChecksAndPersistence()
     {
-        using var selectedDatabase = new TemporaryNoteDatabase();
-        using var ownerDatabase = new TemporaryNoteDatabase();
-        var selectedNotebook = selectedDatabase.CreateNote("selected-note", "Selected Note");
-        var ownerNote = ownerDatabase.CreateNote("owner-note", "Owner Note");
+        using var selectedDatabase = new TemporaryNotebookDatabase();
+        using var ownerDatabase = new TemporaryNotebookDatabase();
+        var selectedNotebook = selectedDatabase.CreateNotebook("selected-note", "Selected Note");
+        var ownerNote = ownerDatabase.CreateNotebook("owner-note", "Owner Note");
         var selectedPage = selectedNotebook.CreatePage("Existing", "Selected text");
         var ownerPage = ownerNote.CreatePage("Original", "Owner text");
         var workspace = CreateWorkspace(selectedNotebook, selectedNotebook, ownerNote);
@@ -107,10 +107,10 @@ public sealed class WorkspaceOwnershipTests
     [Test]
     public async Task DeleteText_WithCollidingRowIds_DeletesOnlyTheOwnerPage()
     {
-        using var selectedDatabase = new TemporaryNoteDatabase();
-        using var ownerDatabase = new TemporaryNoteDatabase();
-        var selectedNotebook = selectedDatabase.CreateNote("selected-note", "Selected Note");
-        var ownerNote = ownerDatabase.CreateNote("owner-note", "Owner Note");
+        using var selectedDatabase = new TemporaryNotebookDatabase();
+        using var ownerDatabase = new TemporaryNotebookDatabase();
+        var selectedNotebook = selectedDatabase.CreateNotebook("selected-note", "Selected Note");
+        var ownerNote = ownerDatabase.CreateNotebook("owner-note", "Owner Note");
         var selectedPage = selectedNotebook.CreatePage("Selected", "Selected text");
         var ownerPage = ownerNote.CreatePage("Owner", "Owner text");
         var workspace = CreateWorkspace(selectedNotebook, selectedNotebook, ownerNote);
@@ -134,20 +134,20 @@ public sealed class WorkspaceOwnershipTests
     [Test]
     public async Task ManageText_UsesTheOwnersReadOnlySetting()
     {
-        using var selectedDatabase = new TemporaryNoteDatabase();
-        using var ownerDatabase = new TemporaryNoteDatabase();
-        var selectedNotebook = selectedDatabase.CreateNote("selected-note", "Selected Note");
-        var ownerNote = ownerDatabase.CreateNote("owner-note", "Owner Note");
+        using var selectedDatabase = new TemporaryNotebookDatabase();
+        using var ownerDatabase = new TemporaryNotebookDatabase();
+        var selectedNotebook = selectedDatabase.CreateNotebook("selected-note", "Selected Note");
+        var ownerNote = ownerDatabase.CreateNotebook("owner-note", "Owner Note");
         selectedNotebook.CreatePage("Selected", "Selected text");
         var ownerPage = ownerNote.CreatePage("Owner", "Owner text");
         var workspace = CreateWorkspace(selectedNotebook, selectedNotebook, ownerNote);
         var ownerResult = await FindResultAsync(workspace, ownerNote, ownerPage.Guid);
 
-        selectedNotebook.UpdateMetadata(new NoteMetadataUpdate().SetReadOnly(true));
+        selectedNotebook.UpdateMetadata(new NotebookMetadataPatch().SetReadOnly(true));
         var allowedResult = workspace.EditText(ownerResult, "Allowed owner edit");
 
-        selectedNotebook.UpdateMetadata(new NoteMetadataUpdate().SetReadOnly(false));
-        ownerNote.UpdateMetadata(new NoteMetadataUpdate().SetReadOnly(true));
+        selectedNotebook.UpdateMetadata(new NotebookMetadataPatch().SetReadOnly(false));
+        ownerNote.UpdateMetadata(new NotebookMetadataPatch().SetReadOnly(true));
         var editResult = workspace.EditText(ownerResult, "Blocked edit");
         var renameResult = workspace.RenameText(ownerResult, "Blocked rename");
         var deleteResult = workspace.DeleteText(ownerResult);
@@ -169,8 +169,8 @@ public sealed class WorkspaceOwnershipTests
     [Test]
     public void ManageText_WithUnknownOwner_RejectsEveryMutation()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var page = note.CreatePage("Original", "Original text");
         var workspace = CreateWorkspace(note, note);
         var content = page.GetContent();
@@ -191,12 +191,12 @@ public sealed class WorkspaceOwnershipTests
         }
     }
 
-    private static Workspace CreateWorkspace(Note selectedNotebook, params Note[] notes)
+    private static Workspace CreateWorkspace(Notebook selectedNotebook, params Notebook[] notes)
     {
         return new Workspace(null, notes, selectedNotebook);
     }
 
-    private static async Task<Content> FindResultAsync(Workspace workspace, Note owner, Guid pageId)
+    private static async Task<Content> FindResultAsync(Workspace workspace, Notebook owner, Guid pageId)
     {
         var result = await workspace.SearchAsync(
             "*",
@@ -208,7 +208,7 @@ public sealed class WorkspaceOwnershipTests
         var content = result.Contents.Single(item => item.Guid == pageId);
         Assert.That(
             content.OwnerDataSource,
-            Is.EqualTo(Path.GetFullPath(owner.DataSource)));
+            Is.EqualTo(Path.GetFullPath(owner.DatabasePath)));
         return content;
     }
 }

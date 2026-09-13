@@ -38,7 +38,7 @@ public sealed class ApplicationStartupServiceTests
                 }));
             Assert.That(result.Workspace, Is.SameAs(workspace));
             Assert.That(result.ApplicationService, Is.Not.Null);
-            Assert.That(result.DefaultNoteCreated, Is.True);
+            Assert.That(result.DefaultNotebookCreated, Is.True);
         }
     }
 
@@ -66,7 +66,7 @@ public sealed class ApplicationStartupServiceTests
                 "migrate:default.db",
                 "load"
             }));
-        Assert.That(result.DefaultNoteCreated, Is.False);
+        Assert.That(result.DefaultNotebookCreated, Is.False);
     }
 
     /// <summary>
@@ -130,7 +130,7 @@ public sealed class ApplicationStartupServiceTests
             dataSources);
     }
 
-    sealed class RecordingProbe : INoteDataSourceProbe
+    sealed class RecordingProbe : INotebookDatabaseProbe
     {
         readonly List<string> _events;
         readonly bool _exists;
@@ -166,7 +166,7 @@ public sealed class ApplicationStartupServiceTests
         }
     }
 
-    sealed class RecordingMigrator : INoteMigrator
+    sealed class RecordingMigrator : INotebookMigrator
     {
         readonly List<string> _events;
 
@@ -179,7 +179,7 @@ public sealed class ApplicationStartupServiceTests
 
         internal Action<CancellationToken>? BeforeMigrate { get; init; }
 
-        public Task<Note> CreateAsync(
+        public Task<Notebook> CreateAsync(
             string name,
             string title,
             string dataSource,
@@ -187,7 +187,7 @@ public sealed class ApplicationStartupServiceTests
         {
             token.ThrowIfCancellationRequested();
             _events.Add($"create:{dataSource}");
-            return Task.FromResult(new Note());
+            return Task.FromResult(new Notebook());
         }
 
         public Task MigrateAsync(string dataSource, CancellationToken token)

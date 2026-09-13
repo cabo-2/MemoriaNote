@@ -20,7 +20,7 @@ namespace MemoriaNote
                 CreateTime = summary.CreateTime,
                 UpdateTime = summary.UpdateTime,
                 IsErased = summary.IsErased,
-                OwnerDataSource = summary.NoteId.Locator
+                OwnerDataSource = summary.NotebookId.Locator
             };
         }
     }

@@ -63,7 +63,7 @@ namespace MemoriaNote
 
         /// <summary>
         /// Gets or sets the one-based display number that distinguishes dictionary senses
-        /// with the same name using exact matching. The value is managed by Note page operations.
+        /// with the same name using exact matching. The value is managed by Notebook page operations.
         /// </summary>
         public int Index { get; set; }
 

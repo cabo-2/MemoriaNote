@@ -17,19 +17,19 @@ public sealed class MetadataCharacteristicsTests
     [Test]
     public void CreateNote_PersistsInitialMetadataAsSnapshot()
     {
-        using var database = new TemporaryNoteDatabase();
+        using var database = new TemporaryNotebookDatabase();
 
-        database.CreateNote("test-note", "Test Note");
-        var reopened = new Note(database.DatabasePath);
+        database.CreateNotebook("test-note", "Test Note");
+        var reopened = new Notebook(database.DatabasePath);
 
-        using var context = new NoteDbContext(database.DatabasePath);
+        using var context = new NotebookDbContext(database.DatabasePath);
         var storedMetadata = context.Metadata.ToDictionary(entry => entry.Key, entry => entry.Value);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(reopened.Metadata.Name, Is.EqualTo("test-note"));
             Assert.That(reopened.Metadata.Title, Is.EqualTo("Test Note"));
-            Assert.That(reopened.Metadata.Version, Is.EqualTo(NoteDbContext.CurrentVersion));
+            Assert.That(reopened.Metadata.Version, Is.EqualTo(NotebookDbContext.CurrentVersion));
             Assert.That(reopened.Metadata.Description, Is.Null);
             Assert.That(reopened.Metadata.Author, Is.Null);
             Assert.That(reopened.Metadata.ReadOnly, Is.False);
@@ -42,7 +42,7 @@ public sealed class MetadataCharacteristicsTests
                 {
                     [NoteKeyValue.Name] = "test-note",
                     [NoteKeyValue.Title] = "Test Note",
-                    [NoteKeyValue.Version] = NoteDbContext.CurrentVersion
+                    [NoteKeyValue.Version] = NotebookDbContext.CurrentVersion
                 }));
         }
 
@@ -54,11 +54,11 @@ public sealed class MetadataCharacteristicsTests
     [Test]
     public void UpdateMetadata_PersistsValuesAsOneSnapshot()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var createTime = new DateTime(2026, 1, 2, 9, 10, 11);
 
-        note.UpdateMetadata(new NoteMetadataUpdate()
+        note.UpdateMetadata(new NotebookMetadataPatch()
             .SetName("renamed-note")
             .SetTitle("Renamed Note")
             .SetVersion("characterized-version")
@@ -68,9 +68,9 @@ public sealed class MetadataCharacteristicsTests
             .SetTag("baseline")
             .SetCreateTime(createTime));
 
-        var reopened = new Note(database.DatabasePath);
+        var reopened = new Notebook(database.DatabasePath);
 
-        using var context = new NoteDbContext(database.DatabasePath);
+        using var context = new NotebookDbContext(database.DatabasePath);
         var storedCreateTime = context.Metadata.Find(NoteKeyValue.CreateTime)?.Value;
 
         using (Assert.EnterMultipleScope())
@@ -93,9 +93,9 @@ public sealed class MetadataCharacteristicsTests
     [Test]
     public void LoadedSnapshot_AfterDatabaseDeletion_RemainsUsable()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("offline-note", "Offline Note");
-        note.UpdateMetadata(new NoteMetadataUpdate()
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("offline-note", "Offline Note");
+        note.UpdateMetadata(new NotebookMetadataPatch()
             .SetTag("offline")
             .SetCreateTime(new DateTime(2026, 2, 3, 4, 5, 6)));
         var snapshot = note.Metadata;

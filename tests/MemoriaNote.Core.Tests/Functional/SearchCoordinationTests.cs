@@ -49,7 +49,7 @@ public sealed class SearchCoordinationTests
             Assert.That(invocations, Has.Count.EqualTo(2));
             Assert.That(invocations[0].SearchEntry, Is.EqualTo("first"));
             Assert.That(invocations[0].SearchMethod, Is.EqualTo(SearchMethodType.Heading));
-            Assert.That(invocations[0].SearchRange, Is.EqualTo(SearchRangeType.Note));
+            Assert.That(invocations[0].SearchRange, Is.EqualTo(SearchRangeType.Notebook));
             Assert.That(invocations[0].SkipCount, Is.Zero);
             Assert.That(invocations[0].TakeCount, Is.EqualTo(25));
             Assert.That(invocations[0].Token.IsCancellationRequested, Is.True);

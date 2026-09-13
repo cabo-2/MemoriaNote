@@ -8,123 +8,123 @@ using Microsoft.EntityFrameworkCore;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Persists page use cases in SQLite note databases.
+    /// Persists page use cases in SQLite notebook databases.
     /// </summary>
-    public sealed class SqliteNoteRepository : INoteRepository
+    public sealed class SqlitePageRepository : IPageRepository
     {
-        readonly INoteDatabaseFactory _databaseFactory;
+        readonly INotebookDbContextFactory _databaseFactory;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="SqliteNoteRepository"/> class.
+        /// Initializes a new instance of the <see cref="SqlitePageRepository"/> class.
         /// </summary>
         /// <param name="databaseFactory">The factory used to create database contexts.</param>
-        public SqliteNoteRepository(INoteDatabaseFactory databaseFactory)
+        public SqlitePageRepository(INotebookDbContextFactory databaseFactory)
         {
             _databaseFactory = databaseFactory ??
                 throw new ArgumentNullException(nameof(databaseFactory));
         }
 
         /// <inheritdoc/>
-        public Task<Page> ReadPageAsync(
-            string dataSource,
+        public Task<Page> FindPageAsync(
+            string databasePath,
             Guid pageId,
             CancellationToken token)
         {
-            return ReadPageByUuidAsync(dataSource, pageId.ToUuid(), token);
+            return ReadPageByUuidAsync(databasePath, pageId.ToUuid(), token);
         }
 
         /// <inheritdoc/>
-        public Task<Page> ReadPageAsync(
-            string dataSource,
+        public Task<Page> FindPageAsync(
+            string databasePath,
             PageId pageId,
             CancellationToken token)
         {
             if (pageId == null)
                 throw new ArgumentNullException(nameof(pageId));
 
-            return ReadPageByUuidAsync(dataSource, pageId.ToUuid(), token);
+            return ReadPageByUuidAsync(databasePath, pageId.ToUuid(), token);
         }
 
         async Task<Page> ReadPageByUuidAsync(
-            string dataSource,
+            string databasePath,
             string uuid,
             CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            using var context = _databaseFactory.Create(dataSource);
+            using var context = _databaseFactory.CreateDbContext(databasePath);
             var page = await context.Pages
                 .AsNoTracking()
                 .SingleOrDefaultAsync(candidate => candidate.Uuid == uuid, token)
                 .ConfigureAwait(false);
-            return SetOwner(page, context.DataSource);
+            return SetOwner(page, context.DatabasePath);
         }
 
         /// <inheritdoc/>
-        public async Task<Page> ReadPageAsync(
-            string dataSource,
-            string name,
-            int index,
+        public async Task<Page> FindPageAsync(
+            string databasePath,
+            string heading,
+            int ordinal,
             CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            using var context = _databaseFactory.Create(dataSource);
+            using var context = _databaseFactory.CreateDbContext(databasePath);
             var page = await context.Pages
                 .AsNoTracking()
                 .FirstOrDefaultAsync(
-                    candidate => candidate.Name == name && candidate.Index == index,
+                    candidate => candidate.Name == heading && candidate.Index == ordinal,
                     token)
                 .ConfigureAwait(false);
-            return SetOwner(page, context.DataSource);
+            return SetOwner(page, context.DatabasePath);
         }
 
         /// <inheritdoc/>
-        public async Task<IReadOnlyList<Page>> ReadPagesAsync(
-            string dataSource,
-            string name,
+        public async Task<IReadOnlyList<Page>> ListPagesByHeadingAsync(
+            string databasePath,
+            string heading,
             CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            using var context = _databaseFactory.Create(dataSource);
+            using var context = _databaseFactory.CreateDbContext(databasePath);
             var pages = await context.Pages
                 .AsNoTracking()
-                .Where(page => page.Name == name)
+                .Where(page => page.Name == heading)
                 .OrderBy(page => page.Index)
                 .ThenBy(page => page.Rowid)
                 .ToListAsync(token)
                 .ConfigureAwait(false);
-            pages.ForEach(page => SetOwner(page, context.DataSource));
+            pages.ForEach(page => SetOwner(page, context.DatabasePath));
             return pages;
         }
 
         /// <inheritdoc/>
         public async Task<Page> CreatePageAsync(
-            string dataSource,
-            string name,
-            string text,
+            string databasePath,
+            string heading,
+            string body,
             string directory,
             CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            using var context = _databaseFactory.Create(dataSource);
+            using var context = _databaseFactory.CreateDbContext(databasePath);
             await using var transaction = await context.Database
                 .BeginTransactionAsync(token)
                 .ConfigureAwait(false);
-            var pages = await ReadTrackedNameGroupAsync(context, name, token)
+            var pages = await ReadTrackedHeadingGroupAsync(context, heading, token)
                 .ConfigureAwait(false);
-            var page = Page.Create(name, text, directory);
+            var page = Page.Create(heading, body, directory);
             page.Index = pages.Select(candidate => candidate.Index).DefaultIfEmpty().Max() + 1;
             context.Pages.Add(page);
             pages.Add(page);
-            NormalizePageIndexes(pages);
+            NormalizeHeadingOrdinals(pages);
 
             await context.SaveChangesAsync(token).ConfigureAwait(false);
             await transaction.CommitAsync(token).ConfigureAwait(false);
-            return SetOwner(page, context.DataSource);
+            return SetOwner(page, context.DatabasePath);
         }
 
         /// <inheritdoc/>
         public async Task<Page> UpdatePageAsync(
-            string dataSource,
+            string databasePath,
             Page page,
             CancellationToken token)
         {
@@ -132,7 +132,7 @@ namespace MemoriaNote
                 throw new ArgumentNullException(nameof(page));
 
             token.ThrowIfCancellationRequested();
-            using var context = _databaseFactory.Create(dataSource);
+            using var context = _databaseFactory.CreateDbContext(databasePath);
             await using var transaction = await context.Database
                 .BeginTransactionAsync(token)
                 .ConfigureAwait(false);
@@ -143,87 +143,87 @@ namespace MemoriaNote
             if (persistedPage == null)
                 throw new KeyNotFoundException($"Page '{page.Guid:D}' was not found.");
 
-            var beforeName = persistedPage.Name;
-            var beforeIndex = persistedPage.Index;
-            var sourcePages = await ReadTrackedNameGroupAsync(context, beforeName, token)
+            var beforeHeading = persistedPage.Name;
+            var beforeOrdinal = persistedPage.Index;
+            var sourceHeadingPages = await ReadTrackedHeadingGroupAsync(context, beforeHeading, token)
                 .ConfigureAwait(false);
-            var nameChanged = !string.Equals(page.Name, beforeName, StringComparison.Ordinal);
-            var destinationPages = nameChanged
-                ? await ReadTrackedNameGroupAsync(context, page.Name, token)
+            var headingChanged = !string.Equals(page.Name, beforeHeading, StringComparison.Ordinal);
+            var destinationHeadingPages = headingChanged
+                ? await ReadTrackedHeadingGroupAsync(context, page.Name, token)
                     .ConfigureAwait(false)
-                : sourcePages;
+                : sourceHeadingPages;
 
             CopyMutableValues(page, persistedPage);
             persistedPage.UpdateLastModified();
 
-            if (nameChanged)
+            if (headingChanged)
             {
-                NormalizePageIndexes(
-                    sourcePages.Where(candidate => candidate.Guid != persistedPage.Guid));
-                NormalizePageIndexes(destinationPages);
-                persistedPage.Index = destinationPages.Count + 1;
+                NormalizeHeadingOrdinals(
+                    sourceHeadingPages.Where(candidate => candidate.Guid != persistedPage.Guid));
+                NormalizeHeadingOrdinals(destinationHeadingPages);
+                persistedPage.Index = destinationHeadingPages.Count + 1;
             }
             else
             {
-                persistedPage.Index = beforeIndex;
-                NormalizePageIndexes(sourcePages);
+                persistedPage.Index = beforeOrdinal;
+                NormalizeHeadingOrdinals(sourceHeadingPages);
             }
 
             await context.SaveChangesAsync(token).ConfigureAwait(false);
             await transaction.CommitAsync(token).ConfigureAwait(false);
-            return SetOwner(persistedPage, context.DataSource);
+            return SetOwner(persistedPage, context.DatabasePath);
         }
 
         /// <inheritdoc/>
         public Task DeletePageAsync(
-            string dataSource,
+            string databasePath,
             Guid pageId,
             CancellationToken token)
         {
-            return DeletePageIgnoringAbsenceAsync(dataSource, pageId.ToUuid(), token);
+            return DeletePageIgnoringAbsenceAsync(databasePath, pageId.ToUuid(), token);
         }
 
         /// <inheritdoc/>
         public Task DeletePageAsync(
-            string dataSource,
+            string databasePath,
             PageId pageId,
             CancellationToken token)
         {
             if (pageId == null)
                 throw new ArgumentNullException(nameof(pageId));
 
-            return DeletePageIgnoringAbsenceAsync(dataSource, pageId.ToUuid(), token);
+            return DeletePageIgnoringAbsenceAsync(databasePath, pageId.ToUuid(), token);
         }
 
         /// <inheritdoc/>
         public Task<bool> TryDeletePageAsync(
-            NoteId noteId,
+            NotebookId notebookId,
             PageId pageId,
             CancellationToken token)
         {
-            if (noteId == null)
-                throw new ArgumentNullException(nameof(noteId));
+            if (notebookId == null)
+                throw new ArgumentNullException(nameof(notebookId));
             if (pageId == null)
                 throw new ArgumentNullException(nameof(pageId));
 
-            return TryDeletePageByUuidAsync(noteId.Locator, pageId.ToUuid(), token);
+            return TryDeletePageByUuidAsync(notebookId.Locator, pageId.ToUuid(), token);
         }
 
         async Task DeletePageIgnoringAbsenceAsync(
-            string dataSource,
+            string databasePath,
             string uuid,
             CancellationToken token)
         {
-            await TryDeletePageByUuidAsync(dataSource, uuid, token).ConfigureAwait(false);
+            await TryDeletePageByUuidAsync(databasePath, uuid, token).ConfigureAwait(false);
         }
 
         async Task<bool> TryDeletePageByUuidAsync(
-            string dataSource,
+            string databasePath,
             string uuid,
             CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            using var context = _databaseFactory.Create(dataSource);
+            using var context = _databaseFactory.CreateDbContext(databasePath);
             await using var transaction = await context.Database
                 .BeginTransactionAsync(token)
                 .ConfigureAwait(false);
@@ -236,10 +236,10 @@ namespace MemoriaNote
                 return false;
             }
 
-            var pages = await ReadTrackedNameGroupAsync(context, page.Name, token)
+            var pages = await ReadTrackedHeadingGroupAsync(context, page.Name, token)
                 .ConfigureAwait(false);
             context.Pages.Remove(page);
-            NormalizePageIndexes(
+            NormalizeHeadingOrdinals(
                 pages.Where(candidate => candidate.Guid != page.Guid));
 
             await context.SaveChangesAsync(token).ConfigureAwait(false);
@@ -248,22 +248,22 @@ namespace MemoriaNote
         }
 
         /// <inheritdoc/>
-        public async Task<int> CountAsync(string dataSource, CancellationToken token)
+        public async Task<int> CountPagesAsync(string databasePath, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            using var context = _databaseFactory.Create(dataSource);
+            using var context = _databaseFactory.CreateDbContext(databasePath);
             return await context.Contents.CountAsync(token).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>
         public async Task<IReadOnlyList<Content>> ReadContentsAsync(
-            string dataSource,
+            string databasePath,
             int skipCount,
             int takeCount,
             CancellationToken token)
         {
-            var summaries = await ReadPageSummariesAsync(
-                    dataSource,
+            var summaries = await ListPageSummariesAsync(
+                    databasePath,
                     skipCount,
                     takeCount,
                     token)
@@ -274,14 +274,14 @@ namespace MemoriaNote
         }
 
         /// <inheritdoc/>
-        public async Task<IReadOnlyList<PageSummary>> ReadPageSummariesAsync(
-            string dataSource,
+        public async Task<IReadOnlyList<PageSummary>> ListPageSummariesAsync(
+            string databasePath,
             int skipCount,
             int takeCount,
             CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            using var context = _databaseFactory.Create(dataSource);
+            using var context = _databaseFactory.CreateDbContext(databasePath);
             var contents = await context.Contents
                 .AsNoTracking()
                 .OrderBy(content => content.Rowid)
@@ -289,20 +289,20 @@ namespace MemoriaNote
                 .Take(takeCount)
                 .ToListAsync(token)
                 .ConfigureAwait(false);
-            var noteId = NoteId.FromDataSource(context.DataSource);
+            var notebookId = NotebookId.FromDatabasePath(context.DatabasePath);
             return contents
-                .Select(content => PageSummaryMapper.FromContent(noteId, content))
+                .Select(content => PageSummaryMapper.FromContent(notebookId, content))
                 .ToList()
                 .AsReadOnly();
         }
 
-        static Task<List<Page>> ReadTrackedNameGroupAsync(
-            NoteDbContext context,
-            string name,
+        static Task<List<Page>> ReadTrackedHeadingGroupAsync(
+            NotebookDbContext context,
+            string heading,
             CancellationToken token)
         {
             return context.Pages
-                .Where(page => page.Name == name)
+                .Where(page => page.Name == heading)
                 .OrderBy(page => page.Index)
                 .ThenBy(page => page.Rowid)
                 .ToListAsync(token);
@@ -318,22 +318,22 @@ namespace MemoriaNote
             destination.Text = source.Text;
         }
 
-        static void NormalizePageIndexes(IEnumerable<Page> pages)
+        static void NormalizeHeadingOrdinals(IEnumerable<Page> pages)
         {
-            int index = 1;
+            int ordinal = 1;
             foreach (var page in pages
                 .OrderBy(page => page.Index)
                 .ThenBy(page => page.Rowid))
             {
-                page.Index = index;
-                index++;
+                page.Index = ordinal;
+                ordinal++;
             }
         }
 
-        static T SetOwner<T>(T content, string dataSource) where T : class, IContent
+        static T SetOwner<T>(T content, string databasePath) where T : class, IContent
         {
             if (content != null)
-                content.OwnerDataSource = dataSource;
+                content.OwnerDataSource = databasePath;
 
             return content;
         }

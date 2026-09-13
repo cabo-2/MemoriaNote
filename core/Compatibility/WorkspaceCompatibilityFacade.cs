@@ -11,19 +11,19 @@ namespace MemoriaNote
     /// </summary>
     internal sealed class WorkspaceCompatibilityFacade
     {
-        readonly Func<IEnumerable<Note>> _notebooks;
-        readonly Func<Note> _selectedNotebook;
-        readonly WorkspaceNoteContextResolver _contextResolver;
+        readonly Func<IEnumerable<Notebook>> _notebooks;
+        readonly Func<Notebook> _selectedNotebook;
+        readonly WorkspaceNotebookContextResolver _contextResolver;
         readonly IPageUseCase _pageUseCase;
         readonly ISearchUseCase _searchUseCase;
 
         internal WorkspaceCompatibilityFacade(
-            Func<IEnumerable<Note>> notebooks,
-            Func<Note> selectedNotebook)
+            Func<IEnumerable<Notebook>> notebooks,
+            Func<Notebook> selectedNotebook)
         {
             _notebooks = notebooks ?? throw new ArgumentNullException(nameof(notebooks));
             _selectedNotebook = selectedNotebook ?? throw new ArgumentNullException(nameof(selectedNotebook));
-            _contextResolver = new WorkspaceNoteContextResolver(notebooks);
+            _contextResolver = new WorkspaceNotebookContextResolver(notebooks);
             _pageUseCase = new PageUseCase(_contextResolver, new PageValidationPolicy());
             _searchUseCase = new SearchUseCase(ResolveSearchRepository);
         }
@@ -41,19 +41,19 @@ namespace MemoriaNote
 
             var startTime = DateTime.UtcNow;
             var selectedNotebook = _selectedNotebook();
-            var request = searchRange == SearchRangeType.Note
-                ? SearchRequest.ForNote(
+            var request = searchRange == SearchRangeType.Notebook
+                ? SearchRequest.ForNotebook(
                     searchEntry,
                     searchMethod,
                     selectedNotebook == null
                         ? null
-                        : NoteId.FromDataSource(selectedNotebook.DataSource),
+                        : NotebookId.FromDatabasePath(selectedNotebook.DatabasePath),
                     skipCount,
                     takeCount)
                 : SearchRequest.ForWorkspace(
                     searchEntry,
                     searchMethod,
-                    _notebooks().Select(note => NoteId.FromDataSource(note.DataSource)),
+                    _notebooks().Select(notebook => NotebookId.FromDatabasePath(notebook.DatabasePath)),
                     skipCount,
                     takeCount);
             var result = await _searchUseCase.SearchAsync(request, token).ConfigureAwait(false);
@@ -74,7 +74,7 @@ namespace MemoriaNote
             var result = _pageUseCase.ReadAsync(target, CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
-            return result.IsSuccess ? SetParent(result.Page, target.NoteId) : null;
+            return result.IsSuccess ? SetParent(result.Page, target.NotebookId) : null;
         }
 
         internal PageOperationResult ValidateCreate(CreatePageCommand command)
@@ -120,7 +120,7 @@ namespace MemoriaNote
                 : _pageUseCase.CreateAsync(command, CancellationToken.None)
                     .GetAwaiter()
                     .GetResult();
-            return ToTextManageResult(TextManageType.Create, result, command?.NoteId);
+            return ToTextManageResult(TextManageType.Create, result, command?.NotebookId);
         }
 
         internal TextManageResult Edit(EditPageCommand command)
@@ -130,7 +130,7 @@ namespace MemoriaNote
                 : _pageUseCase.EditAsync(command, CancellationToken.None)
                     .GetAwaiter()
                     .GetResult();
-            return ToTextManageResult(TextManageType.Edit, result, command?.NoteId);
+            return ToTextManageResult(TextManageType.Edit, result, command?.NotebookId);
         }
 
         internal TextManageResult Rename(RenamePageCommand command)
@@ -140,7 +140,7 @@ namespace MemoriaNote
                 : _pageUseCase.RenameAsync(command, CancellationToken.None)
                     .GetAwaiter()
                     .GetResult();
-            return ToTextManageResult(TextManageType.Rename, result, command?.NoteId);
+            return ToTextManageResult(TextManageType.Rename, result, command?.NotebookId);
         }
 
         internal TextManageResult Delete(DeletePageCommand command, IContent originalContent)
@@ -153,7 +153,7 @@ namespace MemoriaNote
             var compatibilityResult = ToTextManageResult(
                 TextManageType.Delete,
                 result,
-                command?.NoteId);
+                command?.NotebookId);
             if (!compatibilityResult.Result)
                 compatibilityResult.Content = originalContent?.GetContent();
 
@@ -166,7 +166,7 @@ namespace MemoriaNote
             return selectedNotebook == null
                 ? null
                 : new CreatePageCommand(
-                    NoteId.FromDataSource(selectedNotebook.DataSource),
+                    NotebookId.FromDatabasePath(selectedNotebook.DatabasePath),
                     name,
                     text);
         }
@@ -181,7 +181,7 @@ namespace MemoriaNote
             }
 
             return new PageReference(
-                NoteId.FromDataSource(content.OwnerDataSource),
+                NotebookId.FromDatabasePath(content.OwnerDataSource),
                 PageId.FromGuid(content.Guid));
         }
 
@@ -194,35 +194,35 @@ namespace MemoriaNote
                 .ToList();
         }
 
-        INoteSearchRepository ResolveSearchRepository(NoteId noteId)
+        IPageSearchRepository ResolveSearchRepository(NotebookId notebookId)
         {
-            return ResolveSearchNote(noteId)?.SearchRepository;
+            return ResolveSearchNote(notebookId)?.SearchRepository;
         }
 
         Content ToCompatibilityContent(PageSummary summary)
         {
             var content = PageSummaryContentAdapter.ToContent(summary);
-            content.Parent = ResolveSearchNote(summary.NoteId);
+            content.Parent = ResolveSearchNote(summary.NotebookId);
             return content;
         }
 
-        Note ResolveSearchNote(NoteId noteId)
+        Notebook ResolveSearchNote(NotebookId notebookId)
         {
-            var note = _contextResolver.ResolveNote(noteId);
-            if (note != null)
-                return note;
+            var notebook = _contextResolver.ResolveNotebook(notebookId);
+            if (notebook != null)
+                return notebook;
 
             var selectedNotebook = _selectedNotebook();
             return selectedNotebook != null &&
-                NoteId.FromDataSource(selectedNotebook.DataSource) == noteId
+                NotebookId.FromDatabasePath(selectedNotebook.DatabasePath) == notebookId
                     ? selectedNotebook
                     : null;
         }
 
-        T SetParent<T>(T content, NoteId noteId) where T : class, IContent
+        T SetParent<T>(T content, NotebookId notebookId) where T : class, IContent
         {
             if (content != null)
-                content.Parent = _contextResolver.ResolveNote(noteId);
+                content.Parent = _contextResolver.ResolveNotebook(notebookId);
 
             return content;
         }
@@ -230,9 +230,9 @@ namespace MemoriaNote
         TextManageResult ToTextManageResult(
             TextManageType operation,
             PageOperationResult result,
-            NoteId noteId)
+            NotebookId notebookId)
         {
-            var page = result.IsSuccess ? SetParent(result.Page, noteId) : null;
+            var page = result.IsSuccess ? SetParent(result.Page, notebookId) : null;
             return new TextManageResult
             {
                 Operation = operation,

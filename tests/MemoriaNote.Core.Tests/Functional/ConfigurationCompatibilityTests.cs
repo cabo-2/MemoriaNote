@@ -26,7 +26,9 @@ public sealed class ConfigurationCompatibilityTests
             "\"SelectedNoteName\":\"primary\"," +
             "\"UseDataSources\":[\"primary.db\",\"archive.db\"]" +
             "}," +
-            "\"DefaultWorkgroupName\":\"My Legacy Notes\"" +
+            "\"DefaultWorkgroupName\":\"My Legacy Notes\"," +
+            "\"DefaultNoteName\":\"legacy-note\"," +
+            "\"DefaultNoteTitle\":\"Legacy Note\"" +
             "}";
 
         var configuration = JsonConvert.DeserializeObject<Configuration>(legacyJson);
@@ -44,6 +46,8 @@ public sealed class ConfigurationCompatibilityTests
             Assert.That(
                 configuration.DefaultWorkspaceName,
                 Is.EqualTo("My Legacy Notes"));
+            Assert.That(configuration.DefaultNotebookName, Is.EqualTo("legacy-note"));
+            Assert.That(configuration.DefaultNotebookTitle, Is.EqualTo("Legacy Note"));
         }
 
         using var document = JsonDocument.Parse(
@@ -58,6 +62,18 @@ public sealed class ConfigurationCompatibilityTests
                 Is.EqualTo("My Legacy Notes"));
             Assert.That(
                 root.TryGetProperty("DefaultWorkspaceName", out _),
+                Is.False);
+            Assert.That(
+                root.GetProperty("DefaultNoteName").GetString(),
+                Is.EqualTo("legacy-note"));
+            Assert.That(
+                root.TryGetProperty("DefaultNotebookName", out _),
+                Is.False);
+            Assert.That(
+                root.GetProperty("DefaultNoteTitle").GetString(),
+                Is.EqualTo("Legacy Note"));
+            Assert.That(
+                root.TryGetProperty("DefaultNotebookTitle", out _),
                 Is.False);
             Assert.That(
                 workspace.GetProperty("SelectedNoteName").GetString(),

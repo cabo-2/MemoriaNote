@@ -5,7 +5,7 @@ using System.Collections.ObjectModel;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Represents an immutable, body-free page summary with an explicit owning note.
+    /// Represents an immutable, body-free page summary with an explicit owning notebook.
     /// </summary>
     public sealed class PageSummary : IEquatable<PageSummary>
     {
@@ -14,7 +14,7 @@ namespace MemoriaNote
         /// <summary>
         /// Initializes an immutable page summary.
         /// </summary>
-        /// <param name="noteId">The identifier of the note that owns the page.</param>
+        /// <param name="notebookId">The identifier of the notebook that owns the page.</param>
         /// <param name="pageId">The stable page identifier.</param>
         /// <param name="name">The page name.</param>
         /// <param name="index">The one-based display index within an exact-name group.</param>
@@ -24,7 +24,7 @@ namespace MemoriaNote
         /// <param name="updateTime">The persisted last-update time.</param>
         /// <param name="isErased">Whether the page is marked as erased.</param>
         public PageSummary(
-            NoteId noteId,
+            NotebookId notebookId,
             PageId pageId,
             string name,
             int index,
@@ -34,7 +34,7 @@ namespace MemoriaNote
             DateTime updateTime,
             bool isErased)
         {
-            NoteId = noteId ?? throw new ArgumentNullException(nameof(noteId));
+            NotebookId = notebookId ?? throw new ArgumentNullException(nameof(notebookId));
             PageId = pageId ?? throw new ArgumentNullException(nameof(pageId));
             Name = name;
             Index = index;
@@ -50,9 +50,9 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Gets the identifier of the owning note.
+        /// Gets the identifier of the owning notebook.
         /// </summary>
-        public NoteId NoteId { get; }
+        public NotebookId NotebookId { get; }
 
         /// <summary>
         /// Gets the stable page identifier.
@@ -96,13 +96,13 @@ namespace MemoriaNote
 
         /// <summary>
         /// Determines whether this summary and another summary identify the same page in the
-        /// same owning note.
+        /// same owning notebook.
         /// </summary>
         /// <param name="other">The summary to compare.</param>
-        /// <returns>True when both the note and page identifiers are equal; otherwise, false.</returns>
+        /// <returns>True when both the notebook and page identifiers are equal; otherwise, false.</returns>
         public bool Equals(PageSummary other)
         {
-            return other != null && NoteId == other.NoteId && PageId == other.PageId;
+            return other != null && NotebookId == other.NotebookId && PageId == other.PageId;
         }
 
         /// <inheritdoc/>
@@ -114,11 +114,11 @@ namespace MemoriaNote
         /// <inheritdoc/>
         public override int GetHashCode()
         {
-            return HashCode.Combine(NoteId, PageId);
+            return HashCode.Combine(NotebookId, PageId);
         }
 
         /// <summary>
-        /// Determines whether two summaries identify the same page in the same owning note.
+        /// Determines whether two summaries identify the same page in the same owning notebook.
         /// </summary>
         /// <param name="left">The first summary.</param>
         /// <param name="right">The second summary.</param>

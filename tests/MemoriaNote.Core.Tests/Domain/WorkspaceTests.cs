@@ -15,9 +15,9 @@ public sealed class WorkspaceTests
     [Test]
     public void Constructor_CopiesNotesAndExposesReadOnlyList()
     {
-        var first = CreateNote("first");
-        var second = CreateNote("second");
-        var source = new List<Note> { first };
+        var first = CreateNotebook("first");
+        var second = CreateNotebook("second");
+        var source = new List<Notebook> { first };
         var workspace = new Workspace("Test", source, first);
 
         source.Add(second);
@@ -37,8 +37,8 @@ public sealed class WorkspaceTests
     [Test]
     public void SelectNotebook_SameIdObject_SelectsOwnedNote()
     {
-        var owned = CreateNote("owned");
-        var equivalent = new Note(owned.DataSource);
+        var owned = CreateNotebook("owned");
+        var equivalent = new Notebook(owned.DatabasePath);
         var workspace = new Workspace(null, new[] { owned });
 
         workspace.SelectNotebook(equivalent);
@@ -52,10 +52,10 @@ public sealed class WorkspaceTests
     [Test]
     public void SelectNotebook_UnknownNote_IsRejectedWithoutChangingSelection()
     {
-        var selected = CreateNote("selected");
+        var selected = CreateNotebook("selected");
         var workspace = new Workspace(null, new[] { selected }, selected);
 
-        Action select = () => workspace.SelectNotebook(CreateNote("unknown"));
+        Action select = () => workspace.SelectNotebook(CreateNotebook("unknown"));
 
         using (Assert.EnterMultipleScope())
         {
@@ -79,9 +79,9 @@ public sealed class WorkspaceTests
         }
     }
 
-    static Note CreateNote(string name)
+    static Notebook CreateNotebook(string name)
     {
-        return new Note(Path.Combine(
+        return new Notebook(Path.Combine(
             Path.GetTempPath(),
             $"workspace-{name}-{Guid.NewGuid():N}.db"));
     }

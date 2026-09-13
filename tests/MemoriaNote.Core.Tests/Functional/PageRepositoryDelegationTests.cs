@@ -3,10 +3,10 @@ using NUnit.Framework;
 namespace MemoriaNote.Core.Tests.Functional;
 
 /// <summary>
-/// Verifies that the legacy Note facade delegates page operations to its repository.
+/// Verifies that the legacy Notebook facade delegates page operations to its repository.
 /// </summary>
 [TestFixture]
-public sealed class NoteRepositoryDelegationTests
+public sealed class PageRepositoryDelegationTests
 {
     /// <summary>
     /// Verifies that deletion passes the page UUID and note locator to the repository.
@@ -16,7 +16,7 @@ public sealed class NoteRepositoryDelegationTests
     {
         var repository = new RecordingNoteRepository();
         var dataSource = Path.Combine(Path.GetTempPath(), "delegated-note.db");
-        var note = new Note(dataSource, repository);
+        var note = new Notebook(dataSource, repository);
         var content = Content.Create<Content>("Delegated");
         content.Rowid = 42;
 
@@ -29,13 +29,13 @@ public sealed class NoteRepositoryDelegationTests
         }
     }
 
-    sealed class RecordingNoteRepository : INoteRepository
+    sealed class RecordingNoteRepository : IPageRepository
     {
         internal string? DeleteDataSource { get; private set; }
 
         internal Guid? DeletedPageId { get; private set; }
 
-        public Task<Page> ReadPageAsync(
+        public Task<Page> FindPageAsync(
             string dataSource,
             Guid pageId,
             CancellationToken token)
@@ -43,7 +43,7 @@ public sealed class NoteRepositoryDelegationTests
             throw new NotSupportedException();
         }
 
-        public Task<Page> ReadPageAsync(
+        public Task<Page> FindPageAsync(
             string dataSource,
             string name,
             int index,
@@ -52,7 +52,7 @@ public sealed class NoteRepositoryDelegationTests
             throw new NotSupportedException();
         }
 
-        public Task<IReadOnlyList<Page>> ReadPagesAsync(
+        public Task<IReadOnlyList<Page>> ListPagesByHeadingAsync(
             string dataSource,
             string name,
             CancellationToken token)
@@ -88,7 +88,7 @@ public sealed class NoteRepositoryDelegationTests
             return Task.CompletedTask;
         }
 
-        public Task<int> CountAsync(string dataSource, CancellationToken token)
+        public Task<int> CountPagesAsync(string dataSource, CancellationToken token)
         {
             throw new NotSupportedException();
         }

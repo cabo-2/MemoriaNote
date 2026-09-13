@@ -17,8 +17,8 @@ public sealed class SearchContractTests
     [Test]
     public async Task HeadingSearch_ExactQuery_ReturnsOnlyTheCompleteHeading()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var firstExact = note.CreatePage("Alpha", "First exact heading");
         var secondExact = note.CreatePage("Alpha", "Second exact heading");
         note.CreatePage("Alphabet", "Longer heading");
@@ -40,8 +40,8 @@ public sealed class SearchContractTests
     [Test]
     public async Task HeadingSearch_WildcardQueries_MatchExpectedHeadings()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var alpha = note.CreatePage("Alpha", "First heading");
         var alphabet = note.CreatePage("Alphabet", "Longer heading");
         var alphas = note.CreatePage("Alphas", "Plural heading");
@@ -71,8 +71,8 @@ public sealed class SearchContractTests
     [Test]
     public async Task HeadingSearch_EmptyQuery_ReturnsEveryPageInDisplayOrder()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var beta = note.CreatePage("Beta", "Beta text");
         var firstAlpha = note.CreatePage("Alpha", "First alpha text");
         var secondAlpha = note.CreatePage("Alpha", "Second alpha text");
@@ -101,8 +101,8 @@ public sealed class SearchContractTests
     [Test]
     public async Task FullTextSearch_ExactQuery_MatchesBodyTokensOnly()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var alpha = note.CreatePage("Alpha", "An amber comet crosses the sky.");
         var beta = note.CreatePage("Beta", "A cobalt comet remains visible.");
         note.CreatePage("Comet", "This body mentions only a planet.");
@@ -123,8 +123,8 @@ public sealed class SearchContractTests
     [Test]
     public async Task FullTextSearch_WildcardQuery_CurrentlyDoesNotExpandTheFtsToken()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var exactToken = note.CreatePage("Exact", "The probe entered orbit safely.");
         note.CreatePage("Prefix", "The orbital station received the probe.");
 
@@ -144,8 +144,8 @@ public sealed class SearchContractTests
     [Test]
     public async Task FullTextSearch_EmptyQuery_ReturnsEveryPageInDisplayOrder()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var beta = note.CreatePage("Beta", "Beta text");
         var alpha = note.CreatePage("Alpha", "Alpha text");
         var gamma = note.CreatePage("Gamma", "Gamma text");
@@ -166,8 +166,8 @@ public sealed class SearchContractTests
     [Test]
     public async Task SearchMethods_PagingReturnsOrderedSliceAndUnpagedTotalCount()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         note.CreatePage("Delta", "Shared marker in delta.");
         note.CreatePage("Alpha", "Shared marker in alpha.");
         var charlie = note.CreatePage("Charlie", "Shared marker in charlie.");
@@ -196,8 +196,8 @@ public sealed class SearchContractTests
     [Test]
     public async Task SearchMethodsAsync_ReturnResultsWithTheirOwner()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var page = note.CreatePage("Async", "Asynchronous owner marker.");
 
         var headingResult = await note.SearchAsync(
@@ -225,8 +225,8 @@ public sealed class SearchContractTests
     [TestCase(SearchMethodType.FullText)]
     public async Task SearchAsync_CancelledTokenCancelsDatabaseQuery(SearchMethodType searchMethod)
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         note.CreatePage("Cancelled", "Cancellation marker.");
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
@@ -251,7 +251,7 @@ public sealed class SearchContractTests
 
     private static void AssertSearchResult(
         SearchResult result,
-        Note expectedParent,
+        Notebook expectedParent,
         int expectedTotalCount,
         params Guid[] expectedPageIds)
     {
@@ -266,7 +266,7 @@ public sealed class SearchContractTests
                 Is.All.SameAs(expectedParent));
             Assert.That(
                 result.Contents.Select(content => content.OwnerDataSource),
-                Is.All.EqualTo(Path.GetFullPath(expectedParent.DataSource)));
+                Is.All.EqualTo(Path.GetFullPath(expectedParent.DatabasePath)));
             Assert.That(result.StartTime, Is.LessThanOrEqualTo(result.EndTime));
         }
     }

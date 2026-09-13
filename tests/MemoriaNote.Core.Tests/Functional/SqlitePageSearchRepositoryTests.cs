@@ -11,11 +11,11 @@ namespace MemoriaNote.Core.Tests.Functional;
 [TestFixture]
 [Category("Functional")]
 [NonParallelizable]
-public sealed class SqliteNoteSearchRepositoryTests
+public sealed class SqlitePageSearchRepositoryTests
 {
-    readonly INoteSearchRepository _repository =
-        new SqliteNoteSearchRepository(
-            new SqliteNoteDatabaseFactory(NullLoggerFactory.Instance));
+    readonly IPageSearchRepository _repository =
+        new SqlitePageSearchRepository(
+            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
 
     /// <summary>
     /// Verifies that SQL-like text is treated as a search value rather than query structure.
@@ -23,8 +23,8 @@ public sealed class SqliteNoteSearchRepositoryTests
     [Test]
     public async Task SearchAsync_SqlLikeHeading_ReturnsOnlyTheLiteralMatch()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var searchEntry = "Alpha' OR 1 = 1 --";
         var expected = note.CreatePage(searchEntry, "Literal query text.");
         note.CreatePage("Unrelated", "Another page.");
@@ -63,8 +63,8 @@ public sealed class SqliteNoteSearchRepositoryTests
         string searchEntry,
         int expectedCount)
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var page = note.CreatePage(searchEntry, "Special heading body.");
 
         var result = await _repository.SearchAsync(
@@ -95,8 +95,8 @@ public sealed class SqliteNoteSearchRepositoryTests
         string searchEntry,
         string? expectedPageName)
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         note.CreatePage("Apostrophe", "O'Brien wrote this text.");
         note.CreatePage("Quotation", "A \"quoted\" word appears here.");
         note.CreatePage("Unicode", "日本語");
@@ -134,13 +134,13 @@ public sealed class SqliteNoteSearchRepositoryTests
         SearchMethodType searchMethod,
         string searchEntry)
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         note.CreatePage("%", "A marker appears here.");
         note.CreatePage("Alpha", "Another marker appears here.");
         note.CreatePage("Alphabet", "No matching body token.");
 
-        var count = await _repository.CountAsync(
+        var count = await _repository.CountMatchesAsync(
             database.DatabasePath,
             searchEntry,
             searchMethod,
@@ -162,8 +162,8 @@ public sealed class SqliteNoteSearchRepositoryTests
     [Test]
     public async Task Operations_PreCancelledToken_ThrowOperationCancelledException()
     {
-        using var database = new TemporaryNoteDatabase();
-        database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("test-note", "Test Note");
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         OperationCanceledException? searchException = null;
@@ -186,7 +186,7 @@ public sealed class SqliteNoteSearchRepositoryTests
 
         try
         {
-            await _repository.CountAsync(
+            await _repository.CountMatchesAsync(
                 database.DatabasePath,
                 "marker",
                 SearchMethodType.FullText,
@@ -210,8 +210,8 @@ public sealed class SqliteNoteSearchRepositoryTests
     [Test]
     public async Task SearchAsync_MissingDatabaseSchema_ThrowsSqliteException()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         note.CreatePage("Alpha", "Search marker.");
         SqliteConnection.ClearAllPools();
         File.Delete(database.DatabasePath);
@@ -241,8 +241,8 @@ public sealed class SqliteNoteSearchRepositoryTests
     [Test]
     public async Task WorkspaceSearch_SpecialHeading_KeepsCountAndContentsConsistent()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         note.CreatePage("%", "Special heading.");
         var workspace = new Workspace(null, new[] { note }, note);
 
@@ -262,15 +262,15 @@ public sealed class SqliteNoteSearchRepositoryTests
     }
 
     /// <summary>
-    /// Verifies that Note and Workspace delegate searches through an injected repository.
+    /// Verifies that Notebook and Workspace delegate searches through an injected repository.
     /// </summary>
     [Test]
     public async Task WorkspaceSearch_InjectedRepository_PreservesOwnerInformation()
     {
-        using var database = new TemporaryNoteDatabase();
+        using var database = new TemporaryNotebookDatabase();
         var content = Content.Create<Content>("Injected");
         var repository = new RecordingSearchRepository(content);
-        var note = new Note(database.DatabasePath, repository);
+        var note = new Notebook(database.DatabasePath, repository);
         var workspace = new Workspace(null, new[] { note }, note);
 
         var result = await workspace.SearchAsync(
@@ -295,7 +295,7 @@ public sealed class SqliteNoteSearchRepositoryTests
         }
     }
 
-    sealed class RecordingSearchRepository : INoteSearchRepository
+    sealed class RecordingSearchRepository : IPageSearchRepository
     {
         readonly Content _content;
 
@@ -326,7 +326,7 @@ public sealed class SqliteNoteSearchRepositoryTests
             });
         }
 
-        public Task<int> CountAsync(
+        public Task<int> CountMatchesAsync(
             string dataSource,
             string searchEntry,
             SearchMethodType searchMethod,

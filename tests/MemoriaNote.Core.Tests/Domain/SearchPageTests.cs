@@ -68,7 +68,7 @@ public sealed class SearchPageTests
     static PageSummary CreateSummary(string name)
     {
         return new PageSummary(
-            NoteId.FromDataSource(Path.Combine(Path.GetTempPath(), $"{name}.db")),
+            NotebookId.FromDatabasePath(Path.Combine(Path.GetTempPath(), $"{name}.db")),
             PageId.FromGuid(Guid.NewGuid()),
             name,
             1,
