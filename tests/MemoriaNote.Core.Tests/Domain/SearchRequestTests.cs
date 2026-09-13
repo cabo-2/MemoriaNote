@@ -9,6 +9,15 @@ namespace MemoriaNote.Core.Tests.Domain;
 public sealed class SearchRequestTests
 {
     /// <summary>
+    /// Verifies that the renamed workspace scope retains its serialized numeric value.
+    /// </summary>
+    [Test]
+    public void WorkspaceScope_RetainsLegacyNumericValue()
+    {
+        Assert.That((int)SearchRangeType.Workspace, Is.EqualTo(1));
+    }
+
+    /// <summary>
     /// Verifies that a note request can explicitly represent a missing selected note.
     /// </summary>
     [Test]
@@ -33,16 +42,16 @@ public sealed class SearchRequestTests
     }
 
     /// <summary>
-    /// Verifies that workgroup targets retain their order and cannot be changed by the caller.
+    /// Verifies that workspace targets retain their order and cannot be changed by the caller.
     /// </summary>
     [Test]
-    public void ForWorkgroup_CopiesOrderedTargets()
+    public void ForWorkspace_CopiesOrderedTargets()
     {
         var first = CreateNoteId("first");
         var second = CreateNoteId("second");
         var targets = new List<NoteId> { first, second };
 
-        var request = SearchRequest.ForWorkgroup(
+        var request = SearchRequest.ForWorkspace(
             "query",
             SearchMethodType.FullText,
             targets,
@@ -53,7 +62,7 @@ public sealed class SearchRequestTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(request.NoteIds, Is.EqualTo(new[] { first, second }));
-            Assert.That(request.Scope, Is.EqualTo(SearchRangeType.Workgroup));
+            Assert.That(request.Scope, Is.EqualTo(SearchRangeType.Workspace));
             Assert.That(request.Offset, Is.EqualTo(2));
             Assert.That(request.Limit, Is.EqualTo(3));
         }
@@ -68,7 +77,7 @@ public sealed class SearchRequestTests
     [TestCase(0, -1)]
     public void Factory_NegativePaging_Throws(int offset, int limit)
     {
-        Action createRequest = () => SearchRequest.ForWorkgroup(
+        Action createRequest = () => SearchRequest.ForWorkspace(
             "query",
             SearchMethodType.Heading,
             Array.Empty<NoteId>(),
@@ -95,12 +104,12 @@ public sealed class SearchRequestTests
     }
 
     /// <summary>
-    /// Verifies that a workgroup context cannot contain an invalid note target.
+    /// Verifies that a workspace context cannot contain an invalid note target.
     /// </summary>
     [Test]
-    public void ForWorkgroup_NullTarget_Throws()
+    public void ForWorkspace_NullTarget_Throws()
     {
-        Action createRequest = () => SearchRequest.ForWorkgroup(
+        Action createRequest = () => SearchRequest.ForWorkspace(
             "query",
             SearchMethodType.Heading,
             new NoteId[] { null! },

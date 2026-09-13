@@ -38,7 +38,7 @@ public sealed class SourceDependencyTests
                 Path.Combine(coreDirectory, "Application"),
                 "*.cs",
                 SearchOption.AllDirectories))
-            .Append(Path.Combine(coreDirectory, "Workgroup.cs"));
+            .Append(Path.Combine(coreDirectory, "Workspace.cs"));
         var violations = sourceFiles
             .SelectMany(file => ForbiddenReferences
                 .Where(reference => File.ReadAllText(file).Contains(

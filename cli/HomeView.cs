@@ -75,7 +75,7 @@ namespace MemoriaNote.Cli
         {
             var items = new List<MenuItem>();
             var notes = ViewModel.NoteNames;
-            var index = ViewModel.SelectedNoteIndex;
+            var index = ViewModel.SelectedNotebookIndex;
             var maxLen = Math.Min(notes.Count, 10);
 
             foreach (var i in Enumerable.Range(0, maxLen))
@@ -90,12 +90,12 @@ namespace MemoriaNote.Cli
                     Action = () =>
                     {
                         Log.Logger.Debug($"Push Ctrl+Alt+{i.ToString()}");
-                        if (ViewModel.SelectedNoteIndex != i)
+                        if (ViewModel.SelectedNotebookIndex != i)
                         {
-                            ConfigurationCli.Instance.Workgroup.SelectedNoteName = ViewModel.NoteNames[i].ToString();
-                            ViewModel.SelectNote(i);
+                            ConfigurationCli.Instance.Workspace.SelectedNotebookName = ViewModel.NoteNames[i].ToString();
+                            ViewModel.SelectNotebook(i);
 
-                            Log.Logger.Debug($"Selected note changed: {ConfigurationCli.Instance.Workgroup.SelectedNoteName}");
+                            Log.Logger.Debug($"Selected note changed: {ConfigurationCli.Instance.Workspace.SelectedNotebookName}");
                             Controller.RequestHome();
                             Application.RequestStop();
                         }
@@ -129,7 +129,7 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.F3, "~F3~ " + ViewModel.SearchRangeString, () => {
                         Log.Logger.Debug("Push F3 Function");
                         if (ViewModel.SearchRange == SearchRangeType.Note)
-                            ViewModel.SearchRange = ConfigurationCli.Instance.State.SearchRange = SearchRangeType.Workgroup;
+                            ViewModel.SearchRange = ConfigurationCli.Instance.State.SearchRange = SearchRangeType.Workspace;
                         else
                             ViewModel.SearchRange = ConfigurationCli.Instance.State.SearchRange = SearchRangeType.Note;
 
@@ -177,7 +177,7 @@ namespace MemoriaNote.Cli
             ViewModel
                 .WhenAnyValue(
                     vm => vm.NoteNames,
-                    vm => vm.SelectedNoteIndex,
+                    vm => vm.SelectedNotebookIndex,
                     (list, index) => NStack.ustring.Make(list[index]))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(notesView, x => x.Text)

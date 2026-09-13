@@ -4,18 +4,18 @@ using NUnit.Framework;
 namespace MemoriaNote.Core.Tests.Functional;
 
 /// <summary>
-/// Verifies that workgroup operations use the note that owns each search result.
+/// Verifies that workspace operations use the note that owns each search result.
 /// </summary>
 [TestFixture]
 [Category("Functional")]
 [NonParallelizable]
-public sealed class WorkgroupOwnershipTests
+public sealed class WorkspaceOwnershipTests
 {
     /// <summary>
-    /// Verifies that a workgroup search preserves each result's normalized owner data source.
+    /// Verifies that a workspace search preserves each result's normalized owner data source.
     /// </summary>
     [Test]
-    public async Task WorkgroupSearch_ReturnsTheOwnerForEveryResult()
+    public async Task WorkspaceSearch_ReturnsTheOwnerForEveryResult()
     {
         using var firstDatabase = new TemporaryNoteDatabase();
         using var secondDatabase = new TemporaryNoteDatabase();
@@ -23,11 +23,11 @@ public sealed class WorkgroupOwnershipTests
         var secondNote = secondDatabase.CreateNote("second-note", "Second Note");
         firstNote.CreatePage("First", "First text");
         secondNote.CreatePage("Second", "Second text");
-        var workgroup = CreateWorkgroup(firstNote, firstNote, secondNote);
+        var workspace = CreateWorkspace(firstNote, firstNote, secondNote);
 
-        var result = await workgroup.SearchAsync(
+        var result = await workspace.SearchAsync(
             "*",
-            SearchRangeType.Workgroup,
+            SearchRangeType.Workspace,
             SearchMethodType.Heading,
             0,
             10,
@@ -49,19 +49,19 @@ public sealed class WorkgroupOwnershipTests
     /// Verifies that reading and editing a non-selected note result affect only its owner.
     /// </summary>
     [Test]
-    public async Task EditText_UsesTheOwnerInsteadOfTheSelectedNote()
+    public async Task EditText_UsesTheOwnerInsteadOfTheSelectedNotebook()
     {
         using var selectedDatabase = new TemporaryNoteDatabase();
         using var ownerDatabase = new TemporaryNoteDatabase();
-        var selectedNote = selectedDatabase.CreateNote("selected-note", "Selected Note");
+        var selectedNotebook = selectedDatabase.CreateNote("selected-note", "Selected Note");
         var ownerNote = ownerDatabase.CreateNote("owner-note", "Owner Note");
-        var selectedPage = selectedNote.CreatePage("Shared", "Selected text");
+        var selectedPage = selectedNotebook.CreatePage("Shared", "Selected text");
         var ownerPage = ownerNote.CreatePage("Shared", "Owner text");
-        var workgroup = CreateWorkgroup(selectedNote, selectedNote, ownerNote);
-        var ownerResult = await FindResultAsync(workgroup, ownerNote, ownerPage.Guid);
+        var workspace = CreateWorkspace(selectedNotebook, selectedNotebook, ownerNote);
+        var ownerResult = await FindResultAsync(workspace, ownerNote, ownerPage.Guid);
 
-        var openedPage = workgroup.ReadAll(ownerResult);
-        var result = workgroup.EditText(ownerResult, "Edited owner text");
+        var openedPage = workspace.ReadAll(ownerResult);
+        var result = workspace.EditText(ownerResult, "Edited owner text");
 
         using (Assert.EnterMultipleScope())
         {
@@ -71,7 +71,7 @@ public sealed class WorkgroupOwnershipTests
             Assert.That(
                 result.Content.OwnerDataSource,
                 Is.EqualTo(Path.GetFullPath(ownerNote.DataSource)));
-            Assert.That(selectedNote.ReadPage(selectedPage.Guid)?.Text, Is.EqualTo("Selected text"));
+            Assert.That(selectedNotebook.ReadPage(selectedPage.Guid)?.Text, Is.EqualTo("Selected text"));
             Assert.That(ownerNote.ReadPage(ownerPage.Guid)?.Text, Is.EqualTo("Edited owner text"));
         }
     }
@@ -84,19 +84,19 @@ public sealed class WorkgroupOwnershipTests
     {
         using var selectedDatabase = new TemporaryNoteDatabase();
         using var ownerDatabase = new TemporaryNoteDatabase();
-        var selectedNote = selectedDatabase.CreateNote("selected-note", "Selected Note");
+        var selectedNotebook = selectedDatabase.CreateNote("selected-note", "Selected Note");
         var ownerNote = ownerDatabase.CreateNote("owner-note", "Owner Note");
-        var selectedPage = selectedNote.CreatePage("Existing", "Selected text");
+        var selectedPage = selectedNotebook.CreatePage("Existing", "Selected text");
         var ownerPage = ownerNote.CreatePage("Original", "Owner text");
-        var workgroup = CreateWorkgroup(selectedNote, selectedNote, ownerNote);
-        var ownerResult = await FindResultAsync(workgroup, ownerNote, ownerPage.Guid);
+        var workspace = CreateWorkspace(selectedNotebook, selectedNotebook, ownerNote);
+        var ownerResult = await FindResultAsync(workspace, ownerNote, ownerPage.Guid);
 
-        var result = workgroup.RenameText(ownerResult, "Existing");
+        var result = workspace.RenameText(ownerResult, "Existing");
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Result, Is.True);
-            Assert.That(selectedNote.ReadPage(selectedPage.Guid)?.Name, Is.EqualTo("Existing"));
+            Assert.That(selectedNotebook.ReadPage(selectedPage.Guid)?.Name, Is.EqualTo("Existing"));
             Assert.That(ownerNote.ReadPage(ownerPage.Guid)?.Name, Is.EqualTo("Existing"));
         }
     }
@@ -109,21 +109,21 @@ public sealed class WorkgroupOwnershipTests
     {
         using var selectedDatabase = new TemporaryNoteDatabase();
         using var ownerDatabase = new TemporaryNoteDatabase();
-        var selectedNote = selectedDatabase.CreateNote("selected-note", "Selected Note");
+        var selectedNotebook = selectedDatabase.CreateNote("selected-note", "Selected Note");
         var ownerNote = ownerDatabase.CreateNote("owner-note", "Owner Note");
-        var selectedPage = selectedNote.CreatePage("Selected", "Selected text");
+        var selectedPage = selectedNotebook.CreatePage("Selected", "Selected text");
         var ownerPage = ownerNote.CreatePage("Owner", "Owner text");
-        var workgroup = CreateWorkgroup(selectedNote, selectedNote, ownerNote);
-        var ownerResult = await FindResultAsync(workgroup, ownerNote, ownerPage.Guid);
+        var workspace = CreateWorkspace(selectedNotebook, selectedNotebook, ownerNote);
+        var ownerResult = await FindResultAsync(workspace, ownerNote, ownerPage.Guid);
 
         Assert.That(ownerPage.Rowid, Is.EqualTo(selectedPage.Rowid));
 
-        var result = workgroup.DeleteText(ownerResult);
+        var result = workspace.DeleteText(ownerResult);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Result, Is.True);
-            Assert.That(selectedNote.ReadPage(selectedPage.Guid), Is.Not.Null);
+            Assert.That(selectedNotebook.ReadPage(selectedPage.Guid), Is.Not.Null);
             Assert.That(ownerNote.ReadPage(ownerPage.Guid), Is.Null);
         }
     }
@@ -136,21 +136,21 @@ public sealed class WorkgroupOwnershipTests
     {
         using var selectedDatabase = new TemporaryNoteDatabase();
         using var ownerDatabase = new TemporaryNoteDatabase();
-        var selectedNote = selectedDatabase.CreateNote("selected-note", "Selected Note");
+        var selectedNotebook = selectedDatabase.CreateNote("selected-note", "Selected Note");
         var ownerNote = ownerDatabase.CreateNote("owner-note", "Owner Note");
-        selectedNote.CreatePage("Selected", "Selected text");
+        selectedNotebook.CreatePage("Selected", "Selected text");
         var ownerPage = ownerNote.CreatePage("Owner", "Owner text");
-        var workgroup = CreateWorkgroup(selectedNote, selectedNote, ownerNote);
-        var ownerResult = await FindResultAsync(workgroup, ownerNote, ownerPage.Guid);
+        var workspace = CreateWorkspace(selectedNotebook, selectedNotebook, ownerNote);
+        var ownerResult = await FindResultAsync(workspace, ownerNote, ownerPage.Guid);
 
-        selectedNote.UpdateMetadata(new NoteMetadataUpdate().SetReadOnly(true));
-        var allowedResult = workgroup.EditText(ownerResult, "Allowed owner edit");
+        selectedNotebook.UpdateMetadata(new NoteMetadataUpdate().SetReadOnly(true));
+        var allowedResult = workspace.EditText(ownerResult, "Allowed owner edit");
 
-        selectedNote.UpdateMetadata(new NoteMetadataUpdate().SetReadOnly(false));
+        selectedNotebook.UpdateMetadata(new NoteMetadataUpdate().SetReadOnly(false));
         ownerNote.UpdateMetadata(new NoteMetadataUpdate().SetReadOnly(true));
-        var editResult = workgroup.EditText(ownerResult, "Blocked edit");
-        var renameResult = workgroup.RenameText(ownerResult, "Blocked rename");
-        var deleteResult = workgroup.DeleteText(ownerResult);
+        var editResult = workspace.EditText(ownerResult, "Blocked edit");
+        var renameResult = workspace.RenameText(ownerResult, "Blocked rename");
+        var deleteResult = workspace.DeleteText(ownerResult);
 
         using (Assert.EnterMultipleScope())
         {
@@ -172,13 +172,13 @@ public sealed class WorkgroupOwnershipTests
         using var database = new TemporaryNoteDatabase();
         var note = database.CreateNote("test-note", "Test Note");
         var page = note.CreatePage("Original", "Original text");
-        var workgroup = CreateWorkgroup(note, note);
+        var workspace = CreateWorkspace(note, note);
         var content = page.GetContent();
         content.OwnerDataSource = Path.Combine(database.DirectoryPath, "unknown.db");
 
-        var editResult = workgroup.EditText(content, "Changed text");
-        var renameResult = workgroup.RenameText(content, "Changed name");
-        var deleteResult = workgroup.DeleteText(content);
+        var editResult = workspace.EditText(content, "Changed text");
+        var renameResult = workspace.RenameText(content, "Changed name");
+        var deleteResult = workspace.DeleteText(content);
 
         var persisted = note.ReadPage(page.Guid);
         using (Assert.EnterMultipleScope())
@@ -191,16 +191,16 @@ public sealed class WorkgroupOwnershipTests
         }
     }
 
-    private static Workgroup CreateWorkgroup(Note selectedNote, params Note[] notes)
+    private static Workspace CreateWorkspace(Note selectedNotebook, params Note[] notes)
     {
-        return new Workgroup(null, notes, selectedNote);
+        return new Workspace(null, notes, selectedNotebook);
     }
 
-    private static async Task<Content> FindResultAsync(Workgroup workgroup, Note owner, Guid pageId)
+    private static async Task<Content> FindResultAsync(Workspace workspace, Note owner, Guid pageId)
     {
-        var result = await workgroup.SearchAsync(
+        var result = await workspace.SearchAsync(
             "*",
-            SearchRangeType.Workgroup,
+            SearchRangeType.Workspace,
             SearchMethodType.Heading,
             0,
             10,

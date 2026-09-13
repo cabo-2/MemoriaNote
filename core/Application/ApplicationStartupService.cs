@@ -16,39 +16,39 @@ namespace MemoriaNote
     }
 
     /// <summary>
-    /// Loads the configured workgroup after its note databases are ready.
+    /// Loads the configured workspace after its note databases are ready.
     /// </summary>
-    public interface IWorkgroupLoader
+    public interface IWorkspaceLoader
     {
-        /// <summary>Loads the current configured workgroup.</summary>
-        /// <returns>The loaded workgroup.</returns>
-        Workgroup Load();
+        /// <summary>Loads the current configured workspace.</summary>
+        /// <returns>The loaded workspace.</returns>
+        Workspace Load();
     }
 
     /// <summary>
-    /// Contains a loaded workgroup and its composed application service.
+    /// Contains a loaded workspace and its composed application service.
     /// </summary>
     public sealed class ApplicationSession
     {
         /// <summary>
         /// Initializes a started application session.
         /// </summary>
-        /// <param name="workgroup">The loaded workgroup.</param>
+        /// <param name="workspace">The loaded workspace.</param>
         /// <param name="applicationService">The composed application service.</param>
         /// <param name="defaultNoteCreated">Whether startup created the default note.</param>
         public ApplicationSession(
-            Workgroup workgroup,
+            Workspace workspace,
             IMemoriaNoteApplicationService applicationService,
             bool defaultNoteCreated = false)
         {
-            Workgroup = workgroup ?? throw new ArgumentNullException(nameof(workgroup));
+            Workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
             ApplicationService = applicationService ??
                 throw new ArgumentNullException(nameof(applicationService));
             DefaultNoteCreated = defaultNoteCreated;
         }
 
-        /// <summary>Gets the loaded workgroup.</summary>
-        public Workgroup Workgroup { get; }
+        /// <summary>Gets the loaded workspace.</summary>
+        public Workspace Workspace { get; }
 
         /// <summary>Gets the composed application service.</summary>
         public IMemoriaNoteApplicationService ApplicationService { get; }
@@ -58,36 +58,36 @@ namespace MemoriaNote
     }
 
     /// <summary>
-    /// Creates and migrates configured notes before loading and composing the workgroup.
+    /// Creates and migrates configured notes before loading and composing the workspace.
     /// </summary>
     public sealed class ApplicationStartupService
     {
         readonly INoteMigrator _noteMigrator;
         readonly INoteDataSourceProbe _dataSourceProbe;
-        readonly IWorkgroupLoader _workgroupLoader;
+        readonly IWorkspaceLoader _workspaceLoader;
 
         /// <summary>
         /// Initializes an application startup service.
         /// </summary>
         /// <param name="noteMigrator">The note database lifecycle port.</param>
         /// <param name="dataSourceProbe">The data source availability port.</param>
-        /// <param name="workgroupLoader">The configured workgroup loader.</param>
+        /// <param name="workspaceLoader">The configured workspace loader.</param>
         public ApplicationStartupService(
             INoteMigrator noteMigrator,
             INoteDataSourceProbe dataSourceProbe,
-            IWorkgroupLoader workgroupLoader)
+            IWorkspaceLoader workspaceLoader)
         {
             _noteMigrator = noteMigrator ??
                 throw new ArgumentNullException(nameof(noteMigrator));
             _dataSourceProbe = dataSourceProbe ??
                 throw new ArgumentNullException(nameof(dataSourceProbe));
-            _workgroupLoader = workgroupLoader ??
-                throw new ArgumentNullException(nameof(workgroupLoader));
+            _workspaceLoader = workspaceLoader ??
+                throw new ArgumentNullException(nameof(workspaceLoader));
         }
 
         /// <summary>
         /// Ensures the default note exists, migrates all configured notes, loads the
-        /// workgroup, and composes its application use cases.
+        /// workspace, and composes its application use cases.
         /// </summary>
         /// <param name="request">The immutable startup request.</param>
         /// <param name="token">The cancellation token for startup I/O.</param>
@@ -120,9 +120,9 @@ namespace MemoriaNote
             }
 
             token.ThrowIfCancellationRequested();
-            var session = ApplicationComposition.Compose(_workgroupLoader.Load());
+            var session = ApplicationComposition.Compose(_workspaceLoader.Load());
             return new ApplicationSession(
-                session.Workgroup,
+                session.Workspace,
                 session.ApplicationService,
                 defaultNoteCreated);
         }

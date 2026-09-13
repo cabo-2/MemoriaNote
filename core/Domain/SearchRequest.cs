@@ -84,8 +84,8 @@ namespace MemoriaNote
         /// <param name="noteIds">The note identifiers in search priority order.</param>
         /// <param name="offset">The zero-based result offset.</param>
         /// <param name="limit">The maximum number of results to return.</param>
-        /// <returns>An immutable workgroup-scoped request.</returns>
-        public static SearchRequest ForWorkgroup(
+        /// <returns>An immutable workspace-scoped request.</returns>
+        public static SearchRequest ForWorkspace(
             string query,
             SearchMethodType method,
             IEnumerable<NoteId> noteIds,
@@ -95,7 +95,7 @@ namespace MemoriaNote
             return new SearchRequest(
                 query,
                 method,
-                SearchRangeType.Workgroup,
+                SearchRangeType.Workspace,
                 noteIds,
                 offset,
                 limit);

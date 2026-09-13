@@ -51,24 +51,24 @@ public sealed class NoteWorkflowTests
 
         AssertSucceeded(selectedListResult);
         Assert.That(
-            ContainsSelectedNote(selectedListResult.StandardOutput, noteName, noteTitle),
+            ContainsSelectedNotebook(selectedListResult.StandardOutput, noteName, noteTitle),
             Is.True,
             "The selected note was not marked in a later CLI process.");
 
         using var configuration = await ReadConfigurationAsync(harness.ConfigurationPath);
         var root = configuration.RootElement;
-        var workgroup = root.GetProperty("Workgroup");
+        var workspace = root.GetProperty("Workgroup");
         var dataSources = GetStringValues(root.GetProperty("DataSources"));
-        var workgroupDataSources = GetStringValues(
-            workgroup.GetProperty("UseDataSources"));
+        var workspaceDatabasePaths = GetStringValues(
+            workspace.GetProperty("UseDataSources"));
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(
-                workgroup.GetProperty("SelectedNoteName").GetString(),
+                workspace.GetProperty("SelectedNoteName").GetString(),
                 Is.EqualTo(noteName));
             Assert.That(dataSources, Does.Contain(notePath));
-            Assert.That(workgroupDataSources, Does.Contain(notePath));
+            Assert.That(workspaceDatabasePaths, Does.Contain(notePath));
             Assert.That(
                 Directory.EnumerateFileSystemEntries(harness.WorkingDirectory),
                 Is.Empty);
@@ -84,7 +84,7 @@ public sealed class NoteWorkflowTests
         }
     }
 
-    static bool ContainsSelectedNote(string output, string name, string title)
+    static bool ContainsSelectedNotebook(string output, string name, string title)
     {
         var expectedNote = $"{name} ({title})";
         return output.Split(

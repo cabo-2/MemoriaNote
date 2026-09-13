@@ -92,13 +92,13 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Validates the name of a note within a workgroup by checking if it is blank or already registered.
+        /// Validates the name of a note within a workspace by checking if it is blank or already registered.
         /// </summary>
         /// <param name="note">The note to validate.</param>
-        /// <param name="wg">The workgroup containing the note.</param>
+        /// <param name="workspace">The workspace containing the note.</param>
         /// <param name="errors">A reference to a list of errors where any validation errors will be added.</param>
-        /// <exception cref="ValidationException">Thrown when the name is blank or already registered in the workgroup.</exception>
-        public void ValidateName(Note note, Workgroup wg, ref List<string> errors)
+        /// <exception cref="ValidationException">Thrown when the name is blank or already registered in the workspace.</exception>
+        public void ValidateName(Note note, Workspace workspace, ref List<string> errors)
         {
             if (string.IsNullOrWhiteSpace(this.Name))
             {
@@ -106,7 +106,7 @@ namespace MemoriaNote
                 throw new ValidationException(nameof(Name));
             }
             var noteId = NoteId.FromDataSource(note.DataSource);
-            foreach (var name in wg.Notes
+            foreach (var name in workspace.Notebooks
                 .Where(candidate => NoteId.FromDataSource(candidate.DataSource) != noteId)
                 .Select(candidate => candidate.Metadata.Name))
                 if (this.Name == name)
@@ -117,13 +117,13 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Validates the title of a note within a workgroup by checking if it is blank.
+        /// Validates the title of a note within a workspace by checking if it is blank.
         /// </summary>
         /// <param name="note">The note to validate.</param>
-        /// <param name="wg">The workgroup containing the note.</param>
+        /// <param name="workspace">The workspace containing the note.</param>
         /// <param name="errors">A reference to a list of errors where any validation errors will be added.</param>
         /// <exception cref="ValidationException">Thrown when the title is blank.</exception>
-        public void ValidateTitle(Note note, Workgroup wg, ref List<string> errors)
+        public void ValidateTitle(Note note, Workspace workspace, ref List<string> errors)
         {
             if (string.IsNullOrWhiteSpace(this.Title))
             {

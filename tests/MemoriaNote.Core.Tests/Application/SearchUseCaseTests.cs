@@ -73,14 +73,14 @@ public sealed class SearchUseCaseTests
     }
 
     /// <summary>
-    /// Verifies workgroup order, cross-note paging, and the unpaged total count.
+    /// Verifies workspace order, cross-note paging, and the unpaged total count.
     /// </summary>
     [Test]
-    public async Task SearchAsync_WorkgroupScope_PagesAcrossNotesInTargetOrder()
+    public async Task SearchAsync_WorkspaceScope_PagesAcrossNotesInTargetOrder()
     {
-        var firstNoteId = CreateNoteId("first-workgroup");
-        var secondNoteId = CreateNoteId("second-workgroup");
-        var thirdNoteId = CreateNoteId("third-workgroup");
+        var firstNoteId = CreateNoteId("first-workspace");
+        var secondNoteId = CreateNoteId("second-workspace");
+        var thirdNoteId = CreateNoteId("third-workspace");
         var firstAlpha = CreateSummary(firstNoteId, "Alpha");
         var firstBeta = CreateSummary(firstNoteId, "Beta");
         var secondAlpha = CreateSummary(secondNoteId, "Alpha");
@@ -92,7 +92,7 @@ public sealed class SearchUseCaseTests
                 [secondNoteId] = new[] { secondAlpha },
                 [thirdNoteId] = new[] { thirdAlpha }
             });
-        var request = SearchRequest.ForWorkgroup(
+        var request = SearchRequest.ForWorkspace(
             "*",
             SearchMethodType.Heading,
             new[] { firstNoteId, secondNoteId, thirdNoteId },
@@ -138,7 +138,7 @@ public sealed class SearchUseCaseTests
                     CreateSummary(noteId, "Beta")
                 }
             });
-        var request = SearchRequest.ForWorkgroup(
+        var request = SearchRequest.ForWorkspace(
             "*",
             SearchMethodType.Heading,
             new[] { noteId },

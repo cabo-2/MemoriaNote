@@ -128,7 +128,7 @@ namespace MemoriaNote
             {
                 case SearchRangeType.Note:
                     return "A note   ";
-                case SearchRangeType.Workgroup:
+                case SearchRangeType.Workspace:
                 default:
                     return "All notes";
             }

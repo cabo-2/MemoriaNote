@@ -5,15 +5,15 @@ using System.Linq;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Resolves application note contexts from the current workgroup collection.
+    /// Resolves application note contexts from the current workspace collection.
     /// </summary>
-    internal sealed class WorkgroupNoteContextResolver : INoteContextResolver
+    internal sealed class WorkspaceNoteContextResolver : INoteContextResolver
     {
-        readonly Func<IEnumerable<Note>> _notes;
+        readonly Func<IEnumerable<Note>> _notebooks;
 
-        internal WorkgroupNoteContextResolver(Func<IEnumerable<Note>> notes)
+        internal WorkspaceNoteContextResolver(Func<IEnumerable<Note>> notebooks)
         {
-            _notes = notes ?? throw new ArgumentNullException(nameof(notes));
+            _notebooks = notebooks ?? throw new ArgumentNullException(nameof(notebooks));
         }
 
         /// <inheritdoc/>
@@ -34,7 +34,7 @@ namespace MemoriaNote
 
         internal Note ResolveNote(NoteId noteId)
         {
-            return _notes().FirstOrDefault(note =>
+            return _notebooks().FirstOrDefault(note =>
                 NoteId.FromDataSource(note.DataSource) == noteId);
         }
     }

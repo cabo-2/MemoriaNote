@@ -55,8 +55,8 @@ public sealed class ServiceErrorHandlingTests
         using var database = new TemporaryNoteDatabase();
         var note = database.CreateNote("test-note", "Test Note");
         var content = note.CreatePage("Existing text", "Existing body").GetContent();
-        var workgroup = new Workgroup(null, new[] { note }, note);
-        var service = new TestableService(workgroup)
+        var workspace = new Workspace(null, new[] { note }, note);
+        var service = new TestableService(workspace)
         {
             EditingTitle = "New text",
             EditingText = "Body",
@@ -93,8 +93,8 @@ public sealed class ServiceErrorHandlingTests
         var note = database.CreateNote("test-note", "Test Note");
         var page = note.CreatePage("Deleted text", "Deleted body");
         var content = page.GetContent();
-        var workgroup = new Workgroup(null, new[] { note }, note);
-        var service = new TestableService(workgroup)
+        var workspace = new Workspace(null, new[] { note }, note);
+        var service = new TestableService(workspace)
         {
             Contents = new List<Content>() { content },
             ContentsCount = 1,
@@ -117,7 +117,7 @@ public sealed class ServiceErrorHandlingTests
         private readonly Exception _exception;
 
         internal ControlledActivationService(Exception exception)
-            : base(new Workgroup())
+            : base(new Workspace())
         {
             _exception = exception;
         }
@@ -130,8 +130,8 @@ public sealed class ServiceErrorHandlingTests
 
     private sealed class TestableService : MemoriaNoteService
     {
-        internal TestableService(Workgroup workgroup)
-            : base(workgroup)
+        internal TestableService(Workspace workspace)
+            : base(workspace)
         {
         }
     }

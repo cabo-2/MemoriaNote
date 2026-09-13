@@ -28,11 +28,11 @@ namespace MemoriaNote
         public List<string> DataSources { get; set; } = new List<string>();
 
         /// <summary>
-        /// Represents the workgroup builder used by the application
+        /// Represents the workspace settings used by the application.
         /// </summary>
-        [DataMember]
+        [DataMember(Name = "Workgroup")]
         [Reactive]
-        public WorkgroupBuilder Workgroup { get; set; }
+        public WorkspaceSettings Workspace { get; set; }
 
         public Configuration()
         { }
@@ -97,7 +97,7 @@ namespace MemoriaNote
 
         /// <summary>
         /// Gets the default configuration values for a specified type T.
-        /// Adds the default data source path to the list of data sources and generates a default workgroup using WorkgroupBuilder.
+        /// Adds the default data source path and creates the default workspace settings.
         /// </summary>
         /// <typeparam name="T">The type of Configuration</typeparam>
         /// <returns>The default configuration values for the specified type T</returns>
@@ -106,7 +106,9 @@ namespace MemoriaNote
             var config = Activator.CreateInstance(typeof(T)) as T;
 
             config.DataSources.Add(DefaultDataSourcePath);
-            config.Workgroup = WorkgroupBuilder.Generate(DefaultWorkgroupName, config.DataSources);
+            config.Workspace = WorkspaceSettings.CreateDefault(
+                DefaultWorkspaceName,
+                config.DataSources);
 
             SetDefault(config);
 
@@ -221,10 +223,10 @@ namespace MemoriaNote
         public string DefaultDataSourcePath => Path.Combine(ApplicationDataDirectory, DefaultDataSourceName);
 
         /// <summary>
-        /// Represents the default workgroup name for notes
+        /// Represents the default workspace name for notes.
         /// </summary>
-        [DataMember]
-        public string DefaultWorkgroupName { get; set; } = "My Notes";
+        [DataMember(Name = "DefaultWorkgroupName")]
+        public string DefaultWorkspaceName { get; set; } = "My Notes";
 
         /// <summary>
         /// Represents the default title for notes
@@ -239,7 +241,7 @@ namespace MemoriaNote
         public string DefaultNoteName { get; set; } = "note";
 
         public static string AllNotesSearchString => "All Notes Search";
-        public static string SelectedNoteSearchString => "Selected Note Search";
+        public static string SelectedNotebookSearchString => "Selected Note Search";
         public static string GoogleSearchUrl => "https://www.google.com";
         public static int MaxAllNoteSearchCount => 10;
 

@@ -3,28 +3,28 @@ using System;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Composes the application use cases for a loaded workgroup.
+    /// Composes the application use cases for a loaded workspace.
     /// </summary>
     public static class ApplicationComposition
     {
         /// <summary>
-        /// Creates an application session for a loaded workgroup.
+        /// Creates an application session for a loaded workspace.
         /// </summary>
-        /// <param name="workgroup">The workgroup whose notes provide application contexts.</param>
-        /// <returns>The workgroup and its composed application service.</returns>
-        public static ApplicationSession Compose(Workgroup workgroup)
+        /// <param name="workspace">The workspace whose notes provide application contexts.</param>
+        /// <returns>The workspace and its composed application service.</returns>
+        public static ApplicationSession Compose(Workspace workspace)
         {
-            if (workgroup == null)
-                throw new ArgumentNullException(nameof(workgroup));
+            if (workspace == null)
+                throw new ArgumentNullException(nameof(workspace));
 
-            var resolver = new WorkgroupNoteContextResolver(() => workgroup.Notes);
+            var resolver = new WorkspaceNoteContextResolver(() => workspace.Notebooks);
             var pageUseCase = new PageUseCase(resolver, new PageValidationPolicy());
             var searchUseCase = new SearchUseCase(
                 noteId => resolver.Resolve(noteId)?.SearchRepository);
             var applicationService = new MemoriaNoteApplicationService(
                 searchUseCase,
                 pageUseCase);
-            return new ApplicationSession(workgroup, applicationService);
+            return new ApplicationSession(workspace, applicationService);
         }
     }
 }
