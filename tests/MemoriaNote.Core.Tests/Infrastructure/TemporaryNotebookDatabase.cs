@@ -3,12 +3,12 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MemoriaNote.Core.Tests.Infrastructure;
 
-internal sealed class TemporaryNoteDatabase : IDisposable
+internal sealed class TemporaryNotebookDatabase : IDisposable
 {
-    private readonly INoteMigrator _noteMigrator;
+    private readonly INotebookMigrator _notebookMigrator;
     private bool _disposed;
 
-    internal TemporaryNoteDatabase()
+    internal TemporaryNotebookDatabase()
     {
         DirectoryPath = Path.Combine(
             Path.GetTempPath(),
@@ -19,27 +19,27 @@ internal sealed class TemporaryNoteDatabase : IDisposable
         Directory.CreateDirectory(DirectoryPath);
 
         var databaseFactory =
-            new SqliteNoteDatabaseFactory(NullLoggerFactory.Instance);
-        _noteMigrator = new SqliteNoteMigrator(
+            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        _notebookMigrator = new SqliteNotebookMigrator(
             databaseFactory,
-            new SqliteNoteMetadataRepository(databaseFactory));
+            new SqliteNotebookMetadataRepository(databaseFactory));
     }
 
     internal string DatabasePath { get; }
 
     internal string DirectoryPath { get; }
 
-    internal Note CreateNote(string name, string title)
+    internal Notebook CreateNotebook(string name, string title)
     {
-        return CreateNote(name, title, DatabasePath);
+        return CreateNotebook(name, title, DatabasePath);
     }
 
-    internal Note CreateNote(string name, string title, string dataSource)
+    internal Notebook CreateNotebook(string name, string title, string databasePath)
     {
-        return _noteMigrator.CreateAsync(
+        return _notebookMigrator.CreateAsync(
                 name,
                 title,
-                dataSource,
+                databasePath,
                 CancellationToken.None)
             .GetAwaiter()
             .GetResult();

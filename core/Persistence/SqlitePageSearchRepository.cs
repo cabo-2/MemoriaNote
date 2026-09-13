@@ -8,17 +8,17 @@ using Microsoft.EntityFrameworkCore;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Searches note databases using SQLite LIKE and FTS5 queries.
+    /// Searches notebook databases using SQLite LIKE and FTS5 queries.
     /// </summary>
-    public sealed class SqliteNoteSearchRepository : INoteSearchRepository
+    public sealed class SqlitePageSearchRepository : IPageSearchRepository
     {
-        readonly INoteDatabaseFactory _databaseFactory;
+        readonly INotebookDbContextFactory _databaseFactory;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="SqliteNoteSearchRepository"/> class.
+        /// Initializes a new instance of the <see cref="SqlitePageSearchRepository"/> class.
         /// </summary>
         /// <param name="databaseFactory">The factory used to create database contexts.</param>
-        public SqliteNoteSearchRepository(INoteDatabaseFactory databaseFactory)
+        public SqlitePageSearchRepository(INotebookDbContextFactory databaseFactory)
         {
             _databaseFactory = databaseFactory ??
                 throw new ArgumentNullException(nameof(databaseFactory));
@@ -26,7 +26,7 @@ namespace MemoriaNote
 
         /// <inheritdoc/>
         public async Task<SearchResult> SearchAsync(
-            string dataSource,
+            string databasePath,
             string searchEntry,
             SearchMethodType searchMethod,
             int skipCount,
@@ -34,10 +34,10 @@ namespace MemoriaNote
             CancellationToken token)
         {
             var startTime = DateTime.UtcNow;
-            var request = SearchRequest.ForNote(
+            var request = SearchRequest.ForNotebook(
                 searchEntry,
                 searchMethod,
-                NoteId.FromDataSource(dataSource),
+                NotebookId.FromDatabasePath(databasePath),
                 skipCount,
                 takeCount);
             var result = await new SearchUseCase(this)
@@ -56,7 +56,7 @@ namespace MemoriaNote
 
         /// <inheritdoc/>
         public async Task<NoteSearchResult> SearchPageSummariesAsync(
-            string dataSource,
+            string databasePath,
             string searchEntry,
             SearchMethodType searchMethod,
             int skipCount,
@@ -65,13 +65,13 @@ namespace MemoriaNote
         {
             token.ThrowIfCancellationRequested();
             var startTime = DateTime.UtcNow;
-            using var context = _databaseFactory.Create(dataSource);
+            using var context = _databaseFactory.CreateDbContext(databasePath);
             var query = CreateQuery(context, searchEntry, searchMethod);
-            var count = await query.CountAsync(token);
+            var count = await query.CountMatchesAsync(token);
             var contents = await query.ReadAsync(skipCount, takeCount, token);
-            var noteId = NoteId.FromDataSource(context.DataSource);
+            var notebookId = NotebookId.FromDatabasePath(context.DatabasePath);
             var summaries = contents
-                .Select(content => PageSummaryMapper.FromContent(noteId, content))
+                .Select(content => PageSummaryMapper.FromContent(notebookId, content))
                 .ToList();
 
             return new NoteSearchResult(
@@ -83,40 +83,40 @@ namespace MemoriaNote
 
         /// <inheritdoc/>
         public async Task<IReadOnlyList<PageSummary>> SearchPageSummariesAsync(
-            NoteId noteId,
+            NotebookId notebookId,
             string searchEntry,
             SearchMethodType searchMethod,
             int skipCount,
             int takeCount,
             CancellationToken token)
         {
-            if (noteId == null)
-                throw new ArgumentNullException(nameof(noteId));
+            if (notebookId == null)
+                throw new ArgumentNullException(nameof(notebookId));
 
             token.ThrowIfCancellationRequested();
-            using var context = _databaseFactory.Create(noteId.Locator);
+            using var context = _databaseFactory.CreateDbContext(notebookId.Locator);
             var query = CreateQuery(context, searchEntry, searchMethod);
             var contents = await query.ReadAsync(skipCount, takeCount, token);
             return contents
-                .Select(content => PageSummaryMapper.FromContent(noteId, content))
+                .Select(content => PageSummaryMapper.FromContent(notebookId, content))
                 .ToList();
         }
 
         /// <inheritdoc/>
-        public async Task<int> CountAsync(
-            string dataSource,
+        public async Task<int> CountMatchesAsync(
+            string databasePath,
             string searchEntry,
             SearchMethodType searchMethod,
             CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            using var context = _databaseFactory.Create(dataSource);
+            using var context = _databaseFactory.CreateDbContext(databasePath);
             var query = CreateQuery(context, searchEntry, searchMethod);
-            return await query.CountAsync(token);
+            return await query.CountMatchesAsync(token);
         }
 
         static SqliteSearchQuery CreateQuery(
-            NoteDbContext context,
+            NotebookDbContext context,
             string searchEntry,
             SearchMethodType searchMethod)
         {
@@ -129,7 +129,7 @@ namespace MemoriaNote
         }
 
         static SqliteSearchQuery CreateHeadingQuery(
-            NoteDbContext context,
+            NotebookDbContext context,
             SqliteSearchPattern pattern)
         {
             if (pattern.MatchingType == MatchingType.None)
@@ -154,7 +154,7 @@ namespace MemoriaNote
         }
 
         static SqliteSearchQuery CreateFullTextQuery(
-            NoteDbContext context,
+            NotebookDbContext context,
             SqliteSearchPattern pattern)
         {
             if (pattern.MatchingType == MatchingType.None)
@@ -191,7 +191,7 @@ namespace MemoriaNote
                 return new SqliteSearchQuery(null, pages);
             }
 
-            internal Task<int> CountAsync(CancellationToken token)
+            internal Task<int> CountMatchesAsync(CancellationToken token)
             {
                 if (_contents != null)
                     return _contents.CountAsync(token);

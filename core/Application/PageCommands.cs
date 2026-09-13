@@ -10,18 +10,18 @@ namespace MemoriaNote
         /// <summary>
         /// Initializes an owner-qualified page reference.
         /// </summary>
-        /// <param name="noteId">The identifier of the owning note.</param>
+        /// <param name="notebookId">The identifier of the owning note.</param>
         /// <param name="pageId">The identifier of the page.</param>
-        public PageReference(NoteId noteId, PageId pageId)
+        public PageReference(NotebookId notebookId, PageId pageId)
         {
-            NoteId = noteId ?? throw new ArgumentNullException(nameof(noteId));
+            NotebookId = notebookId ?? throw new ArgumentNullException(nameof(notebookId));
             PageId = pageId ?? throw new ArgumentNullException(nameof(pageId));
         }
 
         /// <summary>
         /// Gets the identifier of the owning note.
         /// </summary>
-        public NoteId NoteId { get; }
+        public NotebookId NotebookId { get; }
 
         /// <summary>
         /// Gets the identifier of the page.
@@ -37,17 +37,17 @@ namespace MemoriaNote
         /// <summary>
         /// Initializes a page creation command.
         /// </summary>
-        /// <param name="noteId">The identifier of the target note.</param>
+        /// <param name="notebookId">The identifier of the target note.</param>
         /// <param name="name">The page name.</param>
         /// <param name="text">The page text.</param>
         /// <param name="directory">The optional page directory.</param>
         public CreatePageCommand(
-            NoteId noteId,
+            NotebookId notebookId,
             string name,
             string text,
             string directory = null)
         {
-            NoteId = noteId ?? throw new ArgumentNullException(nameof(noteId));
+            NotebookId = notebookId ?? throw new ArgumentNullException(nameof(notebookId));
             Name = name;
             Text = text;
             Directory = directory;
@@ -56,7 +56,7 @@ namespace MemoriaNote
         /// <summary>
         /// Gets the identifier of the target note.
         /// </summary>
-        public NoteId NoteId { get; }
+        public NotebookId NotebookId { get; }
 
         /// <summary>
         /// Gets the requested page name.
@@ -82,12 +82,12 @@ namespace MemoriaNote
         /// <summary>
         /// Initializes a page edit command.
         /// </summary>
-        /// <param name="noteId">The identifier of the owning note.</param>
+        /// <param name="notebookId">The identifier of the owning note.</param>
         /// <param name="pageId">The identifier of the page.</param>
         /// <param name="text">The replacement page text.</param>
-        public EditPageCommand(NoteId noteId, PageId pageId, string text)
+        public EditPageCommand(NotebookId notebookId, PageId pageId, string text)
         {
-            Target = new PageReference(noteId, pageId);
+            Target = new PageReference(notebookId, pageId);
             Text = text;
         }
 
@@ -99,7 +99,7 @@ namespace MemoriaNote
         /// <summary>
         /// Gets the identifier of the owning note.
         /// </summary>
-        public NoteId NoteId => Target.NoteId;
+        public NotebookId NotebookId => Target.NotebookId;
 
         /// <summary>
         /// Gets the identifier of the page.
@@ -120,12 +120,12 @@ namespace MemoriaNote
         /// <summary>
         /// Initializes a page rename command.
         /// </summary>
-        /// <param name="noteId">The identifier of the owning note.</param>
+        /// <param name="notebookId">The identifier of the owning note.</param>
         /// <param name="pageId">The identifier of the page.</param>
         /// <param name="name">The replacement page name.</param>
-        public RenamePageCommand(NoteId noteId, PageId pageId, string name)
+        public RenamePageCommand(NotebookId notebookId, PageId pageId, string name)
         {
-            Target = new PageReference(noteId, pageId);
+            Target = new PageReference(notebookId, pageId);
             Name = name;
         }
 
@@ -137,7 +137,7 @@ namespace MemoriaNote
         /// <summary>
         /// Gets the identifier of the owning note.
         /// </summary>
-        public NoteId NoteId => Target.NoteId;
+        public NotebookId NotebookId => Target.NotebookId;
 
         /// <summary>
         /// Gets the identifier of the page.
@@ -158,11 +158,11 @@ namespace MemoriaNote
         /// <summary>
         /// Initializes a page deletion command.
         /// </summary>
-        /// <param name="noteId">The identifier of the owning note.</param>
+        /// <param name="notebookId">The identifier of the owning note.</param>
         /// <param name="pageId">The identifier of the page.</param>
-        public DeletePageCommand(NoteId noteId, PageId pageId)
+        public DeletePageCommand(NotebookId notebookId, PageId pageId)
         {
-            Target = new PageReference(noteId, pageId);
+            Target = new PageReference(notebookId, pageId);
         }
 
         /// <summary>
@@ -173,7 +173,7 @@ namespace MemoriaNote
         /// <summary>
         /// Gets the identifier of the owning note.
         /// </summary>
-        public NoteId NoteId => Target.NoteId;
+        public NotebookId NotebookId => Target.NotebookId;
 
         /// <summary>
         /// Gets the identifier of the page.

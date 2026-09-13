@@ -4,15 +4,15 @@ namespace MemoriaNote
 {
     static class PageSummaryMapper
     {
-        internal static PageSummary FromContent(NoteId noteId, IContent content)
+        internal static PageSummary FromContent(NotebookId notebookId, IContent content)
         {
-            if (noteId == null)
-                throw new ArgumentNullException(nameof(noteId));
+            if (notebookId == null)
+                throw new ArgumentNullException(nameof(notebookId));
             if (content == null)
                 throw new ArgumentNullException(nameof(content));
 
             return new PageSummary(
-                noteId,
+                notebookId,
                 PageId.FromUuid(content.Uuid),
                 content.Name,
                 content.Index,

@@ -4,14 +4,14 @@ using System.IO;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Checks file-backed note data sources for the compatibility composition root.
+    /// Checks file-backed notebook databases for the compatibility composition root.
     /// </summary>
-    internal sealed class FileNoteDataSourceProbe : INoteDataSourceProbe
+    internal sealed class FileNotebookDatabaseProbe : INotebookDatabaseProbe
     {
         /// <inheritdoc/>
-        public bool Exists(string dataSource)
+        public bool Exists(string databasePath)
         {
-            return File.Exists(dataSource);
+            return File.Exists(databasePath);
         }
     }
 

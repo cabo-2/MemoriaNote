@@ -20,8 +20,8 @@ public sealed class TypedIdentifierTests
             "typed-id.db");
         var relativePath = Path.GetRelativePath(Environment.CurrentDirectory, absolutePath);
 
-        var absoluteId = NoteId.FromDataSource(absolutePath);
-        var relativeId = NoteId.FromDataSource(relativePath);
+        var absoluteId = NotebookId.FromDatabasePath(absolutePath);
+        var relativeId = NotebookId.FromDatabasePath(relativePath);
 
         using (Assert.EnterMultipleScope())
         {
@@ -40,8 +40,8 @@ public sealed class TypedIdentifierTests
     {
         var lowerCasePath = Path.Combine(Path.GetTempPath(), "memoria-note-case.db");
         var upperCasePath = lowerCasePath.ToUpperInvariant();
-        var lowerCaseId = NoteId.FromDataSource(lowerCasePath);
-        var upperCaseId = NoteId.FromDataSource(upperCasePath);
+        var lowerCaseId = NotebookId.FromDatabasePath(lowerCasePath);
+        var upperCaseId = NotebookId.FromDatabasePath(upperCasePath);
 
         if (OperatingSystem.IsWindows())
         {
@@ -61,19 +61,19 @@ public sealed class TypedIdentifierTests
     public void NoteId_InvalidLocator_IsRejected()
     {
         Assert.That(
-            CreateNoteId(null),
+            CreateNotebookId(null),
             Throws.TypeOf<ArgumentNullException>());
         Assert.That(
-            CreateNoteId(string.Empty),
+            CreateNotebookId(string.Empty),
             Throws.TypeOf<ArgumentException>());
         Assert.That(
-            CreateNoteId("   "),
+            CreateNotebookId("   "),
             Throws.TypeOf<ArgumentException>());
         Assert.That(
-            CreateNoteId(":memory:"),
+            CreateNotebookId(":memory:"),
             Throws.TypeOf<ArgumentException>());
         Assert.That(
-            CreateNoteId(":MEMORY:"),
+            CreateNotebookId(":MEMORY:"),
             Throws.TypeOf<ArgumentException>());
     }
 
@@ -108,9 +108,9 @@ public sealed class TypedIdentifierTests
             Throws.TypeOf<ArgumentException>());
     }
 
-    static Action CreateNoteId(string? dataSource)
+    static Action CreateNotebookId(string? dataSource)
     {
-        return () => { _ = NoteId.FromDataSource(dataSource!); };
+        return () => { _ = NotebookId.FromDatabasePath(dataSource!); };
     }
 
     static Action CreatePageId(Guid value)

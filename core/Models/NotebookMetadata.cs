@@ -5,14 +5,14 @@ using System.Collections.ObjectModel;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Represents a database-independent snapshot of persisted note metadata.
+    /// Represents a database-independent snapshot of persisted notebook metadata.
     /// </summary>
-    public sealed class NoteMetadata : IEquatable<NoteMetadata>
+    public sealed class NotebookMetadata : IEquatable<NotebookMetadata>
     {
         readonly IReadOnlyDictionary<string, string> _storedValues;
 
-        internal NoteMetadata(
-            string dataSource,
+        internal NotebookMetadata(
+            string databasePath,
             string name,
             string title,
             string version,
@@ -23,7 +23,7 @@ namespace MemoriaNote
             DateTime createTime,
             IReadOnlyDictionary<string, string> storedValues)
         {
-            DataSource = dataSource;
+            DatabasePath = databasePath;
             Name = name;
             Title = title;
             Version = version;
@@ -37,42 +37,42 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Gets the normalized path of the note database that produced this snapshot.
+        /// Gets the normalized path of the notebook database that produced this snapshot.
         /// </summary>
-        public string DataSource { get; }
+        public string DatabasePath { get; }
 
         /// <summary>
-        /// Gets the note name.
+        /// Gets the notebook name.
         /// </summary>
         public string Name { get; }
 
         /// <summary>
-        /// Gets the note title.
+        /// Gets the notebook title.
         /// </summary>
         public string Title { get; }
 
         /// <summary>
-        /// Gets the note format version.
+        /// Gets the notebook format version.
         /// </summary>
         public string Version { get; }
 
         /// <summary>
-        /// Gets the optional note description.
+        /// Gets the optional notebook description.
         /// </summary>
         public string Description { get; }
 
         /// <summary>
-        /// Gets the optional note author.
+        /// Gets the optional notebook author.
         /// </summary>
         public string Author { get; }
 
         /// <summary>
-        /// Gets a value indicating whether the note is read-only.
+        /// Gets a value indicating whether the notebook is read-only.
         /// </summary>
         public bool ReadOnly { get; }
 
         /// <summary>
-        /// Gets the optional note tag.
+        /// Gets the optional notebook tag.
         /// </summary>
         public string Tag { get; }
 
@@ -87,10 +87,10 @@ namespace MemoriaNote
         /// Creates an independent copy of this in-memory snapshot.
         /// </summary>
         /// <returns>A snapshot containing the same values.</returns>
-        public NoteMetadata Clone()
+        public NotebookMetadata Clone()
         {
-            return new NoteMetadata(
-                DataSource,
+            return new NotebookMetadata(
+                DatabasePath,
                 Name,
                 Title,
                 Version,
@@ -103,10 +103,10 @@ namespace MemoriaNote
         }
 
         /// <inheritdoc/>
-        public bool Equals(NoteMetadata other)
+        public bool Equals(NotebookMetadata other)
         {
             return other != null &&
-                string.Equals(DataSource, other.DataSource, StringComparison.Ordinal) &&
+                string.Equals(DatabasePath, other.DatabasePath, StringComparison.Ordinal) &&
                 string.Equals(Name, other.Name, StringComparison.Ordinal) &&
                 string.Equals(Title, other.Title, StringComparison.Ordinal) &&
                 string.Equals(Version, other.Version, StringComparison.Ordinal) &&
@@ -118,13 +118,13 @@ namespace MemoriaNote
         }
 
         /// <inheritdoc/>
-        public override bool Equals(object obj) => Equals(obj as NoteMetadata);
+        public override bool Equals(object obj) => Equals(obj as NotebookMetadata);
 
         /// <inheritdoc/>
         public override int GetHashCode()
         {
             var hash = new HashCode();
-            hash.Add(DataSource, StringComparer.Ordinal);
+            hash.Add(DatabasePath, StringComparer.Ordinal);
             hash.Add(Name, StringComparer.Ordinal);
             hash.Add(Title, StringComparer.Ordinal);
             hash.Add(Version, StringComparer.Ordinal);

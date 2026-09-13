@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace MemoriaNote.Core.Migrations
 {
-    [DbContext(typeof(NoteDbContext))]
+    [DbContext(typeof(NotebookDbContext))]
     [Migration("20230404004813_FtsIndexTable")]
     partial class FtsIndexTable
     {

@@ -17,10 +17,10 @@ public sealed class WorkspaceFullTextSearchTests
     [Test]
     public async Task ExactQuery_ReturnsMatchesFromEveryNote()
     {
-        using var firstDatabase = new TemporaryNoteDatabase();
-        using var secondDatabase = new TemporaryNoteDatabase();
-        var firstNote = firstDatabase.CreateNote("first-note", "First Note");
-        var secondNote = secondDatabase.CreateNote("second-note", "Second Note");
+        using var firstDatabase = new TemporaryNotebookDatabase();
+        using var secondDatabase = new TemporaryNotebookDatabase();
+        var firstNote = firstDatabase.CreateNotebook("first-note", "First Note");
+        var secondNote = secondDatabase.CreateNotebook("second-note", "Second Note");
         var firstZulu = firstNote.CreatePage("Zulu", "Shared marker in the first note.");
         var firstAlpha = firstNote.CreatePage("Alpha", "Another shared marker.");
         var secondBeta = secondNote.CreatePage("Beta", "Shared marker in the second note.");
@@ -46,10 +46,10 @@ public sealed class WorkspaceFullTextSearchTests
     [Test]
     public async Task EmptyQuery_ReturnsEveryPage()
     {
-        using var firstDatabase = new TemporaryNoteDatabase();
-        using var secondDatabase = new TemporaryNoteDatabase();
-        var firstNote = firstDatabase.CreateNote("first-note", "First Note");
-        var secondNote = secondDatabase.CreateNote("second-note", "Second Note");
+        using var firstDatabase = new TemporaryNotebookDatabase();
+        using var secondDatabase = new TemporaryNotebookDatabase();
+        var firstNote = firstDatabase.CreateNotebook("first-note", "First Note");
+        var secondNote = secondDatabase.CreateNotebook("second-note", "Second Note");
         var firstZulu = firstNote.CreatePage("Zulu", "First text");
         var firstAlpha = firstNote.CreatePage("Alpha", "Second text");
         var secondBeta = secondNote.CreatePage("Beta", "Third text");
@@ -74,10 +74,10 @@ public sealed class WorkspaceFullTextSearchTests
     [Test]
     public async Task WildcardQuery_RetainsTheNoteSearchContract()
     {
-        using var firstDatabase = new TemporaryNoteDatabase();
-        using var secondDatabase = new TemporaryNoteDatabase();
-        var firstNote = firstDatabase.CreateNote("first-note", "First Note");
-        var secondNote = secondDatabase.CreateNote("second-note", "Second Note");
+        using var firstDatabase = new TemporaryNotebookDatabase();
+        using var secondDatabase = new TemporaryNotebookDatabase();
+        var firstNote = firstDatabase.CreateNotebook("first-note", "First Note");
+        var secondNote = secondDatabase.CreateNotebook("second-note", "Second Note");
         var firstExact = firstNote.CreatePage("First Exact", "The probe entered orbit safely.");
         firstNote.CreatePage("First Prefix", "The orbital station received the probe.");
         var secondExact = secondNote.CreatePage("Second Exact", "Another probe entered orbit.");
@@ -103,10 +103,10 @@ public sealed class WorkspaceFullTextSearchTests
     [Test]
     public async Task PagingAcrossNotes_ReturnsTheGlobalSliceAndUnpagedCount()
     {
-        using var firstDatabase = new TemporaryNoteDatabase();
-        using var secondDatabase = new TemporaryNoteDatabase();
-        var firstNote = firstDatabase.CreateNote("first-note", "First Note");
-        var secondNote = secondDatabase.CreateNote("second-note", "Second Note");
+        using var firstDatabase = new TemporaryNotebookDatabase();
+        using var secondDatabase = new TemporaryNotebookDatabase();
+        var firstNote = firstDatabase.CreateNotebook("first-note", "First Note");
+        var secondNote = secondDatabase.CreateNotebook("second-note", "Second Note");
         firstNote.CreatePage("Alpha", "Shared marker.");
         var firstBeta = firstNote.CreatePage("Beta", "Shared marker.");
         var secondAlpha = secondNote.CreatePage("Alpha", "Shared marker.");
@@ -126,7 +126,7 @@ public sealed class WorkspaceFullTextSearchTests
         AssertWorkspaceResult(result, 4, expectedPageIds, expectedOwners);
     }
 
-    private static Workspace CreateWorkspace(params Note[] notes)
+    private static Workspace CreateWorkspace(params Notebook[] notes)
     {
         return new Workspace(null, notes, notes.FirstOrDefault());
     }
@@ -135,7 +135,7 @@ public sealed class WorkspaceFullTextSearchTests
         SearchResult result,
         int expectedTotalCount,
         IEnumerable<Guid> expectedPageIds,
-        IEnumerable<Note> expectedOwners)
+        IEnumerable<Notebook> expectedOwners)
     {
         using (Assert.EnterMultipleScope())
         {
@@ -145,7 +145,7 @@ public sealed class WorkspaceFullTextSearchTests
                 Is.EqualTo(expectedPageIds));
             Assert.That(
                 result.Contents.Select(content => content.OwnerDataSource),
-                Is.EqualTo(expectedOwners.Select(note => Path.GetFullPath(note.DataSource))));
+                Is.EqualTo(expectedOwners.Select(note => Path.GetFullPath(note.DatabasePath))));
             Assert.That(result.StartTime, Is.LessThanOrEqualTo(result.EndTime));
         }
     }

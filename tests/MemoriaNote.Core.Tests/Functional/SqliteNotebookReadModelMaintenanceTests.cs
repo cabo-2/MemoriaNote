@@ -11,10 +11,10 @@ namespace MemoriaNote.Core.Tests.Functional;
 [TestFixture]
 [Category("Functional")]
 [NonParallelizable]
-public sealed class SqliteNoteReadModelMaintenanceTests
+public sealed class SqliteNotebookReadModelMaintenanceTests
 {
-    readonly INoteDatabaseFactory _factory =
-        new SqliteNoteDatabaseFactory(NullLoggerFactory.Instance);
+    readonly INotebookDbContextFactory _factory =
+        new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
 
     /// <summary>
     /// Verifies that normal Page operations keep both read models consistent.
@@ -22,8 +22,8 @@ public sealed class SqliteNoteReadModelMaintenanceTests
     [Test]
     public async Task CheckIntegrityAsync_AfterPageLifecycle_IsConsistent()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         await AssertConsistentAsync(database.DatabasePath, pageCount: 0);
 
         var first = note.CreatePage("Daily", "First searchable text");
@@ -45,13 +45,13 @@ public sealed class SqliteNoteReadModelMaintenanceTests
     [Test]
     public async Task CheckIntegrityAsync_WithContentCorruption_ReportsAffectedRows()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var missing = note.CreatePage("Missing", "First text");
         var mismatched = note.CreatePage("Mismatched", "Second text");
         note.CreatePage("Unchanged", "Third text");
         var unexpectedUuid = Guid.NewGuid().ToString("D");
-        using (var context = _factory.Create(database.DatabasePath))
+        using (var context = _factory.CreateDbContext(database.DatabasePath))
         {
             await context.Database.ExecuteSqlInterpolatedAsync(
                 $"DELETE FROM Contents WHERE Uuid = {missing.Uuid};");
@@ -118,10 +118,10 @@ public sealed class SqliteNoteReadModelMaintenanceTests
     [Test]
     public async Task CheckIntegrityAsync_WithDuplicateContentUuid_ReportsDuplicate()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var page = note.CreatePage("Entry", "Searchable text");
-        using (var context = _factory.Create(database.DatabasePath))
+        using (var context = _factory.CreateDbContext(database.DatabasePath))
         {
             await context.Database.ExecuteSqlRawAsync("DROP TABLE Contents;");
             await context.Database.ExecuteSqlRawAsync(@"
@@ -166,9 +166,9 @@ public sealed class SqliteNoteReadModelMaintenanceTests
     [TestCase("Pages_Delete")]
     public async Task CheckIntegrityAsync_WhenTriggerIsMissing_ReportsTrigger(string triggerName)
     {
-        using var database = new TemporaryNoteDatabase();
-        database.CreateNote("test-note", "Test Note");
-        using (var context = _factory.Create(database.DatabasePath))
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("test-note", "Test Note");
+        using (var context = _factory.CreateDbContext(database.DatabasePath))
         {
             await context.Database.ExecuteSqlRawAsync($"DROP TRIGGER {triggerName};");
         }
@@ -195,8 +195,8 @@ public sealed class SqliteNoteReadModelMaintenanceTests
     [Test]
     public async Task CheckIntegrityAsync_WithFtsIndexCorruption_ReportsMismatch()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var page = note.CreatePage("Entry", "Searchable text");
         await RemoveFromFtsIndexAsync(database.DatabasePath, page);
 
@@ -221,9 +221,9 @@ public sealed class SqliteNoteReadModelMaintenanceTests
     [Test]
     public async Task CheckIntegrityAsync_WhenFtsIndexIsMissing_ReportsMissingTable()
     {
-        using var database = new TemporaryNoteDatabase();
-        database.CreateNote("test-note", "Test Note");
-        using (var context = _factory.Create(database.DatabasePath))
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("test-note", "Test Note");
+        using (var context = _factory.CreateDbContext(database.DatabasePath))
         {
             await context.Database.ExecuteSqlRawAsync("DROP TABLE FtsIndex;");
         }
@@ -244,17 +244,17 @@ public sealed class SqliteNoteReadModelMaintenanceTests
     [Test]
     public async Task RebuildAsync_WithCorruptReadModels_RepairsIntegrityAndSearch()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var page = note.CreatePage("Rebuild Target", "A quasar needs indexing.");
-        using (var context = _factory.Create(database.DatabasePath))
+        using (var context = _factory.CreateDbContext(database.DatabasePath))
         {
             await context.Database.ExecuteSqlInterpolatedAsync(
                 $"DELETE FROM Contents WHERE Uuid = {page.Uuid};");
         }
         await RemoveFromFtsIndexAsync(database.DatabasePath, page);
 
-        var report = await CreateMaintenance().RebuildAsync(
+        var report = await CreateMaintenance().RebuildReadModelsAsync(
             database.DatabasePath,
             CancellationToken.None);
         var heading = await note.SearchAsync(
@@ -292,21 +292,21 @@ public sealed class SqliteNoteReadModelMaintenanceTests
     [Test]
     public async Task RebuildAsync_WhenPostCheckFails_RollsBackContentsChanges()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var page = note.CreatePage("Entry", "Searchable text");
-        using (var context = _factory.Create(database.DatabasePath))
+        using (var context = _factory.CreateDbContext(database.DatabasePath))
         {
             await context.Database.ExecuteSqlInterpolatedAsync(
                 $"DELETE FROM Contents WHERE Uuid = {page.Uuid};");
             await context.Database.ExecuteSqlRawAsync("DROP TRIGGER Pages_Insert;");
         }
 
-        var report = await CreateMaintenance().RebuildAsync(
+        var report = await CreateMaintenance().RebuildReadModelsAsync(
             database.DatabasePath,
             CancellationToken.None);
 
-        using var verification = _factory.Create(database.DatabasePath);
+        using var verification = _factory.CreateDbContext(database.DatabasePath);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(report.IsConsistent, Is.False);
@@ -328,10 +328,10 @@ public sealed class SqliteNoteReadModelMaintenanceTests
     [Test]
     public async Task RebuildAsync_WhenFtsRebuildFails_RollsBackContentsChanges()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var page = note.CreatePage("Entry", "Searchable text");
-        using (var context = _factory.Create(database.DatabasePath))
+        using (var context = _factory.CreateDbContext(database.DatabasePath))
         {
             await context.Database.ExecuteSqlInterpolatedAsync($@"
                 UPDATE Contents SET Name = 'Corrupt name'
@@ -340,11 +340,11 @@ public sealed class SqliteNoteReadModelMaintenanceTests
         }
 
         Assert.ThrowsAsync<Microsoft.Data.Sqlite.SqliteException>(new Func<Task>(async () =>
-            await CreateMaintenance().RebuildAsync(
+            await CreateMaintenance().RebuildReadModelsAsync(
                 database.DatabasePath,
                 CancellationToken.None)));
 
-        using var verification = _factory.Create(database.DatabasePath);
+        using var verification = _factory.CreateDbContext(database.DatabasePath);
         Assert.That(
             await verification.Contents
                 .Where(content => content.Uuid == page.Uuid)
@@ -359,10 +359,10 @@ public sealed class SqliteNoteReadModelMaintenanceTests
     [Test]
     public async Task RebuildAsync_WhenPreCancelled_DoesNotChangeDatabase()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var page = note.CreatePage("Entry", "Searchable text");
-        using (var context = _factory.Create(database.DatabasePath))
+        using (var context = _factory.CreateDbContext(database.DatabasePath))
         {
             await context.Database.ExecuteSqlInterpolatedAsync(
                 $"DELETE FROM Contents WHERE Uuid = {page.Uuid};");
@@ -371,19 +371,19 @@ public sealed class SqliteNoteReadModelMaintenanceTests
         cancellation.Cancel();
 
         Assert.ThrowsAsync<OperationCanceledException>(new Func<Task>(async () =>
-            await CreateMaintenance().RebuildAsync(
+            await CreateMaintenance().RebuildReadModelsAsync(
                 database.DatabasePath,
                 cancellation.Token)));
 
-        using var verification = _factory.Create(database.DatabasePath);
+        using var verification = _factory.CreateDbContext(database.DatabasePath);
         Assert.That(
             await verification.Contents.AnyAsync(content => content.Uuid == page.Uuid),
             Is.False);
     }
 
-    private INoteReadModelMaintenance CreateMaintenance()
+    private INotebookReadModelMaintenance CreateMaintenance()
     {
-        return new SqliteNoteReadModelMaintenance(_factory);
+        return new SqliteNotebookReadModelMaintenance(_factory);
     }
 
     private async Task AssertConsistentAsync(string dataSource, int pageCount)
@@ -404,7 +404,7 @@ public sealed class SqliteNoteReadModelMaintenanceTests
 
     private async Task RemoveFromFtsIndexAsync(string dataSource, Page page)
     {
-        using var context = _factory.Create(dataSource);
+        using var context = _factory.CreateDbContext(dataSource);
         await context.Database.ExecuteSqlInterpolatedAsync($@"
             INSERT INTO FtsIndex(FtsIndex, Rowid, Uuid, Name, Tags, Text)
             VALUES('delete', {page.Rowid}, {page.Uuid}, {page.Name}, {page.Tags}, {page.Text});");

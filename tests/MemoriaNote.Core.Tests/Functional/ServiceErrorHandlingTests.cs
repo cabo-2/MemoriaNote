@@ -52,8 +52,8 @@ public sealed class ServiceErrorHandlingTests
     [Test]
     public void TextManagementInfrastructureFailure_PreservesServiceState()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var content = note.CreatePage("Existing text", "Existing body").GetContent();
         var workspace = new Workspace(null, new[] { note }, note);
         var service = new TestableService(workspace)
@@ -89,8 +89,8 @@ public sealed class ServiceErrorHandlingTests
     [Test]
     public void OpenDeletedText_PreservesServiceState()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         var page = note.CreatePage("Deleted text", "Deleted body");
         var content = page.GetContent();
         var workspace = new Workspace(null, new[] { note }, note);

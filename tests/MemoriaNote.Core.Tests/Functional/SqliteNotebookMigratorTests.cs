@@ -14,7 +14,7 @@ namespace MemoriaNote.Core.Tests.Functional;
 [TestFixture]
 [Category("Functional")]
 [NonParallelizable]
-public sealed class SqliteNoteMigratorTests
+public sealed class SqliteNotebookMigratorTests
 {
     private const string InitialMigration = "20230404004629_InitialCreate";
     private const string FtsMigration = "20230404004813_FtsIndexTable";
@@ -25,7 +25,7 @@ public sealed class SqliteNoteMigratorTests
     [Test]
     public async Task CreateAsync_CreatesMigratedDatabaseAndRequiredMetadata()
     {
-        using var database = new TemporaryNoteDatabase();
+        using var database = new TemporaryNotebookDatabase();
         var (migrator, factory, _) = CreatePersistence();
 
         var note = await migrator.CreateAsync(
@@ -34,14 +34,14 @@ public sealed class SqliteNoteMigratorTests
             database.DatabasePath,
             CancellationToken.None);
 
-        using var context = factory.Create(database.DatabasePath);
+        using var context = factory.CreateDbContext(database.DatabasePath);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(File.Exists(database.DatabasePath), Is.True);
-            Assert.That(note.DataSource, Is.EqualTo(Path.GetFullPath(database.DatabasePath)));
+            Assert.That(note.DatabasePath, Is.EqualTo(Path.GetFullPath(database.DatabasePath)));
             Assert.That(note.Metadata.Name, Is.EqualTo("created-note"));
             Assert.That(note.Metadata.Title, Is.EqualTo("Created Note"));
-            Assert.That(note.Metadata.Version, Is.EqualTo(NoteDbContext.CurrentVersion));
+            Assert.That(note.Metadata.Version, Is.EqualTo(NotebookDbContext.CurrentVersion));
             Assert.That(
                 context.Database.GetAppliedMigrations(),
                 Is.EqualTo(new[] { InitialMigration, FtsMigration }));
@@ -54,7 +54,7 @@ public sealed class SqliteNoteMigratorTests
     [Test]
     public async Task CreateAsync_WhenOutputExists_PreservesExistingFile()
     {
-        using var database = new TemporaryNoteDatabase();
+        using var database = new TemporaryNotebookDatabase();
         await File.WriteAllTextAsync(database.DatabasePath, "existing content");
         var (migrator, _, _) = CreatePersistence();
 
@@ -76,7 +76,7 @@ public sealed class SqliteNoteMigratorTests
     [Test]
     public void CreateAsync_WhenPreCancelled_DoesNotCreateDatabase()
     {
-        using var database = new TemporaryNoteDatabase();
+        using var database = new TemporaryNotebookDatabase();
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         var (migrator, _, _) = CreatePersistence();
@@ -96,9 +96,9 @@ public sealed class SqliteNoteMigratorTests
     [Test]
     public void CreateAsync_WhenMetadataInitializationFails_RemovesPartialDatabase()
     {
-        using var database = new TemporaryNoteDatabase();
-        var factory = new SqliteNoteDatabaseFactory(NullLoggerFactory.Instance);
-        var migrator = new SqliteNoteMigrator(
+        using var database = new TemporaryNotebookDatabase();
+        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        var migrator = new SqliteNotebookMigrator(
             factory,
             new FailingMetadataRepository());
 
@@ -124,7 +124,7 @@ public sealed class SqliteNoteMigratorTests
     [Test]
     public void MigrateAsync_WhenDatabaseIsMissing_DoesNotCreateDatabase()
     {
-        using var database = new TemporaryNoteDatabase();
+        using var database = new TemporaryNotebookDatabase();
         var (migrator, _, _) = CreatePersistence();
 
         Assert.ThrowsAsync<ArgumentException>(new Func<Task>(async () =>
@@ -140,7 +140,7 @@ public sealed class SqliteNoteMigratorTests
     [Test]
     public async Task MigrateAsync_WhenRepeated_PreservesDataAndUpdatesVersion()
     {
-        using var database = new TemporaryNoteDatabase();
+        using var database = new TemporaryNotebookDatabase();
         var (migrator, _, metadataRepository) = CreatePersistence();
         var note = await migrator.CreateAsync(
             "existing-note",
@@ -150,16 +150,16 @@ public sealed class SqliteNoteMigratorTests
         var page = note.CreatePage("Entry", "Preserved text");
         await metadataRepository.UpdateAsync(
             database.DatabasePath,
-            new NoteMetadataUpdate().SetVersion("old-version"),
+            new NotebookMetadataPatch().SetVersion("old-version"),
             CancellationToken.None);
 
         await migrator.MigrateAsync(database.DatabasePath, CancellationToken.None);
         await migrator.MigrateAsync(database.DatabasePath, CancellationToken.None);
 
-        var reopened = new Note(database.DatabasePath);
+        var reopened = new Notebook(database.DatabasePath);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(reopened.Metadata.Version, Is.EqualTo(NoteDbContext.CurrentVersion));
+            Assert.That(reopened.Metadata.Version, Is.EqualTo(NotebookDbContext.CurrentVersion));
             Assert.That(reopened.ReadPage(page.Guid)?.Text, Is.EqualTo("Preserved text"));
         }
     }
@@ -170,9 +170,9 @@ public sealed class SqliteNoteMigratorTests
     [Test]
     public async Task MigrateAsync_WhenMigrationFails_PreservesExistingState()
     {
-        using var database = new TemporaryNoteDatabase();
+        using var database = new TemporaryNotebookDatabase();
         var (migrator, factory, _) = CreatePersistence();
-        using (var context = factory.Create(database.DatabasePath))
+        using (var context = factory.CreateDbContext(database.DatabasePath))
         {
             var efMigrator = context.GetService<IMigrator>();
             await efMigrator.MigrateAsync(InitialMigration);
@@ -192,7 +192,7 @@ public sealed class SqliteNoteMigratorTests
                 database.DatabasePath,
                 CancellationToken.None)));
 
-        using var verification = factory.Create(database.DatabasePath);
+        using var verification = factory.CreateDbContext(database.DatabasePath);
         var version = await verification.Metadata
             .Where(value => value.Key == NoteKeyValue.Version)
             .Select(value => value.Value)
@@ -212,30 +212,30 @@ public sealed class SqliteNoteMigratorTests
     }
 
     private static (
-        INoteMigrator Migrator,
-        INoteDatabaseFactory Factory,
-        INoteMetadataRepository MetadataRepository) CreatePersistence()
+        INotebookMigrator Migrator,
+        INotebookDbContextFactory Factory,
+        INotebookMetadataRepository MetadataRepository) CreatePersistence()
     {
-        var factory = new SqliteNoteDatabaseFactory(NullLoggerFactory.Instance);
-        var metadataRepository = new SqliteNoteMetadataRepository(factory);
+        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        var metadataRepository = new SqliteNotebookMetadataRepository(factory);
         return (
-            new SqliteNoteMigrator(factory, metadataRepository),
+            new SqliteNotebookMigrator(factory, metadataRepository),
             factory,
             metadataRepository);
     }
 
-    private sealed class FailingMetadataRepository : INoteMetadataRepository
+    private sealed class FailingMetadataRepository : INotebookMetadataRepository
     {
-        public Task<MetadataLoadResult> LoadAsync(
+        public Task<NotebookMetadataResult> LoadAsync(
             string dataSource,
             CancellationToken token)
         {
             throw new NotSupportedException();
         }
 
-        public Task<MetadataLoadResult> UpdateAsync(
+        public Task<NotebookMetadataResult> UpdateAsync(
             string dataSource,
-            NoteMetadataUpdate update,
+            NotebookMetadataPatch update,
             CancellationToken token)
         {
             throw new IOException("Forced metadata initialization failure.");

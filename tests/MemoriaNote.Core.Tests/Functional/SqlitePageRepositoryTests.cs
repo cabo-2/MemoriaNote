@@ -10,11 +10,11 @@ namespace MemoriaNote.Core.Tests.Functional;
 [TestFixture]
 [Category("Functional")]
 [NonParallelizable]
-public sealed class SqliteNoteRepositoryTests
+public sealed class SqlitePageRepositoryTests
 {
-    readonly INoteRepository _repository =
-        new SqliteNoteRepository(
-            new SqliteNoteDatabaseFactory(NullLoggerFactory.Instance));
+    readonly IPageRepository _repository =
+        new SqlitePageRepository(
+            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
 
     /// <summary>
     /// Verifies materialized reads and mutations through the repository interface.
@@ -22,8 +22,8 @@ public sealed class SqliteNoteRepositoryTests
     [Test]
     public async Task PageOperations_PreserveManagedIndexesAndReadModels()
     {
-        using var database = new TemporaryNoteDatabase();
-        database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("test-note", "Test Note");
         var first = await _repository.CreatePageAsync(
             database.DatabasePath,
             "Daily",
@@ -51,19 +51,19 @@ public sealed class SqliteNoteRepositoryTests
             second,
             CancellationToken.None);
 
-        var dailyPages = await _repository.ReadPagesAsync(
+        var dailyPages = await _repository.ListPagesByHeadingAsync(
             database.DatabasePath,
             "Daily",
             CancellationToken.None);
-        var archivePages = await _repository.ReadPagesAsync(
+        var archivePages = await _repository.ListPagesByHeadingAsync(
             database.DatabasePath,
             "Archive",
             CancellationToken.None);
-        var byId = await _repository.ReadPageAsync(
+        var byId = await _repository.FindPageAsync(
             database.DatabasePath,
             second.Guid,
             CancellationToken.None);
-        var byName = await _repository.ReadPageAsync(
+        var byName = await _repository.FindPageAsync(
             database.DatabasePath,
             "Archive",
             2,
@@ -96,7 +96,7 @@ public sealed class SqliteNoteRepositoryTests
                 contents.All(content => content.OwnerDataSource == Path.GetFullPath(database.DatabasePath)),
                 Is.True);
             Assert.That(
-                await _repository.CountAsync(database.DatabasePath, CancellationToken.None),
+                await _repository.CountPagesAsync(database.DatabasePath, CancellationToken.None),
                 Is.EqualTo(3));
         }
 
@@ -109,7 +109,7 @@ public sealed class SqliteNoteRepositoryTests
             Guid.NewGuid(),
             CancellationToken.None);
 
-        var remainingArchive = await _repository.ReadPagesAsync(
+        var remainingArchive = await _repository.ListPagesByHeadingAsync(
             database.DatabasePath,
             "Archive",
             CancellationToken.None);
@@ -118,7 +118,7 @@ public sealed class SqliteNoteRepositoryTests
             Assert.That(remainingArchive.Select(page => page.Guid), Is.EqualTo(new[] { archive.Guid }));
             Assert.That(remainingArchive.Select(page => page.Index), Is.EqualTo(new[] { 1 }));
             Assert.That(
-                await _repository.CountAsync(database.DatabasePath, CancellationToken.None),
+                await _repository.CountPagesAsync(database.DatabasePath, CancellationToken.None),
                 Is.EqualTo(2));
         }
     }
@@ -129,10 +129,10 @@ public sealed class SqliteNoteRepositoryTests
     [Test]
     public async Task Mutations_UseDataSourceAndUuidInsteadOfRowId()
     {
-        using var firstDatabase = new TemporaryNoteDatabase();
-        using var secondDatabase = new TemporaryNoteDatabase();
-        var firstNote = firstDatabase.CreateNote("first", "First Note");
-        var secondNote = secondDatabase.CreateNote("second", "Second Note");
+        using var firstDatabase = new TemporaryNotebookDatabase();
+        using var secondDatabase = new TemporaryNotebookDatabase();
+        var firstNote = firstDatabase.CreateNotebook("first", "First Note");
+        var secondNote = secondDatabase.CreateNotebook("second", "Second Note");
         var firstPage = firstNote.CreatePage("First", "First text");
         var secondPage = secondNote.CreatePage("Second", "Second text");
         secondPage.Text = "Changed text";
@@ -162,18 +162,18 @@ public sealed class SqliteNoteRepositoryTests
     [Test]
     public async Task TryDeletePageAsync_ReturnsTheTransactionalOutcome()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("typed-delete", "Typed Delete");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("typed-delete", "Typed Delete");
         var page = note.CreatePage("Existing", "Text");
-        var noteId = NoteId.FromDataSource(database.DatabasePath);
+        var notebookId = NotebookId.FromDatabasePath(database.DatabasePath);
         var pageId = PageId.FromGuid(page.Guid);
 
         var deleted = await _repository.TryDeletePageAsync(
-            noteId,
+            notebookId,
             pageId,
             CancellationToken.None);
         var missing = await _repository.TryDeletePageAsync(
-            noteId,
+            notebookId,
             pageId,
             CancellationToken.None);
 
@@ -191,12 +191,12 @@ public sealed class SqliteNoteRepositoryTests
     [Test]
     public void Operations_PreCancelledToken_ThrowOperationCanceledException()
     {
-        using var database = new TemporaryNoteDatabase();
+        using var database = new TemporaryNotebookDatabase();
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
         Assert.ThrowsAsync<OperationCanceledException>(new Func<Task>(async () =>
-            await _repository.ReadPageAsync(
+            await _repository.FindPageAsync(
                 database.DatabasePath,
                 Guid.NewGuid(),
                 cancellation.Token)));

@@ -143,7 +143,7 @@ namespace MemoriaNote
                     .GetAwaiter()
                     .GetResult(),
                 TextManageType.Edit,
-                OwnerNoteId(OpenedContent),
+                OwnerNotebookId(OpenedContent),
                 OpenedContent,
                 "Edit text");
             EditText = ReactiveCommand.Create(EditTextHandler);
@@ -156,7 +156,7 @@ namespace MemoriaNote
                     .GetAwaiter()
                     .GetResult(),
                 TextManageType.Rename,
-                OwnerNoteId(OpenedContent),
+                OwnerNotebookId(OpenedContent),
                 OpenedContent,
                 "Rename text");
             RenameText = ReactiveCommand.Create(RenameTextHandler);
@@ -168,7 +168,7 @@ namespace MemoriaNote
                     .GetAwaiter()
                     .GetResult(),
                 TextManageType.Delete,
-                OwnerNoteId(OpenedContent),
+                OwnerNotebookId(OpenedContent),
                 OpenedContent,
                 "Delete text");
             DeleteText = ReactiveCommand.Create(DeleteTextHandler);
@@ -208,18 +208,18 @@ namespace MemoriaNote
             var configuration = Configuration.Instance ??
                 throw new InvalidOperationException("The application configuration is not initialized.");
             var request = new ApplicationStartupRequest(
-                configuration.DefaultNoteName,
-                configuration.DefaultNoteTitle,
-                configuration.DefaultDataSourcePath,
+                configuration.DefaultNotebookName,
+                configuration.DefaultNotebookTitle,
+                configuration.DefaultNotebookDatabasePath,
                 configuration.DataSources);
             var startupService = new ApplicationStartupService(
                 NotePersistence.CreateMigrator(),
-                new FileNoteDataSourceProbe(),
+                new FileNotebookDatabaseProbe(),
                 new ConfiguredWorkspaceLoader(configuration.Workspace));
             var session = startupService.StartAsync(request, CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
-            if (session.DefaultNoteCreated)
+            if (session.DefaultNotebookCreated)
                 Log.Logger.Information("Default note created");
 
             return session;
@@ -299,14 +299,14 @@ namespace MemoriaNote
                     return;
                 }
 
-                var page = SetPageParent(readResult.Page, OwnerNoteId(newOpenedContent));
+                var page = SetPageParent(readResult.Page, OwnerNotebookId(newOpenedContent));
                 newPlaceHolder = PlaceHolderString(newContentsIndex, result.Count);
                 newEditingTitle = newOpenedContent.Name;
                 newEditingText = page.Text;
                 newEditingUpdateTime = newOpenedContent.UpdateTime
                     .ToLocalTime()
                     .ToString("ddd MMM dd hh:mm:ss yyyy zzz");
-                var note = newOpenedContent.Parent as Note;
+                var note = newOpenedContent.Parent as Notebook;
                 newEditingNoteTitle = note?.Metadata?.Title ?? string.Empty;
             }
 
@@ -365,7 +365,7 @@ namespace MemoriaNote
                     return;
                 }
 
-                var page = SetPageParent(readResult.Page, OwnerNoteId(content));
+                var page = SetPageParent(readResult.Page, OwnerNotebookId(content));
                 // Set the placeholder text based on the selected content index and total contents count
                 this.PlaceHolder = PlaceHolderString(this.SelectedContentsIndex, this.ContentsCount);
                 // Set the opened content to the selected content
@@ -377,7 +377,7 @@ namespace MemoriaNote
                 // Set the editing update time to the local time representation of the content's update time
                 this.EditingUpdateTime = content.UpdateTime.ToLocalTime().ToString("ddd MMM dd hh:mm:ss yyyy zzz");
                 // Retrieve the note title associated with the current content, if available
-                var note = content.Parent as Note;
+                var note = content.Parent as Notebook;
                 this.EditingNoteTitle = note?.Metadata?.Title ?? string.Empty;
             }
             else
@@ -477,8 +477,8 @@ namespace MemoriaNote
             if (!Enum.IsDefined(typeof(SearchRangeType), searchRange))
                 throw new ArgumentOutOfRangeException(nameof(searchRange));
 
-            return searchRange == SearchRangeType.Note
-                ? SearchRequest.ForNote(
+            return searchRange == SearchRangeType.Notebook
+                ? SearchRequest.ForNotebook(
                     searchEntry,
                     searchMethod,
                     SelectedNotebookId(),
@@ -487,7 +487,7 @@ namespace MemoriaNote
                 : SearchRequest.ForWorkspace(
                     searchEntry,
                     searchMethod,
-                    Workspace.Notebooks.Select(note => NoteId.FromDataSource(note.DataSource)),
+                    Workspace.Notebooks.Select(note => NotebookId.FromDatabasePath(note.DatabasePath)),
                     offset,
                     limit);
         }
@@ -495,35 +495,35 @@ namespace MemoriaNote
         Content ToCompatibilityContent(PageSummary summary)
         {
             var content = PageSummaryContentAdapter.ToContent(summary);
-            content.Parent = ResolveNote(summary.NoteId);
+            content.Parent = ResolveNotebook(summary.NotebookId);
             return content;
         }
 
-        NoteId SelectedNotebookId()
+        NotebookId SelectedNotebookId()
         {
             return Workspace.SelectedNotebook == null
                 ? null
-                : NoteId.FromDataSource(Workspace.SelectedNotebook.DataSource);
+                : NotebookId.FromDatabasePath(Workspace.SelectedNotebook.DatabasePath);
         }
 
-        static NoteId OwnerNoteId(IContent content)
+        static NotebookId OwnerNotebookId(IContent content)
         {
-            return WorkspaceCompatibilityFacade.CreateReference(content)?.NoteId;
+            return WorkspaceCompatibilityFacade.CreateReference(content)?.NotebookId;
         }
 
-        Note ResolveNote(NoteId noteId)
+        Notebook ResolveNotebook(NotebookId notebookId)
         {
-            if (noteId == null)
+            if (notebookId == null)
                 return null;
 
             return Workspace.Notebooks.FirstOrDefault(note =>
-                NoteId.FromDataSource(note.DataSource) == noteId);
+                NotebookId.FromDatabasePath(note.DatabasePath) == notebookId);
         }
 
-        Page SetPageParent(Page page, NoteId noteId)
+        Page SetPageParent(Page page, NotebookId notebookId)
         {
             if (page != null)
-                page.Parent = ResolveNote(noteId);
+                page.Parent = ResolveNotebook(notebookId);
 
             return page;
         }
@@ -605,11 +605,11 @@ namespace MemoriaNote
             string newText,
             CancellationToken token)
         {
-            var noteId = SelectedNotebookId();
-            return noteId == null
+            var notebookId = SelectedNotebookId();
+            return notebookId == null
                 ? Task.FromResult(MissingOwner())
                 : _applicationService.CreateAsync(
-                    new CreatePageCommand(noteId, newName, newText),
+                    new CreatePageCommand(notebookId, newName, newText),
                     token);
         }
 
@@ -623,7 +623,7 @@ namespace MemoriaNote
             return target == null
                 ? Task.FromResult(PageNotSelected())
                 : _applicationService.EditAsync(
-                    new EditPageCommand(target.NoteId, target.PageId, newText),
+                    new EditPageCommand(target.NotebookId, target.PageId, newText),
                     token);
         }
 
@@ -637,7 +637,7 @@ namespace MemoriaNote
             return target == null
                 ? Task.FromResult(PageNotSelected())
                 : _applicationService.RenameAsync(
-                    new RenamePageCommand(target.NoteId, target.PageId, newName),
+                    new RenamePageCommand(target.NotebookId, target.PageId, newName),
                     token);
         }
 
@@ -650,7 +650,7 @@ namespace MemoriaNote
             return target == null
                 ? Task.FromResult(PageNotSelected())
                 : _applicationService.DeleteAsync(
-                    new DeletePageCommand(target.NoteId, target.PageId),
+                    new DeletePageCommand(target.NotebookId, target.PageId),
                     token);
         }
 
@@ -676,11 +676,11 @@ namespace MemoriaNote
         {
             try
             {
-                var noteId = SelectedNotebookId();
-                var result = noteId == null
+                var notebookId = SelectedNotebookId();
+                var result = notebookId == null
                     ? MissingOwner()
                     : _applicationService.ValidateCreateAsync(
-                            new CreatePageCommand(noteId, newName, newText),
+                            new CreatePageCommand(notebookId, newName, newText),
                             CancellationToken.None)
                         .GetAwaiter()
                         .GetResult();
@@ -709,7 +709,7 @@ namespace MemoriaNote
                 var result = target == null
                     ? PageNotSelected()
                     : _applicationService.ValidateEditAsync(
-                            new EditPageCommand(target.NoteId, target.PageId, newText),
+                            new EditPageCommand(target.NotebookId, target.PageId, newText),
                             CancellationToken.None)
                         .GetAwaiter()
                         .GetResult();
@@ -738,7 +738,7 @@ namespace MemoriaNote
                 var result = target == null
                     ? PageNotSelected()
                     : _applicationService.ValidateRenameAsync(
-                            new RenamePageCommand(target.NoteId, target.PageId, newName),
+                            new RenamePageCommand(target.NotebookId, target.PageId, newName),
                             CancellationToken.None)
                         .GetAwaiter()
                         .GetResult();
@@ -766,7 +766,7 @@ namespace MemoriaNote
                 var result = target == null
                     ? PageNotSelected()
                     : _applicationService.ValidateDeleteAsync(
-                            new DeletePageCommand(target.NoteId, target.PageId),
+                            new DeletePageCommand(target.NotebookId, target.PageId),
                             CancellationToken.None)
                         .GetAwaiter()
                         .GetResult();
@@ -783,7 +783,7 @@ namespace MemoriaNote
         private void ExecuteTextManagement(
             Func<PageOperationResult> operation,
             TextManageType operationType,
-            NoteId noteId,
+            NotebookId notebookId,
             IContent originalContent,
             string operationName)
         {
@@ -793,7 +793,7 @@ namespace MemoriaNote
                 OnTextManageResultCallback(ToTextManageResult(
                     operationType,
                     result,
-                    noteId,
+                    notebookId,
                     originalContent));
             }
             catch (Exception exception) when (IsInfrastructureException(exception))
@@ -805,11 +805,11 @@ namespace MemoriaNote
         TextManageResult ToTextManageResult(
             TextManageType operation,
             PageOperationResult result,
-            NoteId noteId,
+            NotebookId notebookId,
             IContent originalContent)
         {
             var page = result.IsSuccess
-                ? SetPageParent(result.Page, noteId)
+                ? SetPageParent(result.Page, notebookId)
                 : null;
             return new TextManageResult
             {

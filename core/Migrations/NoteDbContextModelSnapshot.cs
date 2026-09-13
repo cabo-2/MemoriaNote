@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace MemoriaNote.Core.Migrations
 {
-    [DbContext(typeof(NoteDbContext))]
+    [DbContext(typeof(NotebookDbContext))]
     partial class NoteDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)

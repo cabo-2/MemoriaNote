@@ -9,106 +9,110 @@ using System.Threading.Tasks;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Represents a Note in the MemoriaNote application.
-    /// Provides methods for managing note metadata and pages.
+    /// Represents a notebook in the MemoriaNote application.
+    /// Provides methods for managing notebook metadata and pages.
     /// </summary>
-    public class Note
+    public class Notebook
     {
-        string _dataSource = null;
-        readonly INoteRepository _repository;
-        readonly INoteSearchRepository _searchRepository;
-        readonly INoteMetadataRepository _metadataRepository;
+        string _databasePath = null;
+        readonly IPageRepository _repository;
+        readonly IPageSearchRepository _searchRepository;
+        readonly INotebookMetadataRepository _metadataRepository;
 
-        public Note() { }
-        public Note(string dataSource)
+        /// <summary>Initializes an empty notebook reference.</summary>
+        public Notebook() { }
+
+        /// <summary>Initializes a notebook for the specified SQLite database path.</summary>
+        /// <param name="databasePath">The notebook database path.</param>
+        public Notebook(string databasePath)
         {
-            InitializeDataSource(dataSource);
+            InitializeDatabasePath(databasePath);
         }
 
         /// <summary>
-        /// Initializes a note with an explicit search persistence boundary.
+        /// Initializes a notebook with an explicit search persistence boundary.
         /// </summary>
-        /// <param name="dataSource">The path of the note database.</param>
-        /// <param name="searchRepository">The repository used for note searches.</param>
-        public Note(string dataSource, INoteSearchRepository searchRepository)
+        /// <param name="databasePath">The path of the notebook database.</param>
+        /// <param name="searchRepository">The repository used for notebook searches.</param>
+        public Notebook(string databasePath, IPageSearchRepository searchRepository)
         {
             _searchRepository = searchRepository ??
                 throw new ArgumentNullException(nameof(searchRepository));
-            InitializeDataSource(dataSource);
+            InitializeDatabasePath(databasePath);
         }
 
         /// <summary>
-        /// Initializes a note with an explicit page persistence boundary.
+        /// Initializes a notebook with an explicit page persistence boundary.
         /// </summary>
-        /// <param name="dataSource">The path of the note database.</param>
+        /// <param name="databasePath">The path of the notebook database.</param>
         /// <param name="repository">The repository used for page operations.</param>
-        public Note(string dataSource, INoteRepository repository)
+        public Notebook(string databasePath, IPageRepository repository)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
-            InitializeDataSource(dataSource);
+            InitializeDatabasePath(databasePath);
         }
 
         /// <summary>
-        /// Initializes a note with an explicit metadata persistence boundary.
+        /// Initializes a notebook with an explicit metadata persistence boundary.
         /// </summary>
-        /// <param name="dataSource">The path of the note database.</param>
+        /// <param name="databasePath">The path of the notebook database.</param>
         /// <param name="metadataRepository">The repository used for metadata operations.</param>
-        public Note(string dataSource, INoteMetadataRepository metadataRepository)
+        public Notebook(string databasePath, INotebookMetadataRepository metadataRepository)
         {
             _metadataRepository = metadataRepository ??
                 throw new ArgumentNullException(nameof(metadataRepository));
-            InitializeDataSource(dataSource);
+            InitializeDatabasePath(databasePath);
         }
 
         /// <summary>
-        /// Initializes a note with explicit page and search persistence boundaries.
+        /// Initializes a notebook with explicit page and search persistence boundaries.
         /// </summary>
-        /// <param name="dataSource">The path of the note database.</param>
+        /// <param name="databasePath">The path of the notebook database.</param>
         /// <param name="repository">The repository used for page operations.</param>
-        /// <param name="searchRepository">The repository used for note searches.</param>
-        public Note(
-            string dataSource,
-            INoteRepository repository,
-            INoteSearchRepository searchRepository)
+        /// <param name="searchRepository">The repository used for notebook searches.</param>
+        public Notebook(
+            string databasePath,
+            IPageRepository repository,
+            IPageSearchRepository searchRepository)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _searchRepository = searchRepository ??
                 throw new ArgumentNullException(nameof(searchRepository));
-            InitializeDataSource(dataSource);
+            InitializeDatabasePath(databasePath);
         }
 
         /// <summary>
-        /// Initializes a note with explicit page, search, and metadata persistence boundaries.
+        /// Initializes a notebook with explicit page, search, and metadata persistence boundaries.
         /// </summary>
-        /// <param name="dataSource">The path of the note database.</param>
+        /// <param name="databasePath">The path of the notebook database.</param>
         /// <param name="repository">The repository used for page operations.</param>
-        /// <param name="searchRepository">The repository used for note searches.</param>
+        /// <param name="searchRepository">The repository used for notebook searches.</param>
         /// <param name="metadataRepository">The repository used for metadata operations.</param>
-        public Note(
-            string dataSource,
-            INoteRepository repository,
-            INoteSearchRepository searchRepository,
-            INoteMetadataRepository metadataRepository)
+        public Notebook(
+            string databasePath,
+            IPageRepository repository,
+            IPageSearchRepository searchRepository,
+            INotebookMetadataRepository metadataRepository)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _searchRepository = searchRepository ??
                 throw new ArgumentNullException(nameof(searchRepository));
             _metadataRepository = metadataRepository ??
                 throw new ArgumentNullException(nameof(metadataRepository));
-            InitializeDataSource(dataSource);
+            InitializeDatabasePath(databasePath);
         }
 
-        internal Note(
-            string dataSource,
-            INoteMetadataRepository metadataRepository,
-            MetadataLoadResult metadata)
+        internal Notebook(
+            string databasePath,
+            INotebookMetadataRepository metadataRepository,
+            NotebookMetadataResult metadata)
         {
             _metadataRepository = metadataRepository ??
                 throw new ArgumentNullException(nameof(metadataRepository));
             if (metadata == null)
                 throw new ArgumentNullException(nameof(metadata));
 
-            DataSource = dataSource;
+            DatabasePath = databasePath;
             ApplyMetadata(metadata);
         }
 
@@ -120,8 +124,8 @@ namespace MemoriaNote
         /// <returns>The Page object if found, or null if not found.</returns>
         public Page ReadPage(string name, int index)
         {
-            return SetOwner(Repository.ReadPageAsync(
-                DataSource,
+            return SetOwner(Repository.FindPageAsync(
+                DatabasePath,
                 name,
                 index,
                 CancellationToken.None).GetAwaiter().GetResult());
@@ -134,8 +138,8 @@ namespace MemoriaNote
         /// <returns>The Page object if found, or null if not found.</returns>
         public Page ReadPage(Guid guid)
         {
-            return SetOwner(Repository.ReadPageAsync(
-                DataSource,
+            return SetOwner(Repository.FindPageAsync(
+                DatabasePath,
                 guid,
                 CancellationToken.None).GetAwaiter().GetResult());
         }
@@ -154,8 +158,8 @@ namespace MemoriaNote
         /// <returns>An IEnumerable collection of Page objects.</returns>
         public IEnumerable<Page> ReadPage(string name)
         {
-            return Repository.ReadPagesAsync(
-                    DataSource,
+            return Repository.ListPagesByHeadingAsync(
+                    DatabasePath,
                     name,
                     CancellationToken.None)
                 .GetAwaiter()
@@ -175,7 +179,7 @@ namespace MemoriaNote
         public Page CreatePage(string name, string text, string dir = null)
         {
             return SetOwner(Repository.CreatePageAsync(
-                DataSource,
+                DatabasePath,
                 name,
                 text,
                 dir,
@@ -192,7 +196,7 @@ namespace MemoriaNote
         public void UpdatePage(Page newPage)
         {
             var persistedPage = Repository.UpdatePageAsync(
-                DataSource,
+                DatabasePath,
                 newPage,
                 CancellationToken.None).GetAwaiter().GetResult();
             newPage.Rowid = persistedPage.Rowid;
@@ -224,13 +228,13 @@ namespace MemoriaNote
         public void DeletePage(Guid guid)
         {
             Repository.DeletePageAsync(
-                DataSource,
+                DatabasePath,
                 guid,
                 CancellationToken.None).GetAwaiter().GetResult();
         }
 
         /// <summary>
-        /// Asynchronously searches this note using the specified search method.
+        /// Asynchronously searches this notebook using the specified search method.
         /// </summary>
         /// <param name="searchEntry">The search entry to match.</param>
         /// <param name="searchMethod">The search method to use.</param>
@@ -245,7 +249,7 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Asynchronously searches this note using the specified search method and paging values.
+        /// Asynchronously searches this notebook using the specified search method and paging values.
         /// </summary>
         /// <param name="searchEntry">The search entry to match.</param>
         /// <param name="searchMethod">The search method to use.</param>
@@ -261,10 +265,10 @@ namespace MemoriaNote
             CancellationToken token)
         {
             var startTime = DateTime.UtcNow;
-            var request = SearchRequest.ForNote(
+            var request = SearchRequest.ForNotebook(
                 searchEntry,
                 searchMethod,
-                NoteId.FromDataSource(DataSource),
+                NotebookId.FromDatabasePath(DatabasePath),
                 skipCount,
                 takeCount);
             var result = await new SearchUseCase(SearchRepository)
@@ -281,57 +285,57 @@ namespace MemoriaNote
             };
         }
 
-        internal INoteSearchRepository SearchRepository =>
+        internal IPageSearchRepository SearchRepository =>
             _searchRepository ?? DefaultSearchRepository.Instance;
 
-        internal INoteRepository Repository =>
+        internal IPageRepository Repository =>
             _repository ?? DefaultRepository.Instance;
 
-        INoteMetadataRepository MetadataRepository =>
+        INotebookMetadataRepository MetadataRepository =>
             _metadataRepository ?? DefaultMetadataRepository.Instance;
 
         static class DefaultRepository
         {
-            internal static readonly INoteRepository Instance =
-                new SqliteNoteRepository(
-                    new SqliteNoteDatabaseFactory(NoteDbContext.MyLoggerFactory));
+            internal static readonly IPageRepository Instance =
+                new SqlitePageRepository(
+                    new SqliteNotebookDbContextFactory(NotebookDbContext.MyLoggerFactory));
         }
 
         static class DefaultSearchRepository
         {
-            internal static readonly INoteSearchRepository Instance =
-                new SqliteNoteSearchRepository(
-                    new SqliteNoteDatabaseFactory(NoteDbContext.MyLoggerFactory));
+            internal static readonly IPageSearchRepository Instance =
+                new SqlitePageSearchRepository(
+                    new SqliteNotebookDbContextFactory(NotebookDbContext.MyLoggerFactory));
         }
 
         static class DefaultMetadataRepository
         {
-            internal static readonly INoteMetadataRepository Instance =
-                new SqliteNoteMetadataRepository(
-                    new SqliteNoteDatabaseFactory(NoteDbContext.MyLoggerFactory));
+            internal static readonly INotebookMetadataRepository Instance =
+                new SqliteNotebookMetadataRepository(
+                    new SqliteNotebookDbContextFactory(NotebookDbContext.MyLoggerFactory));
         }
 
         /// <summary>
-        /// Gets the count of contents in the note repository.
+        /// Gets the count of contents in the notebook repository.
         /// </summary>
         /// <returns>An integer representing the total count of contents in the database.</returns>
         public int Count
         {
-            get => Repository.CountAsync(DataSource, CancellationToken.None)
+            get => Repository.CountPagesAsync(DatabasePath, CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
         }
 
         /// <summary>
-        /// Retrieves a list of content items from the note repository using the provided paging values.
+        /// Retrieves a list of content items from the notebook repository using the provided paging values.
         /// </summary>
         /// <param name="skipCount">The number of content items to skip before retrieving data.</param>
         /// <param name="takeCount">The maximum number of content items to retrieve from the database.</param>
         /// <returns>A list of Content objects representing the retrieved content items.</returns>
         public List<Content> GetContents(int skipCount, int takeCount)
         {
-            return Repository.ReadPageSummariesAsync(
-                    DataSource,
+            return Repository.ListPageSummariesAsync(
+                    DatabasePath,
                     skipCount,
                     takeCount,
                     CancellationToken.None)
@@ -350,7 +354,7 @@ namespace MemoriaNote
         {
             if (content != null)
             {
-                content.OwnerDataSource = Path.GetFullPath(DataSource);
+                content.OwnerDataSource = Path.GetFullPath(DatabasePath);
                 content.Parent = this;
             }
 
@@ -358,40 +362,40 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Gets or sets the data source for note operations.
+        /// Gets or sets the database path for notebook operations.
         /// Setting this property clears the currently loaded metadata snapshot without accessing the database.
         /// </summary>
-        public string DataSource
+        public string DatabasePath
         {
-            get => _dataSource;
+            get => _databasePath;
             set
             {
-                _dataSource = value;
+                _databasePath = value;
                 Metadata = null;
-                MetadataIssues = Array.Empty<MetadataLoadIssue>();
+                MetadataIssues = Array.Empty<MetadataIssue>();
             }
         }
 
         /// <summary>
         /// Gets the most recently loaded or persisted metadata snapshot.
         /// </summary>
-        public NoteMetadata Metadata { get; private set; }
+        public NotebookMetadata Metadata { get; private set; }
 
         /// <summary>
         /// Gets classifiable problems found while producing the current metadata snapshot.
         /// </summary>
-        public IReadOnlyList<MetadataLoadIssue> MetadataIssues { get; private set; } =
-            Array.Empty<MetadataLoadIssue>();
+        public IReadOnlyList<MetadataIssue> MetadataIssues { get; private set; } =
+            Array.Empty<MetadataIssue>();
 
         /// <summary>
-        /// Reloads the metadata snapshot from the note database.
+        /// Reloads the metadata snapshot from the notebook database.
         /// </summary>
         /// <param name="token">The cancellation token for the database operation.</param>
         /// <returns>The loaded snapshot and any classifiable value problems.</returns>
-        public async Task<MetadataLoadResult> ReloadMetadataAsync(CancellationToken token)
+        public async Task<NotebookMetadataResult> ReloadMetadataAsync(CancellationToken token)
         {
             var result = await MetadataRepository
-                .LoadAsync(DataSource, token)
+                .LoadAsync(DatabasePath, token)
                 .ConfigureAwait(false);
             ApplyMetadata(result);
             return result;
@@ -400,15 +404,15 @@ namespace MemoriaNote
         /// <summary>
         /// Persists requested metadata fields atomically and replaces the current snapshot.
         /// </summary>
-        /// <param name="update">The metadata fields to update together.</param>
+        /// <param name="patch">The metadata fields to patch together.</param>
         /// <param name="token">The cancellation token for the database operation.</param>
         /// <returns>The saved snapshot and any classifiable value problems.</returns>
-        public async Task<MetadataLoadResult> UpdateMetadataAsync(
-            NoteMetadataUpdate update,
+        public async Task<NotebookMetadataResult> UpdateMetadataAsync(
+            NotebookMetadataPatch patch,
             CancellationToken token)
         {
             var result = await MetadataRepository
-                .UpdateAsync(DataSource, update, token)
+                .UpdateAsync(DatabasePath, patch, token)
                 .ConfigureAwait(false);
             ApplyMetadata(result);
             return result;
@@ -417,28 +421,28 @@ namespace MemoriaNote
         /// <summary>
         /// Persists requested metadata fields atomically through the synchronous compatibility API.
         /// </summary>
-        /// <param name="update">The metadata fields to update together.</param>
+        /// <param name="patch">The metadata fields to patch together.</param>
         /// <returns>The saved snapshot and any classifiable value problems.</returns>
-        public MetadataLoadResult UpdateMetadata(NoteMetadataUpdate update)
+        public NotebookMetadataResult UpdateMetadata(NotebookMetadataPatch patch)
         {
-            return UpdateMetadataAsync(update, CancellationToken.None)
+            return UpdateMetadataAsync(patch, CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
         }
 
-        void InitializeDataSource(string dataSource)
+        void InitializeDatabasePath(string databasePath)
         {
-            DataSource = dataSource;
-            if (dataSource == null || !File.Exists(dataSource))
+            DatabasePath = databasePath;
+            if (databasePath == null || !File.Exists(databasePath))
                 return;
 
-            var result = MetadataRepository.LoadAsync(dataSource, CancellationToken.None)
+            var result = MetadataRepository.LoadAsync(databasePath, CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
             ApplyMetadata(result);
         }
 
-        void ApplyMetadata(MetadataLoadResult result)
+        void ApplyMetadata(NotebookMetadataResult result)
         {
             Metadata = result.Metadata;
             MetadataIssues = result.Issues;

@@ -128,10 +128,10 @@ namespace MemoriaNote.Cli
                     }),
                     new StatusItem(Key.F3, "~F3~ " + ViewModel.SearchRangeString, () => {
                         Log.Logger.Debug("Push F3 Function");
-                        if (ViewModel.SearchRange == SearchRangeType.Note)
+                        if (ViewModel.SearchRange == SearchRangeType.Notebook)
                             ViewModel.SearchRange = ConfigurationCli.Instance.State.SearchRange = SearchRangeType.Workspace;
                         else
-                            ViewModel.SearchRange = ConfigurationCli.Instance.State.SearchRange = SearchRangeType.Note;
+                            ViewModel.SearchRange = ConfigurationCli.Instance.State.SearchRange = SearchRangeType.Notebook;
 
                         Controller.RequestHome();
                         Application.RequestStop ();
@@ -152,7 +152,7 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.F10, "~F10~ Browse Mode", () => {
                         Log.Logger.Debug("Push F10 Function");
 
-                        ViewModel.SearchRange = SearchRangeType.Note;
+                        ViewModel.SearchRange = SearchRangeType.Notebook;
                         ViewModel.SearchMethod = SearchMethodType.Heading;
 
                         Controller.RequestManage();

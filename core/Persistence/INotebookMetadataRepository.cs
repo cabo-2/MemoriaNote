@@ -4,30 +4,30 @@ using System.Threading.Tasks;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Loads and updates materialized metadata snapshots for note databases.
+    /// Loads and updates materialized metadata snapshots for notebook databases.
     /// </summary>
-    public interface INoteMetadataRepository
+    public interface INotebookMetadataRepository
     {
         /// <summary>
-        /// Loads all metadata values from a note database in one operation.
+        /// Loads all metadata values from a notebook database in one operation.
         /// </summary>
-        /// <param name="dataSource">The path of the note database.</param>
+        /// <param name="databasePath">The path of the notebook database.</param>
         /// <param name="token">The cancellation token for the database operation.</param>
         /// <returns>The snapshot and any classifiable value problems.</returns>
-        Task<MetadataLoadResult> LoadAsync(
-            string dataSource,
+        Task<NotebookMetadataResult> LoadAsync(
+            string databasePath,
             CancellationToken token);
 
         /// <summary>
         /// Persists all requested metadata fields atomically and returns the saved snapshot.
         /// </summary>
-        /// <param name="dataSource">The path of the note database.</param>
-        /// <param name="update">The fields to update together.</param>
+        /// <param name="databasePath">The path of the notebook database.</param>
+        /// <param name="patch">The fields to patch together.</param>
         /// <param name="token">The cancellation token for the database operation.</param>
         /// <returns>The saved snapshot and any classifiable value problems.</returns>
-        Task<MetadataLoadResult> UpdateAsync(
-            string dataSource,
-            NoteMetadataUpdate update,
+        Task<NotebookMetadataResult> UpdateAsync(
+            string databasePath,
+            NotebookMetadataPatch patch,
             CancellationToken token);
     }
 }

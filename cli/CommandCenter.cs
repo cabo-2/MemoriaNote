@@ -19,7 +19,7 @@ namespace MemoriaNote.Cli
     /// </summary>
     public class CommandCenter
     {
-        readonly INoteMigrator _noteMigrator;
+        readonly INotebookMigrator _notebookMigrator;
 
         /// <summary>
         /// Initializes a command center with the default SQLite persistence services.
@@ -31,11 +31,11 @@ namespace MemoriaNote.Cli
         /// <summary>
         /// Initializes a command center with an explicit note migrator.
         /// </summary>
-        /// <param name="noteMigrator">The service used for note database lifecycle operations.</param>
-        public CommandCenter(INoteMigrator noteMigrator)
+        /// <param name="notebookMigrator">The service used for note database lifecycle operations.</param>
+        public CommandCenter(INotebookMigrator notebookMigrator)
         {
-            _noteMigrator = noteMigrator ??
-                throw new ArgumentNullException(nameof(noteMigrator));
+            _notebookMigrator = notebookMigrator ??
+                throw new ArgumentNullException(nameof(notebookMigrator));
         }
 
         /// <summary>
@@ -109,7 +109,7 @@ namespace MemoriaNote.Cli
                 var vm = new MemoriaNoteViewModel
                 {
                     SearchEntry = name,
-                    SearchRange = SearchRangeType.Note,
+                    SearchRange = SearchRangeType.Notebook,
                     SearchMethod = SearchMethodType.Heading
                 };
                 var sc = new ScreenController();
@@ -133,7 +133,7 @@ namespace MemoriaNote.Cli
                 var vm = new MemoriaNoteViewModel
                 {
                     SearchEntry = name,
-                    SearchRange = SearchRangeType.Note,
+                    SearchRange = SearchRangeType.Notebook,
                     SearchMethod = SearchMethodType.Heading,
                     EditingTitle = name,
                     EditingState = TextManageType.Create
@@ -222,7 +222,7 @@ namespace MemoriaNote.Cli
                 var vm = new MemoriaNoteViewModel
                 {
                     SearchEntry = GetFindKey(name),
-                    SearchRange = SearchRangeType.Note,
+                    SearchRange = SearchRangeType.Notebook,
                     SearchMethod = SearchMethodType.Heading
                 };
                 vm.ActivateHandler().Wait();
@@ -376,7 +376,7 @@ namespace MemoriaNote.Cli
                             data.ValidateName(note, vm.Workspace, ref errors);
                             data.ValidateTitle(note, vm.Workspace, ref errors);
                             note.UpdateMetadata(
-                                NoteMetadataUpdate.FromDifferences(note.Metadata, data));
+                                NotebookMetadataPatch.Create(note.Metadata, data));
                             Log.Logger.Information("Metadata updated");
                         }
                         catch (ValidationException)
@@ -436,7 +436,7 @@ namespace MemoriaNote.Cli
                 var path = NoteUtil.GetNotePath(ConfigurationCli.Instance.ApplicationDataDirectory, name);
                 try
                 {
-                    _noteMigrator.CreateAsync(
+                    _notebookMigrator.CreateAsync(
                             name,
                             title,
                             path,
@@ -516,7 +516,7 @@ namespace MemoriaNote.Cli
                 ConfigurationCli.Instance = ConfigurationCli.Create();
                 try
                 {
-                    using var db = new NoteDbContext(path) { };
+                    using var db = new NotebookDbContext(path) { };
                 }
                 catch
                 {
@@ -553,7 +553,7 @@ namespace MemoriaNote.Cli
                     Console.Error.WriteLine("Error: Cannot remove the last note");
                     return -1;
                 }
-                var ds = workspace.Notebooks.First(n => name == n.Metadata.Name).DataSource;
+                var ds = workspace.Notebooks.First(n => name == n.Metadata.Name).DatabasePath;
                 ConfigurationCli.Instance.Workspace.NotebookDatabasePaths.Remove(ds);
                 ConfigurationCli.Instance.Save();
                 return 0;
@@ -570,7 +570,7 @@ namespace MemoriaNote.Cli
             {
                 ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
-                Note current = name switch
+                Notebook current = name switch
                 {
                     null => vm.Workspace.SelectedNotebook,
                     _ => vm.Workspace.Notebooks.FirstOrDefault(n => n.Metadata.Name == name)

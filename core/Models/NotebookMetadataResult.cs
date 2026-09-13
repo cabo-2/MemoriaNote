@@ -6,7 +6,7 @@ namespace MemoriaNote
     /// <summary>
     /// Identifies a metadata value that could not be interpreted normally.
     /// </summary>
-    public enum MetadataLoadIssueKind
+    public enum MetadataIssueKind
     {
         /// <summary>
         /// A required metadata key was not stored.
@@ -27,7 +27,7 @@ namespace MemoriaNote
     /// <summary>
     /// Describes one classifiable problem found while loading metadata.
     /// </summary>
-    public sealed class MetadataLoadIssue
+    public sealed class MetadataIssue
     {
         /// <summary>
         /// Initializes a new metadata load issue.
@@ -35,7 +35,7 @@ namespace MemoriaNote
         /// <param name="kind">The category of the problem.</param>
         /// <param name="key">The affected metadata key.</param>
         /// <param name="value">The stored value, when one was present.</param>
-        public MetadataLoadIssue(MetadataLoadIssueKind kind, string key, string value)
+        public MetadataIssue(MetadataIssueKind kind, string key, string value)
         {
             Kind = kind;
             Key = key;
@@ -45,7 +45,7 @@ namespace MemoriaNote
         /// <summary>
         /// Gets the category of the problem.
         /// </summary>
-        public MetadataLoadIssueKind Kind { get; }
+        public MetadataIssueKind Kind { get; }
 
         /// <summary>
         /// Gets the affected metadata key.
@@ -61,16 +61,16 @@ namespace MemoriaNote
     /// <summary>
     /// Contains a metadata snapshot and any non-fatal parsing issues found while loading it.
     /// </summary>
-    public sealed class MetadataLoadResult
+    public sealed class NotebookMetadataResult
     {
         /// <summary>
         /// Initializes a new metadata load result.
         /// </summary>
         /// <param name="metadata">The materialized metadata snapshot.</param>
         /// <param name="issues">The issues found while materializing the snapshot.</param>
-        public MetadataLoadResult(
-            NoteMetadata metadata,
-            IEnumerable<MetadataLoadIssue> issues)
+        public NotebookMetadataResult(
+            NotebookMetadata metadata,
+            IEnumerable<MetadataIssue> issues)
         {
             Metadata = metadata;
             Issues = issues.ToList().AsReadOnly();
@@ -79,12 +79,12 @@ namespace MemoriaNote
         /// <summary>
         /// Gets the materialized snapshot.
         /// </summary>
-        public NoteMetadata Metadata { get; }
+        public NotebookMetadata Metadata { get; }
 
         /// <summary>
         /// Gets the classifiable problems found while loading values.
         /// </summary>
-        public IReadOnlyList<MetadataLoadIssue> Issues { get; }
+        public IReadOnlyList<MetadataIssue> Issues { get; }
 
         /// <summary>
         /// Gets a value indicating whether any load issues were found.

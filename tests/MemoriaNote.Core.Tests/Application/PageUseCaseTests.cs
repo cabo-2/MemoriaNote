@@ -14,8 +14,8 @@ public sealed class PageUseCaseTests
     [Test]
     public async Task CreateAsync_UsesTheExplicitTargetNote()
     {
-        var selectedId = CreateNoteId("selected");
-        var targetId = CreateNoteId("target");
+        var selectedId = CreateNotebookId("selected");
+        var targetId = CreateNotebookId("target");
         var selectedRepository = new FakeNoteRepository();
         var targetRepository = new FakeNoteRepository();
         var useCase = CreateUseCase(
@@ -41,8 +41,8 @@ public sealed class PageUseCaseTests
     [Test]
     public async Task EditRenameDeleteAsync_UseTheDeclaredOwner()
     {
-        var selectedId = CreateNoteId("selected-owner");
-        var ownerId = CreateNoteId("actual-owner");
+        var selectedId = CreateNotebookId("selected-owner");
+        var ownerId = CreateNotebookId("actual-owner");
         var sharedId = PageId.FromGuid(Guid.NewGuid());
         var selectedRepository = new FakeNoteRepository(CreatePage(sharedId, "Shared", "Selected"));
         var ownerRepository = new FakeNoteRepository(CreatePage(sharedId, "Shared", "Owner"));
@@ -77,8 +77,8 @@ public sealed class PageUseCaseTests
     [Test]
     public async Task ValidateEditAsync_ClassifiesMissingOwnerAndPage()
     {
-        var missingOwnerId = CreateNoteId("missing-owner");
-        var ownerId = CreateNoteId("missing-page-owner");
+        var missingOwnerId = CreateNotebookId("missing-owner");
+        var ownerId = CreateNotebookId("missing-page-owner");
         var pageId = PageId.FromGuid(Guid.NewGuid());
         var useCase = CreateUseCase((ownerId, false, new FakeNoteRepository()));
 
@@ -104,22 +104,22 @@ public sealed class PageUseCaseTests
     [Test]
     public async Task Mutations_ReadOnlySnapshot_PreventsRepositoryAccess()
     {
-        var noteId = CreateNoteId("read-only");
+        var notebookId = CreateNotebookId("read-only");
         var pageId = PageId.FromGuid(Guid.NewGuid());
         var repository = new FakeNoteRepository(CreatePage(pageId, "Existing", "Text"));
-        var useCase = CreateUseCase((noteId, true, repository));
+        var useCase = CreateUseCase((notebookId, true, repository));
 
         var create = await useCase.CreateAsync(
-            new CreatePageCommand(noteId, "Created", "Text"),
+            new CreatePageCommand(notebookId, "Created", "Text"),
             CancellationToken.None);
         var edit = await useCase.EditAsync(
-            new EditPageCommand(noteId, pageId, "Edited"),
+            new EditPageCommand(notebookId, pageId, "Edited"),
             CancellationToken.None);
         var rename = await useCase.RenameAsync(
-            new RenamePageCommand(noteId, pageId, "Renamed"),
+            new RenamePageCommand(notebookId, pageId, "Renamed"),
             CancellationToken.None);
         var delete = await useCase.DeleteAsync(
-            new DeletePageCommand(noteId, pageId),
+            new DeletePageCommand(notebookId, pageId),
             CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
@@ -138,16 +138,16 @@ public sealed class PageUseCaseTests
     [Test]
     public async Task ValidateCreateAsync_ReturnsTypedNameErrorsWithoutMutation()
     {
-        var noteId = CreateNoteId("validation");
+        var notebookId = CreateNotebookId("validation");
         var repository = new FakeNoteRepository(
             CreatePage(PageId.FromGuid(Guid.NewGuid()), "Existing", "Text"));
-        var useCase = CreateUseCase((noteId, false, repository));
+        var useCase = CreateUseCase((notebookId, false, repository));
 
         var required = await useCase.ValidateCreateAsync(
-            new CreatePageCommand(noteId, " ", "Text"),
+            new CreatePageCommand(notebookId, " ", "Text"),
             CancellationToken.None);
         var duplicate = await useCase.ValidateCreateAsync(
-            new CreatePageCommand(noteId, "Existing", "Text"),
+            new CreatePageCommand(notebookId, "Existing", "Text"),
             CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
@@ -166,16 +166,16 @@ public sealed class PageUseCaseTests
     [Test]
     public async Task DeleteAsync_PageRemovedAfterValidation_ReturnsPageNotFound()
     {
-        var noteId = CreateNoteId("delete-race");
+        var notebookId = CreateNotebookId("delete-race");
         var pageId = PageId.FromGuid(Guid.NewGuid());
         var repository = new FakeNoteRepository(CreatePage(pageId, "Existing", "Text"))
         {
             DeleteResult = false
         };
-        var useCase = CreateUseCase((noteId, false, repository));
+        var useCase = CreateUseCase((notebookId, false, repository));
 
         var result = await useCase.DeleteAsync(
-            new DeletePageCommand(noteId, pageId),
+            new DeletePageCommand(notebookId, pageId),
             CancellationToken.None);
 
         Assert.That(result.Status, Is.EqualTo(PageOperationStatus.PageNotFound));
@@ -187,16 +187,16 @@ public sealed class PageUseCaseTests
     [Test]
     public async Task EditAsync_PageRemovedAfterValidation_ReturnsPageNotFound()
     {
-        var noteId = CreateNoteId("update-race");
+        var notebookId = CreateNotebookId("update-race");
         var pageId = PageId.FromGuid(Guid.NewGuid());
         var repository = new FakeNoteRepository(CreatePage(pageId, "Existing", "Text"))
         {
             ThrowMissingOnUpdate = true
         };
-        var useCase = CreateUseCase((noteId, false, repository));
+        var useCase = CreateUseCase((notebookId, false, repository));
 
         var result = await useCase.EditAsync(
-            new EditPageCommand(noteId, pageId, "Edited"),
+            new EditPageCommand(notebookId, pageId, "Edited"),
             CancellationToken.None);
 
         Assert.That(result.Status, Is.EqualTo(PageOperationStatus.PageNotFound));
@@ -208,7 +208,7 @@ public sealed class PageUseCaseTests
     [Test]
     public void ValidateCreateAsync_RepositoryCancellation_IsPropagated()
     {
-        var noteId = CreateNoteId("cancellation");
+        var notebookId = CreateNotebookId("cancellation");
         using var cancellation = new CancellationTokenSource();
         var repository = new FakeNoteRepository
         {
@@ -218,9 +218,9 @@ public sealed class PageUseCaseTests
                 token.ThrowIfCancellationRequested();
             }
         };
-        var useCase = CreateUseCase((noteId, false, repository));
+        var useCase = CreateUseCase((notebookId, false, repository));
         Func<Task> validate = () => useCase.ValidateCreateAsync(
-            new CreatePageCommand(noteId, "Name", "Text"),
+            new CreatePageCommand(notebookId, "Name", "Text"),
             cancellation.Token);
 
         Assert.That(validate, Throws.InstanceOf<OperationCanceledException>());
@@ -232,31 +232,31 @@ public sealed class PageUseCaseTests
     [Test]
     public void ReadAsync_InfrastructureFailure_IsPropagated()
     {
-        var noteId = CreateNoteId("failure");
+        var notebookId = CreateNotebookId("failure");
         var pageId = PageId.FromGuid(Guid.NewGuid());
         var repository = new FakeNoteRepository
         {
             BeforeRead = _ => throw new InvalidOperationException("Database unavailable.")
         };
-        var useCase = CreateUseCase((noteId, false, repository));
+        var useCase = CreateUseCase((notebookId, false, repository));
         Func<Task> read = () => useCase.ReadAsync(
-            new PageReference(noteId, pageId),
+            new PageReference(notebookId, pageId),
             CancellationToken.None);
 
         Assert.That(read, Throws.TypeOf<InvalidOperationException>());
     }
 
     static PageUseCase CreateUseCase(
-        params (NoteId NoteId, bool IsReadOnly, FakeNoteRepository Repository)[] contexts)
+        params (NotebookId NotebookId, bool IsReadOnly, FakeNoteRepository Repository)[] contexts)
     {
         return new PageUseCase(
             new FakeContextResolver(contexts),
             new PageValidationPolicy());
     }
 
-    static NoteId CreateNoteId(string name)
+    static NotebookId CreateNotebookId(string name)
     {
-        return NoteId.FromDataSource(Path.Combine(Path.GetTempPath(), $"{name}.db"));
+        return NotebookId.FromDatabasePath(Path.Combine(Path.GetTempPath(), $"{name}.db"));
     }
 
     static Page CreatePage(PageId pageId, string name, string text)
@@ -266,25 +266,25 @@ public sealed class PageUseCaseTests
         return page;
     }
 
-    sealed class FakeContextResolver : INoteContextResolver
+    sealed class FakeContextResolver : INotebookContextResolver
     {
-        readonly Dictionary<NoteId, NoteContext> _contexts;
+        readonly Dictionary<NotebookId, NotebookContext> _contexts;
 
         internal FakeContextResolver(
-            IEnumerable<(NoteId NoteId, bool IsReadOnly, FakeNoteRepository Repository)> contexts)
+            IEnumerable<(NotebookId NotebookId, bool IsReadOnly, FakeNoteRepository Repository)> contexts)
         {
             _contexts = contexts.ToDictionary(
-                item => item.NoteId,
-                item => new NoteContext(item.NoteId, item.IsReadOnly, item.Repository));
+                item => item.NotebookId,
+                item => new NotebookContext(item.NotebookId, item.IsReadOnly, item.Repository));
         }
 
-        public NoteContext Resolve(NoteId noteId)
+        public NotebookContext Resolve(NotebookId notebookId)
         {
-            return _contexts.GetValueOrDefault(noteId)!;
+            return _contexts.GetValueOrDefault(notebookId)!;
         }
     }
 
-    sealed class FakeNoteRepository : INoteRepository
+    sealed class FakeNoteRepository : IPageRepository
     {
         readonly List<Page> _pages;
 
@@ -305,7 +305,7 @@ public sealed class PageUseCaseTests
 
         internal Action<CancellationToken>? BeforeRead { get; set; }
 
-        public Task<Page> ReadPageAsync(
+        public Task<Page> FindPageAsync(
             string dataSource,
             Guid pageId,
             CancellationToken token)
@@ -315,7 +315,7 @@ public sealed class PageUseCaseTests
             return Task.FromResult(_pages.SingleOrDefault(page => page.Guid == pageId))!;
         }
 
-        public Task<Page> ReadPageAsync(
+        public Task<Page> FindPageAsync(
             string dataSource,
             string name,
             int index,
@@ -327,7 +327,7 @@ public sealed class PageUseCaseTests
                 _pages.SingleOrDefault(page => page.Name == name && page.Index == index))!;
         }
 
-        public Task<IReadOnlyList<Page>> ReadPagesAsync(
+        public Task<IReadOnlyList<Page>> ListPagesByHeadingAsync(
             string dataSource,
             string name,
             CancellationToken token)
@@ -377,7 +377,7 @@ public sealed class PageUseCaseTests
         }
 
         public Task<bool> TryDeletePageAsync(
-            NoteId noteId,
+            NotebookId notebookId,
             PageId pageId,
             CancellationToken token)
         {
@@ -390,7 +390,7 @@ public sealed class PageUseCaseTests
             return Task.FromResult(deleted);
         }
 
-        public Task<int> CountAsync(string dataSource, CancellationToken token)
+        public Task<int> CountPagesAsync(string dataSource, CancellationToken token)
         {
             return Task.FromResult(_pages.Count);
         }

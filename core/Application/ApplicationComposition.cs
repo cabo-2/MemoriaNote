@@ -17,10 +17,10 @@ namespace MemoriaNote
             if (workspace == null)
                 throw new ArgumentNullException(nameof(workspace));
 
-            var resolver = new WorkspaceNoteContextResolver(() => workspace.Notebooks);
+            var resolver = new WorkspaceNotebookContextResolver(() => workspace.Notebooks);
             var pageUseCase = new PageUseCase(resolver, new PageValidationPolicy());
             var searchUseCase = new SearchUseCase(
-                noteId => resolver.Resolve(noteId)?.SearchRepository);
+                notebookId => resolver.Resolve(notebookId)?.SearchRepository);
             var applicationService = new MemoriaNoteApplicationService(
                 searchUseCase,
                 pageUseCase);

@@ -9,23 +9,23 @@ namespace MemoriaNote
         /// Creates a note migrator configured for the application's SQLite databases.
         /// </summary>
         /// <returns>A configured note migrator.</returns>
-        public static INoteMigrator CreateMigrator()
+        public static INotebookMigrator CreateMigrator()
         {
             var databaseFactory =
-                new SqliteNoteDatabaseFactory(NoteDbContext.MyLoggerFactory);
+                new SqliteNotebookDbContextFactory(NotebookDbContext.MyLoggerFactory);
             var metadataRepository =
-                new SqliteNoteMetadataRepository(databaseFactory);
-            return new SqliteNoteMigrator(databaseFactory, metadataRepository);
+                new SqliteNotebookMetadataRepository(databaseFactory);
+            return new SqliteNotebookMigrator(databaseFactory, metadataRepository);
         }
 
         /// <summary>
         /// Creates read model maintenance configured for the application's SQLite databases.
         /// </summary>
         /// <returns>Configured read model maintenance.</returns>
-        public static INoteReadModelMaintenance CreateReadModelMaintenance()
+        public static INotebookReadModelMaintenance CreateReadModelMaintenance()
         {
-            return new SqliteNoteReadModelMaintenance(
-                new SqliteNoteDatabaseFactory(NoteDbContext.MyLoggerFactory));
+            return new SqliteNotebookReadModelMaintenance(
+                new SqliteNotebookDbContextFactory(NotebookDbContext.MyLoggerFactory));
         }
     }
 }

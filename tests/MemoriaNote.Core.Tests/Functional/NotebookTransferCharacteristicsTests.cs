@@ -10,7 +10,7 @@ namespace MemoriaNote.Core.Tests.Functional;
 [TestFixture]
 [Category("Functional")]
 [NonParallelizable]
-public sealed class NoteTransferCharacteristicsTests
+public sealed class NotebookTransferCharacteristicsTests
 {
     /// <summary>
     /// Verifies the zip format and the values retained by a backup and restore round trip.
@@ -18,9 +18,9 @@ public sealed class NoteTransferCharacteristicsTests
     [Test]
     public async Task BackupRestore_RoundTripPreservesPagesAndSelectedMetadata()
     {
-        using var database = new TemporaryNoteDatabase();
-        var source = database.CreateNote("archive", "Archive Note");
-        source.UpdateMetadata(new NoteMetadataUpdate()
+        using var database = new TemporaryNotebookDatabase();
+        var source = database.CreateNotebook("archive", "Archive Note");
+        source.UpdateMetadata(new NotebookMetadataPatch()
             .SetDescription("Backup description")
             .SetAuthor("Test Author")
             .SetReadOnly(true)
@@ -62,7 +62,7 @@ public sealed class NoteTransferCharacteristicsTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(restored.DataSource, Is.EqualTo(Path.Combine(restoreDirectory, "archive.db")));
+            Assert.That(restored.DatabasePath, Is.EqualTo(Path.Combine(restoreDirectory, "archive.db")));
             Assert.That(restored.Metadata.Name, Is.EqualTo("archive"));
             Assert.That(restored.Metadata.Title, Is.EqualTo("Archive Note"));
             Assert.That(restored.Metadata.Description, Is.EqualTo("Backup description"));
@@ -91,8 +91,8 @@ public sealed class NoteTransferCharacteristicsTests
     [Test]
     public async Task Restore_WhenDefaultDatabaseExists_UsesTimestampSuffix()
     {
-        using var database = new TemporaryNoteDatabase();
-        var source = database.CreateNote("duplicate", "Duplicate Note");
+        using var database = new TemporaryNotebookDatabase();
+        var source = database.CreateNotebook("duplicate", "Duplicate Note");
         var page = source.CreatePage("Entry", "Restored text");
         var backupPath = Path.Combine(database.DirectoryPath, "duplicate.json.zip");
         var restoreDirectory = Path.Combine(database.DirectoryPath, "restore-duplicate");
@@ -105,10 +105,10 @@ public sealed class NoteTransferCharacteristicsTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(restored.DataSource, Is.Not.EqualTo(existingPath));
-            Assert.That(Path.GetDirectoryName(restored.DataSource), Is.EqualTo(restoreDirectory));
-            Assert.That(Path.GetFileName(restored.DataSource), Does.Match(@"^duplicate_\d{14}\.db$"));
-            Assert.That(File.Exists(restored.DataSource), Is.True);
+            Assert.That(restored.DatabasePath, Is.Not.EqualTo(existingPath));
+            Assert.That(Path.GetDirectoryName(restored.DatabasePath), Is.EqualTo(restoreDirectory));
+            Assert.That(Path.GetFileName(restored.DatabasePath), Does.Match(@"^duplicate_\d{14}\.db$"));
+            Assert.That(File.Exists(restored.DatabasePath), Is.True);
             Assert.That(await File.ReadAllTextAsync(existingPath), Is.EqualTo("existing file"));
             Assert.That(restored.ReadPage(page.Guid)?.Text, Is.EqualTo("Restored text"));
         }
@@ -120,8 +120,8 @@ public sealed class NoteTransferCharacteristicsTests
     [Test]
     public async Task TextExportImport_RoundTripPreservesUniqueNamesTextAndDirectories()
     {
-        using var database = new TemporaryNoteDatabase();
-        var source = database.CreateNote("source", "Source Note");
+        using var database = new TemporaryNotebookDatabase();
+        var source = database.CreateNotebook("source", "Source Note");
         var overview = source.CreatePage("Overview", "Root text");
         var meeting = source.CreatePage("Meeting", "Nested text", "work/2026");
         var exportDirectory = Path.Combine(database.DirectoryPath, "text-export");
@@ -137,7 +137,7 @@ public sealed class NoteTransferCharacteristicsTests
             Assert.That(await File.ReadAllTextAsync(meetingPath), Is.EqualTo("Nested text"));
         }
 
-        var imported = database.CreateNote(
+        var imported = database.CreateNotebook(
             "imported",
             "Imported Note",
             Path.Combine(database.DirectoryPath, "imported.db"));
@@ -163,8 +163,8 @@ public sealed class NoteTransferCharacteristicsTests
     [Test]
     public async Task TextImport_WhenNameAlreadyExists_CreatesAnotherIndex()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("target", "Target Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("target", "Target Note");
         var existing = note.CreatePage("Daily", "Existing text");
         var importDirectory = Path.Combine(database.DirectoryPath, "text-import");
         Directory.CreateDirectory(importDirectory);
@@ -189,8 +189,8 @@ public sealed class NoteTransferCharacteristicsTests
     [Test]
     public async Task TextExport_WhenNamesShareAPath_CurrentlyOverwritesTheEarlierPage()
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("source", "Source Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("source", "Source Note");
         note.CreatePage("Daily", "First text");
         note.CreatePage("Daily", "Second text");
         var exportDirectory = Path.Combine(database.DirectoryPath, "duplicate-export");

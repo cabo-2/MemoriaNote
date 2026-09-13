@@ -11,20 +11,20 @@ using Newtonsoft.Json;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Contains utility methods for working with Note objects.
+    /// Contains utility methods for working with Notebook objects.
     /// </summary>
     public static class NoteUtil
     {
         static readonly string MetadataName = "metadata.json";
 
         /// <summary>
-        /// Asynchronously imports text files from a specified directory into a Note object.
+        /// Asynchronously imports text files from a specified directory into a Notebook object.
         /// </summary>
-        /// <param name="note">The Note object to import the text into.</param>
+        /// <param name="notebook">The Notebook object to import the text into.</param>
         /// <param name="importDir">The directory path from which to import the text files.</param>
         /// <param name="recursive">A flag indicating whether to import text files from subdirectories recursively.</param>
         /// <returns>A Task representing the asynchronous operation.</returns>
-        public static Task TextImporter(Note note, string importDir, bool recursive = false)
+        public static Task TextImporter(Notebook notebook, string importDir, bool recursive = false)
         {
             // Create a cancellation token for the task.
             var token = new CancellationToken();
@@ -40,7 +40,7 @@ namespace MemoriaNote
                         // Extract the name for the page from the file name.
                         var name = TextUtil.ReplaceNameStringReverse(Path.GetFileNameWithoutExtension(file.Name));
                         // Create a new page with the extracted name and the text content.
-                        note.CreatePage(name, reader.ReadToEnd(), TextUtil.ConvertGenericPath(subDir));
+                        notebook.CreatePage(name, reader.ReadToEnd(), TextUtil.ConvertGenericPath(subDir));
                     }
                 });
 
@@ -76,22 +76,22 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Asynchronously exports text content from a Note object into text files in a specified directory.
+        /// Asynchronously exports text content from a Notebook object into text files in a specified directory.
         /// </summary>
-        /// <param name="note">The Note object containing the text content to export.</param>
+        /// <param name="notebook">The Notebook object containing the text content to export.</param>
         /// <param name="exportDir">The directory path where the text files will be exported.</param>
         /// <returns>A Task representing the asynchronous operation.</returns>
-        public static Task TextExporter(Note note, string exportDir)
+        public static Task TextExporter(Notebook notebook, string exportDir)
         {
             // Create a cancellation token for the task.
             var token = new CancellationToken();
             // Run the task asynchronously.
             var task = Task.Run(() =>
             {
-                // Open a connection to the Note database.
-                using (NoteDbContext db = new NoteDbContext(note.DataSource))
+                // Open a connection to the Notebook database.
+                using (NotebookDbContext db = new NotebookDbContext(notebook.DatabasePath))
                 {
-                    // Create directories based on unique subdirectories found in the Note pages.
+                    // Create directories based on unique subdirectories found in the Notebook pages.
                     foreach (var subDir in db.Pages
                         .AsEnumerable()
                         .Where(p => p.TagDict.ContainsKey(PageTag.Dir))
@@ -130,12 +130,12 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Restores a Note object from a specified input zip file to the specified output directory.
+        /// Restores a Notebook object from a specified input zip file to the specified output directory.
         /// </summary>
-        /// <param name="inputPath">The path to the input zip file containing the Note object data.</param>
-        /// <param name="outputDir">The directory where the restored Note object will be saved.</param>
-        /// <returns>A Task representing the asynchronous operation that restores the Note object.</returns>
-        public static Task<Note> Restore(string inputPath, string outputDir)
+        /// <param name="inputPath">The path to the input zip file containing the Notebook object data.</param>
+        /// <param name="outputDir">The directory where the restored Notebook object will be saved.</param>
+        /// <returns>A Task representing the asynchronous operation that restores the Notebook object.</returns>
+        public static Task<Notebook> Restore(string inputPath, string outputDir)
         {
             return Restore(
                 inputPath,
@@ -145,17 +145,17 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Restores a Note object using an explicit note migrator.
+        /// Restores a Notebook object using an explicit notebook migrator.
         /// </summary>
         /// <param name="inputPath">The path to the input zip archive.</param>
-        /// <param name="outputDir">The directory where the restored note will be saved.</param>
-        /// <param name="noteMigrator">The service used for note database lifecycle operations.</param>
+        /// <param name="outputDir">The directory where the restored notebook will be saved.</param>
+        /// <param name="notebookMigrator">The service used for notebook database lifecycle operations.</param>
         /// <param name="token">The cancellation token for the operation.</param>
-        /// <returns>A task that returns the restored note.</returns>
-        public static Task<Note> Restore(
+        /// <returns>A task that returns the restored notebook.</returns>
+        public static Task<Notebook> Restore(
             string inputPath,
             string outputDir,
-            INoteMigrator noteMigrator,
+            INotebookMigrator notebookMigrator,
             CancellationToken token)
         {
             // Check for null input parameters and throw ArgumentNullException if necessary.
@@ -163,31 +163,31 @@ namespace MemoriaNote
                 throw new ArgumentNullException(nameof(inputPath));
             if (outputDir == null)
                 throw new ArgumentNullException(nameof(outputDir));
-            if (noteMigrator == null)
-                throw new ArgumentNullException(nameof(noteMigrator));
+            if (notebookMigrator == null)
+                throw new ArgumentNullException(nameof(notebookMigrator));
 
-            // Run the task asynchronously, restoring the Note object from the input zip file.
-            var task = Task.Run<Note>(async () =>
+            // Run the task asynchronously, restoring the Notebook object from the input zip file.
+            var task = Task.Run<Notebook>(async () =>
             {
                 // Open the input zip file for reading.
                 using ZipArchive zip = ZipFile.Open(inputPath, ZipArchiveMode.Read);
-                // Deserialize the Note key values from the zip file.
+                // Deserialize the Notebook key values from the zip file.
                 var kv = DeserializeNoteKeyValues(zip);
-                // Retrieve the name and title of the Note from the key values.
+                // Retrieve the name and title of the Notebook from the key values.
                 var name = kv.First(x => x.Key == NoteKeyValue.Name).Value;
                 var title = kv.First(x => x.Key == NoteKeyValue.Title).Value;
-                // Generate the path for the restored Note.
-                var notePath = GetNotePath(outputDir, name);
+                // Generate the path for the restored Notebook.
+                var notebookPath = GetNotePath(outputDir, name);
 
-                // Create a new Note object with the retrieved name, title, and path.
-                Note note = await noteMigrator.CreateAsync(
+                // Create a new Notebook object with the retrieved name, title, and path.
+                Notebook notebook = await notebookMigrator.CreateAsync(
                         name,
                         title,
-                        notePath,
+                        notebookPath,
                         token)
                     .ConfigureAwait(false);
                 // Persist the additional metadata in one operation when values are available.
-                var metadataUpdate = new NoteMetadataUpdate();
+                var metadataUpdate = new NotebookMetadataPatch();
                 var description = kv.FirstOrDefault(
                     value => value.Key == NoteKeyValue.Description)?.Value;
                 var author = kv.FirstOrDefault(
@@ -196,10 +196,10 @@ namespace MemoriaNote
                     metadataUpdate.SetDescription(description);
                 if (author != null)
                     metadataUpdate.SetAuthor(author);
-                note.UpdateMetadata(metadataUpdate);
+                notebook.UpdateMetadata(metadataUpdate);
 
-                // Open a connection to the Note database.
-                using (NoteDbContext db = new NoteDbContext(note.DataSource))
+                // Open a connection to the Notebook database.
+                using (NotebookDbContext db = new NotebookDbContext(notebook.DatabasePath))
                 {
                     // Deserialize and add each Page object from the zip file to the database.
                     foreach (var page in DeserializePages(zip))
@@ -208,20 +208,20 @@ namespace MemoriaNote
                     db.SaveChanges();
                 }
 
-                // Migrate the Note's data source to the latest version.
-                await noteMigrator.MigrateAsync(note.DataSource, token)
+                // Migrate the Notebook's data source to the latest version.
+                await notebookMigrator.MigrateAsync(notebook.DatabasePath, token)
                     .ConfigureAwait(false);
-                // Return the restored Note object.
-                return note;
+                // Return the restored Notebook object.
+                return notebook;
             }, token);
             // Return the task as a result of the asynchronous operation.
             return task;
         }
 
         /// <summary>
-        /// Deserialize the Note key values from a specified ZipArchive object.
+        /// Deserialize the Notebook key values from a specified ZipArchive object.
         /// </summary>
-        /// <param name="zip">The ZipArchive object containing the Note key values.</param>
+        /// <param name="zip">The ZipArchive object containing the Notebook key values.</param>
         /// <returns>A list of NoteKeyValue objects deserialized from the ZipArchive.</returns>
         public static List<NoteKeyValue> DeserializeNoteKeyValues(ZipArchive zip)
         {
@@ -242,27 +242,27 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Asynchronously creates a backup of the Note object to a specified output path.
+        /// Asynchronously creates a backup of the Notebook object to a specified output path.
         /// </summary>
-        /// <param name="note">The Note object to backup.</param>
+        /// <param name="notebook">The Notebook object to backup.</param>
         /// <param name="outputPath">The path to save the backup file.</param>
         /// <returns>A Task representing the asynchronous operation of creating the backup.</returns>
-        public static Task Backup(Note note, string outputPath)
+        public static Task Backup(Notebook notebook, string outputPath)
         {
             // Check for null input parameters and throw ArgumentNullException if necessary.
-            if (note == null)
-                throw new ArgumentNullException(nameof(note));
+            if (notebook == null)
+                throw new ArgumentNullException(nameof(notebook));
 
             if (outputPath == null)
                 throw new ArgumentNullException(nameof(outputPath));
 
             // Create a cancellation token for the task.
             var token = new CancellationToken();
-            // Run the task asynchronously to create a backup of the Note object.
+            // Run the task asynchronously to create a backup of the Notebook object.
             var task = Task.Run(() =>
             {
-                // Open a connection to the Note database.
-                using NoteDbContext db = new NoteDbContext(note.DataSource);
+                // Open a connection to the Notebook database.
+                using NotebookDbContext db = new NotebookDbContext(notebook.DatabasePath);
                 // Open the output zip file for writing.
                 using ZipArchive zip = ZipFile.Open(outputPath, ZipArchiveMode.Create);
 
@@ -278,7 +278,7 @@ namespace MemoriaNote
                 }
 
                 // Write the loaded metadata snapshot using the existing key-value JSON shape.
-                var metadata = note.Metadata.StoredValues
+                var metadata = notebook.Metadata.StoredValues
                     .Select(value => new NoteKeyValue
                     {
                         Key = value.Key,
@@ -294,12 +294,12 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Gets the path for a Note object within a specified directory.
+        /// Gets the path for a Notebook object within a specified directory.
         /// If the file already exists, appends the current timestamp to the filename.
         /// </summary>
-        /// <param name="dir">The directory path where the Note file should be located.</param>
-        /// <param name="name">The name of the Note object.</param>
-        /// <returns>The final path for the Note file.</returns>
+        /// <param name="dir">The directory path where the Notebook file should be located.</param>
+        /// <param name="name">The name of the Notebook object.</param>
+        /// <returns>The final path for the Notebook file.</returns>
         public static string GetNotePath(string dir, string name)
         {
             string path = Path.Combine(dir, name + ".db");

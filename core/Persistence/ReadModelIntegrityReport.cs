@@ -10,14 +10,14 @@ namespace MemoriaNote
     public sealed class ReadModelIntegrityReport
     {
         internal ReadModelIntegrityReport(
-            string dataSource,
+            string databasePath,
             int pageCount,
             int contentCount,
             bool ftsIndexIsConsistent,
             IEnumerable<string> missingTriggers,
             IEnumerable<ReadModelIntegrityIssue> issues)
         {
-            DataSource = dataSource;
+            DatabasePath = databasePath;
             PageCount = pageCount;
             ContentCount = contentCount;
             FtsIndexIsConsistent = ftsIndexIsConsistent;
@@ -26,7 +26,7 @@ namespace MemoriaNote
         }
 
         /// <summary>Gets the normalized note database path.</summary>
-        public string DataSource { get; }
+        public string DatabasePath { get; }
 
         /// <summary>Gets the number of authoritative Pages rows.</summary>
         public int PageCount { get; }

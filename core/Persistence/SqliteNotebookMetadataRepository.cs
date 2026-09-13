@@ -8,45 +8,45 @@ using Microsoft.EntityFrameworkCore;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Loads and updates note metadata stored as SQLite key-value rows.
+    /// Loads and updates notebook metadata stored as SQLite key-value rows.
     /// </summary>
-    public sealed class SqliteNoteMetadataRepository : INoteMetadataRepository
+    public sealed class SqliteNotebookMetadataRepository : INotebookMetadataRepository
     {
         const string StoredCreateTimeFormat = "yyyyMMddhhmmss";
-        readonly INoteDatabaseFactory _databaseFactory;
+        readonly INotebookDbContextFactory _databaseFactory;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="SqliteNoteMetadataRepository"/> class.
+        /// Initializes a new instance of the <see cref="SqliteNotebookMetadataRepository"/> class.
         /// </summary>
         /// <param name="databaseFactory">The factory used to create database contexts.</param>
-        public SqliteNoteMetadataRepository(INoteDatabaseFactory databaseFactory)
+        public SqliteNotebookMetadataRepository(INotebookDbContextFactory databaseFactory)
         {
             _databaseFactory = databaseFactory ??
                 throw new ArgumentNullException(nameof(databaseFactory));
         }
 
         /// <inheritdoc/>
-        public async Task<MetadataLoadResult> LoadAsync(
-            string dataSource,
+        public async Task<NotebookMetadataResult> LoadAsync(
+            string databasePath,
             CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            using var context = _databaseFactory.Create(dataSource);
+            using var context = _databaseFactory.CreateDbContext(databasePath);
             var values = await ReadValuesAsync(context, token).ConfigureAwait(false);
-            return CreateResult(context.DataSource, values);
+            return CreateResult(context.DatabasePath, values);
         }
 
         /// <inheritdoc/>
-        public async Task<MetadataLoadResult> UpdateAsync(
-            string dataSource,
-            NoteMetadataUpdate update,
+        public async Task<NotebookMetadataResult> UpdateAsync(
+            string databasePath,
+            NotebookMetadataPatch patch,
             CancellationToken token)
         {
-            if (update == null)
-                throw new ArgumentNullException(nameof(update));
+            if (patch == null)
+                throw new ArgumentNullException(nameof(patch));
 
             token.ThrowIfCancellationRequested();
-            using var context = _databaseFactory.Create(dataSource);
+            using var context = _databaseFactory.CreateDbContext(databasePath);
             await using var transaction = await context.Database
                 .BeginTransactionAsync(token)
                 .ConfigureAwait(false);
@@ -54,7 +54,7 @@ namespace MemoriaNote
                 .ToDictionaryAsync(entry => entry.Key, token)
                 .ConfigureAwait(false);
 
-            foreach (var change in update.Values)
+            foreach (var change in patch.Values)
             {
                 if (entities.TryGetValue(change.Key, out var entity))
                 {
@@ -79,11 +79,11 @@ namespace MemoriaNote
             foreach (var entity in entities.Values)
                 values[entity.Key] = entity.Value;
 
-            return CreateResult(context.DataSource, values);
+            return CreateResult(context.DatabasePath, values);
         }
 
         static async Task<Dictionary<string, string>> ReadValuesAsync(
-            NoteDbContext context,
+            NotebookDbContext context,
             CancellationToken token)
         {
             var entities = await context.Metadata
@@ -97,11 +97,11 @@ namespace MemoriaNote
             return values;
         }
 
-        static MetadataLoadResult CreateResult(
-            string dataSource,
+        static NotebookMetadataResult CreateResult(
+            string databasePath,
             IReadOnlyDictionary<string, string> values)
         {
-            var issues = new List<MetadataLoadIssue>();
+            var issues = new List<MetadataIssue>();
             var name = GetRequiredValue(values, NoteKeyValue.Name, issues);
             var title = GetRequiredValue(values, NoteKeyValue.Title, issues);
             var version = GetRequiredValue(values, NoteKeyValue.Version, issues);
@@ -114,8 +114,8 @@ namespace MemoriaNote
                 readOnlyValue != null &&
                 !bool.TryParse(readOnlyValue, out readOnly))
             {
-                issues.Add(new MetadataLoadIssue(
-                    MetadataLoadIssueKind.InvalidBoolean,
+                issues.Add(new MetadataIssue(
+                    MetadataIssueKind.InvalidBoolean,
                     NoteKeyValue.ReadOnly,
                     readOnlyValue));
                 readOnly = false;
@@ -131,15 +131,15 @@ namespace MemoriaNote
                     DateTimeStyles.None,
                     out createTime))
             {
-                issues.Add(new MetadataLoadIssue(
-                    MetadataLoadIssueKind.InvalidCreateTime,
+                issues.Add(new MetadataIssue(
+                    MetadataIssueKind.InvalidCreateTime,
                     NoteKeyValue.CreateTime,
                     createTimeValue));
                 createTime = default(DateTime);
             }
 
-            var metadata = new NoteMetadata(
-                dataSource,
+            var metadata = new NotebookMetadata(
+                databasePath,
                 name,
                 title,
                 version,
@@ -149,19 +149,19 @@ namespace MemoriaNote
                 tag,
                 createTime,
                 values);
-            return new MetadataLoadResult(metadata, issues);
+            return new NotebookMetadataResult(metadata, issues);
         }
 
         static string GetRequiredValue(
             IReadOnlyDictionary<string, string> values,
             string key,
-            ICollection<MetadataLoadIssue> issues)
+            ICollection<MetadataIssue> issues)
         {
             if (values.TryGetValue(key, out var value))
                 return value;
 
-            issues.Add(new MetadataLoadIssue(
-                MetadataLoadIssueKind.MissingKey,
+            issues.Add(new MetadataIssue(
+                MetadataIssueKind.MissingKey,
                 key,
                 null));
             return null;

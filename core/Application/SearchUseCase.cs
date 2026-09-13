@@ -10,13 +10,13 @@ namespace MemoriaNote
     /// </summary>
     public sealed class SearchUseCase : ISearchUseCase
     {
-        readonly Func<NoteId, INoteSearchRepository> _repositoryResolver;
+        readonly Func<NotebookId, IPageSearchRepository> _repositoryResolver;
 
         /// <summary>
         /// Initializes a search use case that uses one repository for every note.
         /// </summary>
         /// <param name="repository">The note search repository.</param>
-        public SearchUseCase(INoteSearchRepository repository)
+        public SearchUseCase(IPageSearchRepository repository)
         {
             if (repository == null)
                 throw new ArgumentNullException(nameof(repository));
@@ -24,7 +24,7 @@ namespace MemoriaNote
             _repositoryResolver = _ => repository;
         }
 
-        internal SearchUseCase(Func<NoteId, INoteSearchRepository> repositoryResolver)
+        internal SearchUseCase(Func<NotebookId, IPageSearchRepository> repositoryResolver)
         {
             _repositoryResolver = repositoryResolver ??
                 throw new ArgumentNullException(nameof(repositoryResolver));
@@ -39,15 +39,15 @@ namespace MemoriaNote
                 throw new ArgumentNullException(nameof(request));
 
             token.ThrowIfCancellationRequested();
-            var targets = new List<SearchTarget>(request.NoteIds.Count);
+            var targets = new List<SearchTarget>(request.NotebookIds.Count);
             var totalCount = 0;
-            foreach (var noteId in request.NoteIds)
+            foreach (var notebookId in request.NotebookIds)
             {
                 token.ThrowIfCancellationRequested();
-                var repository = _repositoryResolver(noteId) ??
+                var repository = _repositoryResolver(notebookId) ??
                     throw new InvalidOperationException("No search repository was found for the note.");
-                var count = await repository.CountAsync(
-                        noteId,
+                var count = await repository.CountMatchesAsync(
+                        notebookId,
                         request.Query,
                         request.Method,
                         token)
@@ -56,7 +56,7 @@ namespace MemoriaNote
                     throw new InvalidOperationException("A search repository returned a negative count.");
 
                 totalCount = checked(totalCount + count);
-                targets.Add(new SearchTarget(noteId, repository, count));
+                targets.Add(new SearchTarget(notebookId, repository, count));
             }
 
             var items = new List<PageSummary>();
@@ -77,7 +77,7 @@ namespace MemoriaNote
                     remainingLimit,
                     target.Count - remainingOffset);
                 var noteItems = await target.Repository.SearchPageSummariesAsync(
-                        target.NoteId,
+                        target.NotebookId,
                         request.Query,
                         request.Method,
                         remainingOffset,
@@ -105,18 +105,18 @@ namespace MemoriaNote
         sealed class SearchTarget
         {
             internal SearchTarget(
-                NoteId noteId,
-                INoteSearchRepository repository,
+                NotebookId notebookId,
+                IPageSearchRepository repository,
                 int count)
             {
-                NoteId = noteId;
+                NotebookId = notebookId;
                 Repository = repository;
                 Count = count;
             }
 
-            internal NoteId NoteId { get; }
+            internal NotebookId NotebookId { get; }
 
-            internal INoteSearchRepository Repository { get; }
+            internal IPageSearchRepository Repository { get; }
 
             internal int Count { get; }
         }

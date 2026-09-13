@@ -14,14 +14,14 @@ public sealed class PageSummaryTests
     [Test]
     public void Constructor_MissingIdentifier_IsRejected()
     {
-        var noteId = NoteId.FromDataSource(Path.Combine(Path.GetTempPath(), "summary.db"));
+        var notebookId = NotebookId.FromDatabasePath(Path.Combine(Path.GetTempPath(), "summary.db"));
         var pageId = PageId.FromGuid(Guid.NewGuid());
 
         Assert.That(
             CreatePageSummary(null, pageId),
             Throws.TypeOf<ArgumentNullException>());
         Assert.That(
-            CreatePageSummary(noteId, null),
+            CreatePageSummary(notebookId, null),
             Throws.TypeOf<ArgumentNullException>());
     }
 
@@ -36,7 +36,7 @@ public sealed class PageSummaryTests
             ["Dir"] = "journal"
         };
         var summary = CreateSummary(
-            NoteId.FromDataSource(Path.Combine(Path.GetTempPath(), "summary.db")),
+            NotebookId.FromDatabasePath(Path.Combine(Path.GetTempPath(), "summary.db")),
             PageId.FromGuid(Guid.NewGuid()),
             tags);
 
@@ -74,11 +74,11 @@ public sealed class PageSummaryTests
     [Test]
     public void Equality_SameOwnerAndPageIds_IgnoresProjectionValues()
     {
-        var noteId = NoteId.FromDataSource(Path.Combine(Path.GetTempPath(), "owner.db"));
+        var notebookId = NotebookId.FromDatabasePath(Path.Combine(Path.GetTempPath(), "owner.db"));
         var pageId = PageId.FromGuid(Guid.NewGuid());
-        var first = CreateSummary(noteId, pageId, new Dictionary<string, string>());
+        var first = CreateSummary(notebookId, pageId, new Dictionary<string, string>());
         var second = new PageSummary(
-            noteId,
+            notebookId,
             pageId,
             "Changed",
             99,
@@ -104,11 +104,11 @@ public sealed class PageSummaryTests
     {
         var pageId = PageId.FromGuid(Guid.NewGuid());
         var first = CreateSummary(
-            NoteId.FromDataSource(Path.Combine(Path.GetTempPath(), "first-owner.db")),
+            NotebookId.FromDatabasePath(Path.Combine(Path.GetTempPath(), "first-owner.db")),
             pageId,
             null);
         var second = CreateSummary(
-            NoteId.FromDataSource(Path.Combine(Path.GetTempPath(), "second-owner.db")),
+            NotebookId.FromDatabasePath(Path.Combine(Path.GetTempPath(), "second-owner.db")),
             pageId,
             null);
         object firstObject = first;
@@ -123,12 +123,12 @@ public sealed class PageSummaryTests
     }
 
     static PageSummary CreateSummary(
-        NoteId noteId,
+        NotebookId notebookId,
         PageId pageId,
         IReadOnlyDictionary<string, string>? tags)
     {
         return new PageSummary(
-            noteId,
+            notebookId,
             pageId,
             "Summary",
             1,
@@ -139,8 +139,8 @@ public sealed class PageSummaryTests
             false);
     }
 
-    static Action CreatePageSummary(NoteId? noteId, PageId? pageId)
+    static Action CreatePageSummary(NotebookId? notebookId, PageId? pageId)
     {
-        return () => { _ = CreateSummary(noteId!, pageId!, null); };
+        return () => { _ = CreateSummary(notebookId!, pageId!, null); };
     }
 }

@@ -22,12 +22,12 @@ public sealed class WorkspaceCountAggregationTests
         SearchMethodType searchMethod,
         string searchEntry)
     {
-        using var firstDatabase = new TemporaryNoteDatabase();
-        using var secondDatabase = new TemporaryNoteDatabase();
-        using var thirdDatabase = new TemporaryNoteDatabase();
-        var firstNote = firstDatabase.CreateNote("first-note", "First Note");
-        var secondNote = secondDatabase.CreateNote("second-note", "Second Note");
-        var thirdNote = thirdDatabase.CreateNote("third-note", "Third Note");
+        using var firstDatabase = new TemporaryNotebookDatabase();
+        using var secondDatabase = new TemporaryNotebookDatabase();
+        using var thirdDatabase = new TemporaryNotebookDatabase();
+        var firstNote = firstDatabase.CreateNotebook("first-note", "First Note");
+        var secondNote = secondDatabase.CreateNotebook("second-note", "Second Note");
+        var thirdNote = thirdDatabase.CreateNotebook("third-note", "Third Note");
         firstNote.CreatePage("Alpha", "Shared marker in alpha.");
         var firstBeta = firstNote.CreatePage("Beta", "Shared marker in beta.");
         var secondAlpha = secondNote.CreatePage("Alpha", "Shared marker in the second note.");
@@ -52,8 +52,8 @@ public sealed class WorkspaceCountAggregationTests
                 result.Contents.Select(content => content.OwnerDataSource),
                 Is.EqualTo(new[]
                 {
-                    Path.GetFullPath(firstNote.DataSource),
-                    Path.GetFullPath(secondNote.DataSource)
+                    Path.GetFullPath(firstNote.DatabasePath),
+                    Path.GetFullPath(secondNote.DatabasePath)
                 }));
         }
     }
@@ -67,8 +67,8 @@ public sealed class WorkspaceCountAggregationTests
     public async Task SearchAsync_CancelledTokenCancelsCountAggregation(
         SearchMethodType searchMethod)
     {
-        using var database = new TemporaryNoteDatabase();
-        var note = database.CreateNote("test-note", "Test Note");
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
         note.CreatePage("Alpha", "Cancellation marker.");
         var workspace = CreateWorkspace(note);
         using var cancellation = new CancellationTokenSource();
@@ -93,7 +93,7 @@ public sealed class WorkspaceCountAggregationTests
         Assert.That(exception, Is.Not.Null);
     }
 
-    private static Workspace CreateWorkspace(params Note[] notes)
+    private static Workspace CreateWorkspace(params Notebook[] notes)
     {
         return new Workspace(null, notes, notes.FirstOrDefault());
     }

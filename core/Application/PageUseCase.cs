@@ -11,7 +11,7 @@ namespace MemoriaNote
     /// </summary>
     public sealed class PageUseCase : IPageUseCase
     {
-        readonly INoteContextResolver _contextResolver;
+        readonly INotebookContextResolver _contextResolver;
         readonly PageValidationPolicy _validationPolicy;
 
         /// <summary>
@@ -20,7 +20,7 @@ namespace MemoriaNote
         /// <param name="contextResolver">The current note context resolver.</param>
         /// <param name="validationPolicy">The I/O-free page validation policy.</param>
         public PageUseCase(
-            INoteContextResolver contextResolver,
+            INotebookContextResolver contextResolver,
             PageValidationPolicy validationPolicy)
         {
             _contextResolver = contextResolver ??
@@ -38,12 +38,12 @@ namespace MemoriaNote
                 throw new ArgumentNullException(nameof(target));
 
             token.ThrowIfCancellationRequested();
-            var context = _contextResolver.Resolve(target.NoteId);
+            var context = _contextResolver.Resolve(target.NotebookId);
             if (context == null)
                 return OwnerNotFound();
 
             var page = await context.PageRepository
-                .ReadPageAsync(target.NoteId, target.PageId, token)
+                .FindPageAsync(target.NotebookId, target.PageId, token)
                 .ConfigureAwait(false);
             return page == null
                 ? PageNotFound()
@@ -93,7 +93,7 @@ namespace MemoriaNote
 
             var page = await validation.Context.PageRepository
                 .CreatePageAsync(
-                    command.NoteId,
+                    command.NotebookId,
                     command.Name,
                     command.Text,
                     command.Directory,
@@ -115,7 +115,7 @@ namespace MemoriaNote
             try
             {
                 var page = await validation.Context.PageRepository
-                    .UpdatePageAsync(command.NoteId, validation.Page, token)
+                    .UpdatePageAsync(command.NotebookId, validation.Page, token)
                     .ConfigureAwait(false);
                 return PageOperationResult.Succeeded(page);
             }
@@ -138,7 +138,7 @@ namespace MemoriaNote
             try
             {
                 var page = await validation.Context.PageRepository
-                    .UpdatePageAsync(command.NoteId, validation.Page, token)
+                    .UpdatePageAsync(command.NotebookId, validation.Page, token)
                     .ConfigureAwait(false);
                 return PageOperationResult.Succeeded(page);
             }
@@ -158,7 +158,7 @@ namespace MemoriaNote
                 return validation.Result;
 
             var deleted = await validation.Context.PageRepository
-                .TryDeletePageAsync(command.NoteId, command.PageId, token)
+                .TryDeletePageAsync(command.NotebookId, command.PageId, token)
                 .ConfigureAwait(false);
             return deleted
                 ? PageOperationResult.Succeeded()
@@ -172,7 +172,7 @@ namespace MemoriaNote
             if (command == null)
                 throw new ArgumentNullException(nameof(command));
 
-            var contextResult = ResolveWritableContext(command.NoteId, token);
+            var contextResult = ResolveWritableContext(command.NotebookId, token);
             if (!contextResult.Result.IsSuccess)
                 return contextResult;
 
@@ -182,7 +182,7 @@ namespace MemoriaNote
                 return ValidatedOperation.Failed(PageOperationResult.ValidationFailed(errors));
 
             var duplicates = await contextResult.Context.PageRepository
-                .ReadPagesAsync(command.NoteId, command.Name, token)
+                .ListPagesByHeadingAsync(command.NotebookId, command.Name, token)
                 .ConfigureAwait(false);
             if (duplicates.Count > 0)
             {
@@ -229,7 +229,7 @@ namespace MemoriaNote
                 return ValidatedOperation.Failed(PageOperationResult.ValidationFailed(errors));
 
             var duplicates = await targetResult.Context.PageRepository
-                .ReadPagesAsync(command.NoteId, command.Name, token)
+                .ListPagesByHeadingAsync(command.NotebookId, command.Name, token)
                 .ConfigureAwait(false);
             if (duplicates.Count > 0)
             {
@@ -251,10 +251,10 @@ namespace MemoriaNote
             return ResolveWritablePageAsync(command.Target, token);
         }
 
-        ValidatedOperation ResolveWritableContext(NoteId noteId, CancellationToken token)
+        ValidatedOperation ResolveWritableContext(NotebookId notebookId, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            var context = _contextResolver.Resolve(noteId);
+            var context = _contextResolver.Resolve(notebookId);
             if (context == null)
                 return ValidatedOperation.Failed(OwnerNotFound());
             if (context.IsReadOnly)
@@ -267,12 +267,12 @@ namespace MemoriaNote
             PageReference target,
             CancellationToken token)
         {
-            var contextResult = ResolveWritableContext(target.NoteId, token);
+            var contextResult = ResolveWritableContext(target.NotebookId, token);
             if (!contextResult.Result.IsSuccess)
                 return contextResult;
 
             var page = await contextResult.Context.PageRepository
-                .ReadPageAsync(target.NoteId, target.PageId, token)
+                .FindPageAsync(target.NotebookId, target.PageId, token)
                 .ConfigureAwait(false);
             return page == null
                 ? ValidatedOperation.Failed(PageNotFound())
@@ -304,7 +304,7 @@ namespace MemoriaNote
         {
             ValidatedOperation(
                 PageOperationResult result,
-                NoteContext context,
+                NotebookContext context,
                 Page page)
             {
                 Result = result;
@@ -314,12 +314,12 @@ namespace MemoriaNote
 
             internal PageOperationResult Result { get; }
 
-            internal NoteContext Context { get; }
+            internal NotebookContext Context { get; }
 
             internal Page Page { get; }
 
             internal static ValidatedOperation Succeeded(
-                NoteContext context,
+                NotebookContext context,
                 Page page = null)
             {
                 return new ValidatedOperation(

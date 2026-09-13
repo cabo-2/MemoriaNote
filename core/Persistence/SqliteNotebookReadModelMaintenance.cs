@@ -14,7 +14,7 @@ namespace MemoriaNote
     /// <summary>
     /// Checks and rebuilds the Contents and FtsIndex SQLite read models from Pages.
     /// </summary>
-    public sealed class SqliteNoteReadModelMaintenance : INoteReadModelMaintenance
+    public sealed class SqliteNotebookReadModelMaintenance : INotebookReadModelMaintenance
     {
         static readonly string[] RequiredTriggers =
         {
@@ -23,14 +23,14 @@ namespace MemoriaNote
             "Pages_Delete"
         };
 
-        readonly INoteDatabaseFactory _databaseFactory;
+        readonly INotebookDbContextFactory _databaseFactory;
 
         /// <summary>
         /// Initializes a new instance of the
-        /// <see cref="SqliteNoteReadModelMaintenance"/> class.
+        /// <see cref="SqliteNotebookReadModelMaintenance"/> class.
         /// </summary>
         /// <param name="databaseFactory">The factory used to create database contexts.</param>
-        public SqliteNoteReadModelMaintenance(INoteDatabaseFactory databaseFactory)
+        public SqliteNotebookReadModelMaintenance(INotebookDbContextFactory databaseFactory)
         {
             _databaseFactory = databaseFactory ??
                 throw new ArgumentNullException(nameof(databaseFactory));
@@ -38,11 +38,11 @@ namespace MemoriaNote
 
         /// <inheritdoc/>
         public async Task<ReadModelIntegrityReport> CheckIntegrityAsync(
-            string dataSource,
+            string databasePath,
             CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            using var context = _databaseFactory.Create(dataSource);
+            using var context = _databaseFactory.CreateDbContext(databasePath);
             await using var transaction = await context.Database
                 .BeginTransactionAsync(token)
                 .ConfigureAwait(false);
@@ -52,12 +52,12 @@ namespace MemoriaNote
         }
 
         /// <inheritdoc/>
-        public async Task<ReadModelIntegrityReport> RebuildAsync(
-            string dataSource,
+        public async Task<ReadModelIntegrityReport> RebuildReadModelsAsync(
+            string databasePath,
             CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            using var context = _databaseFactory.Create(dataSource);
+            using var context = _databaseFactory.CreateDbContext(databasePath);
             await using var transaction = await context.Database
                 .BeginTransactionAsync(token)
                 .ConfigureAwait(false);
@@ -90,14 +90,14 @@ namespace MemoriaNote
 
             await transaction.RollbackAsync(token).ConfigureAwait(false);
             await transaction.DisposeAsync().ConfigureAwait(false);
-            return await CheckIntegrityAsync(context.DataSource, token).ConfigureAwait(false);
+            return await CheckIntegrityAsync(context.DatabasePath, token).ConfigureAwait(false);
         }
 
         static async Task<ReadModelIntegrityReport> CheckIntegrityAsync(
-            NoteDbContext context,
+            NotebookDbContext context,
             CancellationToken token)
         {
-            var pages = await ReadPagesAsync(context, token).ConfigureAwait(false);
+            var pages = await ListPagesByHeadingAsync(context, token).ConfigureAwait(false);
             var contents = await ReadContentsAsync(context, token).ConfigureAwait(false);
             var issues = CompareRows(pages, contents);
             var missingTriggers = await ReadMissingTriggersAsync(context, token)
@@ -131,7 +131,7 @@ namespace MemoriaNote
             }
 
             return new ReadModelIntegrityReport(
-                context.DataSource,
+                context.DatabasePath,
                 pages.Count,
                 contents.Count,
                 ftsIndexIsConsistent,
@@ -139,8 +139,8 @@ namespace MemoriaNote
                 issues);
         }
 
-        static async Task<List<ReadModelRow>> ReadPagesAsync(
-            NoteDbContext context,
+        static async Task<List<ReadModelRow>> ListPagesByHeadingAsync(
+            NotebookDbContext context,
             CancellationToken token)
         {
             return await context.Pages
@@ -162,7 +162,7 @@ namespace MemoriaNote
         }
 
         static async Task<List<ReadModelRow>> ReadContentsAsync(
-            NoteDbContext context,
+            NotebookDbContext context,
             CancellationToken token)
         {
             return await context.Contents
@@ -363,7 +363,7 @@ namespace MemoriaNote
         }
 
         static async Task<IReadOnlyList<string>> ReadMissingTriggersAsync(
-            NoteDbContext context,
+            NotebookDbContext context,
             CancellationToken token)
         {
             await context.Database.OpenConnectionAsync(token).ConfigureAwait(false);
@@ -382,7 +382,7 @@ namespace MemoriaNote
         }
 
         static async Task<bool> FtsIndexExistsAsync(
-            NoteDbContext context,
+            NotebookDbContext context,
             CancellationToken token)
         {
             await context.Database.OpenConnectionAsync(token).ConfigureAwait(false);
@@ -396,7 +396,7 @@ namespace MemoriaNote
         }
 
         static async Task<bool> CheckFtsIndexAsync(
-            NoteDbContext context,
+            NotebookDbContext context,
             CancellationToken token)
         {
             await context.Database.OpenConnectionAsync(token).ConfigureAwait(false);
@@ -416,7 +416,7 @@ namespace MemoriaNote
             }
         }
 
-        static DbCommand CreateCommand(NoteDbContext context, string commandText)
+        static DbCommand CreateCommand(NotebookDbContext context, string commandText)
         {
             var command = context.Database.GetDbConnection().CreateCommand();
             command.CommandText = commandText;

@@ -105,7 +105,7 @@ namespace MemoriaNote
         {
             var config = Activator.CreateInstance(typeof(T)) as T;
 
-            config.DataSources.Add(DefaultDataSourcePath);
+            config.DataSources.Add(DefaultNotebookDatabasePath);
             config.Workspace = WorkspaceSettings.CreateDefault(
                 DefaultWorkspaceName,
                 config.DataSources);
@@ -215,12 +215,12 @@ namespace MemoriaNote
         /// <summary>
         /// Represents the default name of the data source file
         /// </summary>
-        protected virtual string DefaultDataSourceName => "Notepad.db";
+        protected virtual string DefaultNotebookDatabaseName => "Notepad.db";
         
         /// <summary>
         /// Represents the default path to the data source file
         /// </summary>
-        public string DefaultDataSourcePath => Path.Combine(ApplicationDataDirectory, DefaultDataSourceName);
+        public string DefaultNotebookDatabasePath => Path.Combine(ApplicationDataDirectory, DefaultNotebookDatabaseName);
 
         /// <summary>
         /// Represents the default workspace name for notes.
@@ -231,14 +231,14 @@ namespace MemoriaNote
         /// <summary>
         /// Represents the default title for notes
         /// </summary>
-        [DataMember]
-        public string DefaultNoteTitle { get; set; } = "Notepad";
+        [DataMember(Name = "DefaultNoteTitle")]
+        public string DefaultNotebookTitle { get; set; } = "Notepad";
 
         /// <summary>
         /// Represents the default name for notes
         /// </summary>
-        [DataMember]
-        public string DefaultNoteName { get; set; } = "note";
+        [DataMember(Name = "DefaultNoteName")]
+        public string DefaultNotebookName { get; set; } = "note";
 
         public static string AllNotesSearchString => "All Notes Search";
         public static string SelectedNotebookSearchString => "Selected Note Search";
