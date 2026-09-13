@@ -108,7 +108,7 @@ public sealed class SearchCoordinationTests
             invocationCount++;
             return invocationCount == 1
                 ? Task.FromResult(CreateResult(4))
-                : Task.FromException<SearchResult>(new IOException("Database unavailable."));
+                : Task.FromException<SearchPage>(new IOException("Database unavailable."));
         });
 
         var successfulResult = await service.SearchHandler();
@@ -132,7 +132,7 @@ public sealed class SearchCoordinationTests
     public async Task UnexpectedSearchFailure_FaultsTheReturnedTask()
     {
         var service = new ControlledSearchService((_, _) =>
-            Task.FromException<SearchResult>(new InvalidOperationException("Search failed.")));
+            Task.FromException<SearchPage>(new InvalidOperationException("Search failed.")));
 
         InvalidOperationException? exception = null;
         try
@@ -147,40 +147,35 @@ public sealed class SearchCoordinationTests
         Assert.That(exception?.Message, Is.EqualTo("Search failed."));
     }
 
-    private static TaskCompletionSource<SearchResult> CreateCompletionSource()
+    private static TaskCompletionSource<SearchPage> CreateCompletionSource()
     {
-        return new TaskCompletionSource<SearchResult>(
+        return new TaskCompletionSource<SearchPage>(
             TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
-    private static SearchResult CreateResult(int count)
+    private static SearchPage CreateResult(int count)
     {
-        return new SearchResult()
-        {
-            Count = count,
-            StartTime = DateTime.UtcNow,
-            EndTime = DateTime.UtcNow
-        };
+        return new SearchPage(Array.Empty<PageSummary>(), count, 0, count);
     }
 
-    private static async Task<SearchResult> WaitForCancellationAsync(CancellationToken token)
+    private static async Task<SearchPage> WaitForCancellationAsync(CancellationToken token)
     {
         await Task.Delay(Timeout.InfiniteTimeSpan, token);
-        return SearchResult.Empty;
+        return new SearchPage(Array.Empty<PageSummary>(), 0, 0, 0);
     }
 
     private sealed class ControlledSearchService : MemoriaNoteService
     {
-        private readonly Func<SearchInvocation, CancellationToken, Task<SearchResult>> _search;
+        private readonly Func<SearchInvocation, CancellationToken, Task<SearchPage>> _search;
 
         internal ControlledSearchService(
-            Func<SearchInvocation, CancellationToken, Task<SearchResult>> search)
+            Func<SearchInvocation, CancellationToken, Task<SearchPage>> search)
             : base(new Workspace())
         {
             _search = search;
         }
 
-        protected override Task<SearchResult> SearchAsync(
+        protected override Task<SearchPage> SearchAsync(
             string searchEntry,
             SearchRangeType searchRange,
             SearchMethodType searchMethod,

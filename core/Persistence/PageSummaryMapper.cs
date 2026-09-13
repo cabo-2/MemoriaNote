@@ -4,23 +4,44 @@ namespace MemoriaNote
 {
     static class PageSummaryMapper
     {
-        internal static PageSummary FromContent(NotebookId notebookId, IContent content)
+        internal static PageSummary FromRecord(
+            NotebookId notebookId,
+            PageSummaryRecord record)
         {
             if (notebookId == null)
                 throw new ArgumentNullException(nameof(notebookId));
-            if (content == null)
-                throw new ArgumentNullException(nameof(content));
+            if (record == null)
+                throw new ArgumentNullException(nameof(record));
 
             return new PageSummary(
                 notebookId,
-                PageId.FromUuid(content.Uuid),
-                content.Name,
-                content.Index,
-                content.TagDict,
-                content.ContentType,
-                content.CreateTime,
-                content.UpdateTime,
-                content.IsErased);
+                PageId.FromUuid(record.Uuid),
+                record.Name,
+                record.Index,
+                record.TagDict,
+                record.ContentType,
+                record.CreateTime,
+                record.UpdateTime,
+                record.IsErased);
+        }
+
+        internal static PageSummary FromPage(NotebookId notebookId, Page page)
+        {
+            if (notebookId == null)
+                throw new ArgumentNullException(nameof(notebookId));
+            if (page == null)
+                throw new ArgumentNullException(nameof(page));
+
+            return new PageSummary(
+                notebookId,
+                PageId.FromGuid(page.Guid),
+                page.Name,
+                page.Index,
+                page.TagDict,
+                page.ContentType,
+                page.CreateTime,
+                page.UpdateTime,
+                page.IsErased);
         }
     }
 }

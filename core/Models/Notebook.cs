@@ -124,11 +124,11 @@ namespace MemoriaNote
         /// <returns>The Page object if found, or null if not found.</returns>
         public Page ReadPage(string name, int index)
         {
-            return SetOwner(Repository.FindPageAsync(
+            return Repository.FindPageAsync(
                 DatabasePath,
                 name,
                 index,
-                CancellationToken.None).GetAwaiter().GetResult());
+                CancellationToken.None).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -138,18 +138,11 @@ namespace MemoriaNote
         /// <returns>The Page object if found, or null if not found.</returns>
         public Page ReadPage(Guid guid)
         {
-            return SetOwner(Repository.FindPageAsync(
+            return Repository.FindPageAsync(
                 DatabasePath,
                 guid,
-                CancellationToken.None).GetAwaiter().GetResult());
+                CancellationToken.None).GetAwaiter().GetResult();
         }
-
-        /// <summary>
-        /// Reads a specific Page from the database based on the provided Content object.
-        /// </summary>
-        /// <param name="content">The Content object representing the Page to read.</param>
-        /// <returns>The Page object if found, or null if not found.</returns>
-        public Page ReadPage(IContent content) => ReadPage(content.Guid);
 
         /// <summary>
         /// Retrieves a collection of pages with the specified name from the database.
@@ -163,9 +156,7 @@ namespace MemoriaNote
                     name,
                     CancellationToken.None)
                 .GetAwaiter()
-                .GetResult()
-                .Select(SetOwner)
-                .ToList();
+                .GetResult();
         }
 
         /// <summary>
@@ -178,12 +169,12 @@ namespace MemoriaNote
         /// <returns>The newly created Page object.</returns>
         public Page CreatePage(string name, string text, string dir = null)
         {
-            return SetOwner(Repository.CreatePageAsync(
+            return Repository.CreatePageAsync(
                 DatabasePath,
                 name,
                 text,
                 dir,
-                CancellationToken.None).GetAwaiter().GetResult());
+                CancellationToken.None).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -202,21 +193,6 @@ namespace MemoriaNote
             newPage.Rowid = persistedPage.Rowid;
             newPage.Index = persistedPage.Index;
             newPage.UpdateTime = persistedPage.UpdateTime;
-            SetOwner(newPage);
-        }
-
-        /// <summary>
-        /// Deletes a specific page from the database based on the provided content object.
-        /// The page with the corresponding identifier is removed and the remaining indexes
-        /// for its exact-name group are compacted in the same transaction.
-        /// </summary>
-        /// <param name="content">The content object representing the page to delete.</param>
-        public void DeletePage(IContent content)
-        {
-            if (content == null)
-                throw new ArgumentNullException(nameof(content));
-
-            DeletePage(content.Guid);
         }
 
         /// <summary>
@@ -231,58 +207,6 @@ namespace MemoriaNote
                 DatabasePath,
                 guid,
                 CancellationToken.None).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Asynchronously searches this notebook using the specified search method.
-        /// </summary>
-        /// <param name="searchEntry">The search entry to match.</param>
-        /// <param name="searchMethod">The search method to use.</param>
-        /// <param name="token">The cancellation token for the database operation.</param>
-        /// <returns>The matching contents and total count.</returns>
-        public Task<SearchResult> SearchAsync(
-            string searchEntry,
-            SearchMethodType searchMethod,
-            CancellationToken token)
-        {
-            return SearchAsync(searchEntry, searchMethod, 0, int.MaxValue, token);
-        }
-
-        /// <summary>
-        /// Asynchronously searches this notebook using the specified search method and paging values.
-        /// </summary>
-        /// <param name="searchEntry">The search entry to match.</param>
-        /// <param name="searchMethod">The search method to use.</param>
-        /// <param name="skipCount">The number of matching contents to skip.</param>
-        /// <param name="takeCount">The maximum number of matching contents to return.</param>
-        /// <param name="token">The cancellation token for the database operation.</param>
-        /// <returns>The matching contents and total count.</returns>
-        public async Task<SearchResult> SearchAsync(
-            string searchEntry,
-            SearchMethodType searchMethod,
-            int skipCount,
-            int takeCount,
-            CancellationToken token)
-        {
-            var startTime = DateTime.UtcNow;
-            var request = SearchRequest.ForNotebook(
-                searchEntry,
-                searchMethod,
-                NotebookId.FromDatabasePath(DatabasePath),
-                skipCount,
-                takeCount);
-            var result = await new SearchUseCase(SearchRepository)
-                .SearchAsync(request, token)
-                .ConfigureAwait(false);
-            return new SearchResult()
-            {
-                Contents = result.Items
-                    .Select(ToCompatibilityContent)
-                    .ToList(),
-                Count = result.TotalCount,
-                StartTime = startTime,
-                EndTime = DateTime.UtcNow
-            };
         }
 
         internal IPageSearchRepository SearchRepository =>
@@ -324,41 +248,6 @@ namespace MemoriaNote
             get => Repository.CountPagesAsync(DatabasePath, CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
-        }
-
-        /// <summary>
-        /// Retrieves a list of content items from the notebook repository using the provided paging values.
-        /// </summary>
-        /// <param name="skipCount">The number of content items to skip before retrieving data.</param>
-        /// <param name="takeCount">The maximum number of content items to retrieve from the database.</param>
-        /// <returns>A list of Content objects representing the retrieved content items.</returns>
-        public List<Content> GetContents(int skipCount, int takeCount)
-        {
-            return Repository.ListPageSummariesAsync(
-                    DatabasePath,
-                    skipCount,
-                    takeCount,
-                    CancellationToken.None)
-                .GetAwaiter()
-                .GetResult()
-                .Select(ToCompatibilityContent)
-                .ToList();
-        }
-
-        Content ToCompatibilityContent(PageSummary summary)
-        {
-            return SetOwner(PageSummaryContentAdapter.ToContent(summary));
-        }
-
-        private T SetOwner<T>(T content) where T : class, IContent
-        {
-            if (content != null)
-            {
-                content.OwnerDataSource = Path.GetFullPath(DatabasePath);
-                content.Parent = this;
-            }
-
-            return content;
         }
 
         /// <summary>

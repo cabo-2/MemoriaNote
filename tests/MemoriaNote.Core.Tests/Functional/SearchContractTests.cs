@@ -24,14 +24,14 @@ public sealed class SearchContractTests
         note.CreatePage("Alphabet", "Longer heading");
         note.CreatePage("Beta Alpha", "Term in a longer heading");
 
-        var result = await note.SearchAsync(
+        var result = await SearchAsync(note,
             "Alpha",
             SearchMethodType.Heading,
             0,
             10,
             CancellationToken.None);
 
-        AssertSearchResult(result, note, 2, firstExact.Guid, secondExact.Guid);
+        AssertSearchPage(result, note, 2, firstExact.Guid, secondExact.Guid);
     }
 
     /// <summary>
@@ -48,21 +48,21 @@ public sealed class SearchContractTests
         note.CreatePage("Alpine", "Different prefix");
         note.CreatePage("Beta", "Unrelated heading");
 
-        var prefixResult = await note.SearchAsync(
+        var prefixResult = await SearchAsync(note,
             "Alpha*",
             SearchMethodType.Heading,
             0,
             10,
             CancellationToken.None);
-        var singleCharacterResult = await note.SearchAsync(
+        var singleCharacterResult = await SearchAsync(note,
             "Alpha?",
             SearchMethodType.Heading,
             0,
             10,
             CancellationToken.None);
 
-        AssertSearchResult(prefixResult, note, 3, alpha.Guid, alphabet.Guid, alphas.Guid);
-        AssertSearchResult(singleCharacterResult, note, 1, alphas.Guid);
+        AssertSearchPage(prefixResult, note, 3, alpha.Guid, alphabet.Guid, alphas.Guid);
+        AssertSearchPage(singleCharacterResult, note, 1, alphas.Guid);
     }
 
     /// <summary>
@@ -78,14 +78,14 @@ public sealed class SearchContractTests
         var secondAlpha = note.CreatePage("Alpha", "Second alpha text");
         var gamma = note.CreatePage("Gamma", "Gamma text");
 
-        var result = await note.SearchAsync(
+        var result = await SearchAsync(note,
             string.Empty,
             SearchMethodType.Heading,
             0,
             10,
             CancellationToken.None);
 
-        AssertSearchResult(
+        AssertSearchPage(
             result,
             note,
             4,
@@ -107,14 +107,14 @@ public sealed class SearchContractTests
         var beta = note.CreatePage("Beta", "A cobalt comet remains visible.");
         note.CreatePage("Comet", "This body mentions only a planet.");
 
-        var result = await note.SearchAsync(
+        var result = await SearchAsync(note,
             "comet",
             SearchMethodType.FullText,
             0,
             10,
             CancellationToken.None);
 
-        AssertSearchResult(result, note, 2, alpha.Guid, beta.Guid);
+        AssertSearchPage(result, note, 2, alpha.Guid, beta.Guid);
     }
 
     /// <summary>
@@ -128,14 +128,14 @@ public sealed class SearchContractTests
         var exactToken = note.CreatePage("Exact", "The probe entered orbit safely.");
         note.CreatePage("Prefix", "The orbital station received the probe.");
 
-        var result = await note.SearchAsync(
+        var result = await SearchAsync(note,
             "orbit*",
             SearchMethodType.FullText,
             0,
             10,
             CancellationToken.None);
 
-        AssertSearchResult(result, note, 1, exactToken.Guid);
+        AssertSearchPage(result, note, 1, exactToken.Guid);
     }
 
     /// <summary>
@@ -150,14 +150,14 @@ public sealed class SearchContractTests
         var alpha = note.CreatePage("Alpha", "Alpha text");
         var gamma = note.CreatePage("Gamma", "Gamma text");
 
-        var result = await note.SearchAsync(
+        var result = await SearchAsync(note,
             "   ",
             SearchMethodType.FullText,
             0,
             10,
             CancellationToken.None);
 
-        AssertSearchResult(result, note, 3, alpha.Guid, beta.Guid, gamma.Guid);
+        AssertSearchPage(result, note, 3, alpha.Guid, beta.Guid, gamma.Guid);
     }
 
     /// <summary>
@@ -173,21 +173,21 @@ public sealed class SearchContractTests
         var charlie = note.CreatePage("Charlie", "Shared marker in charlie.");
         var bravo = note.CreatePage("Bravo", "Shared marker in bravo.");
 
-        var headingResult = await note.SearchAsync(
+        var headingResult = await SearchAsync(note,
             "*",
             SearchMethodType.Heading,
             1,
             2,
             CancellationToken.None);
-        var fullTextResult = await note.SearchAsync(
+        var fullTextResult = await SearchAsync(note,
             "marker",
             SearchMethodType.FullText,
             1,
             2,
             CancellationToken.None);
 
-        AssertSearchResult(headingResult, note, 4, bravo.Guid, charlie.Guid);
-        AssertSearchResult(fullTextResult, note, 4, bravo.Guid, charlie.Guid);
+        AssertSearchPage(headingResult, note, 4, bravo.Guid, charlie.Guid);
+        AssertSearchPage(fullTextResult, note, 4, bravo.Guid, charlie.Guid);
     }
 
     /// <summary>
@@ -200,21 +200,21 @@ public sealed class SearchContractTests
         var note = database.CreateNotebook("test-note", "Test Note");
         var page = note.CreatePage("Async", "Asynchronous owner marker.");
 
-        var headingResult = await note.SearchAsync(
+        var headingResult = await SearchAsync(note,
             "Async",
             SearchMethodType.Heading,
             0,
             10,
             CancellationToken.None);
-        var fullTextResult = await note.SearchAsync(
+        var fullTextResult = await SearchAsync(note,
             "marker",
             SearchMethodType.FullText,
             0,
             10,
             CancellationToken.None);
 
-        AssertSearchResult(headingResult, note, 1, page.Guid);
-        AssertSearchResult(fullTextResult, note, 1, page.Guid);
+        AssertSearchPage(headingResult, note, 1, page.Guid);
+        AssertSearchPage(fullTextResult, note, 1, page.Guid);
     }
 
     /// <summary>
@@ -234,7 +234,7 @@ public sealed class SearchContractTests
 
         try
         {
-            await note.SearchAsync(
+            await SearchAsync(note,
                 "marker",
                 searchMethod,
                 0,
@@ -249,25 +249,38 @@ public sealed class SearchContractTests
         Assert.That(exception, Is.Not.Null);
     }
 
-    private static void AssertSearchResult(
-        SearchResult result,
+    private static void AssertSearchPage(
+        SearchPage result,
         Notebook expectedParent,
         int expectedTotalCount,
         params Guid[] expectedPageIds)
     {
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.Count, Is.EqualTo(expectedTotalCount));
+            Assert.That(result.TotalCount, Is.EqualTo(expectedTotalCount));
             Assert.That(
-                result.Contents.Select(content => content.Guid),
+                result.Items.Select(content => content.PageId.Value),
                 Is.EqualTo(expectedPageIds));
             Assert.That(
-                result.Contents.Select(content => content.Parent),
-                Is.All.SameAs(expectedParent));
-            Assert.That(
-                result.Contents.Select(content => content.OwnerDataSource),
-                Is.All.EqualTo(Path.GetFullPath(expectedParent.DatabasePath)));
-            Assert.That(result.StartTime, Is.LessThanOrEqualTo(result.EndTime));
+                result.Items.Select(content => content.NotebookId),
+                Is.All.EqualTo(NotebookId.FromDatabasePath(expectedParent.DatabasePath)));
         }
+    }
+
+    private static Task<SearchPage> SearchAsync(
+        Notebook notebook,
+        string query,
+        SearchMethodType method,
+        int offset,
+        int limit,
+        CancellationToken token)
+    {
+        var notebookId = NotebookId.FromDatabasePath(notebook.DatabasePath);
+        var repository = new SqlitePageSearchRepository(
+            new SqliteNotebookDbContextFactory(
+                Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance));
+        return new SearchUseCase(repository).SearchAsync(
+            SearchRequest.ForNotebook(query, method, notebookId, offset, limit),
+            token);
     }
 }

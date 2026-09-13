@@ -8,11 +8,11 @@ using Newtonsoft.Json;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Represents a Page object which implements the IContent interface and IEquatable interface for comparing equality with other Page objects.
+    /// Represents a persisted page with its body and metadata.
     /// This class is marked as serializable for supporting serialization operations.
     /// </summary>
     [Serializable]
-    public class Page : IContent, IEquatable<Page>
+    public class Page : IEquatable<Page>
     {
         /// <summary>
         /// Creates a new Page object with the specified name, text, and optional directory.
@@ -23,8 +23,22 @@ namespace MemoriaNote
         /// <returns>The newly created Page object.</returns>
         public static Page Create(string name, string text, string dir = null)
         {
-            var page = Content.Create<Page>(name, dir);
-            page.Text = text;
+            var page = new Page
+            {
+                Rowid = 0,
+                Guid = Guid.NewGuid(),
+                Name = name,
+                Index = 1,
+                // Preserve the existing persisted discriminator produced by the generic factory.
+                ContentType = "T",
+                CreateTime = DateTime.UtcNow,
+                IsErased = false,
+                Text = text
+            };
+            page.UpdateTime = page.CreateTime;
+            if (dir != null)
+                page.TagDict.Add(PageTag.Dir, dir);
+
             return page;
         }
 
@@ -134,27 +148,9 @@ namespace MemoriaNote
         public bool IsErased { get; set; }
 
         /// <summary>
-        /// Gets or sets the normalized data source of the note that owns the page.
-        /// </summary>
-        [NotMapped, JsonIgnore]
-        public string OwnerDataSource { get; set; }
-
-        /// <summary>
-        /// Represents the parent object of the page, not mapped to the database and ignored during JSON serialization.
-        /// </summary>
-        [NotMapped, JsonIgnore]
-        public object Parent { get; set; }
-
-        /// <summary>
         /// Represents the text content of the page.
         /// </summary>
         public string Text { get; set; }
-
-        /// <inheritdoc/>
-        public bool EntityEquals(IContent other)
-        {
-            return PageIdentity.Equals(this, other);
-        }
 
         /// <summary>
         /// Determines whether this page and another page have the same non-empty page identifier.
@@ -167,16 +163,16 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Determines whether this page and another content entity have the same non-empty
-        /// page identifier.
+        /// Determines whether this page and another object are pages with the same non-empty
+        /// identifier.
         /// </summary>
         /// <param name="obj">The object to compare with the current Page object.</param>
         /// <returns>
-        /// True if the object is a content entity with the same page identifier; otherwise, false.
+        /// True if the object is a page with the same identifier; otherwise, false.
         /// </returns>
         public override bool Equals(object obj)
         {
-            return obj is IContent other && PageIdentity.Equals(this, other);
+            return obj is Page other && PageIdentity.Equals(this, other);
         }
 
         /// <summary>
@@ -199,14 +195,6 @@ namespace MemoriaNote
             this.UpdateTime = DateTime.UtcNow;
         }
 
-        /// <summary>
-        /// Gets the content of the Page object by creating a Content object from it.
-        /// </summary>
-        /// <returns>The Content object created from the Page object.</returns>
-        public Content GetContent()
-        {
-            return Content.Create(this);
-        }
     }
 
     /// <summary>

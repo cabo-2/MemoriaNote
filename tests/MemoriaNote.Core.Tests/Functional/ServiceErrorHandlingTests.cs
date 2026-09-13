@@ -54,14 +54,14 @@ public sealed class ServiceErrorHandlingTests
     {
         using var database = new TemporaryNotebookDatabase();
         var note = database.CreateNotebook("test-note", "Test Note");
-        var content = note.CreatePage("Existing text", "Existing body").GetContent();
+        var content = CreateSummary(note, note.CreatePage("Existing text", "Existing body"));
         var workspace = new Workspace(null, new[] { note }, note);
         var service = new TestableService(workspace)
         {
             EditingTitle = "New text",
             EditingText = "Body",
             ManageNotice = "Unchanged",
-            Contents = new List<Content>() { content },
+            Contents = new List<PageSummary>() { content },
             ContentsCount = 1,
             ContentsViewPageIndex = (0, 0),
             PlaceHolder = "Unchanged"
@@ -92,16 +92,16 @@ public sealed class ServiceErrorHandlingTests
         using var database = new TemporaryNotebookDatabase();
         var note = database.CreateNotebook("test-note", "Test Note");
         var page = note.CreatePage("Deleted text", "Deleted body");
-        var content = page.GetContent();
+        var content = CreateSummary(note, page);
         var workspace = new Workspace(null, new[] { note }, note);
         var service = new TestableService(workspace)
         {
-            Contents = new List<Content>() { content },
+            Contents = new List<PageSummary>() { content },
             ContentsCount = 1,
             ContentsViewPageIndex = (0, 0),
             PlaceHolder = "Unchanged"
         };
-        note.DeletePage(page);
+        note.DeletePage(page.Guid);
 
         service.OpenTextHandler();
 
@@ -110,6 +110,20 @@ public sealed class ServiceErrorHandlingTests
             Assert.That(service.OpenedContent, Is.Null);
             Assert.That(service.PlaceHolder, Is.EqualTo("Unchanged"));
         }
+    }
+
+    private static PageSummary CreateSummary(Notebook notebook, Page page)
+    {
+        return new PageSummary(
+            NotebookId.FromDatabasePath(notebook.DatabasePath),
+            PageId.FromGuid(page.Guid),
+            page.Name,
+            page.Index,
+            page.TagDict,
+            page.ContentType,
+            page.CreateTime,
+            page.UpdateTime,
+            page.IsErased);
     }
 
     private sealed class ControlledActivationService : MemoriaNoteService

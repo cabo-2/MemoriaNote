@@ -122,54 +122,46 @@ namespace MemoriaNote
                 "Open text");
             OpenText = ReactiveCommand.Create(OpenTextHandler);
 
-            CreateTextHandler = () => ExecuteTextManagement(
+            CreateTextHandler = () => ExecutePageOperation(
                 () => CreateTextAsync(
                         EditingTitle.ToString(),
                         EditingText.ToString(),
                         CancellationToken.None)
                     .GetAwaiter()
                     .GetResult(),
-                TextManageType.Create,
-                SelectedNotebookId(),
-                null,
+                PageOperationKind.Create,
                 "Create text");
             CreateText = ReactiveCommand.Create(CreateTextHandler);
 
-            EditTextHandler = () => ExecuteTextManagement(
+            EditTextHandler = () => ExecutePageOperation(
                 () => EditTextAsync(
-                        OpenedContent?.GetContent(),
+                        OpenedContent,
                         EditingText.ToString(),
                         CancellationToken.None)
                     .GetAwaiter()
                     .GetResult(),
-                TextManageType.Edit,
-                OwnerNotebookId(OpenedContent),
-                OpenedContent,
+                PageOperationKind.Edit,
                 "Edit text");
             EditText = ReactiveCommand.Create(EditTextHandler);
 
-            RenameTextHandler = () => ExecuteTextManagement(
+            RenameTextHandler = () => ExecutePageOperation(
                 () => RenameTextAsync(
-                        OpenedContent?.GetContent(),
+                        OpenedContent,
                         EditingTitle.ToString(),
                         CancellationToken.None)
                     .GetAwaiter()
                     .GetResult(),
-                TextManageType.Rename,
-                OwnerNotebookId(OpenedContent),
-                OpenedContent,
+                PageOperationKind.Rename,
                 "Rename text");
             RenameText = ReactiveCommand.Create(RenameTextHandler);
 
-            DeleteTextHandler = () => ExecuteTextManagement(
+            DeleteTextHandler = () => ExecutePageOperation(
                 () => DeleteTextAsync(
-                        OpenedContent?.GetContent(),
+                        OpenedContent,
                         CancellationToken.None)
                     .GetAwaiter()
                     .GetResult(),
-                TextManageType.Delete,
-                OwnerNotebookId(OpenedContent),
-                OpenedContent,
+                PageOperationKind.Delete,
                 "Delete text");
             DeleteText = ReactiveCommand.Create(DeleteTextHandler);
 
@@ -269,23 +261,27 @@ namespace MemoriaNote
         /// </summary>
         /// <param name="result">The search result containing the contents</param>
         /// <param name="newContentsIndex">The index of the new contents</param>
-        protected void OnSearchResultCallback(SearchResult result, int newContentsIndex)
+        protected void ApplySearchPage(
+            SearchPage result,
+            int newContentsIndex,
+            DateTime startTime,
+            DateTime endTime)
         {
             var newViewPageIndex = (
                 ContentsIndexToViewPage(newContentsIndex, MaxViewResultCount),
                 ContentsIndexToViewIndex(newContentsIndex, MaxViewResultCount));
-            var newContentItems = result.Contents.ConvertAll(c => c.ToString());
-            var newSearchNotice = result.ToString();
-            Content newOpenedContent = null;
+            var newContentItems = result.Items.Select(FormatPageSummary).ToList();
+            var newSearchNotice = FormatSearchNotice(result.TotalCount, startTime, endTime);
+            PageSummary newOpenedContent = null;
             string newEditingTitle = string.Empty;
             string newEditingText = string.Empty;
             string newEditingUpdateTime = string.Empty;
             string newEditingNoteTitle = string.Empty;
             var newPlaceHolder = PlaceHolderString(0, 0);
 
-            if (result.Contents.Count > 0)
+            if (result.Items.Count > 0)
             {
-                newOpenedContent = result.Contents[newViewPageIndex.Item2];
+                newOpenedContent = result.Items[newViewPageIndex.Item2];
                 var readResult = ReadTextAsync(
                         newOpenedContent,
                         CancellationToken.None)
@@ -295,24 +291,24 @@ namespace MemoriaNote
                 {
                     Log.Logger.Warning(
                         "Search result {ContentId} was not found in its owner note.",
-                        newOpenedContent.Guid);
+                        newOpenedContent.PageId.Value);
                     return;
                 }
 
-                var page = SetPageParent(readResult.Page, OwnerNotebookId(newOpenedContent));
-                newPlaceHolder = PlaceHolderString(newContentsIndex, result.Count);
+                var page = readResult.Page;
+                newPlaceHolder = PlaceHolderString(newContentsIndex, result.TotalCount);
                 newEditingTitle = newOpenedContent.Name;
                 newEditingText = page.Text;
                 newEditingUpdateTime = newOpenedContent.UpdateTime
                     .ToLocalTime()
                     .ToString("ddd MMM dd hh:mm:ss yyyy zzz");
-                var note = newOpenedContent.Parent as Notebook;
-                newEditingNoteTitle = note?.Metadata?.Title ?? string.Empty;
+                var notebook = ResolveNotebook(newOpenedContent.NotebookId);
+                newEditingNoteTitle = notebook?.Metadata?.Title ?? string.Empty;
             }
 
             ContentsViewPageIndex = newViewPageIndex;
-            ContentsCount = result.Count;
-            Contents = result.Contents;
+            ContentsCount = result.TotalCount;
+            Contents = result.Items.ToList();
             ContentViewItems.Clear();
             ContentViewItems.AddRange(newContentItems);
             SearchNotice = newSearchNotice;
@@ -329,17 +325,28 @@ namespace MemoriaNote
         /// Callback method that handles the result of text management operations and updates the view notice accordingly.
         /// This method updates the ManageNotice property with the notification from the result and logs the result.
         /// </summary>
-        protected void OnTextManageResultCallback(TextManageResult result)
+        protected void OnPageOperationResultCallback(
+            PageOperationKind operation,
+            PageOperationResult result)
         {
-            this.ManageNotice = result.Notification;
-            if (result.Result)
-                Log.Logger.Information(result.ToString());
+            ManageNotice = result.IsSuccess
+                ? PageOperationMessageMapper.ToSuccessNotification(operation)
+                : PageOperationMessageMapper.ToFailureNotification(operation);
+            if (result.IsSuccess)
+            {
+                Log.Logger.Information(
+                    "{Operation} succeeded: {Notification}",
+                    operation,
+                    ManageNotice);
+            }
             else
+            {
                 Log.Logger.Warning(
                     "{Operation} validation failed: {Notification} {@Errors}",
-                    result.Operation,
-                    result.Notification,
-                    result.Errors);
+                    operation,
+                    ManageNotice,
+                    ToErrorMessages(operation, result));
+            }
         }
 
         /// <summary>
@@ -361,11 +368,11 @@ namespace MemoriaNote
                 {
                     Log.Logger.Warning(
                         "Text {ContentId} was not found in its owner note.",
-                        content.Guid);
+                        content.PageId.Value);
                     return;
                 }
 
-                var page = SetPageParent(readResult.Page, OwnerNotebookId(content));
+                var page = readResult.Page;
                 // Set the placeholder text based on the selected content index and total contents count
                 this.PlaceHolder = PlaceHolderString(this.SelectedContentsIndex, this.ContentsCount);
                 // Set the opened content to the selected content
@@ -377,8 +384,8 @@ namespace MemoriaNote
                 // Set the editing update time to the local time representation of the content's update time
                 this.EditingUpdateTime = content.UpdateTime.ToLocalTime().ToString("ddd MMM dd hh:mm:ss yyyy zzz");
                 // Retrieve the note title associated with the current content, if available
-                var note = content.Parent as Notebook;
-                this.EditingNoteTitle = note?.Metadata?.Title ?? string.Empty;
+                var notebook = ResolveNotebook(content.NotebookId);
+                this.EditingNoteTitle = notebook?.Metadata?.Title ?? string.Empty;
             }
             else
             {
@@ -399,6 +406,33 @@ namespace MemoriaNote
         /// If there are no contents available, it returns "0 of 0".
         /// </summary>
         static string PlaceHolderString(int currentIndex, int totalCount) => totalCount > 0 ? $"{currentIndex + 1} of {totalCount}" : "0 of 0";
+
+        static string FormatPageSummary(PageSummary summary)
+        {
+            if (summary.Name == null)
+                return $"PageId={summary.PageId}";
+
+            return summary.Index == 1
+                ? summary.Name
+                : summary.Name + summary.Index.ToIndexString();
+        }
+
+        static string FormatSearchNotice(int totalCount, DateTime startTime, DateTime endTime)
+        {
+            var countText = totalCount <= 0
+                ? "No results found"
+                : $"{totalCount} results found";
+            var elapsed = endTime - startTime;
+            string elapsedText;
+            if (elapsed.TotalHours > 1.0)
+                elapsedText = Math.Round(elapsed.TotalHours, 2) + " hours";
+            else if (elapsed.TotalMinutes > 1.0)
+                elapsedText = Math.Round(elapsed.TotalHours, 2) + " minutes";
+            else
+                elapsedText = Math.Round(elapsed.TotalSeconds, 2) + " seconds";
+
+            return $"{countText} ( {elapsedText} )";
+        }
 
         /// <summary>
         /// Method to convert the contents index to the view index based on the maximum view result count.
@@ -433,7 +467,7 @@ namespace MemoriaNote
         /// <param name="takeCount">The result limit captured for this request.</param>
         /// <param name="token">The cancellation token for this request.</param>
         /// <returns>The matching contents and total count.</returns>
-        protected virtual Task<SearchResult> SearchAsync(
+        protected virtual Task<SearchPage> SearchAsync(
             string searchEntry,
             SearchRangeType searchRange,
             SearchMethodType searchMethod,
@@ -441,7 +475,7 @@ namespace MemoriaNote
             int takeCount,
             CancellationToken token)
         {
-            return SearchApplicationAsync(
+            return _applicationService.SearchAsync(
                 CreateSearchRequest(
                     searchEntry,
                     searchRange,
@@ -449,22 +483,6 @@ namespace MemoriaNote
                     skipCount,
                     takeCount),
                 token);
-        }
-
-        async Task<SearchResult> SearchApplicationAsync(
-            SearchRequest request,
-            CancellationToken token)
-        {
-            var startTime = DateTime.UtcNow;
-            var result = await _applicationService.SearchAsync(request, token)
-                .ConfigureAwait(false);
-            return new SearchResult
-            {
-                Contents = result.Items.Select(ToCompatibilityContent).ToList(),
-                Count = result.TotalCount,
-                StartTime = startTime,
-                EndTime = DateTime.UtcNow
-            };
         }
 
         SearchRequest CreateSearchRequest(
@@ -492,13 +510,6 @@ namespace MemoriaNote
                     limit);
         }
 
-        Content ToCompatibilityContent(PageSummary summary)
-        {
-            var content = PageSummaryContentAdapter.ToContent(summary);
-            content.Parent = ResolveNotebook(summary.NotebookId);
-            return content;
-        }
-
         NotebookId SelectedNotebookId()
         {
             return Workspace.SelectedNotebook == null
@@ -506,9 +517,11 @@ namespace MemoriaNote
                 : NotebookId.FromDatabasePath(Workspace.SelectedNotebook.DatabasePath);
         }
 
-        static NotebookId OwnerNotebookId(IContent content)
+        static PageReference CreateReference(PageSummary summary)
         {
-            return WorkspaceCompatibilityFacade.CreateReference(content)?.NotebookId;
+            return summary == null
+                ? null
+                : new PageReference(summary.NotebookId, summary.PageId);
         }
 
         Notebook ResolveNotebook(NotebookId notebookId)
@@ -518,14 +531,6 @@ namespace MemoriaNote
 
             return Workspace.Notebooks.FirstOrDefault(note =>
                 NotebookId.FromDatabasePath(note.DatabasePath) == notebookId);
-        }
-
-        Page SetPageParent(Page page, NotebookId notebookId)
-        {
-            if (page != null)
-                page.Parent = ResolveNotebook(notebookId);
-
-            return page;
         }
 
         /// <summary>
@@ -539,7 +544,7 @@ namespace MemoriaNote
         /// The applied search result, or null when the request was superseded, canceled,
         /// or stopped by an infrastructure failure.
         /// </returns>
-        protected async Task<SearchResult> OnSearchContentsAsync(
+        protected async Task<SearchPage> OnSearchContentsAsync(
             string searchEntry,
             SearchRangeType searchRange,
             SearchMethodType searchMethod,
@@ -557,6 +562,7 @@ namespace MemoriaNote
 
             try
             {
+                var startTime = DateTime.UtcNow;
                 var result = await SearchAsync(
                     searchEntry,
                     searchRange,
@@ -564,6 +570,7 @@ namespace MemoriaNote
                     selectedContentsIndex,
                     MaxViewResultCount,
                     cancellation.Token);
+                var endTime = DateTime.UtcNow;
 
                 lock (_searchLockObject)
                 {
@@ -572,7 +579,11 @@ namespace MemoriaNote
                         cancellation.IsCancellationRequested)
                         return null;
 
-                    OnSearchResultCallback(result, selectedContentsIndex);
+                    ApplySearchPage(
+                        result,
+                        selectedContentsIndex,
+                        startTime,
+                        endTime);
                 }
 
                 return result;
@@ -615,11 +626,11 @@ namespace MemoriaNote
 
         /// <summary>Edits a page through the UI-independent application service.</summary>
         protected virtual Task<PageOperationResult> EditTextAsync(
-            Content content,
+            PageSummary summary,
             string newText,
             CancellationToken token)
         {
-            var target = WorkspaceCompatibilityFacade.CreateReference(content);
+            var target = CreateReference(summary);
             return target == null
                 ? Task.FromResult(PageNotSelected())
                 : _applicationService.EditAsync(
@@ -629,11 +640,11 @@ namespace MemoriaNote
 
         /// <summary>Renames a page through the UI-independent application service.</summary>
         protected virtual Task<PageOperationResult> RenameTextAsync(
-            Content content,
+            PageSummary summary,
             string newName,
             CancellationToken token)
         {
-            var target = WorkspaceCompatibilityFacade.CreateReference(content);
+            var target = CreateReference(summary);
             return target == null
                 ? Task.FromResult(PageNotSelected())
                 : _applicationService.RenameAsync(
@@ -643,10 +654,10 @@ namespace MemoriaNote
 
         /// <summary>Deletes a page through the UI-independent application service.</summary>
         protected virtual Task<PageOperationResult> DeleteTextAsync(
-            Content content,
+            PageSummary summary,
             CancellationToken token)
         {
-            var target = WorkspaceCompatibilityFacade.CreateReference(content);
+            var target = CreateReference(summary);
             return target == null
                 ? Task.FromResult(PageNotSelected())
                 : _applicationService.DeleteAsync(
@@ -656,10 +667,10 @@ namespace MemoriaNote
 
         /// <summary>Reads a page through the UI-independent application service.</summary>
         protected virtual Task<PageOperationResult> ReadTextAsync(
-            IContent content,
+            PageSummary summary,
             CancellationToken token)
         {
-            var target = WorkspaceCompatibilityFacade.CreateReference(content);
+            var target = CreateReference(summary);
             return target == null
                 ? Task.FromResult(PageNotSelected())
                 : _applicationService.ReadAsync(target, token);
@@ -684,7 +695,7 @@ namespace MemoriaNote
                             CancellationToken.None)
                         .GetAwaiter()
                         .GetResult();
-                EditingErrors = ToErrorMessages(TextManageType.Create, result);
+                EditingErrors = ToErrorMessages(PageOperationKind.Create, result);
                 return result.IsSuccess;
             }
             catch (Exception exception) when (IsInfrastructureException(exception))
@@ -698,14 +709,14 @@ namespace MemoriaNote
         /// Determines if a text content can be edited based on the specified content and new text.
         /// Validates the editing of a text content with the given content and new text, and sets any validation errors.
         /// </summary>
-        /// <param name="content">The content to be edited.</param>
+        /// <param name="summary">The selected page summary.</param>
         /// <param name="newText">The new text content.</param>
         /// <returns>Returns true if the text can be edited, false otherwise.</returns>
-        public bool CanEditText(Content content, string newText)
+        public bool CanEditText(PageSummary summary, string newText)
         {
             try
             {
-                var target = WorkspaceCompatibilityFacade.CreateReference(content);
+                var target = CreateReference(summary);
                 var result = target == null
                     ? PageNotSelected()
                     : _applicationService.ValidateEditAsync(
@@ -713,7 +724,7 @@ namespace MemoriaNote
                             CancellationToken.None)
                         .GetAwaiter()
                         .GetResult();
-                EditingErrors = ToErrorMessages(TextManageType.Edit, result);
+                EditingErrors = ToErrorMessages(PageOperationKind.Edit, result);
                 return result.IsSuccess;
             }
             catch (Exception exception) when (IsInfrastructureException(exception))
@@ -727,14 +738,14 @@ namespace MemoriaNote
         /// Determines if a text content can be renamed based on the specified content and new name.
         /// Validates the renaming of a text content with the given content and new name, and sets any validation errors.
         /// </summary>
-        /// <param name="content">The content to be renamed.</param>
+        /// <param name="summary">The selected page summary.</param>
         /// <param name="newName">The new name for the text.</param>
         /// <returns>Returns true if the text can be renamed, false otherwise.</returns>
-        public bool CanRenameText(Content content, string newName)
+        public bool CanRenameText(PageSummary summary, string newName)
         {
             try
             {
-                var target = WorkspaceCompatibilityFacade.CreateReference(content);
+                var target = CreateReference(summary);
                 var result = target == null
                     ? PageNotSelected()
                     : _applicationService.ValidateRenameAsync(
@@ -742,7 +753,7 @@ namespace MemoriaNote
                             CancellationToken.None)
                         .GetAwaiter()
                         .GetResult();
-                EditingErrors = ToErrorMessages(TextManageType.Rename, result);
+                EditingErrors = ToErrorMessages(PageOperationKind.Rename, result);
                 return result.IsSuccess;
             }
             catch (Exception exception) when (IsInfrastructureException(exception))
@@ -756,13 +767,13 @@ namespace MemoriaNote
         /// Determines if a text content can be deleted based on the specified content.
         /// Validates the deletion of a text content with the given content, and sets any validation errors.
         /// </summary>
-        /// <param name="content">The content to be deleted.</param>
+        /// <param name="summary">The selected page summary.</param>
         /// <returns>Returns true if the text can be deleted, false otherwise.</returns>
-        public bool CanDeleteText(Content content)
+        public bool CanDeleteText(PageSummary summary)
         {
             try
             {
-                var target = WorkspaceCompatibilityFacade.CreateReference(content);
+                var target = CreateReference(summary);
                 var result = target == null
                     ? PageNotSelected()
                     : _applicationService.ValidateDeleteAsync(
@@ -770,7 +781,7 @@ namespace MemoriaNote
                             CancellationToken.None)
                         .GetAwaiter()
                         .GetResult();
-                EditingErrors = ToErrorMessages(TextManageType.Delete, result);
+                EditingErrors = ToErrorMessages(PageOperationKind.Delete, result);
                 return result.IsSuccess;
             }
             catch (Exception exception) when (IsInfrastructureException(exception))
@@ -780,21 +791,15 @@ namespace MemoriaNote
             }
         }
 
-        private void ExecuteTextManagement(
+        private void ExecutePageOperation(
             Func<PageOperationResult> operation,
-            TextManageType operationType,
-            NotebookId notebookId,
-            IContent originalContent,
+            PageOperationKind operationType,
             string operationName)
         {
             try
             {
                 var result = operation();
-                OnTextManageResultCallback(ToTextManageResult(
-                    operationType,
-                    result,
-                    notebookId,
-                    originalContent));
+                OnPageOperationResultCallback(operationType, result);
             }
             catch (Exception exception) when (IsInfrastructureException(exception))
             {
@@ -802,32 +807,8 @@ namespace MemoriaNote
             }
         }
 
-        TextManageResult ToTextManageResult(
-            TextManageType operation,
-            PageOperationResult result,
-            NotebookId notebookId,
-            IContent originalContent)
-        {
-            var page = result.IsSuccess
-                ? SetPageParent(result.Page, notebookId)
-                : null;
-            return new TextManageResult
-            {
-                Operation = operation,
-                Result = result.IsSuccess,
-                Content = page?.GetContent() ??
-                    (operation == TextManageType.Delete && !result.IsSuccess
-                        ? originalContent?.GetContent()
-                        : null),
-                Errors = ToErrorMessages(operation, result),
-                Notification = result.IsSuccess
-                    ? PageOperationMessageMapper.ToSuccessNotification(operation)
-                    : PageOperationMessageMapper.ToFailureNotification(operation)
-            };
-        }
-
         static List<string> ToErrorMessages(
-            TextManageType operation,
+            PageOperationKind operation,
             PageOperationResult result)
         {
             return result.Errors
@@ -904,19 +885,19 @@ namespace MemoriaNote
         /// <summary>
         /// Handler for searching content.
         /// </summary>
-        public Func<Task<SearchResult>> SearchHandler { get; }
+        public Func<Task<SearchPage>> SearchHandler { get; }
         /// <summary>
         /// Command to initiate the search operation.
         /// </summary>
-        public ReactiveCommand<Unit, SearchResult> Search { get; }
+        public ReactiveCommand<Unit, SearchPage> Search { get; }
         /// <summary>
         /// Command to navigate to the next page of content.
         /// </summary>
-        public ReactiveCommand<Unit, SearchResult> PageNext { get; }
+        public ReactiveCommand<Unit, SearchPage> PageNext { get; }
         /// <summary>
         /// Command to navigate to the previous page of content.
         /// </summary>
-        public ReactiveCommand<Unit, SearchResult> PagePrev { get; }
+        public ReactiveCommand<Unit, SearchPage> PagePrev { get; }
         /// <summary>
         /// Handler for opening a text content.
         /// </summary>
@@ -967,7 +948,7 @@ namespace MemoriaNote
         /// <summary>
         /// Collection of content items.
         /// </summary>
-        [Reactive, DataMember] public List<Content> Contents { get; set; }
+        [Reactive, DataMember] public List<PageSummary> Contents { get; set; }
 
         int _selectedNotebookIndex;
 
@@ -1000,7 +981,7 @@ namespace MemoriaNote
         /// <summary>
         /// Gets or sets the currently opened content.
         /// </summary>
-        [Reactive] public Content OpenedContent { get; set; }
+        [Reactive] public PageSummary OpenedContent { get; set; }
 
         /// <summary>
         /// Gets or sets the title being edited.
@@ -1030,7 +1011,7 @@ namespace MemoriaNote
         /// <summary>
         /// The current state of the text content editing.
         /// </summary>
-        [Reactive, DataMember] public TextManageType EditingState { get; set; }
+        [Reactive, DataMember] public EditorMode EditingState { get; set; }
 
         /// <summary>
         /// Gets or sets the search range type for searching.

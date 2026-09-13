@@ -74,14 +74,13 @@ public sealed class NotebookTransferCharacteristicsTests
 
         AssertPage(restoredPages[0], first);
         AssertPage(restoredPages[1], second);
-        var searchResult = await restored.SearchAsync(
+        var searchResult = await SearchAsync(
+            restored,
             "entry",
             SearchMethodType.FullText,
-            0,
-            10,
             CancellationToken.None);
         Assert.That(
-            searchResult.Contents.Select(content => content.Guid),
+            searchResult.Items.Select(summary => summary.PageId.Value),
             Is.EqualTo(new[] { first.Guid, second.Guid }));
     }
 
@@ -222,5 +221,20 @@ public sealed class NotebookTransferCharacteristicsTests
             Assert.That(actual.UpdateTime, Is.EqualTo(expected.UpdateTime));
             Assert.That(actual.IsErased, Is.EqualTo(expected.IsErased));
         }
+    }
+
+    private static Task<SearchPage> SearchAsync(
+        Notebook notebook,
+        string query,
+        SearchMethodType method,
+        CancellationToken token)
+    {
+        var notebookId = NotebookId.FromDatabasePath(notebook.DatabasePath);
+        var repository = new SqlitePageSearchRepository(
+            new SqliteNotebookDbContextFactory(
+                Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance));
+        return new SearchUseCase(repository).SearchAsync(
+            SearchRequest.ForNotebook(query, method, notebookId, 0, 10),
+            token);
     }
 }

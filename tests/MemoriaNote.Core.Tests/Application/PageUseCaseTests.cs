@@ -395,14 +395,28 @@ public sealed class PageUseCaseTests
             return Task.FromResult(_pages.Count);
         }
 
-        public Task<IReadOnlyList<Content>> ReadContentsAsync(
+        public Task<IReadOnlyList<PageSummary>> ListPageSummariesAsync(
             string dataSource,
             int skipCount,
             int takeCount,
             CancellationToken token)
         {
-            return Task.FromResult<IReadOnlyList<Content>>(
-                _pages.Skip(skipCount).Take(takeCount).Select(page => page.GetContent()).ToList());
+            var notebookId = NotebookId.FromDatabasePath(dataSource);
+            return Task.FromResult<IReadOnlyList<PageSummary>>(
+                _pages
+                    .Skip(skipCount)
+                    .Take(takeCount)
+                    .Select(page => new PageSummary(
+                        notebookId,
+                        PageId.FromGuid(page.Guid),
+                        page.Name,
+                        page.Index,
+                        page.TagDict,
+                        page.ContentType,
+                        page.CreateTime,
+                        page.UpdateTime,
+                        page.IsErased))
+                    .ToList());
         }
     }
 }

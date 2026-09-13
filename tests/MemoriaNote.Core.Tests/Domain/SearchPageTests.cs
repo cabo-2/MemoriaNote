@@ -73,7 +73,7 @@ public sealed class SearchPageTests
             name,
             1,
             new Dictionary<string, string>(),
-            nameof(Content),
+            nameof(Page),
             DateTime.UtcNow,
             DateTime.UtcNow,
             false);

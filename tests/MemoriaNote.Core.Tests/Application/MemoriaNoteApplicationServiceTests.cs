@@ -175,9 +175,9 @@ public sealed class MemoriaNoteApplicationServiceTests
             "System.Action",
             "System.Func`1",
             "ReactiveUI.ReactiveCommand",
-            typeof(Content).FullName,
-            typeof(SearchResult).FullName,
-            typeof(TextManageResult).FullName
+            "MemoriaNote.Content",
+            "MemoriaNote.SearchResult",
+            "MemoriaNote.TextManageResult"
         };
         var apiTypes = typeof(IMemoriaNoteApplicationService)
             .GetMethods()
@@ -188,6 +188,28 @@ public sealed class MemoriaNoteApplicationServiceTests
         Assert.That(
             apiTypes.Select(type => type.FullName).Intersect(forbiddenNames),
             Is.Empty);
+    }
+
+    /// <summary>
+    /// Verifies that the superseded compatibility contracts are no longer exported.
+    /// </summary>
+    [Test]
+    public void CoreAssembly_DoesNotExportSupersededCompatibilityContracts()
+    {
+        var assembly = typeof(IMemoriaNoteApplicationService).Assembly;
+        var removedTypeNames = new[]
+        {
+            "MemoriaNote.IContent",
+            "MemoriaNote.Content",
+            "MemoriaNote.SearchResult",
+            "MemoriaNote.NoteSearchResult",
+            "MemoriaNote.TextManageResult",
+            "MemoriaNote.TextManageType"
+        };
+
+        Assert.That(
+            removedTypeNames.Select(assembly.GetType),
+            Is.All.Null);
     }
 
     static MemoriaNoteApplicationService CreateService()

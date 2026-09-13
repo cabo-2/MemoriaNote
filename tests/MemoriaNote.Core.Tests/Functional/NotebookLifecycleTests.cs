@@ -73,32 +73,38 @@ public sealed class NotebookLifecycleTests
         }
     }
 
-    private static Task<SearchResult> SearchAsync(
+    private static Task<SearchPage> SearchAsync(
         Notebook note,
         string searchEntry,
         SearchMethodType searchMethod)
     {
-        return note.SearchAsync(
-            searchEntry,
-            searchMethod,
-            0,
-            10,
+        var notebookId = NotebookId.FromDatabasePath(note.DatabasePath);
+        var repository = new SqlitePageSearchRepository(
+            new SqliteNotebookDbContextFactory(
+                Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance));
+        return new SearchUseCase(repository).SearchAsync(
+            SearchRequest.ForNotebook(
+                searchEntry,
+                searchMethod,
+                notebookId,
+                0,
+                10),
             CancellationToken.None);
     }
 
-    private static void AssertSingleResult(SearchResult result, Guid expectedPageId)
+    private static void AssertSingleResult(SearchPage result, Guid expectedPageId)
     {
-        Assert.That(result.Count, Is.EqualTo(1));
-        Assert.That(result.Contents, Has.Count.EqualTo(1));
-        Assert.That(result.Contents[0].Guid, Is.EqualTo(expectedPageId));
+        Assert.That(result.TotalCount, Is.EqualTo(1));
+        Assert.That(result.Items, Has.Count.EqualTo(1));
+        Assert.That(result.Items[0].PageId.Value, Is.EqualTo(expectedPageId));
     }
 
-    private static void AssertEmptyResult(SearchResult result)
+    private static void AssertEmptyResult(SearchPage result)
     {
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.Count, Is.Zero);
-            Assert.That(result.Contents, Is.Empty);
+            Assert.That(result.TotalCount, Is.Zero);
+            Assert.That(result.Items, Is.Empty);
         }
     }
 }
