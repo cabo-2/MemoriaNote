@@ -4,15 +4,15 @@ using NUnit.Framework;
 namespace MemoriaNote.Core.Tests.Functional;
 
 /// <summary>
-/// Verifies count aggregation across notes in a workgroup search.
+/// Verifies count aggregation across notes in a workspace search.
 /// </summary>
 [TestFixture]
 [Category("Functional")]
 [NonParallelizable]
-public sealed class WorkgroupCountAggregationTests
+public sealed class WorkspaceCountAggregationTests
 {
     /// <summary>
-    /// Verifies that workgroup paging uses every note's count for both search methods.
+    /// Verifies that workspace paging uses every note's count for both search methods.
     /// </summary>
     /// <param name="searchMethod">The search method to exercise.</param>
     /// <param name="searchEntry">The matching search entry.</param>
@@ -32,11 +32,11 @@ public sealed class WorkgroupCountAggregationTests
         var firstBeta = firstNote.CreatePage("Beta", "Shared marker in beta.");
         var secondAlpha = secondNote.CreatePage("Alpha", "Shared marker in the second note.");
         thirdNote.CreatePage("Alpha", "Shared marker in the third note.");
-        var workgroup = CreateWorkgroup(firstNote, secondNote, thirdNote);
+        var workspace = CreateWorkspace(firstNote, secondNote, thirdNote);
 
-        var result = await workgroup.SearchAsync(
+        var result = await workspace.SearchAsync(
             searchEntry,
-            SearchRangeType.Workgroup,
+            SearchRangeType.Workspace,
             searchMethod,
             1,
             2,
@@ -59,7 +59,7 @@ public sealed class WorkgroupCountAggregationTests
     }
 
     /// <summary>
-    /// Verifies that cancellation reaches workgroup count queries for both search methods.
+    /// Verifies that cancellation reaches workspace count queries for both search methods.
     /// </summary>
     /// <param name="searchMethod">The search method to cancel.</param>
     [TestCase(SearchMethodType.Heading)]
@@ -70,16 +70,16 @@ public sealed class WorkgroupCountAggregationTests
         using var database = new TemporaryNoteDatabase();
         var note = database.CreateNote("test-note", "Test Note");
         note.CreatePage("Alpha", "Cancellation marker.");
-        var workgroup = CreateWorkgroup(note);
+        var workspace = CreateWorkspace(note);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         OperationCanceledException? exception = null;
 
         try
         {
-            await workgroup.SearchAsync(
+            await workspace.SearchAsync(
                 "marker",
-                SearchRangeType.Workgroup,
+                SearchRangeType.Workspace,
                 searchMethod,
                 0,
                 10,
@@ -93,8 +93,8 @@ public sealed class WorkgroupCountAggregationTests
         Assert.That(exception, Is.Not.Null);
     }
 
-    private static Workgroup CreateWorkgroup(params Note[] notes)
+    private static Workspace CreateWorkspace(params Note[] notes)
     {
-        return new Workgroup(null, notes, notes.FirstOrDefault());
+        return new Workspace(null, notes, notes.FirstOrDefault());
     }
 }

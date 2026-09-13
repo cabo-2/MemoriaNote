@@ -4,12 +4,12 @@ using System.Linq;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Define an enumeration for different search range types such as Note and Workgroup
+    /// Define an enumeration for different search range types such as Note and Workspace
     /// </summary>
     public enum SearchRangeType : int
     {
         Note = 0,
-        Workgroup = 1
+        Workspace = 1
     }
 
     /// <summary>

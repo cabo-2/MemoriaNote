@@ -35,7 +35,7 @@ public sealed class SearchCoordinationTests
 
         service.SearchEntry = "second";
         service.SearchMethod = SearchMethodType.FullText;
-        service.SearchRange = SearchRangeType.Workgroup;
+        service.SearchRange = SearchRangeType.Workspace;
         service.MaxViewResultCount = 50;
         var secondTask = service.SearchHandler();
 
@@ -55,7 +55,7 @@ public sealed class SearchCoordinationTests
             Assert.That(invocations[0].Token.IsCancellationRequested, Is.True);
             Assert.That(invocations[1].SearchEntry, Is.EqualTo("second"));
             Assert.That(invocations[1].SearchMethod, Is.EqualTo(SearchMethodType.FullText));
-            Assert.That(invocations[1].SearchRange, Is.EqualTo(SearchRangeType.Workgroup));
+            Assert.That(invocations[1].SearchRange, Is.EqualTo(SearchRangeType.Workspace));
             Assert.That(invocations[1].SkipCount, Is.Zero);
             Assert.That(invocations[1].TakeCount, Is.EqualTo(50));
             Assert.That(firstResult, Is.Null);
@@ -175,7 +175,7 @@ public sealed class SearchCoordinationTests
 
         internal ControlledSearchService(
             Func<SearchInvocation, CancellationToken, Task<SearchResult>> search)
-            : base(new Workgroup())
+            : base(new Workspace())
         {
             _search = search;
         }

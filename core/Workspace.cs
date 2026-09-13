@@ -8,55 +8,54 @@ using System.Threading.Tasks;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Represents a workgroup that contains a collection of notes and provides methods to search for content within the workgroup or within a specific note.
-    /// Implements the IWorkgroup interface without depending on presentation frameworks.
+    /// Represents a named collection of notebooks and its current selection.
     /// </summary>
-    public class Workgroup : IWorkgroup
+    public class Workspace
     {
         /// <summary>
-        /// Initializes an empty workgroup.
+        /// Initializes an empty workspace.
         /// </summary>
-        public Workgroup() : this(null, Array.Empty<Note>())
+        public Workspace() : this(null, Array.Empty<Note>())
         {
         }
 
         /// <summary>
-        /// Initializes a workgroup with a defensive copy of its notes.
+        /// Initializes a workspace with a defensive copy of its notebooks.
         /// </summary>
-        /// <param name="name">The workgroup name.</param>
-        /// <param name="notes">The notes contained in the workgroup.</param>
-        /// <param name="selectedNote">The initially selected note, or null.</param>
-        public Workgroup(
+        /// <param name="name">The workspace name.</param>
+        /// <param name="notebooks">The notebooks contained in the workspace.</param>
+        /// <param name="selectedNotebook">The initially selected note, or null.</param>
+        public Workspace(
             string name,
-            IEnumerable<Note> notes,
-            Note selectedNote = null)
+            IEnumerable<Note> notebooks,
+            Note selectedNotebook = null)
         {
-            if (notes == null)
-                throw new ArgumentNullException(nameof(notes));
+            if (notebooks == null)
+                throw new ArgumentNullException(nameof(notebooks));
 
-            var copiedNotes = notes.ToList();
-            if (copiedNotes.Any(note => note == null))
+            var copiedNotebooks = notebooks.ToList();
+            if (copiedNotebooks.Any(notebook => notebook == null))
             {
                 throw new ArgumentException(
-                    "The workgroup cannot contain a null note.",
-                    nameof(notes));
+                    "The workspace cannot contain a null note.",
+                    nameof(notebooks));
             }
 
             Name = name;
-            _notes = new ReadOnlyCollection<Note>(copiedNotes);
-            _compatibilityFacade = new WorkgroupCompatibilityFacade(
-                () => _notes,
-                () => _selectedNote);
-            SelectNote(selectedNote);
+            _notebooks = new ReadOnlyCollection<Note>(copiedNotebooks);
+            _compatibilityFacade = new WorkspaceCompatibilityFacade(
+                () => _notebooks,
+                () => _selectedNotebook);
+            SelectNotebook(selectedNotebook);
         }
 
-        Note _selectedNote;
-        readonly IReadOnlyList<Note> _notes;
-        readonly WorkgroupCompatibilityFacade _compatibilityFacade;
+        Note _selectedNotebook;
+        readonly IReadOnlyList<Note> _notebooks;
+        readonly WorkspaceCompatibilityFacade _compatibilityFacade;
 
         #region Search
         /// <summary>
-        /// Asynchronously searches the selected note or the entire workgroup.
+        /// Asynchronously searches the selected note or the entire workspace.
         /// </summary>
         /// <param name="searchEntry">The search entry to match.</param>
         /// <param name="searchRange">The range to search.</param>
@@ -79,7 +78,7 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Asynchronously searches the selected note or the entire workgroup using paging values.
+        /// Asynchronously searches the selected note or the entire workspace using paging values.
         /// </summary>
         /// <param name="searchEntry">The search entry to match.</param>
         /// <param name="searchRange">The range to search.</param>
@@ -115,7 +114,7 @@ namespace MemoriaNote
         public Page ReadAll(IContent content)
         {
             return _compatibilityFacade.Read(
-                WorkgroupCompatibilityFacade.CreateReference(content));
+                WorkspaceCompatibilityFacade.CreateReference(content));
         }
 
         /// <summary>
@@ -130,7 +129,7 @@ namespace MemoriaNote
         {
             var result = _compatibilityFacade.ValidateCreate(
                 _compatibilityFacade.CreateCreateCommand(testName, testText));
-            errors = WorkgroupCompatibilityFacade.ToErrorMessages(
+            errors = WorkspaceCompatibilityFacade.ToErrorMessages(
                 TextManageType.Create,
                 result);
             return result.IsSuccess;
@@ -146,12 +145,12 @@ namespace MemoriaNote
         /// <returns>True if the text editing is valid, false otherwise.</returns>
         public bool ValidateEditText(IContent content, string testText, out List<string> errors)
         {
-            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var target = WorkspaceCompatibilityFacade.CreateReference(content);
             var command = target == null
                 ? null
                 : new EditPageCommand(target.NoteId, target.PageId, testText);
             var result = _compatibilityFacade.ValidateEdit(command);
-            errors = WorkgroupCompatibilityFacade.ToErrorMessages(
+            errors = WorkspaceCompatibilityFacade.ToErrorMessages(
                 TextManageType.Edit,
                 result);
             return result.IsSuccess;
@@ -167,12 +166,12 @@ namespace MemoriaNote
         /// <returns>True if the text renaming is valid, false otherwise.</returns>
         public bool ValidateRenameText(IContent content, string testName, out List<string> errors)
         {
-            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var target = WorkspaceCompatibilityFacade.CreateReference(content);
             var command = target == null
                 ? null
                 : new RenamePageCommand(target.NoteId, target.PageId, testName);
             var result = _compatibilityFacade.ValidateRename(command);
-            errors = WorkgroupCompatibilityFacade.ToErrorMessages(
+            errors = WorkspaceCompatibilityFacade.ToErrorMessages(
                 TextManageType.Rename,
                 result);
             return result.IsSuccess;
@@ -187,12 +186,12 @@ namespace MemoriaNote
         /// <returns>True if the text deletion is valid, false otherwise.</returns>
         public bool ValidateDeleteText(IContent content, out List<string> errors)
         {
-            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var target = WorkspaceCompatibilityFacade.CreateReference(content);
             var command = target == null
                 ? null
                 : new DeletePageCommand(target.NoteId, target.PageId);
             var result = _compatibilityFacade.ValidateDelete(command);
-            errors = WorkgroupCompatibilityFacade.ToErrorMessages(
+            errors = WorkspaceCompatibilityFacade.ToErrorMessages(
                 TextManageType.Delete,
                 result);
             return result.IsSuccess;
@@ -220,7 +219,7 @@ namespace MemoriaNote
         /// <returns>A TextManageResult indicating the result of the text editing operation.</returns>
         public TextManageResult EditText(IContent content, string newText)
         {
-            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var target = WorkspaceCompatibilityFacade.CreateReference(content);
             var command = target == null
                 ? null
                 : new EditPageCommand(target.NoteId, target.PageId, newText);
@@ -236,7 +235,7 @@ namespace MemoriaNote
         /// <returns>A TextManageResult indicating the result of the text renaming operation.</returns>
         public TextManageResult RenameText(IContent content, string newName)
         {
-            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var target = WorkspaceCompatibilityFacade.CreateReference(content);
             var command = target == null
                 ? null
                 : new RenamePageCommand(target.NoteId, target.PageId, newName);
@@ -252,7 +251,7 @@ namespace MemoriaNote
         /// <returns>A TextManageResult indicating the result of the text deletion operation.</returns>
         public TextManageResult DeleteText(IContent content)
         {
-            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var target = WorkspaceCompatibilityFacade.CreateReference(content);
             var command = target == null
                 ? null
                 : new DeletePageCommand(target.NoteId, target.PageId);
@@ -263,55 +262,57 @@ namespace MemoriaNote
         /// Gets the collection of notes stored in the application.
         /// </summary>
         /// <returns>A read-only list containing all the notes.</returns>
-        public IReadOnlyList<Note> Notes => _notes;
+        public IReadOnlyList<Note> Notebooks => _notebooks;
 
         /// <summary>
         /// Retrieves a list of data sources used by the notes in the application.
         /// </summary>
         /// <returns>A list of strings representing the data sources used by the notes.</returns>
-        public List<string> UseDataSources => _notes.Select(note => note.DataSource).ToList();
+        public List<string> NotebookDatabasePaths => _notebooks
+            .Select(notebook => notebook.DataSource)
+            .ToList();
 
         /// <summary>
         /// Gets the currently selected note in the application.
         /// </summary>
-        public Note SelectedNote => _selectedNote;
+        public Note SelectedNotebook => _selectedNotebook;
 
         /// <summary>
-        /// Selects a note contained in this workgroup, or clears the selection.
+        /// Selects a note contained in this workspace, or clears the selection.
         /// </summary>
         /// <param name="note">The note to select, or null to clear the selection.</param>
         /// <exception cref="ArgumentException">
-        /// Thrown when <paramref name="note"/> does not belong to this workgroup.
+        /// Thrown when <paramref name="note"/> does not belong to this workspace.
         /// </exception>
-        public void SelectNote(Note note)
+        public void SelectNotebook(Note note)
         {
             if (note == null)
             {
-                _selectedNote = null;
+                _selectedNotebook = null;
                 return;
             }
 
             var noteId = NoteId.FromDataSource(note.DataSource);
-            var ownedNote = _notes.FirstOrDefault(candidate =>
+            var ownedNote = _notebooks.FirstOrDefault(candidate =>
                 NoteId.FromDataSource(candidate.DataSource) == noteId);
             if (ownedNote == null)
             {
                 throw new ArgumentException(
-                    "The selected note must belong to the workgroup.",
+                    "The selected note must belong to the workspace.",
                     nameof(note));
             }
 
-            _selectedNote = ownedNote;
+            _selectedNotebook = ownedNote;
         }
 
         /// <summary>
         /// Gets the name of the currently selected note.
         /// </summary>
         /// <returns>A string representing the name of the currently selected note.</returns>
-        public string SelectedNoteName => SelectedNote?.ToString();
+        public string SelectedNotebookName => SelectedNotebook?.ToString();
 
         /// <summary>
-        /// Gets or sets the workgroup name.
+        /// Gets or sets the workspace name.
         /// </summary>
         public string Name { get; set; }
 

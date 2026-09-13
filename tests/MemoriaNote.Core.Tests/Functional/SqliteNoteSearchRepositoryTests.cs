@@ -236,19 +236,19 @@ public sealed class SqliteNoteSearchRepositoryTests
     }
 
     /// <summary>
-    /// Verifies that workgroup totals follow the same exact-heading query as result retrieval.
+    /// Verifies that workspace totals follow the same exact-heading query as result retrieval.
     /// </summary>
     [Test]
-    public async Task WorkgroupSearch_SpecialHeading_KeepsCountAndContentsConsistent()
+    public async Task WorkspaceSearch_SpecialHeading_KeepsCountAndContentsConsistent()
     {
         using var database = new TemporaryNoteDatabase();
         var note = database.CreateNote("test-note", "Test Note");
         note.CreatePage("%", "Special heading.");
-        var workgroup = new Workgroup(null, new[] { note }, note);
+        var workspace = new Workspace(null, new[] { note }, note);
 
-        var result = await workgroup.SearchAsync(
+        var result = await workspace.SearchAsync(
             "%",
-            SearchRangeType.Workgroup,
+            SearchRangeType.Workspace,
             SearchMethodType.Heading,
             0,
             10,
@@ -262,20 +262,20 @@ public sealed class SqliteNoteSearchRepositoryTests
     }
 
     /// <summary>
-    /// Verifies that Note and Workgroup delegate searches through an injected repository.
+    /// Verifies that Note and Workspace delegate searches through an injected repository.
     /// </summary>
     [Test]
-    public async Task WorkgroupSearch_InjectedRepository_PreservesOwnerInformation()
+    public async Task WorkspaceSearch_InjectedRepository_PreservesOwnerInformation()
     {
         using var database = new TemporaryNoteDatabase();
         var content = Content.Create<Content>("Injected");
         var repository = new RecordingSearchRepository(content);
         var note = new Note(database.DatabasePath, repository);
-        var workgroup = new Workgroup(null, new[] { note }, note);
+        var workspace = new Workspace(null, new[] { note }, note);
 
-        var result = await workgroup.SearchAsync(
+        var result = await workspace.SearchAsync(
             "Injected",
-            SearchRangeType.Workgroup,
+            SearchRangeType.Workspace,
             SearchMethodType.Heading,
             0,
             10,

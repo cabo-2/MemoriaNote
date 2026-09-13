@@ -132,7 +132,7 @@ public sealed class MemoriaNoteApplicationServiceTests
     [Test]
     public void Failures_AreNotConvertedIntoPresentationResults()
     {
-        var request = SearchRequest.ForWorkgroup(
+        var request = SearchRequest.ForWorkspace(
             "query",
             SearchMethodType.Heading,
             Array.Empty<NoteId>(),

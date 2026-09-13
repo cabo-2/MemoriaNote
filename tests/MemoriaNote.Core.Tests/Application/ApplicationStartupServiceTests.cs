@@ -9,17 +9,17 @@ namespace MemoriaNote.Core.Tests.Application;
 public sealed class ApplicationStartupServiceTests
 {
     /// <summary>
-    /// Verifies a missing default note is created before migration and workgroup loading.
+    /// Verifies a missing default note is created before migration and workspace loading.
     /// </summary>
     [Test]
     public async Task StartAsync_MissingDefaultCreatesMigratesLoadsAndComposes()
     {
         var events = new List<string>();
-        var workgroup = new Workgroup { Name = "Loaded" };
+        var workspace = new Workspace { Name = "Loaded" };
         var service = new ApplicationStartupService(
             new RecordingMigrator(events),
             new RecordingProbe(events, false),
-            new RecordingLoader(events, workgroup));
+            new RecordingLoader(events, workspace));
         var request = CreateRequest("first.db", "second.db");
 
         var result = await service.StartAsync(request, CancellationToken.None);
@@ -36,7 +36,7 @@ public sealed class ApplicationStartupServiceTests
                     "migrate:second.db",
                     "load"
                 }));
-            Assert.That(result.Workgroup, Is.SameAs(workgroup));
+            Assert.That(result.Workspace, Is.SameAs(workspace));
             Assert.That(result.ApplicationService, Is.Not.Null);
             Assert.That(result.DefaultNoteCreated, Is.True);
         }
@@ -52,7 +52,7 @@ public sealed class ApplicationStartupServiceTests
         var service = new ApplicationStartupService(
             new RecordingMigrator(events),
             new RecordingProbe(events, true),
-            new RecordingLoader(events, new Workgroup()));
+            new RecordingLoader(events, new Workspace()));
 
         var result = await service.StartAsync(
             CreateRequest("default.db"),
@@ -70,7 +70,7 @@ public sealed class ApplicationStartupServiceTests
     }
 
     /// <summary>
-    /// Verifies migration failures remain observable and prevent workgroup loading.
+    /// Verifies migration failures remain observable and prevent workspace loading.
     /// </summary>
     [Test]
     public void StartAsync_InfrastructureFailureIsPropagated()
@@ -80,7 +80,7 @@ public sealed class ApplicationStartupServiceTests
         var service = new ApplicationStartupService(
             new RecordingMigrator(events) { Failure = exception },
             new RecordingProbe(events, true),
-            new RecordingLoader(events, new Workgroup()));
+            new RecordingLoader(events, new Workspace()));
 
         Func<Task> start = () => service.StartAsync(
             CreateRequest("default.db"),
@@ -93,7 +93,7 @@ public sealed class ApplicationStartupServiceTests
     }
 
     /// <summary>
-    /// Verifies cancellation stops startup before workgroup loading.
+    /// Verifies cancellation stops startup before workspace loading.
     /// </summary>
     [Test]
     public void StartAsync_CancellationIsPropagated()
@@ -111,7 +111,7 @@ public sealed class ApplicationStartupServiceTests
         var service = new ApplicationStartupService(
             migrator,
             new RecordingProbe(events, true),
-            new RecordingLoader(events, new Workgroup()));
+            new RecordingLoader(events, new Workspace()));
 
         Func<Task> start = () => service.StartAsync(
             CreateRequest("default.db"),
@@ -148,21 +148,21 @@ public sealed class ApplicationStartupServiceTests
         }
     }
 
-    sealed class RecordingLoader : IWorkgroupLoader
+    sealed class RecordingLoader : IWorkspaceLoader
     {
         readonly List<string> _events;
-        readonly Workgroup _workgroup;
+        readonly Workspace _workspace;
 
-        internal RecordingLoader(List<string> events, Workgroup workgroup)
+        internal RecordingLoader(List<string> events, Workspace workspace)
         {
             _events = events;
-            _workgroup = workgroup;
+            _workspace = workspace;
         }
 
-        public Workgroup Load()
+        public Workspace Load()
         {
             _events.Add("load");
-            return _workgroup;
+            return _workspace;
         }
     }
 

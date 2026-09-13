@@ -23,38 +23,38 @@ namespace MemoriaNote
         readonly IMemoriaNoteApplicationService _applicationService;
 
         /// <summary>
-        /// Initializes the service from the configured workgroup.
+        /// Initializes the service from the configured workspace.
         /// </summary>
         public MemoriaNoteService() : this(CreateConfiguredSession())
         {
         }
 
         MemoriaNoteService(ApplicationSession session)
-            : this(session.Workgroup, session.ApplicationService)
+            : this(session.Workspace, session.ApplicationService)
         {
         }
 
         /// <summary>
-        /// Initializes the service with the specified workgroup.
+        /// Initializes the service with the specified workspace.
         /// </summary>
-        /// <param name="workgroup">The workgroup used by the service.</param>
-        protected MemoriaNoteService(Workgroup workgroup)
+        /// <param name="workspace">The workspace used by the service.</param>
+        protected MemoriaNoteService(Workspace workspace)
             : this(
-                workgroup,
-                ApplicationComposition.Compose(workgroup).ApplicationService)
+                workspace,
+                ApplicationComposition.Compose(workspace).ApplicationService)
         {
         }
 
         /// <summary>
-        /// Initializes the adapter with an explicit workgroup and application service.
+        /// Initializes the adapter with an explicit workspace and application service.
         /// </summary>
-        /// <param name="workgroup">The workgroup used by the service.</param>
+        /// <param name="workspace">The workspace used by the service.</param>
         /// <param name="applicationService">The UI-independent application service.</param>
         protected MemoriaNoteService(
-            Workgroup workgroup,
+            Workspace workspace,
             IMemoriaNoteApplicationService applicationService)
         {
-            Workgroup = workgroup ?? throw new ArgumentNullException(nameof(workgroup));
+            Workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
             _applicationService = applicationService ??
                 throw new ArgumentNullException(nameof(applicationService));
 
@@ -130,7 +130,7 @@ namespace MemoriaNote
                     .GetAwaiter()
                     .GetResult(),
                 TextManageType.Create,
-                SelectedNoteId(),
+                SelectedNotebookId(),
                 null,
                 "Create text");
             CreateText = ReactiveCommand.Create(CreateTextHandler);
@@ -175,8 +175,8 @@ namespace MemoriaNote
 
             _noteNames = new ReadOnlyObservableCollection<string>(
                 new ObservableCollection<string>(
-                    Workgroup.Notes.Select(note => note.ToString())));
-            _selectedNoteIndex = IndexOfSelectedNote();
+                    Workspace.Notebooks.Select(note => note.ToString())));
+            _selectedNotebookIndex = IndexOfSelectedNotebook();
 
             _selectedContentsIndex = this
                 .WhenAnyValue(
@@ -215,7 +215,7 @@ namespace MemoriaNote
             var startupService = new ApplicationStartupService(
                 NotePersistence.CreateMigrator(),
                 new FileNoteDataSourceProbe(),
-                new ConfiguredWorkgroupLoader(configuration.Workgroup));
+                new ConfiguredWorkspaceLoader(configuration.Workspace));
             var session = startupService.StartAsync(request, CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
@@ -232,23 +232,23 @@ namespace MemoriaNote
         /// <exception cref="ArgumentOutOfRangeException">
         /// Thrown when <paramref name="index"/> does not identify a note.
         /// </exception>
-        public void SelectNote(int index)
+        public void SelectNotebook(int index)
         {
-            if (index < 0 || index >= Workgroup.Notes.Count)
+            if (index < 0 || index >= Workspace.Notebooks.Count)
                 throw new ArgumentOutOfRangeException(nameof(index));
 
-            Workgroup.SelectNote(Workgroup.Notes[index]);
+            Workspace.SelectNotebook(Workspace.Notebooks[index]);
             this.RaiseAndSetIfChanged(
-                ref _selectedNoteIndex,
+                ref _selectedNotebookIndex,
                 index,
-                nameof(SelectedNoteIndex));
+                nameof(SelectedNotebookIndex));
         }
 
-        int IndexOfSelectedNote()
+        int IndexOfSelectedNotebook()
         {
-            for (var index = 0; index < Workgroup.Notes.Count; index++)
+            for (var index = 0; index < Workspace.Notebooks.Count; index++)
             {
-                if (Workgroup.Notes[index].Equals(Workgroup.SelectedNote))
+                if (Workspace.Notebooks[index].Equals(Workspace.SelectedNotebook))
                     return index;
             }
 
@@ -481,13 +481,13 @@ namespace MemoriaNote
                 ? SearchRequest.ForNote(
                     searchEntry,
                     searchMethod,
-                    SelectedNoteId(),
+                    SelectedNotebookId(),
                     offset,
                     limit)
-                : SearchRequest.ForWorkgroup(
+                : SearchRequest.ForWorkspace(
                     searchEntry,
                     searchMethod,
-                    Workgroup.Notes.Select(note => NoteId.FromDataSource(note.DataSource)),
+                    Workspace.Notebooks.Select(note => NoteId.FromDataSource(note.DataSource)),
                     offset,
                     limit);
         }
@@ -499,16 +499,16 @@ namespace MemoriaNote
             return content;
         }
 
-        NoteId SelectedNoteId()
+        NoteId SelectedNotebookId()
         {
-            return Workgroup.SelectedNote == null
+            return Workspace.SelectedNotebook == null
                 ? null
-                : NoteId.FromDataSource(Workgroup.SelectedNote.DataSource);
+                : NoteId.FromDataSource(Workspace.SelectedNotebook.DataSource);
         }
 
         static NoteId OwnerNoteId(IContent content)
         {
-            return WorkgroupCompatibilityFacade.CreateReference(content)?.NoteId;
+            return WorkspaceCompatibilityFacade.CreateReference(content)?.NoteId;
         }
 
         Note ResolveNote(NoteId noteId)
@@ -516,7 +516,7 @@ namespace MemoriaNote
             if (noteId == null)
                 return null;
 
-            return Workgroup.Notes.FirstOrDefault(note =>
+            return Workspace.Notebooks.FirstOrDefault(note =>
                 NoteId.FromDataSource(note.DataSource) == noteId);
         }
 
@@ -605,7 +605,7 @@ namespace MemoriaNote
             string newText,
             CancellationToken token)
         {
-            var noteId = SelectedNoteId();
+            var noteId = SelectedNotebookId();
             return noteId == null
                 ? Task.FromResult(MissingOwner())
                 : _applicationService.CreateAsync(
@@ -619,7 +619,7 @@ namespace MemoriaNote
             string newText,
             CancellationToken token)
         {
-            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var target = WorkspaceCompatibilityFacade.CreateReference(content);
             return target == null
                 ? Task.FromResult(PageNotSelected())
                 : _applicationService.EditAsync(
@@ -633,7 +633,7 @@ namespace MemoriaNote
             string newName,
             CancellationToken token)
         {
-            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var target = WorkspaceCompatibilityFacade.CreateReference(content);
             return target == null
                 ? Task.FromResult(PageNotSelected())
                 : _applicationService.RenameAsync(
@@ -646,7 +646,7 @@ namespace MemoriaNote
             Content content,
             CancellationToken token)
         {
-            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var target = WorkspaceCompatibilityFacade.CreateReference(content);
             return target == null
                 ? Task.FromResult(PageNotSelected())
                 : _applicationService.DeleteAsync(
@@ -659,7 +659,7 @@ namespace MemoriaNote
             IContent content,
             CancellationToken token)
         {
-            var target = WorkgroupCompatibilityFacade.CreateReference(content);
+            var target = WorkspaceCompatibilityFacade.CreateReference(content);
             return target == null
                 ? Task.FromResult(PageNotSelected())
                 : _applicationService.ReadAsync(target, token);
@@ -676,7 +676,7 @@ namespace MemoriaNote
         {
             try
             {
-                var noteId = SelectedNoteId();
+                var noteId = SelectedNotebookId();
                 var result = noteId == null
                     ? MissingOwner()
                     : _applicationService.ValidateCreateAsync(
@@ -705,7 +705,7 @@ namespace MemoriaNote
         {
             try
             {
-                var target = WorkgroupCompatibilityFacade.CreateReference(content);
+                var target = WorkspaceCompatibilityFacade.CreateReference(content);
                 var result = target == null
                     ? PageNotSelected()
                     : _applicationService.ValidateEditAsync(
@@ -734,7 +734,7 @@ namespace MemoriaNote
         {
             try
             {
-                var target = WorkgroupCompatibilityFacade.CreateReference(content);
+                var target = WorkspaceCompatibilityFacade.CreateReference(content);
                 var result = target == null
                     ? PageNotSelected()
                     : _applicationService.ValidateRenameAsync(
@@ -762,7 +762,7 @@ namespace MemoriaNote
         {
             try
             {
-                var target = WorkgroupCompatibilityFacade.CreateReference(content);
+                var target = WorkspaceCompatibilityFacade.CreateReference(content);
                 var result = target == null
                     ? PageNotSelected()
                     : _applicationService.ValidateDeleteAsync(
@@ -889,9 +889,9 @@ namespace MemoriaNote
         }
 
         /// <summary>
-        /// Gets the Workgroup associated with the current instance.
+        /// Gets the Workspace associated with the current instance.
         /// </summary>
-        public Workgroup Workgroup { get; }
+        public Workspace Workspace { get; }
 
         /// <summary>
         /// Handler for activating a specific functionality.
@@ -969,12 +969,12 @@ namespace MemoriaNote
         /// </summary>
         [Reactive, DataMember] public List<Content> Contents { get; set; }
 
-        int _selectedNoteIndex;
+        int _selectedNotebookIndex;
 
         /// <summary>
         /// Gets the selected note index.
         /// </summary>
-        [IgnoreDataMember] public int SelectedNoteIndex => _selectedNoteIndex;
+        [IgnoreDataMember] public int SelectedNotebookIndex => _selectedNotebookIndex;
 
         /// <summary>
         /// Gets or sets the collection of view items for content.

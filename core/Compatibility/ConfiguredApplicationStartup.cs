@@ -16,21 +16,21 @@ namespace MemoriaNote
     }
 
     /// <summary>
-    /// Builds a workgroup from the current compatibility configuration.
+    /// Builds a workspace from the current compatibility configuration.
     /// </summary>
-    internal sealed class ConfiguredWorkgroupLoader : IWorkgroupLoader
+    internal sealed class ConfiguredWorkspaceLoader : IWorkspaceLoader
     {
-        readonly WorkgroupBuilder _builder;
+        readonly WorkspaceSettings _settings;
 
-        internal ConfiguredWorkgroupLoader(WorkgroupBuilder builder)
+        internal ConfiguredWorkspaceLoader(WorkspaceSettings settings)
         {
-            _builder = builder ?? throw new ArgumentNullException(nameof(builder));
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         }
 
         /// <inheritdoc/>
-        public Workgroup Load()
+        public Workspace Load()
         {
-            return _builder.Build();
+            return _settings.CreateWorkspace();
         }
     }
 }

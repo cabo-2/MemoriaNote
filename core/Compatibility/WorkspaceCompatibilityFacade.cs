@@ -7,23 +7,23 @@ using System.Threading.Tasks;
 namespace MemoriaNote
 {
     /// <summary>
-    /// Adapts legacy workgroup APIs to the application use cases.
+    /// Adapts legacy workspace APIs to the application use cases.
     /// </summary>
-    internal sealed class WorkgroupCompatibilityFacade
+    internal sealed class WorkspaceCompatibilityFacade
     {
-        readonly Func<IEnumerable<Note>> _notes;
-        readonly Func<Note> _selectedNote;
-        readonly WorkgroupNoteContextResolver _contextResolver;
+        readonly Func<IEnumerable<Note>> _notebooks;
+        readonly Func<Note> _selectedNotebook;
+        readonly WorkspaceNoteContextResolver _contextResolver;
         readonly IPageUseCase _pageUseCase;
         readonly ISearchUseCase _searchUseCase;
 
-        internal WorkgroupCompatibilityFacade(
-            Func<IEnumerable<Note>> notes,
-            Func<Note> selectedNote)
+        internal WorkspaceCompatibilityFacade(
+            Func<IEnumerable<Note>> notebooks,
+            Func<Note> selectedNotebook)
         {
-            _notes = notes ?? throw new ArgumentNullException(nameof(notes));
-            _selectedNote = selectedNote ?? throw new ArgumentNullException(nameof(selectedNote));
-            _contextResolver = new WorkgroupNoteContextResolver(notes);
+            _notebooks = notebooks ?? throw new ArgumentNullException(nameof(notebooks));
+            _selectedNotebook = selectedNotebook ?? throw new ArgumentNullException(nameof(selectedNotebook));
+            _contextResolver = new WorkspaceNoteContextResolver(notebooks);
             _pageUseCase = new PageUseCase(_contextResolver, new PageValidationPolicy());
             _searchUseCase = new SearchUseCase(ResolveSearchRepository);
         }
@@ -40,20 +40,20 @@ namespace MemoriaNote
                 throw new ArgumentOutOfRangeException(nameof(searchRange));
 
             var startTime = DateTime.UtcNow;
-            var selectedNote = _selectedNote();
+            var selectedNotebook = _selectedNotebook();
             var request = searchRange == SearchRangeType.Note
                 ? SearchRequest.ForNote(
                     searchEntry,
                     searchMethod,
-                    selectedNote == null
+                    selectedNotebook == null
                         ? null
-                        : NoteId.FromDataSource(selectedNote.DataSource),
+                        : NoteId.FromDataSource(selectedNotebook.DataSource),
                     skipCount,
                     takeCount)
-                : SearchRequest.ForWorkgroup(
+                : SearchRequest.ForWorkspace(
                     searchEntry,
                     searchMethod,
-                    _notes().Select(note => NoteId.FromDataSource(note.DataSource)),
+                    _notebooks().Select(note => NoteId.FromDataSource(note.DataSource)),
                     skipCount,
                     takeCount);
             var result = await _searchUseCase.SearchAsync(request, token).ConfigureAwait(false);
@@ -162,11 +162,11 @@ namespace MemoriaNote
 
         internal CreatePageCommand CreateCreateCommand(string name, string text)
         {
-            var selectedNote = _selectedNote();
-            return selectedNote == null
+            var selectedNotebook = _selectedNotebook();
+            return selectedNotebook == null
                 ? null
                 : new CreatePageCommand(
-                    NoteId.FromDataSource(selectedNote.DataSource),
+                    NoteId.FromDataSource(selectedNotebook.DataSource),
                     name,
                     text);
         }
@@ -212,10 +212,10 @@ namespace MemoriaNote
             if (note != null)
                 return note;
 
-            var selectedNote = _selectedNote();
-            return selectedNote != null &&
-                NoteId.FromDataSource(selectedNote.DataSource) == noteId
-                    ? selectedNote
+            var selectedNotebook = _selectedNotebook();
+            return selectedNotebook != null &&
+                NoteId.FromDataSource(selectedNotebook.DataSource) == noteId
+                    ? selectedNotebook
                     : null;
         }
 

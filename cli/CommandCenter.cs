@@ -337,13 +337,13 @@ namespace MemoriaNote.Cli
                 if (name == null) throw new ArgumentNullException(nameof(name));
                 ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
-                var wg = vm.Workgroup;
-                if (!wg.Notes.Any(n => name == n.Metadata.Name))
+                var workspace = vm.Workspace;
+                if (!workspace.Notebooks.Any(n => name == n.Metadata.Name))
                 {
                     Console.Error.WriteLine("Error: No such note");
                     return -1;
                 }
-                ConfigurationCli.Instance.Workgroup.SelectedNoteName = name;
+                ConfigurationCli.Instance.Workspace.SelectedNotebookName = name;
                 ConfigurationCli.Instance.Save();
                 return 0;
             });
@@ -357,7 +357,7 @@ namespace MemoriaNote.Cli
             {
                 ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
-                var note = vm.Workgroup.SelectedNote;
+                var note = vm.Workspace.SelectedNotebook;
                 bool retry;
                 do
                 {
@@ -373,8 +373,8 @@ namespace MemoriaNote.Cli
                         try
                         {
                             data = JsonConvert.DeserializeObject<DataSourceTracker>(editor.TextData);
-                            data.ValidateName(note, vm.Workgroup, ref errors);
-                            data.ValidateTitle(note, vm.Workgroup, ref errors);
+                            data.ValidateName(note, vm.Workspace, ref errors);
+                            data.ValidateTitle(note, vm.Workspace, ref errors);
                             note.UpdateMetadata(
                                 NoteMetadataUpdate.FromDifferences(note.Metadata, data));
                             Log.Logger.Information("Metadata updated");
@@ -417,13 +417,13 @@ namespace MemoriaNote.Cli
             {
                 ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
-                var wg = vm.Workgroup;
+                var workspace = vm.Workspace;
                 if (name == null) name = ReadLineNoteName();
                 bool retry;
                 do
                 {
                     retry = false;
-                    if (wg.Notes.Any(n => name == n.Metadata.Name))
+                    if (workspace.Notebooks.Any(n => name == n.Metadata.Name))
                     {
                         Console.Error.WriteLine("Error: A note with that name already exists");
                         if (!ReadLineTryAgain()) return -1;
@@ -474,7 +474,7 @@ namespace MemoriaNote.Cli
         }
 
         /// <summary>
-        /// Method to list all notes in the workgroup with an optional flag to show only completed notes
+        /// Method to list all notes in the workspace with an optional flag to show only completed notes
         /// </summary>
         /// <param name="completion">Flag to indicate if only completed notes should be listed</param>
         /// <returns>0 if successful, -1 if an exception occurs</returns>
@@ -483,11 +483,11 @@ namespace MemoriaNote.Cli
             {
                 ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
-                foreach (var note in vm.Workgroup.Notes)
+                foreach (var note in vm.Workspace.Notebooks)
                 {
                     if (!completion)
                     {
-                        var mark = note == vm.Workgroup.SelectedNote ? "*" : " ";
+                        var mark = note == vm.Workspace.SelectedNotebook ? "*" : " ";
                         Console.WriteLine($"{mark} {note}");
                     }
                     else
@@ -500,7 +500,7 @@ namespace MemoriaNote.Cli
             });
 
         /// <summary>
-        /// Method to add a new note to the workgroup using the specified path
+        /// Method to add a new note to the workspace using the specified path
         /// </summary>
         /// <param name="path">The path of the note to be added</param>
         /// <returns>0 if successful, -1 if an exception occurs</returns>
@@ -525,14 +525,14 @@ namespace MemoriaNote.Cli
                 }
                 if (!ConfigurationCli.Instance.DataSources.Contains(path))
                     ConfigurationCli.Instance.DataSources.Add(path);
-                if (!ConfigurationCli.Instance.Workgroup.UseDataSources.Contains(path))
-                    ConfigurationCli.Instance.Workgroup.UseDataSources.Add(path);
+                if (!ConfigurationCli.Instance.Workspace.NotebookDatabasePaths.Contains(path))
+                    ConfigurationCli.Instance.Workspace.NotebookDatabasePaths.Add(path);
                 ConfigurationCli.Instance.Save();
                 return 0;
             });
 
         /// <summary>
-        /// Method to remove a note from the workgroup based on the specified name
+        /// Method to remove a note from the workspace based on the specified name
         /// </summary>
         /// <param name="name">The name of the note to be removed</param>
         /// <returns>0 if successful, -1 if an exception occurs</returns>
@@ -542,25 +542,25 @@ namespace MemoriaNote.Cli
                 if (name == null) throw new ArgumentNullException(nameof(name));
                 ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
-                var wg = vm.Workgroup;
-                if (!wg.Notes.Any(n => name == n.Metadata.Name))
+                var workspace = vm.Workspace;
+                if (!workspace.Notebooks.Any(n => name == n.Metadata.Name))
                 {
                     Console.Error.WriteLine("Error: No such remove note");
                     return -1;
                 }
-                if (wg.Notes.Count == 1)
+                if (workspace.Notebooks.Count == 1)
                 {
                     Console.Error.WriteLine("Error: Cannot remove the last note");
                     return -1;
                 }
-                var ds = wg.Notes.First(n => name == n.Metadata.Name).DataSource;
-                ConfigurationCli.Instance.Workgroup.UseDataSources.Remove(ds);
+                var ds = workspace.Notebooks.First(n => name == n.Metadata.Name).DataSource;
+                ConfigurationCli.Instance.Workspace.NotebookDatabasePaths.Remove(ds);
                 ConfigurationCli.Instance.Save();
                 return 0;
             });
 
         /// <summary>
-        /// Method to backup a note in the workgroup
+        /// Method to backup a note in the workspace
         /// </summary>
         /// <param name="name">Optional parameter specifying the name of the note to backup</param>
         /// <param name="outputPath">Optional parameter specifying the output path for the backup</param>
@@ -572,8 +572,8 @@ namespace MemoriaNote.Cli
                 var vm = new MemoriaNoteViewModel();
                 Note current = name switch
                 {
-                    null => vm.Workgroup.SelectedNote,
-                    _ => vm.Workgroup.Notes.FirstOrDefault(n => n.Metadata.Name == name)
+                    null => vm.Workspace.SelectedNotebook,
+                    _ => vm.Workspace.Notebooks.FirstOrDefault(n => n.Metadata.Name == name)
                 };
                 if (current == null)
                 {
@@ -604,7 +604,7 @@ namespace MemoriaNote.Cli
             });
 
         /// <summary>
-        /// Method to restore a note in the workgroup from a backup file
+        /// Method to restore a note in the workspace from a backup file
         /// </summary>
         /// <param name="inputPath">The path to the backup file to be restored</param>
         /// <param name="outputDir">Optional parameter specifying the output directory for the restored note</param>
@@ -637,7 +637,7 @@ namespace MemoriaNote.Cli
             });
 
         /// <summary>
-        /// Method to import text files into the workgroup
+        /// Method to import text files into the workspace
         /// </summary>
         /// <param name="importDir">The directory containing the text files to import</param>
         /// <param name="recursive">Optional parameter specifying whether to import recursively</param>
@@ -653,13 +653,13 @@ namespace MemoriaNote.Cli
                 }
                 ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
-                NoteUtil.TextImporter(vm.Workgroup.SelectedNote, importDir, recursive).Wait();
+                NoteUtil.TextImporter(vm.Workspace.SelectedNotebook, importDir, recursive).Wait();
                 Console.WriteLine("Import completed");
                 return 0;
             });
 
         /// <summary>
-        /// Method to export a note in the workgroup to a text file
+        /// Method to export a note in the workspace to a text file
         /// </summary>
         /// <param name="exportDir">The directory where the text file will be exported</param>
         /// <returns>0 if successful, -1 if an exception occurs</returns>
@@ -674,7 +674,7 @@ namespace MemoriaNote.Cli
                 }
                 ConfigurationCli.Instance = ConfigurationCli.Create();
                 var vm = new MemoriaNoteViewModel();
-                NoteUtil.TextExporter(vm.Workgroup.SelectedNote, exportDir).Wait();
+                NoteUtil.TextExporter(vm.Workspace.SelectedNotebook, exportDir).Wait();
                 Console.WriteLine("Export completed");
                 return 0;
             });
