@@ -217,12 +217,12 @@ namespace MemoriaNote.Cli
                 [Argument(0, "name")]
                 public (bool hasValue, string value) Name { get; set; }
 
-                [Option("--output", Description = "Output file path")]
-                public (bool hasValue, string value) OutputPath { get; set; }
+                [Option("--output <path>", Description = "Output file path")]
+                public string OutputPath { get; set; }
 
                 protected int OnExecute(IConsole console)
                 {
-                    return new CommandCenter().WorkBackup(Name.value, OutputPath.value);
+                    return new CommandCenter().WorkBackup(Name.value, OutputPath);
                 }
             }
 
@@ -232,8 +232,8 @@ namespace MemoriaNote.Cli
                 [Argument(0, "zip-file")]
                 public (bool hasValue, string value) InputPath { get; set; }
 
-                [Option("--output-dir", Description = "Output directory")]
-                public (bool hasValue, string value) OutputDir { get; set; }
+                [Option("--output-dir <dir>", Description = "Output directory")]
+                public string OutputDir { get; set; }
 
                 protected int OnExecute(IConsole console)
                 {
@@ -243,7 +243,7 @@ namespace MemoriaNote.Cli
                         return -1;
                     }
 
-                    return new CommandCenter().WorkRestore(InputPath.value, OutputDir.value);
+                    return new CommandCenter().WorkRestore(InputPath.value, OutputDir);
                 }
             }
         }
