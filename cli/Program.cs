@@ -23,7 +23,7 @@ namespace MemoriaNote.Cli
     [HelpOption("--help")]
     class Program
     {
-        public static void Main(string[] args) => CommandLineApplication.Execute<Program>(args);
+        public static int Main(string[] args) => CommandLineApplication.Execute<Program>(args);
 
         protected int OnExecute(CommandLineApplication app)
         {
@@ -260,8 +260,7 @@ namespace MemoriaNote.Cli
 
             protected int OnExecute(CommandLineApplication app)
             {
-                new CommandCenter().List(Name.value, Completion);
-                return 0;
+                return new CommandCenter().List(Name.value, Completion);
             }
         }
 
