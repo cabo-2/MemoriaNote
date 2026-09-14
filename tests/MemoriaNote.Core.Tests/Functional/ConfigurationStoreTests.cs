@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using NUnit.Framework;
+using MemoriaNote.Core.Tests.Infrastructure;
 
 namespace MemoriaNote.Core.Tests.Functional;
 
@@ -96,6 +97,29 @@ public sealed class ConfigurationStoreTests
                 store.Load().Configuration.DefaultNotebookName,
                 Is.EqualTo("note"));
         }
+    }
+
+    /// <summary>Verifies that recovery artifact names use the injected UTC clock.</summary>
+    [Test]
+    public void Load_InvalidContent_UsesInjectedClockForRecoveryName()
+    {
+        using var directory = new TemporaryDirectory();
+        var paths = new ApplicationPaths(directory.Path);
+        Directory.CreateDirectory(directory.Path);
+        File.WriteAllText(paths.ConfigurationPath, "{");
+        var clock = new FixedClock(
+            new DateTimeOffset(2026, 9, 14, 13, 4, 5, TimeSpan.Zero));
+        var store = new FileConfigurationStore<Configuration>(
+            paths.ConfigurationPath,
+            new JsonConfigurationSerializer<Configuration>(),
+            () => ConfigurationDefaults.Create<Configuration>(paths),
+            clock);
+
+        var result = store.Load();
+
+        Assert.That(
+            Path.GetFileName(result.RecoveryArtifactPath),
+            Is.EqualTo("configuration.json.corrupt-20260914T1304050000000Z"));
     }
 
     /// <summary>

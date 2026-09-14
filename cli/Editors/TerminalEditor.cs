@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using System.IO;
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace MemoriaNote.Cli.Editors
 {
@@ -10,10 +11,23 @@ namespace MemoriaNote.Cli.Editors
     /// </summary>
     public class TerminalEditor : ITerminalEditor
     {
-        string _execPath;
-        public TerminalEditor(string execPath)
+        readonly string _execPath;
+        readonly ITemporaryFileStore _temporaryFileStore;
+        readonly ILogger<TerminalEditor> _logger;
+
+        /// <summary>Initializes an external terminal editor.</summary>
+        /// <param name="execPath">The editor executable path.</param>
+        /// <param name="temporaryFileStore">The store used for editor exchange files.</param>
+        /// <param name="logger">The editor logger.</param>
+        public TerminalEditor(
+            string execPath,
+            ITemporaryFileStore temporaryFileStore,
+            ILogger<TerminalEditor> logger)
         {
             _execPath = execPath;
+            _temporaryFileStore = temporaryFileStore ??
+                throw new ArgumentNullException(nameof(temporaryFileStore));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         /// <summary>
@@ -25,8 +39,8 @@ namespace MemoriaNote.Cli.Editors
             if (_execPath == null)
                 throw new ArgumentNullException(nameof(Edit));
 
-            // Get the file path from the scratchpad
-            var filePath = Scratchpad.Singleton.GetFile(this.FileName, true);  
+            using var temporaryFile = _temporaryFileStore.CreateFile(FileName);
+            var filePath = temporaryFile.Path;
             try
             {                              
                 // Write text data to file if it is not null
@@ -61,15 +75,8 @@ namespace MemoriaNote.Cli.Editors
             }
             catch (Exception e)
             {
-                // Log any exceptions that occur
-                Log.Logger.Error(e.Message);
-                Log.Logger.Error(e.StackTrace);
+                _logger.LogError(e, "The external editor failed.");
                 return false;
-            }
-            finally
-            {
-                // Clear the file from the scratchpad
-                Scratchpad.Singleton.Clear(filePath);
             }
         }
    

@@ -7,6 +7,7 @@ using ReactiveUI;
 using Terminal.Gui;
 using ReactiveMarbles.ObservableEvents;
 using System.Reactive.Concurrency;
+using Microsoft.Extensions.Logging;
 
 namespace MemoriaNote.Cli
 {
@@ -15,26 +16,34 @@ namespace MemoriaNote.Cli
     /// </summary>
     public class HomeView : Toplevel, IViewFor<MemoriaNoteViewModel>, ITerminalScreen, IDisposable
     {
-        public static void Run(ScreenController sc, MemoriaNoteViewModel vm)
+        public static void Run(
+            ScreenController sc,
+            MemoriaNoteViewModel vm,
+            ILogger<HomeView> logger)
         {
             Application.Init();
             RxApp.MainThreadScheduler = TerminalScheduler.Default;
             RxApp.TaskpoolScheduler = TaskPoolScheduler.Default;
-            Application.Run(new HomeView(sc, vm));
+            Application.Run(new HomeView(sc, vm, logger));
             Application.Shutdown();
         }
 
         readonly CompositeDisposable _disposable = new CompositeDisposable();
+        readonly ILogger<HomeView> _logger;
 
         protected FrameView _navigation;
         protected FrameView _contentsFrame;
         protected FrameView _editorFrame;
         protected ColorScheme _colorScheme;
 
-        public HomeView(ScreenController controller, MemoriaNoteViewModel viewModel)
+        public HomeView(
+            ScreenController controller,
+            MemoriaNoteViewModel viewModel,
+            ILogger<HomeView> logger)
         {
             Controller = controller;
             ViewModel = viewModel;
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
             CreateMenuBar();
             _navigation = CreateNavigation();
@@ -89,15 +98,16 @@ namespace MemoriaNote.Cli
                     Shortcut = ViewHelper.NumberToKey(i) | Key.CtrlMask | Key.AltMask,
                     Action = () =>
                     {
-                        Log.Logger.Debug($"Push Ctrl+Alt+{i.ToString()}");
+                        _logger.LogDebug("Push Ctrl+Alt+{KeyNumber}", i);
                         if (ViewModel.SelectedNotebookIndex != i)
                         {
                             ViewModel.Configuration.Workspace.SelectedNotebookName =
                                 ViewModel.NoteNames[i].ToString();
                             ViewModel.SelectNotebook(i);
 
-                            Log.Logger.Debug(
-                                $"Selected note changed: {ViewModel.Configuration.Workspace.SelectedNotebookName}");
+                            _logger.LogDebug(
+                                "Selected note changed: {NotebookName}",
+                                ViewModel.Configuration.Workspace.SelectedNotebookName);
                             Controller.RequestHome();
                             Application.RequestStop();
                         }
@@ -121,15 +131,15 @@ namespace MemoriaNote.Cli
                     }),
                     new StatusItem(Key.Null," ",() => {}),
                     new StatusItem(Key.F1, "~F1~ Prev  ", () => {
-                        Log.Logger.Debug("Push F1 Function");
+                        _logger.LogDebug("Push F1 Function");
                         Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.PagePrev);
                     }),
                     new StatusItem(Key.F2, "~F2~ Next  ", () => {
-                        Log.Logger.Debug("Push F2 Function");
+                        _logger.LogDebug("Push F2 Function");
                         Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.PageNext);
                     }),
                     new StatusItem(Key.F3, "~F3~ " + ViewModel.SearchRangeString, () => {
-                        Log.Logger.Debug("Push F3 Function");
+                        _logger.LogDebug("Push F3 Function");
                         if (ViewModel.SearchRange == SearchRangeType.Notebook)
                             ViewModel.SearchRange = ViewModel.Configuration.State.SearchRange = SearchRangeType.Workspace;
                         else
@@ -137,10 +147,12 @@ namespace MemoriaNote.Cli
 
                         Controller.RequestHome();
                         Application.RequestStop ();
-                        Log.Logger.Debug("Search range changed: " + ViewModel.SearchRangeString);
+                        _logger.LogDebug(
+                            "Search range changed: {SearchRange}",
+                            ViewModel.SearchRangeString);
                     }),
                     new StatusItem(Key.F4, "~F4~ " + ViewModel.SearchMethodString, () => {
-                        Log.Logger.Debug("Push F4 Function");
+                        _logger.LogDebug("Push F4 Function");
                         if (ViewModel.SearchMethod == SearchMethodType.Heading)
                             ViewModel.SearchMethod = ViewModel.Configuration.State.SearchMethod = SearchMethodType.FullText;
                         else
@@ -148,11 +160,13 @@ namespace MemoriaNote.Cli
 
                         Controller.RequestHome();
                         Application.RequestStop ();
-                        Log.Logger.Debug("Search method changed: " + ViewModel.SearchMethodString);
+                        _logger.LogDebug(
+                            "Search method changed: {SearchMethod}",
+                            ViewModel.SearchMethodString);
                     }),
                     new StatusItem(Key.Null,"                       ",() => {}),
                     new StatusItem(Key.F10, "~F10~ Browse Mode", () => {
-                        Log.Logger.Debug("Push F10 Function");
+                        _logger.LogDebug("Push F10 Function");
 
                         ViewModel.SearchRange = SearchRangeType.Notebook;
                         ViewModel.SearchMethod = SearchMethodType.Heading;

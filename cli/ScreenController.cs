@@ -11,6 +11,8 @@ using System.Reactive.Concurrency;
 using ReactiveUI;
 using Terminal.Gui;
 using McMaster.Extensions.CommandLineUtils;
+using MemoriaNote.Cli.Editors;
+using Microsoft.Extensions.Logging;
 
 namespace MemoriaNote.Cli
 {
@@ -26,9 +28,20 @@ namespace MemoriaNote.Cli
         //
 
         protected Stack<Type> views;
+        readonly TerminalEditorFactory _terminalEditorFactory;
+        readonly ILoggerFactory _loggerFactory;
 
-        public ScreenController() 
+        /// <summary>Initializes a screen controller with its external adapters.</summary>
+        /// <param name="terminalEditorFactory">The terminal editor factory.</param>
+        /// <param name="loggerFactory">The shared logger factory.</param>
+        public ScreenController(
+            TerminalEditorFactory terminalEditorFactory,
+            ILoggerFactory loggerFactory)
         {
+            _terminalEditorFactory = terminalEditorFactory ??
+                throw new ArgumentNullException(nameof(terminalEditorFactory));
+            _loggerFactory = loggerFactory ??
+                throw new ArgumentNullException(nameof(loggerFactory));
             views = new Stack<Type>();
         }
 
@@ -44,15 +57,19 @@ namespace MemoriaNote.Cli
         {
             if (type.Equals(typeof(HomeView))) 
             {        
-                HomeView.Run(sc, vm);
+                HomeView.Run(sc, vm, sc._loggerFactory.CreateLogger<HomeView>());
             }
             else if (type.Equals(typeof(ManageView))) 
             {        
-                ManageView.Run(sc, vm);
+                ManageView.Run(sc, vm, sc._loggerFactory.CreateLogger<ManageView>());
             }
             else if (type.Equals(typeof(EditorView)))
             {
-                EditorView.Run(sc, vm);               
+                EditorView.Run(
+                    sc,
+                    vm,
+                    sc._terminalEditorFactory,
+                    sc._loggerFactory.CreateLogger<EditorView>());
             }
             else
                 throw new NotImplementedException(nameof(type));

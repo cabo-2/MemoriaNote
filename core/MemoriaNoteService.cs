@@ -12,6 +12,9 @@ using System.Reactive.Linq;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using System.Diagnostics;
 
 namespace MemoriaNote
 {
@@ -21,6 +24,7 @@ namespace MemoriaNote
     public class MemoriaNoteService : ReactiveObject
     {
         readonly IMemoriaNoteApplicationService _applicationService;
+        readonly ILogger<MemoriaNoteService> _logger;
 
         /// <summary>
         /// Initializes the service from the specified persisted configuration.
@@ -30,12 +34,19 @@ namespace MemoriaNote
         protected MemoriaNoteService(
             Configuration configuration,
             string defaultNotebookDatabasePath)
-            : this(CreateConfiguredSession(configuration, defaultNotebookDatabasePath))
+            : this(
+                CreateConfiguredSession(configuration, defaultNotebookDatabasePath),
+                NullLogger<MemoriaNoteService>.Instance)
         {
         }
 
-        MemoriaNoteService(ApplicationSession session)
-            : this(session.Workspace, session.ApplicationService)
+        /// <summary>Initializes the adapter from an explicitly composed application session.</summary>
+        /// <param name="session">The composed application session.</param>
+        /// <param name="logger">The adapter logger.</param>
+        protected MemoriaNoteService(
+            ApplicationSession session,
+            ILogger<MemoriaNoteService> logger)
+            : this(session.Workspace, session.ApplicationService, logger)
         {
         }
 
@@ -46,7 +57,8 @@ namespace MemoriaNote
         protected MemoriaNoteService(Workspace workspace)
             : this(
                 workspace,
-                ApplicationComposition.Compose(workspace).ApplicationService)
+                ApplicationComposition.Compose(workspace).ApplicationService,
+                NullLogger<MemoriaNoteService>.Instance)
         {
         }
 
@@ -58,10 +70,28 @@ namespace MemoriaNote
         protected MemoriaNoteService(
             Workspace workspace,
             IMemoriaNoteApplicationService applicationService)
+            : this(
+                workspace,
+                applicationService,
+                NullLogger<MemoriaNoteService>.Instance)
+        {
+        }
+
+        /// <summary>
+        /// Initializes the adapter with an explicit workspace, application service, and logger.
+        /// </summary>
+        /// <param name="workspace">The workspace used by the service.</param>
+        /// <param name="applicationService">The UI-independent application service.</param>
+        /// <param name="logger">The adapter logger.</param>
+        protected MemoriaNoteService(
+            Workspace workspace,
+            IMemoriaNoteApplicationService applicationService,
+            ILogger<MemoriaNoteService> logger)
         {
             Workspace = workspace ?? throw new ArgumentNullException(nameof(workspace));
             _applicationService = applicationService ??
                 throw new ArgumentNullException(nameof(applicationService));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
             ActivateHandler = async () =>
             {
@@ -216,15 +246,27 @@ namespace MemoriaNote
                 configuration.DefaultNotebookTitle,
                 defaultNotebookDatabasePath,
                 configuration.DataSources);
+            var databaseFactory = new SqliteNotebookDbContextFactory(
+                NullLoggerFactory.Instance);
+            var pageRepository = new SqlitePageRepository(
+                databaseFactory,
+                SystemClock.Instance);
+            var pageSearchRepository = new SqlitePageSearchRepository(databaseFactory);
+            var metadataRepository = new SqliteNotebookMetadataRepository(databaseFactory);
             var startupService = new ApplicationStartupService(
-                NotePersistence.CreateMigrator(),
+                new SqliteNotebookMigrator(databaseFactory, metadataRepository),
                 new FileNotebookDatabaseProbe(),
-                new ConfiguredWorkspaceLoader(configuration.Workspace));
+                new ConfiguredWorkspaceLoader(
+                    configuration.Workspace,
+                    pageRepository,
+                    pageSearchRepository,
+                    metadataRepository));
             var session = startupService.StartAsync(request, CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
             if (session.DefaultNotebookCreated)
-                Log.Logger.Information("Default note created");
+                NullLogger<MemoriaNoteService>.Instance.LogInformation(
+                    "Default note created");
 
             return session;
         }
@@ -265,7 +307,7 @@ namespace MemoriaNote
         protected virtual void OnActivate()
         {
             // Log information that MemoriaNote service has been activated
-            Log.Logger.Information("MemoriaNote service has been activated");
+            _logger.LogInformation("MemoriaNote service has been activated");
         }
 
         /// <summary>
@@ -276,14 +318,13 @@ namespace MemoriaNote
         protected void ApplySearchPage(
             SearchPage result,
             int newContentsIndex,
-            DateTime startTime,
-            DateTime endTime)
+            TimeSpan elapsed)
         {
             var newViewPageIndex = (
                 ContentsIndexToViewPage(newContentsIndex, MaxViewResultCount),
                 ContentsIndexToViewIndex(newContentsIndex, MaxViewResultCount));
             var newContentItems = result.Items.Select(FormatPageSummary).ToList();
-            var newSearchNotice = FormatSearchNotice(result.TotalCount, startTime, endTime);
+            var newSearchNotice = FormatSearchNotice(result.TotalCount, elapsed);
             PageSummary newOpenedContent = null;
             string newEditingTitle = string.Empty;
             string newEditingText = string.Empty;
@@ -301,7 +342,7 @@ namespace MemoriaNote
                     .GetResult();
                 if (!readResult.IsSuccess)
                 {
-                    Log.Logger.Warning(
+                    _logger.LogWarning(
                         "Search result {ContentId} was not found in its owner note.",
                         newOpenedContent.PageId.Value);
                     return;
@@ -330,7 +371,7 @@ namespace MemoriaNote
             EditingText = newEditingText;
             EditingUpdateTime = newEditingUpdateTime;
             EditingNoteTitle = newEditingNoteTitle;
-            Log.Logger.Information(newSearchNotice);
+            _logger.LogInformation("{SearchNotice}", newSearchNotice);
         }
 
         /// <summary>
@@ -346,14 +387,14 @@ namespace MemoriaNote
                 : PageOperationMessageMapper.ToFailureNotification(operation);
             if (result.IsSuccess)
             {
-                Log.Logger.Information(
+                _logger.LogInformation(
                     "{Operation} succeeded: {Notification}",
                     operation,
                     ManageNotice);
             }
             else
             {
-                Log.Logger.Warning(
+                _logger.LogWarning(
                     "{Operation} validation failed: {Notification} {@Errors}",
                     operation,
                     ManageNotice,
@@ -378,7 +419,7 @@ namespace MemoriaNote
                     .GetResult();
                 if (!readResult.IsSuccess)
                 {
-                    Log.Logger.Warning(
+                    _logger.LogWarning(
                         "Text {ContentId} was not found in its owner note.",
                         content.PageId.Value);
                     return;
@@ -429,12 +470,11 @@ namespace MemoriaNote
                 : summary.Name + summary.Index.ToIndexString();
         }
 
-        static string FormatSearchNotice(int totalCount, DateTime startTime, DateTime endTime)
+        static string FormatSearchNotice(int totalCount, TimeSpan elapsed)
         {
             var countText = totalCount <= 0
                 ? "No results found"
                 : $"{totalCount} results found";
-            var elapsed = endTime - startTime;
             string elapsedText;
             if (elapsed.TotalHours > 1.0)
                 elapsedText = Math.Round(elapsed.TotalHours, 2) + " hours";
@@ -574,7 +614,7 @@ namespace MemoriaNote
 
             try
             {
-                var startTime = DateTime.UtcNow;
+                var stopwatch = Stopwatch.StartNew();
                 var result = await SearchAsync(
                     searchEntry,
                     searchRange,
@@ -582,7 +622,7 @@ namespace MemoriaNote
                     selectedContentsIndex,
                     MaxViewResultCount,
                     cancellation.Token);
-                var endTime = DateTime.UtcNow;
+                stopwatch.Stop();
 
                 lock (_searchLockObject)
                 {
@@ -594,8 +634,7 @@ namespace MemoriaNote
                     ApplySearchPage(
                         result,
                         selectedContentsIndex,
-                        startTime,
-                        endTime);
+                        stopwatch.Elapsed);
                 }
 
                 return result;
@@ -841,7 +880,7 @@ namespace MemoriaNote
                 new[] { PageErrorCode.PageNotSelected });
         }
 
-        private static void ExecuteInfrastructureOperation(
+        private void ExecuteInfrastructureOperation(
             Action operation,
             string operationName)
         {
@@ -873,9 +912,9 @@ namespace MemoriaNote
             return false;
         }
 
-        private static void LogInfrastructureError(Exception exception, string operation)
+        private void LogInfrastructureError(Exception exception, string operation)
         {
-            Log.Logger.Error(
+            _logger.LogError(
                 exception,
                 "{Operation} failed due to an infrastructure error.",
                 operation);

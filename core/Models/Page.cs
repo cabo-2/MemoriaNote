@@ -23,6 +23,23 @@ namespace MemoriaNote
         /// <returns>The newly created Page object.</returns>
         public static Page Create(string name, string text, string dir = null)
         {
+            return CreateAt(name, text, SystemClock.Instance.UtcNow.UtcDateTime, dir);
+        }
+
+        /// <summary>
+        /// Creates a new page using an explicit UTC creation time.
+        /// </summary>
+        /// <param name="name">The name of the page.</param>
+        /// <param name="text">The text content of the page.</param>
+        /// <param name="createdUtc">The UTC creation time.</param>
+        /// <param name="dir">Optional directory for the page.</param>
+        /// <returns>The newly created page.</returns>
+        public static Page CreateAt(
+            string name,
+            string text,
+            DateTime createdUtc,
+            string dir = null)
+        {
             var page = new Page
             {
                 Rowid = 0,
@@ -31,7 +48,7 @@ namespace MemoriaNote
                 Index = 1,
                 // Preserve the existing persisted discriminator produced by the generic factory.
                 ContentType = "T",
-                CreateTime = DateTime.UtcNow,
+                CreateTime = createdUtc,
                 IsErased = false,
                 Text = text
             };
@@ -192,7 +209,14 @@ namespace MemoriaNote
         /// </summary>
         public void UpdateLastModified()
         {
-            this.UpdateTime = DateTime.UtcNow;
+            UpdateLastModified(SystemClock.Instance.UtcNow.UtcDateTime);
+        }
+
+        /// <summary>Updates the last-modified value to the specified UTC time.</summary>
+        /// <param name="updatedUtc">The UTC update time.</param>
+        public void UpdateLastModified(DateTime updatedUtc)
+        {
+            this.UpdateTime = updatedUtc;
         }
 
     }

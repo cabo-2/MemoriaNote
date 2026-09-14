@@ -7,6 +7,7 @@ using ReactiveUI;
 using Terminal.Gui;
 using ReactiveMarbles.ObservableEvents;
 using System.Reactive.Concurrency;
+using Microsoft.Extensions.Logging;
 
 namespace MemoriaNote.Cli
 {
@@ -15,26 +16,34 @@ namespace MemoriaNote.Cli
     /// </summary>
     public class ManageView : Toplevel, IViewFor<MemoriaNoteViewModel>, ITerminalScreen, IDisposable
     {
-        public static void Run(ScreenController sc, MemoriaNoteViewModel vm)
+        public static void Run(
+            ScreenController sc,
+            MemoriaNoteViewModel vm,
+            ILogger<ManageView> logger)
         {
             Application.Init();
             RxApp.MainThreadScheduler = TerminalScheduler.Default;
             RxApp.TaskpoolScheduler = TaskPoolScheduler.Default;
-            Application.Run(new ManageView(sc, vm));
+            Application.Run(new ManageView(sc, vm, logger));
             Application.Shutdown();
         }
 
         readonly CompositeDisposable _disposable = new CompositeDisposable();
+        readonly ILogger<ManageView> _logger;
 
         protected FrameView _navigation;
         protected FrameView _contentsFrame;
         protected FrameView _editorFrame;
         protected ColorScheme _colorScheme;
 
-        public ManageView(ScreenController controller, MemoriaNoteViewModel viewModel)
+        public ManageView(
+            ScreenController controller,
+            MemoriaNoteViewModel viewModel,
+            ILogger<ManageView> logger)
         {
             Controller = controller;
             ViewModel = viewModel;
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
             CreateMenuBar();
             _navigation = CreateNavigation();
@@ -89,15 +98,16 @@ namespace MemoriaNote.Cli
                     Shortcut = ViewHelper.NumberToKey(i) | Key.CtrlMask | Key.AltMask,
                     Action = () =>
                     {
-                        Log.Logger.Debug($"Push Ctrl+Alt+{i.ToString()}");
+                        _logger.LogDebug("Push Ctrl+Alt+{KeyNumber}", i);
                         if (ViewModel.SelectedNotebookIndex != i)
                         {
                             ViewModel.Configuration.Workspace.SelectedNotebookName =
                                 ViewModel.NoteNames[i].ToString();
                             ViewModel.SelectNotebook(i);
 
-                            Log.Logger.Debug(
-                                $"Selected note changed: {ViewModel.Configuration.Workspace.SelectedNotebookName}");
+                            _logger.LogDebug(
+                                "Selected note changed: {NotebookName}",
+                                ViewModel.Configuration.Workspace.SelectedNotebookName);
                             Controller.RequestHome();
                             Application.RequestStop();
                         }
@@ -121,16 +131,16 @@ namespace MemoriaNote.Cli
                     }),
                     new StatusItem(Key.Null," ",() => {}),
                     new StatusItem(Key.F1, "~F1~ Prev  ", () => {
-                        Log.Logger.Debug("Push F1 Function");
+                        _logger.LogDebug("Push F1 Function");
                         Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.PagePrev);
                     }),
                     new StatusItem(Key.F2, "~F2~ Next  ", () => {
-                        Log.Logger.Debug("Push F2 Function");
+                        _logger.LogDebug("Push F2 Function");
                         Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.PageNext);
                     }),
                     new StatusItem(Key.Null," ",() => {}),
                     new StatusItem(Key.F5, "~F5~ New   ", () => {
-                        Log.Logger.Debug("Push F5 Function");
+                        _logger.LogDebug("Push F5 Function");
 
                         ViewModel.EditingState = EditorMode.Create;
                         ViewModel.EditingTitle = ViewModel.SearchEntry;
@@ -139,7 +149,7 @@ namespace MemoriaNote.Cli
                         Application.RequestStop ();
                     }),
                     new StatusItem(Key.F6, "~F6~ Edit  ", () => {
-                        Log.Logger.Debug("Push F6 Function");
+                        _logger.LogDebug("Push F6 Function");
 
                         ViewModel.EditingState = EditorMode.Edit;
                         Controller.RequestManage ();
@@ -147,7 +157,7 @@ namespace MemoriaNote.Cli
                         Application.RequestStop ();
                     }),
                     new StatusItem(Key.F7, "~F7~ Rename", () => {
-                        Log.Logger.Debug("Push F7 Function");
+                        _logger.LogDebug("Push F7 Function");
 
                         ViewModel.EditingState = EditorMode.Rename;
                         Controller.RequestManage ();
@@ -155,7 +165,7 @@ namespace MemoriaNote.Cli
                         Application.RequestStop ();
                     }),
                     new StatusItem(Key.F8, "~F8~ Delete", () => {
-                        Log.Logger.Debug("Push F8 Function");
+                        _logger.LogDebug("Push F8 Function");
 
                         ViewModel.EditingState = EditorMode.Delete;
                         Controller.RequestManage ();
@@ -164,7 +174,7 @@ namespace MemoriaNote.Cli
                     }),
                     new StatusItem(Key.Null," ",() => {}),
                     new StatusItem(Key.F10, "~F10~ Manage Mode", () => {
-                        Log.Logger.Debug("Push F10 Function");
+                        _logger.LogDebug("Push F10 Function");
 
                         ViewModel.SearchRange = ViewModel.Configuration.State.SearchRange;
                         ViewModel.SearchMethod = ViewModel.Configuration.State.SearchMethod;
@@ -220,7 +230,9 @@ namespace MemoriaNote.Cli
                         Controller.RequestManage();
                         Controller.RequestEditor();
                         Application.RequestStop();
-                        Log.Logger.Debug("SearchTextField KeyUp1: " + ViewModel.EditingState.ToString());
+                        _logger.LogDebug(
+                            "SearchTextField KeyUp1: {EditingState}",
+                            ViewModel.EditingState);
                     }
                     else if (string.IsNullOrWhiteSpace(ViewModel.EditingTitle) &&
                             !string.IsNullOrWhiteSpace(ViewModel.SearchEntry))
@@ -230,7 +242,9 @@ namespace MemoriaNote.Cli
                         Controller.RequestManage();
                         Controller.RequestEditor();
                         Application.RequestStop();
-                        Log.Logger.Debug("SearchTextField KeyUp2: " + ViewModel.EditingState.ToString());
+                        _logger.LogDebug(
+                            "SearchTextField KeyUp2: {EditingState}",
+                            ViewModel.EditingState);
                     }
                 }
             };
@@ -299,7 +313,9 @@ namespace MemoriaNote.Cli
                         Controller.RequestManage();
                         Controller.RequestEditor();
                         Application.RequestStop();
-                        Log.Logger.Debug("contentsTextField KeyDown: " + ViewModel.EditingState.ToString());
+                        _logger.LogDebug(
+                            "contentsTextField KeyDown: {EditingState}",
+                            ViewModel.EditingState);
                     }
                 }
             };

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 
 namespace MemoriaNote
@@ -8,6 +9,20 @@ namespace MemoriaNote
     /// </summary>
     public sealed class NotebookFilePathFactory
     {
+        readonly IClock _clock;
+
+        /// <summary>Initializes a path factory using the system clock.</summary>
+        public NotebookFilePathFactory() : this(SystemClock.Instance)
+        {
+        }
+
+        /// <summary>Initializes a path factory using the specified clock.</summary>
+        /// <param name="clock">The clock used in generated file names.</param>
+        public NotebookFilePathFactory(IClock clock)
+        {
+            _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+        }
+
         /// <summary>
         /// Creates an available database path, adding a timestamp when the default path exists.
         /// </summary>
@@ -25,13 +40,11 @@ namespace MemoriaNote
             if (!File.Exists(path))
                 return path;
 
-            path = Path.Combine(
+            var timestamp = FormatTimestamp();
+            return FindAvailablePath(
                 directoryPath,
-                notebookName + "_" + DateTime.Now.ToString("yyyyMMddhhmmss") + ".db");
-            if (File.Exists(path))
-                throw new ArgumentException(path, nameof(notebookName));
-
-            return path;
+                notebookName + "_" + timestamp,
+                ".db");
         }
 
         /// <summary>
@@ -47,9 +60,37 @@ namespace MemoriaNote
             if (notebookName == null)
                 throw new ArgumentNullException(nameof(notebookName));
 
-            return Path.Combine(
+            return FindAvailablePath(
                 directoryPath,
-                $"{notebookName}_{DateTime.Now:yyyyMMddhhmmss}.json.zip");
+                notebookName + "_" + FormatTimestamp(),
+                ".json.zip");
+        }
+
+        string FormatTimestamp()
+        {
+            return _clock.UtcNow.ToString(
+                "yyyyMMddHHmmss",
+                CultureInfo.InvariantCulture);
+        }
+
+        static string FindAvailablePath(
+            string directoryPath,
+            string fileNameWithoutExtension,
+            string extension)
+        {
+            var path = Path.Combine(
+                directoryPath,
+                fileNameWithoutExtension + extension);
+            var sequence = 1;
+            while (File.Exists(path))
+            {
+                path = Path.Combine(
+                    directoryPath,
+                    fileNameWithoutExtension + "_" + sequence + extension);
+                sequence++;
+            }
+
+            return path;
         }
     }
 }

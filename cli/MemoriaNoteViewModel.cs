@@ -11,6 +11,7 @@ using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 using DynamicData;
 using DynamicData.Binding;
+using Microsoft.Extensions.Logging;
 
 namespace MemoriaNote.Cli
 {
@@ -30,6 +31,20 @@ namespace MemoriaNote.Cli
             ConfigurationCli configuration,
             string defaultNotebookDatabasePath)
             : base(configuration, defaultNotebookDatabasePath)
+        {
+            Configuration = configuration ??
+                throw new ArgumentNullException(nameof(configuration));
+        }
+
+        /// <summary>Initializes a view model from an explicitly composed session.</summary>
+        /// <param name="configuration">The persisted CLI configuration.</param>
+        /// <param name="session">The composed application session.</param>
+        /// <param name="logger">The inherited presentation-service logger.</param>
+        public MemoriaNoteViewModel(
+            ConfigurationCli configuration,
+            ApplicationSession session,
+            ILogger<MemoriaNoteService> logger)
+            : base(session, logger)
         {
             Configuration = configuration ??
                 throw new ArgumentNullException(nameof(configuration));
