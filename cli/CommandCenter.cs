@@ -137,7 +137,7 @@ namespace MemoriaNote.Cli
             return new MemoriaNoteViewModel(
                 configuration,
                 session,
-                _loggerFactory.CreateLogger<MemoriaNoteService>());
+                _loggerFactory.CreateLogger<MemoriaNoteViewModel>());
         }
 
         ScreenController CreateScreenController()

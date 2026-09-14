@@ -201,6 +201,9 @@ public sealed class MemoriaNoteApplicationServiceTests
         {
             "MemoriaNote.IContent",
             "MemoriaNote.Content",
+            "MemoriaNote.EditorMode",
+            "MemoriaNote.MemoriaNoteService",
+            "MemoriaNote.PageOperationMessageMapper",
             "MemoriaNote.SearchResult",
             "MemoriaNote.NoteSearchResult",
             "MemoriaNote.TextManageResult",
@@ -210,6 +213,20 @@ public sealed class MemoriaNoteApplicationServiceTests
         Assert.That(
             removedTypeNames.Select(assembly.GetType),
             Is.All.Null);
+    }
+
+    /// <summary>
+    /// Verifies that the core assembly no longer depends on the CLI reactive framework.
+    /// </summary>
+    [Test]
+    public void CoreAssembly_DoesNotReferenceReactiveUi()
+    {
+        var referencedAssemblies = typeof(IMemoriaNoteApplicationService)
+            .Assembly
+            .GetReferencedAssemblies()
+            .Select(reference => reference.Name);
+
+        Assert.That(referencedAssemblies, Does.Not.Contain("ReactiveUI"));
     }
 
     static MemoriaNoteApplicationService CreateService()
