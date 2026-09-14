@@ -20,6 +20,10 @@ namespace MemoriaNote.Cli
     public class CommandCenter
     {
         readonly INotebookMigrator _notebookMigrator;
+        readonly TextPageImporter _textPageImporter;
+        readonly TextPageExporter _textPageExporter;
+        readonly NotebookBackupService _notebookBackupService;
+        readonly NotebookFilePathFactory _notebookFilePathFactory;
         readonly ApplicationPaths _applicationPaths;
         readonly IConfigurationSerializer<ConfigurationCli> _configurationSerializer;
         readonly IConfigurationStore<ConfigurationCli> _configurationStore;
@@ -39,6 +43,19 @@ namespace MemoriaNote.Cli
         {
             _notebookMigrator = notebookMigrator ??
                 throw new ArgumentNullException(nameof(notebookMigrator));
+            var databaseFactory =
+                new SqliteNotebookDbContextFactory(NotebookDbContext.MyLoggerFactory);
+            var pageRepository = new SqlitePageRepository(databaseFactory);
+            var transferRepository = new SqliteNotebookTransferRepository(databaseFactory);
+            var metadataRepository = new SqliteNotebookMetadataRepository(databaseFactory);
+            _notebookFilePathFactory = new NotebookFilePathFactory();
+            _textPageImporter = new TextPageImporter(pageRepository);
+            _textPageExporter = new TextPageExporter(transferRepository);
+            _notebookBackupService = new NotebookBackupService(
+                transferRepository,
+                metadataRepository,
+                notebookMigrator,
+                _notebookFilePathFactory);
             _applicationPaths = ApplicationPaths.CreateDefault();
             _configurationSerializer =
                 new JsonConfigurationSerializer<ConfigurationCli>();
@@ -461,7 +478,7 @@ namespace MemoriaNote.Cli
                 } while (retry);
                 if (title == null) title = ReadLineNoteTitle();
                 if (string.IsNullOrWhiteSpace(title)) title = name;
-                var path = NoteUtil.GetNotePath(
+                var path = _notebookFilePathFactory.CreateDatabasePath(
                     _applicationPaths.ApplicationDataDirectory,
                     name);
                 try
@@ -626,9 +643,16 @@ namespace MemoriaNote.Cli
                 }
                 else
                 {
-                    outputPath = NoteUtil.GetJsonPath(Environment.CurrentDirectory, current.Metadata.Name);
+                    outputPath = _notebookFilePathFactory.CreateBackupPath(
+                        Environment.CurrentDirectory,
+                        current.Metadata.Name);
                 }
-                NoteUtil.Backup(current, outputPath).Wait();
+                _notebookBackupService.CreateBackupAsync(
+                        NotebookId.FromDatabasePath(current.DatabasePath),
+                        outputPath,
+                        CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult();
                 Console.WriteLine("Backup completed");
                 return 0;
             });
@@ -661,7 +685,12 @@ namespace MemoriaNote.Cli
                 {
                     outputDir = Environment.CurrentDirectory;
                 }
-                NoteUtil.Restore(inputPath, outputDir).Wait();
+                _notebookBackupService.RestoreBackupAsync(
+                        inputPath,
+                        outputDir,
+                        CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult();
                 Console.WriteLine("Restore completed");
                 return 0;
             });
@@ -683,7 +712,14 @@ namespace MemoriaNote.Cli
                 }
                 var configuration = LoadConfiguration();
                 var vm = CreateViewModel(configuration);
-                NoteUtil.TextImporter(vm.Workspace.SelectedNotebook, importDir, recursive).Wait();
+                _textPageImporter.ImportAsync(
+                        NotebookId.FromDatabasePath(
+                            vm.Workspace.SelectedNotebook.DatabasePath),
+                        importDir,
+                        recursive,
+                        CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult();
                 Console.WriteLine("Import completed");
                 return 0;
             });
@@ -704,7 +740,13 @@ namespace MemoriaNote.Cli
                 }
                 var configuration = LoadConfiguration();
                 var vm = CreateViewModel(configuration);
-                NoteUtil.TextExporter(vm.Workspace.SelectedNotebook, exportDir).Wait();
+                _textPageExporter.ExportAsync(
+                        NotebookId.FromDatabasePath(
+                            vm.Workspace.SelectedNotebook.DatabasePath),
+                        exportDir,
+                        CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult();
                 Console.WriteLine("Export completed");
                 return 0;
             });
