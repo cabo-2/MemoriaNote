@@ -1,5 +1,7 @@
 using System.IO.Compression;
 using MemoriaNote.Core.Tests.Infrastructure;
+using Microsoft.Extensions.Logging.Abstractions;
+using Newtonsoft.Json;
 using NUnit.Framework;
 
 namespace MemoriaNote.Core.Tests.Functional;
@@ -32,7 +34,11 @@ public sealed class NotebookTransferCharacteristicsTests
         var restoreDirectory = Path.Combine(database.DirectoryPath, "restored");
         Directory.CreateDirectory(restoreDirectory);
 
-        await NoteUtil.Backup(source, backupPath);
+        var services = CreateServices();
+        await services.Backup.CreateBackupAsync(
+            GetNotebookId(source),
+            backupPath,
+            CancellationToken.None);
 
         using (var zip = ZipFile.OpenRead(backupPath))
         {
@@ -40,9 +46,9 @@ public sealed class NotebookTransferCharacteristicsTests
                 zip.Entries.Select(entry => entry.FullName),
                 Is.EquivalentTo(new[] { "1.json", "2.json", "metadata.json" }));
 
-            var metadata = NoteUtil.DeserializeNoteKeyValues(zip)
+            var metadata = DeserializeMetadata(zip)
                 .ToDictionary(entry => entry.Key, entry => entry.Value);
-            var pages = NoteUtil.DeserializePages(zip).ToList();
+            var pages = DeserializePages(zip).ToList();
 
             using (Assert.EnterMultipleScope())
             {
@@ -57,7 +63,10 @@ public sealed class NotebookTransferCharacteristicsTests
             }
         }
 
-        var restored = await NoteUtil.Restore(backupPath, restoreDirectory);
+        var restored = await services.Backup.RestoreBackupAsync(
+            backupPath,
+            restoreDirectory,
+            CancellationToken.None);
         var restoredPages = restored.ReadPage("Daily").OrderBy(page => page.Index).ToList();
 
         using (Assert.EnterMultipleScope())
@@ -98,9 +107,16 @@ public sealed class NotebookTransferCharacteristicsTests
         Directory.CreateDirectory(restoreDirectory);
         var existingPath = Path.Combine(restoreDirectory, "duplicate.db");
         await File.WriteAllTextAsync(existingPath, "existing file");
-        await NoteUtil.Backup(source, backupPath);
+        var services = CreateServices();
+        await services.Backup.CreateBackupAsync(
+            GetNotebookId(source),
+            backupPath,
+            CancellationToken.None);
 
-        var restored = await NoteUtil.Restore(backupPath, restoreDirectory);
+        var restored = await services.Backup.RestoreBackupAsync(
+            backupPath,
+            restoreDirectory,
+            CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
@@ -126,7 +142,11 @@ public sealed class NotebookTransferCharacteristicsTests
         var exportDirectory = Path.Combine(database.DirectoryPath, "text-export");
         Directory.CreateDirectory(exportDirectory);
 
-        await NoteUtil.TextExporter(source, exportDirectory);
+        var services = CreateServices();
+        await services.Exporter.ExportAsync(
+            GetNotebookId(source),
+            exportDirectory,
+            CancellationToken.None);
 
         var overviewPath = Path.Combine(exportDirectory, "Overview.txt");
         var meetingPath = Path.Combine(exportDirectory, "work", "2026", "Meeting.txt");
@@ -140,7 +160,11 @@ public sealed class NotebookTransferCharacteristicsTests
             "imported",
             "Imported Note",
             Path.Combine(database.DirectoryPath, "imported.db"));
-        await NoteUtil.TextImporter(imported, exportDirectory, recursive: true);
+        await services.Importer.ImportAsync(
+            GetNotebookId(imported),
+            exportDirectory,
+            recursive: true,
+            CancellationToken.None);
         var importedOverview = imported.ReadPage("Overview", 1);
         var importedMeeting = imported.ReadPage("Meeting", 1);
 
@@ -169,7 +193,12 @@ public sealed class NotebookTransferCharacteristicsTests
         Directory.CreateDirectory(importDirectory);
         await File.WriteAllTextAsync(Path.Combine(importDirectory, "Daily.txt"), "Imported text");
 
-        await NoteUtil.TextImporter(note, importDirectory);
+        var services = CreateServices();
+        await services.Importer.ImportAsync(
+            GetNotebookId(note),
+            importDirectory,
+            recursive: false,
+            CancellationToken.None);
         var pages = note.ReadPage("Daily").OrderBy(page => page.Index).ToList();
 
         using (Assert.EnterMultipleScope())
@@ -195,7 +224,11 @@ public sealed class NotebookTransferCharacteristicsTests
         var exportDirectory = Path.Combine(database.DirectoryPath, "duplicate-export");
         Directory.CreateDirectory(exportDirectory);
 
-        await NoteUtil.TextExporter(note, exportDirectory);
+        var services = CreateServices();
+        await services.Exporter.ExportAsync(
+            GetNotebookId(note),
+            exportDirectory,
+            CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
@@ -222,6 +255,50 @@ public sealed class NotebookTransferCharacteristicsTests
             Assert.That(actual.IsErased, Is.EqualTo(expected.IsErased));
         }
     }
+
+    private static TransferServices CreateServices()
+    {
+        var databaseFactory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        var pageRepository = new SqlitePageRepository(databaseFactory);
+        var metadataRepository = new SqliteNotebookMetadataRepository(databaseFactory);
+        var transferRepository = new SqliteNotebookTransferRepository(databaseFactory);
+        var migrator = new SqliteNotebookMigrator(databaseFactory, metadataRepository);
+        return new TransferServices(
+            new TextPageImporter(pageRepository),
+            new TextPageExporter(transferRepository),
+            new NotebookBackupService(
+                transferRepository,
+                metadataRepository,
+                migrator,
+                new NotebookFilePathFactory()));
+    }
+
+    private static NotebookId GetNotebookId(Notebook notebook)
+    {
+        return NotebookId.FromDatabasePath(notebook.DatabasePath);
+    }
+
+    private static List<NoteKeyValue> DeserializeMetadata(ZipArchive archive)
+    {
+        var entry = archive.GetEntry("metadata.json");
+        Assert.That(entry, Is.Not.Null);
+        using var reader = new StreamReader(entry!.Open());
+        return JsonConvert.DeserializeObject<List<NoteKeyValue>>(reader.ReadToEnd())!;
+    }
+
+    private static IEnumerable<Page> DeserializePages(ZipArchive archive)
+    {
+        foreach (var entry in archive.Entries.Where(entry => entry.Name != "metadata.json"))
+        {
+            using var reader = new StreamReader(entry.Open());
+            yield return JsonConvert.DeserializeObject<Page>(reader.ReadToEnd())!;
+        }
+    }
+
+    private sealed record TransferServices(
+        TextPageImporter Importer,
+        TextPageExporter Exporter,
+        NotebookBackupService Backup);
 
     private static Task<SearchPage> SearchAsync(
         Notebook notebook,
