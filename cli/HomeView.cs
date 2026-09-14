@@ -92,10 +92,12 @@ namespace MemoriaNote.Cli
                         Log.Logger.Debug($"Push Ctrl+Alt+{i.ToString()}");
                         if (ViewModel.SelectedNotebookIndex != i)
                         {
-                            ConfigurationCli.Instance.Workspace.SelectedNotebookName = ViewModel.NoteNames[i].ToString();
+                            ViewModel.Configuration.Workspace.SelectedNotebookName =
+                                ViewModel.NoteNames[i].ToString();
                             ViewModel.SelectNotebook(i);
 
-                            Log.Logger.Debug($"Selected note changed: {ConfigurationCli.Instance.Workspace.SelectedNotebookName}");
+                            Log.Logger.Debug(
+                                $"Selected note changed: {ViewModel.Configuration.Workspace.SelectedNotebookName}");
                             Controller.RequestHome();
                             Application.RequestStop();
                         }
@@ -129,9 +131,9 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.F3, "~F3~ " + ViewModel.SearchRangeString, () => {
                         Log.Logger.Debug("Push F3 Function");
                         if (ViewModel.SearchRange == SearchRangeType.Notebook)
-                            ViewModel.SearchRange = ConfigurationCli.Instance.State.SearchRange = SearchRangeType.Workspace;
+                            ViewModel.SearchRange = ViewModel.Configuration.State.SearchRange = SearchRangeType.Workspace;
                         else
-                            ViewModel.SearchRange = ConfigurationCli.Instance.State.SearchRange = SearchRangeType.Notebook;
+                            ViewModel.SearchRange = ViewModel.Configuration.State.SearchRange = SearchRangeType.Notebook;
 
                         Controller.RequestHome();
                         Application.RequestStop ();
@@ -140,9 +142,9 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.F4, "~F4~ " + ViewModel.SearchMethodString, () => {
                         Log.Logger.Debug("Push F4 Function");
                         if (ViewModel.SearchMethod == SearchMethodType.Heading)
-                            ViewModel.SearchMethod = ConfigurationCli.Instance.State.SearchMethod = SearchMethodType.FullText;
+                            ViewModel.SearchMethod = ViewModel.Configuration.State.SearchMethod = SearchMethodType.FullText;
                         else
-                            ViewModel.SearchMethod = ConfigurationCli.Instance.State.SearchMethod = SearchMethodType.Heading;
+                            ViewModel.SearchMethod = ViewModel.Configuration.State.SearchMethod = SearchMethodType.Heading;
 
                         Controller.RequestHome();
                         Application.RequestStop ();

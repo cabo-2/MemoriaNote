@@ -37,7 +37,7 @@ namespace MemoriaNote.Cli
         protected void Start()
         {
             // Create a new instance of a terminal editor.
-            var editor = TerminalEditorFactory.Create();
+            var editor = TerminalEditorFactory.Create(ViewModel.Configuration);
 
             // Check the current editing state in the ViewModel and execute the corresponding method.
             switch (ViewModel.EditingState)

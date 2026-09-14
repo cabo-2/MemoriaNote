@@ -92,10 +92,12 @@ namespace MemoriaNote.Cli
                         Log.Logger.Debug($"Push Ctrl+Alt+{i.ToString()}");
                         if (ViewModel.SelectedNotebookIndex != i)
                         {
-                            ConfigurationCli.Instance.Workspace.SelectedNotebookName = ViewModel.NoteNames[i].ToString();
+                            ViewModel.Configuration.Workspace.SelectedNotebookName =
+                                ViewModel.NoteNames[i].ToString();
                             ViewModel.SelectNotebook(i);
 
-                            Log.Logger.Debug($"Selected note changed: {ConfigurationCli.Instance.Workspace.SelectedNotebookName}");
+                            Log.Logger.Debug(
+                                $"Selected note changed: {ViewModel.Configuration.Workspace.SelectedNotebookName}");
                             Controller.RequestHome();
                             Application.RequestStop();
                         }
@@ -164,8 +166,8 @@ namespace MemoriaNote.Cli
                     new StatusItem(Key.F10, "~F10~ Manage Mode", () => {
                         Log.Logger.Debug("Push F10 Function");
 
-                        ViewModel.SearchRange = ConfigurationCli.Instance.State.SearchRange;
-                        ViewModel.SearchMethod = ConfigurationCli.Instance.State.SearchMethod;
+                        ViewModel.SearchRange = ViewModel.Configuration.State.SearchRange;
+                        ViewModel.SearchMethod = ViewModel.Configuration.State.SearchMethod;
 
                         Controller.RequestHome();
                         Application.RequestStop ();

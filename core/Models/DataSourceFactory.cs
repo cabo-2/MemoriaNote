@@ -165,7 +165,7 @@ namespace MemoriaNote
         /// </summary>
         public void Save()
         {
-            var path = Configuration.Instance.DataSourcesPath;
+            var path = ApplicationPaths.CreateDefault().DataSourcesPath;
             var dir = Path.GetDirectoryName(path);
             if (!Directory.Exists(dir))
             {
@@ -188,7 +188,7 @@ namespace MemoriaNote
         /// <returns>A DataSourceFactory instance with loaded data sources or a new instance if loading fails.</returns>
         protected static DataSourceFactory Load()
         {
-            var path = Configuration.Instance.DataSourcesPath;
+            var path = ApplicationPaths.CreateDefault().DataSourcesPath;
             if (!File.Exists(path))
             {
                 var value = new DataSourceFactory();

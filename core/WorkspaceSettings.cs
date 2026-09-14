@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.Serialization;
-using ReactiveUI;
-using ReactiveUI.Fody.Helpers;
 
 namespace MemoriaNote
 {
@@ -11,7 +8,7 @@ namespace MemoriaNote
     /// Represents the serialized settings used to create a Workspace.
     /// </summary>
     [DataContract]
-    public class WorkspaceSettings : ReactiveObject
+    public class WorkspaceSettings
     {
         /// <summary>
         /// Creates default workspace settings with the specified values.
@@ -38,42 +35,20 @@ namespace MemoriaNote
         public WorkspaceSettings() { }
 
         /// <summary>
-        /// Creates a Workspace based on the current settings.
-        /// </summary>
-        /// <returns>A workspace with the configured name, notebooks, and selection.</returns>
-        public virtual Workspace CreateWorkspace()
-        {
-            var notebooks = CreateNotebooks(NotebookDatabasePaths);
-            var selectedNotebook = this.SelectedNotebookName == null
-                ? notebooks.FirstOrDefault()
-                : notebooks.FirstOrDefault(
-                    notebook => SelectedNotebookName == notebook.Metadata.Name) ??
-                    notebooks.FirstOrDefault();
-            return new Workspace(Name, notebooks, selectedNotebook);
-        }
-
-        static List<Notebook> CreateNotebooks(IEnumerable<string> databasePaths)
-        {
-            return databasePaths.Select(databasePath => new Notebook(databasePath)).ToList();
-        }
-
-        /// <summary>
         /// Name of the workspace.
         /// </summary>
-        [DataMember][Reactive] public string Name { get; set; }
+        [DataMember] public string Name { get; set; }
 
         /// <summary>
         /// Name of the selected note in the workspace.
         /// </summary>
         [DataMember(Name = "SelectedNoteName")]
-        [Reactive]
         public string SelectedNotebookName { get; set; }
 
         /// <summary>
         /// List of data sources used in the workspace.
         /// </summary>
         [DataMember(Name = "UseDataSources")]
-        [Reactive]
         public List<string> NotebookDatabasePaths { get; set; } = new List<string>();
 
         /// <inheritdoc/>

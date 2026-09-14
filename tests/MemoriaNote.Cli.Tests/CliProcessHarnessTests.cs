@@ -149,6 +149,40 @@ public sealed class CliProcessHarnessTests
         }
     }
 
+    /// <summary>
+    /// Verifies that invalid configuration is quarantined and reported to the user.
+    /// </summary>
+    [Test]
+    public async Task ConfigShow_InvalidConfiguration_RecoversWithWarning()
+    {
+        using var harness = new CliProcessHarness();
+        const string invalidConfiguration = "{ invalid configuration";
+        Directory.CreateDirectory(harness.ApplicationDataDirectory);
+        await File.WriteAllTextAsync(
+            harness.ConfigurationPath,
+            invalidConfiguration);
+
+        var result = await harness.RunAsync("config", "show");
+
+        var recoveryFiles = Directory.GetFiles(
+            harness.ApplicationDataDirectory,
+            "configuration.json.corrupt-*");
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(result.StandardError, Does.StartWith("Warning: "));
+            Assert.That(
+                result.StandardError,
+                Does.Contain("Default configuration has been created."));
+            Assert.That(recoveryFiles, Has.Length.EqualTo(1));
+            Assert.That(
+                await File.ReadAllTextAsync(recoveryFiles[0]),
+                Is.EqualTo(invalidConfiguration));
+            Assert.That(File.Exists(harness.ConfigurationPath), Is.True);
+            Assert.That(result.StandardOutput, Does.Contain("\"Workgroup\""));
+        }
+    }
+
     static bool ContainsCommand(string help, string command)
     {
         return help.Split(

@@ -21,8 +21,21 @@ namespace MemoriaNote.Cli
     [DataContract]
     public class MemoriaNoteViewModel : MemoriaNoteService
     {
-        public MemoriaNoteViewModel() : base()
+        /// <summary>
+        /// Initializes a view model from persisted CLI configuration.
+        /// </summary>
+        /// <param name="configuration">The persisted CLI configuration.</param>
+        /// <param name="defaultNotebookDatabasePath">The default notebook database path.</param>
+        public MemoriaNoteViewModel(
+            ConfigurationCli configuration,
+            string defaultNotebookDatabasePath)
+            : base(configuration, defaultNotebookDatabasePath)
         {
+            Configuration = configuration ??
+                throw new ArgumentNullException(nameof(configuration));
         }
+
+        /// <summary>Gets the persisted CLI configuration for the current session.</summary>
+        public ConfigurationCli Configuration { get; }
     }
 }
