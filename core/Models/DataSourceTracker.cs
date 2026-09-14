@@ -50,7 +50,7 @@ namespace MemoriaNote
         /// <summary>
         /// A data member representing the creation time of the data source tracker. Defaults to the current date and time.
         /// </summary>
-        [DataMember] public DateTime CreateTime { get; set; } = DateTime.Now;
+        [DataMember] public DateTime CreateTime { get; set; }
 
         /// <summary>
         /// A data member representing the data source of the data source tracker.
@@ -65,7 +65,13 @@ namespace MemoriaNote
         /// <param name="tag">The tag associated with the data source tracker (optional).</param>
         /// <returns>A new DataSourceTracker instance with the specified name, data source, and tag.</returns>
         public static DataSourceTracker Create(string name, string dataSource, string tag = null) =>
-                                                   new DataSourceTracker() { Name = name, Tag = tag, DataSource = dataSource };
+            new DataSourceTracker()
+            {
+                Name = name,
+                Tag = tag,
+                DataSource = dataSource,
+                CreateTime = SystemClock.Instance.UtcNow.UtcDateTime
+            };
 
         /// <summary>
         /// Creates a mutable data source tracker from an in-memory metadata snapshot.

@@ -5,6 +5,7 @@ using System.Linq;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MemoriaNote
 {
@@ -222,21 +223,21 @@ namespace MemoriaNote
         {
             internal static readonly IPageRepository Instance =
                 new SqlitePageRepository(
-                    new SqliteNotebookDbContextFactory(NotebookDbContext.MyLoggerFactory));
+                    new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
         }
 
         static class DefaultSearchRepository
         {
             internal static readonly IPageSearchRepository Instance =
                 new SqlitePageSearchRepository(
-                    new SqliteNotebookDbContextFactory(NotebookDbContext.MyLoggerFactory));
+                    new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
         }
 
         static class DefaultMetadataRepository
         {
             internal static readonly INotebookMetadataRepository Instance =
                 new SqliteNotebookMetadataRepository(
-                    new SqliteNotebookDbContextFactory(NotebookDbContext.MyLoggerFactory));
+                    new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
         }
 
         /// <summary>

@@ -2,14 +2,31 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace MemoriaNote.Cli.Editors
 {
     /// <summary>
     /// Factory class for creating instances of terminal editors based on configuration settings.
     /// </summary>
-    public static class TerminalEditorFactory
+    public sealed class TerminalEditorFactory
     {
+        readonly ITemporaryFileStore _temporaryFileStore;
+        readonly ILoggerFactory _loggerFactory;
+
+        /// <summary>Initializes a terminal editor factory.</summary>
+        /// <param name="temporaryFileStore">The editor temporary-file store.</param>
+        /// <param name="loggerFactory">The shared application logger factory.</param>
+        public TerminalEditorFactory(
+            ITemporaryFileStore temporaryFileStore,
+            ILoggerFactory loggerFactory)
+        {
+            _temporaryFileStore = temporaryFileStore ??
+                throw new ArgumentNullException(nameof(temporaryFileStore));
+            _loggerFactory = loggerFactory ??
+                throw new ArgumentNullException(nameof(loggerFactory));
+        }
+
         static ProcessStartInfo LaunchShellCommand(string filePath)
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -47,7 +64,7 @@ namespace MemoriaNote.Cli.Editors
         /// </summary>
         /// <param name="configuration">The current CLI configuration.</param>
         /// <returns>An instance of ITerminalEditor.</returns>
-        public static ITerminalEditor Create(ConfigurationCli configuration)
+        public ITerminalEditor Create(ConfigurationCli configuration)
         {
             if (configuration == null)
                 throw new ArgumentNullException(nameof(configuration));
@@ -57,7 +74,8 @@ namespace MemoriaNote.Cli.Editors
             {
                 var envs = Environment.GetEnvironmentVariables();
                 if (envs.Contains(ConfigurationCli.TerminalSetting.EditorEnvName))
-                    return new TerminalEditor((string)envs[ConfigurationCli.TerminalSetting.EditorEnvName]);
+                    return CreateEditor(
+                        (string)envs[ConfigurationCli.TerminalSetting.EditorEnvName]);
             }
 
             // Throw an exception if the editor path is not specified in configuration
@@ -65,7 +83,15 @@ namespace MemoriaNote.Cli.Editors
                 throw new ApplicationException("editor path");
 
             // Create a new TerminalEditor instance with the specified editor path
-            return new TerminalEditor(configuration.Terminal.EditorPath);
+            return CreateEditor(configuration.Terminal.EditorPath);
+        }
+
+        TerminalEditor CreateEditor(string executablePath)
+        {
+            return new TerminalEditor(
+                executablePath,
+                _temporaryFileStore,
+                _loggerFactory.CreateLogger<TerminalEditor>());
         }
     }
 }

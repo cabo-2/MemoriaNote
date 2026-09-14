@@ -11,6 +11,7 @@ using System.ComponentModel.DataAnnotations;
 using Terminal.Gui;
 using McMaster.Extensions.CommandLineUtils;
 using Newtonsoft.Json;
+using Microsoft.Extensions.Logging;
 
 namespace MemoriaNote.Cli
 {
@@ -20,6 +21,10 @@ namespace MemoriaNote.Cli
     public class CommandCenter
     {
         readonly INotebookMigrator _notebookMigrator;
+        readonly INotebookDbContextFactory _databaseFactory;
+        readonly IPageRepository _pageRepository;
+        readonly IPageSearchRepository _pageSearchRepository;
+        readonly INotebookMetadataRepository _metadataRepository;
         readonly TextPageImporter _textPageImporter;
         readonly TextPageExporter _textPageExporter;
         readonly NotebookBackupService _notebookBackupService;
@@ -27,42 +32,69 @@ namespace MemoriaNote.Cli
         readonly ApplicationPaths _applicationPaths;
         readonly IConfigurationSerializer<ConfigurationCli> _configurationSerializer;
         readonly IConfigurationStore<ConfigurationCli> _configurationStore;
+        readonly Editors.TerminalEditorFactory _terminalEditorFactory;
+        readonly ILoggerFactory _loggerFactory;
+        readonly ILogger<CommandCenter> _logger;
 
         /// <summary>
-        /// Initializes a command center with the default SQLite persistence services.
-        /// </summary>
-        public CommandCenter() : this(NotePersistence.CreateMigrator())
-        {
-        }
-
-        /// <summary>
-        /// Initializes a command center with an explicit note migrator.
+        /// Initializes a command center with explicitly composed runtime services.
         /// </summary>
         /// <param name="notebookMigrator">The service used for note database lifecycle operations.</param>
-        public CommandCenter(INotebookMigrator notebookMigrator)
+        /// <param name="databaseFactory">The shared notebook database context factory.</param>
+        /// <param name="pageRepository">The page persistence service.</param>
+        /// <param name="pageSearchRepository">The page search persistence service.</param>
+        /// <param name="transferRepository">The notebook transfer persistence service.</param>
+        /// <param name="metadataRepository">The notebook metadata persistence service.</param>
+        /// <param name="notebookFilePathFactory">The notebook file path factory.</param>
+        /// <param name="applicationPaths">The application paths.</param>
+        /// <param name="configurationSerializer">The CLI configuration serializer.</param>
+        /// <param name="configurationStore">The CLI configuration store.</param>
+        /// <param name="terminalEditorFactory">The terminal editor factory.</param>
+        /// <param name="loggerFactory">The shared logger factory.</param>
+        public CommandCenter(
+            INotebookMigrator notebookMigrator,
+            INotebookDbContextFactory databaseFactory,
+            IPageRepository pageRepository,
+            IPageSearchRepository pageSearchRepository,
+            INotebookTransferRepository transferRepository,
+            INotebookMetadataRepository metadataRepository,
+            NotebookFilePathFactory notebookFilePathFactory,
+            ApplicationPaths applicationPaths,
+            IConfigurationSerializer<ConfigurationCli> configurationSerializer,
+            IConfigurationStore<ConfigurationCli> configurationStore,
+            Editors.TerminalEditorFactory terminalEditorFactory,
+            ILoggerFactory loggerFactory)
         {
             _notebookMigrator = notebookMigrator ??
                 throw new ArgumentNullException(nameof(notebookMigrator));
-            var databaseFactory =
-                new SqliteNotebookDbContextFactory(NotebookDbContext.MyLoggerFactory);
-            var pageRepository = new SqlitePageRepository(databaseFactory);
-            var transferRepository = new SqliteNotebookTransferRepository(databaseFactory);
-            var metadataRepository = new SqliteNotebookMetadataRepository(databaseFactory);
-            _notebookFilePathFactory = new NotebookFilePathFactory();
-            _textPageImporter = new TextPageImporter(pageRepository);
+            _databaseFactory = databaseFactory ??
+                throw new ArgumentNullException(nameof(databaseFactory));
+            _pageRepository = pageRepository ??
+                throw new ArgumentNullException(nameof(pageRepository));
+            _pageSearchRepository = pageSearchRepository ??
+                throw new ArgumentNullException(nameof(pageSearchRepository));
+            _metadataRepository = metadataRepository ??
+                throw new ArgumentNullException(nameof(metadataRepository));
+            _notebookFilePathFactory = notebookFilePathFactory ??
+                throw new ArgumentNullException(nameof(notebookFilePathFactory));
+            _textPageImporter = new TextPageImporter(_pageRepository);
             _textPageExporter = new TextPageExporter(transferRepository);
             _notebookBackupService = new NotebookBackupService(
                 transferRepository,
-                metadataRepository,
+                _metadataRepository,
                 notebookMigrator,
                 _notebookFilePathFactory);
-            _applicationPaths = ApplicationPaths.CreateDefault();
-            _configurationSerializer =
-                new JsonConfigurationSerializer<ConfigurationCli>();
-            _configurationStore = new FileConfigurationStore<ConfigurationCli>(
-                _applicationPaths.ConfigurationPath,
-                _configurationSerializer,
-                () => ConfigurationCli.CreateDefault(_applicationPaths));
+            _applicationPaths = applicationPaths ??
+                throw new ArgumentNullException(nameof(applicationPaths));
+            _configurationSerializer = configurationSerializer ??
+                throw new ArgumentNullException(nameof(configurationSerializer));
+            _configurationStore = configurationStore ??
+                throw new ArgumentNullException(nameof(configurationStore));
+            _terminalEditorFactory = terminalEditorFactory ??
+                throw new ArgumentNullException(nameof(terminalEditorFactory));
+            _loggerFactory = loggerFactory ??
+                throw new ArgumentNullException(nameof(loggerFactory));
+            _logger = _loggerFactory.CreateLogger<CommandCenter>();
         }
 
         ConfigurationCli LoadConfiguration()
@@ -81,15 +113,40 @@ namespace MemoriaNote.Cli
 
         MemoriaNoteViewModel CreateViewModel(ConfigurationCli configuration)
         {
+            var request = new ApplicationStartupRequest(
+                configuration.DefaultNotebookName,
+                configuration.DefaultNotebookTitle,
+                _applicationPaths.DefaultNotebookDatabasePath,
+                configuration.DataSources);
+            var startupService = new ApplicationStartupService(
+                _notebookMigrator,
+                new FileNotebookDatabaseProbe(),
+                new ConfiguredWorkspaceLoader(
+                    configuration.Workspace,
+                    _pageRepository,
+                    _pageSearchRepository,
+                    _metadataRepository));
+            var session = startupService.StartAsync(request, CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+            if (session.DefaultNotebookCreated)
+                _logger.LogInformation("Default note created");
+
             return new MemoriaNoteViewModel(
                 configuration,
-                _applicationPaths.DefaultNotebookDatabasePath);
+                session,
+                _loggerFactory.CreateLogger<MemoriaNoteService>());
+        }
+
+        ScreenController CreateScreenController()
+        {
+            return new ScreenController(_terminalEditorFactory, _loggerFactory);
         }
 
         /// <summary>
         /// 共通の前後処理＋例外ハンドリングを行うラッパー
         /// </summary>
-        private static int Execute(Func<int> body)
+        private int Execute(Func<int> body)
         {
             try
             {
@@ -98,8 +155,7 @@ namespace MemoriaNote.Cli
             catch (Exception e)
             {
                 // 例外はすべてログ＆標準エラー出力
-                Log.Logger.Fatal(e.Message);
-                Log.Logger.Fatal(e.StackTrace);
+                _logger.LogCritical(e, "A CLI command failed unexpectedly.");
                 Console.Error.WriteLine($"Fatal: {e.Message}");
                 return -1;
             }
@@ -120,7 +176,7 @@ namespace MemoriaNote.Cli
                 vm.SearchRange = configuration.State.SearchRange;
                 vm.SearchMethod = configuration.State.SearchMethod;
 
-                var sc = new ScreenController();
+                var sc = CreateScreenController();
                 sc.RequestHome();
                 sc.Start(vm);
 
@@ -156,7 +212,7 @@ namespace MemoriaNote.Cli
                 vm.SearchEntry = name;
                 vm.SearchRange = SearchRangeType.Notebook;
                 vm.SearchMethod = SearchMethodType.Heading;
-                var sc = new ScreenController();
+                var sc = CreateScreenController();
                 sc.RequestManage();
                 sc.Start(vm);
                 _configurationStore.Save(configuration);
@@ -180,7 +236,7 @@ namespace MemoriaNote.Cli
                 vm.SearchMethod = SearchMethodType.Heading;
                 vm.EditingTitle = name;
                 vm.EditingState = EditorMode.Create;
-                var sc = new ScreenController();
+                var sc = CreateScreenController();
                 sc.RequestManage();
                 sc.RequestEditor();
                 sc.Start(vm);
@@ -200,7 +256,7 @@ namespace MemoriaNote.Cli
                 do
                 {
                     retry = false;
-                    var editor = Editors.TerminalEditorFactory.Create(configuration);
+                    var editor = _terminalEditorFactory.Create(configuration);
                     editor.FileName = Path.GetFileName(_applicationPaths.ConfigurationPath);
                     editor.TextData = _configurationSerializer.Serialize(configuration);
 
@@ -213,7 +269,7 @@ namespace MemoriaNote.Cli
                         }
                         catch (ConfigurationFormatException)
                         {
-                            Log.Logger.Error("Error: Unable to read modified data");
+                            _logger.LogError("Error: Unable to read modified data");
                             Console.Error.WriteLine("Error: Unable to read modified data");
                             if (!ReadLineTryAgain())
                                 return -1;
@@ -223,11 +279,11 @@ namespace MemoriaNote.Cli
                         }
 
                         _configurationStore.Save(configuration);
-                        Log.Logger.Information("Configuration updated");
+                        _logger.LogInformation("Configuration updated");
                     }
                     else
                     {
-                        Log.Logger.Information("Configuration edit canceled");
+                        _logger.LogInformation("Configuration edit canceled");
                         Console.WriteLine("Operation was canceled");
                     }
                 } while (retry);
@@ -409,7 +465,7 @@ namespace MemoriaNote.Cli
                     retry = false;
                     var data = DataSourceTracker.Create(note.Metadata);
                     var errors = new List<string>();
-                    var editor = Editors.TerminalEditorFactory.Create(configuration);
+                    var editor = _terminalEditorFactory.Create(configuration);
                     editor.FileName = note.ToString();
                     editor.TextData = JsonConvert.SerializeObject(data, Formatting.Indented);
 
@@ -422,13 +478,13 @@ namespace MemoriaNote.Cli
                             data.ValidateTitle(note, vm.Workspace, ref errors);
                             note.UpdateMetadata(
                                 NotebookMetadataPatch.Create(note.Metadata, data));
-                            Log.Logger.Information("Metadata updated");
+                            _logger.LogInformation("Metadata updated");
                         }
                         catch (ValidationException)
                         {
                             foreach (var err in errors)
                             {
-                                Log.Logger.Error($"Error: {err}");
+                                _logger.LogError("Error: {ValidationError}", err);
                                 Console.Error.WriteLine($"Error: {err}");
                             }
                             if (ReadLineTryAgain()) retry = true;
@@ -436,7 +492,7 @@ namespace MemoriaNote.Cli
                         }
                         catch
                         {
-                            Log.Logger.Error("Error: Unable to read modified data");
+                            _logger.LogError("Error: Unable to read modified data");
                             Console.Error.WriteLine("Error: Unable to read modified data");
                             if (ReadLineTryAgain()) retry = true;
                             else return -1;
@@ -444,7 +500,7 @@ namespace MemoriaNote.Cli
                     }
                     else
                     {
-                        Log.Logger.Information("Metadata edit canceled");
+                        _logger.LogInformation("Metadata edit canceled");
                         Console.WriteLine("Operation was canceled");
                     }
                 } while (retry);
@@ -493,7 +549,7 @@ namespace MemoriaNote.Cli
                 }
                 catch (Exception e)
                 {
-                    Log.Logger.Error(e.Message);
+                    _logger.LogError(e, "Notebook creation failed.");
                     Console.WriteLine($"Error: {e.Message}");
                     return -1;
                 }
@@ -563,7 +619,7 @@ namespace MemoriaNote.Cli
                 var configuration = LoadConfiguration();
                 try
                 {
-                    using var db = new NotebookDbContext(path) { };
+                    using var db = _databaseFactory.CreateDbContext(path);
                 }
                 catch
                 {

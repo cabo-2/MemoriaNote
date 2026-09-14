@@ -3,6 +3,8 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MemoriaNote
 {
@@ -204,8 +206,9 @@ namespace MemoriaNote
             }
             catch (Exception e)
             {
-                Log.Logger.Error(e.Message);
-                Log.Logger.Error(e.StackTrace);
+                NullLogger<DataSourceFactory>.Instance.LogError(
+                    e,
+                    "The legacy data-source catalog could not be loaded.");
 
                 var value = new DataSourceFactory();
                 value.Save();

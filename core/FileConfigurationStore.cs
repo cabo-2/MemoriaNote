@@ -18,6 +18,7 @@ namespace MemoriaNote
         readonly string _configurationPath;
         readonly IConfigurationSerializer<TConfiguration> _serializer;
         readonly Func<TConfiguration> _createDefault;
+        readonly IClock _clock;
 
         /// <summary>Initializes a file-backed configuration store.</summary>
         /// <param name="configurationPath">The configuration file path.</param>
@@ -27,6 +28,20 @@ namespace MemoriaNote
             string configurationPath,
             IConfigurationSerializer<TConfiguration> serializer,
             Func<TConfiguration> createDefault)
+            : this(configurationPath, serializer, createDefault, SystemClock.Instance)
+        {
+        }
+
+        /// <summary>Initializes a file-backed configuration store.</summary>
+        /// <param name="configurationPath">The configuration file path.</param>
+        /// <param name="serializer">The external format serializer.</param>
+        /// <param name="createDefault">Creates default configuration.</param>
+        /// <param name="clock">The clock used to name recovery artifacts.</param>
+        public FileConfigurationStore(
+            string configurationPath,
+            IConfigurationSerializer<TConfiguration> serializer,
+            Func<TConfiguration> createDefault,
+            IClock clock)
         {
             if (string.IsNullOrWhiteSpace(configurationPath))
                 throw new ArgumentException(
@@ -36,6 +51,7 @@ namespace MemoriaNote
             _configurationPath = Path.GetFullPath(configurationPath);
             _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
             _createDefault = createDefault ?? throw new ArgumentNullException(nameof(createDefault));
+            _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         }
 
         /// <inheritdoc/>
@@ -107,7 +123,7 @@ namespace MemoriaNote
 
         string QuarantineInvalidConfiguration()
         {
-            var timestamp = DateTimeOffset.UtcNow.ToString(
+            var timestamp = _clock.UtcNow.ToString(
                 "yyyyMMdd'T'HHmmssfffffff'Z'",
                 CultureInfo.InvariantCulture);
             var baseRecoveryPath = $"{_configurationPath}.corrupt-{timestamp}";

@@ -13,15 +13,29 @@ namespace MemoriaNote
     public sealed class SqlitePageRepository : IPageRepository
     {
         readonly INotebookDbContextFactory _databaseFactory;
+        readonly IClock _clock;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SqlitePageRepository"/> class.
         /// </summary>
         /// <param name="databaseFactory">The factory used to create database contexts.</param>
         public SqlitePageRepository(INotebookDbContextFactory databaseFactory)
+            : this(databaseFactory, SystemClock.Instance)
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance with explicit database and time providers.
+        /// </summary>
+        /// <param name="databaseFactory">The factory used to create database contexts.</param>
+        /// <param name="clock">The clock used for persisted page timestamps.</param>
+        public SqlitePageRepository(
+            INotebookDbContextFactory databaseFactory,
+            IClock clock)
         {
             _databaseFactory = databaseFactory ??
                 throw new ArgumentNullException(nameof(databaseFactory));
+            _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         }
 
         /// <inheritdoc/>
@@ -110,7 +124,11 @@ namespace MemoriaNote
                 .ConfigureAwait(false);
             var pages = await ReadTrackedHeadingGroupAsync(context, heading, token)
                 .ConfigureAwait(false);
-            var page = Page.Create(heading, body, directory);
+            var page = Page.CreateAt(
+                heading,
+                body,
+                _clock.UtcNow.UtcDateTime,
+                directory);
             page.Index = pages.Select(candidate => candidate.Index).DefaultIfEmpty().Max() + 1;
             context.Pages.Add(page);
             pages.Add(page);
@@ -153,7 +171,7 @@ namespace MemoriaNote
                 : sourceHeadingPages;
 
             CopyMutableValues(page, persistedPage);
-            persistedPage.UpdateLastModified();
+            persistedPage.UpdateLastModified(_clock.UtcNow.UtcDateTime);
 
             if (headingChanged)
             {

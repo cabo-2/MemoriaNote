@@ -3,6 +3,7 @@ using System.Text;
 using System.Reactive.Linq;
 using ReactiveUI;
 using MemoriaNote.Cli.Editors;
+using Microsoft.Extensions.Logging;
 
 namespace MemoriaNote.Cli
 {
@@ -18,17 +19,31 @@ namespace MemoriaNote.Cli
         /// </summary>
         /// <param name="sc">The ScreenController to be used.</param>
         /// <param name="vm">The MemoriaNoteViewModel to be used.</param>
-        public static void Run(ScreenController sc, MemoriaNoteViewModel vm)
+        public static void Run(
+            ScreenController sc,
+            MemoriaNoteViewModel vm,
+            TerminalEditorFactory terminalEditorFactory,
+            ILogger<EditorView> logger)
         {
             // Create a new instance of EditorView with the provided ScreenController and MemoriaNoteViewModel,
             // then start the editing process.
-            new EditorView(sc, vm).Start();
+            new EditorView(sc, vm, terminalEditorFactory, logger).Start();
         }
 
-        public EditorView(ScreenController controller, MemoriaNoteViewModel viewModel)
+        readonly TerminalEditorFactory _terminalEditorFactory;
+        readonly ILogger<EditorView> _logger;
+
+        public EditorView(
+            ScreenController controller,
+            MemoriaNoteViewModel viewModel,
+            TerminalEditorFactory terminalEditorFactory,
+            ILogger<EditorView> logger)
         {
             Controller = controller;
             ViewModel = viewModel;
+            _terminalEditorFactory = terminalEditorFactory ??
+                throw new System.ArgumentNullException(nameof(terminalEditorFactory));
+            _logger = logger ?? throw new System.ArgumentNullException(nameof(logger));
         }
 
         /// <summary>
@@ -37,7 +52,7 @@ namespace MemoriaNote.Cli
         protected void Start()
         {
             // Create a new instance of a terminal editor.
-            var editor = TerminalEditorFactory.Create(ViewModel.Configuration);
+            var editor = _terminalEditorFactory.Create(ViewModel.Configuration);
 
             // Check the current editing state in the ViewModel and execute the corresponding method.
             switch (ViewModel.EditingState)
@@ -60,7 +75,7 @@ namespace MemoriaNote.Cli
                     break;
                 default:
                     // Log an error if the editing state is not recognized.
-                    Log.Logger.Error("Error: EditingState none");
+                    _logger.LogError("Error: EditingState none");
                     return;
             }
 
@@ -109,7 +124,7 @@ namespace MemoriaNote.Cli
 
             if (!editor.Edit())
             {
-                Log.Logger.Information("A name enter canceled");
+                _logger.LogInformation("A name enter canceled");
                 ViewModel.ManageNotice = "A name enter canceled";
                 return false;
             }
@@ -125,7 +140,7 @@ namespace MemoriaNote.Cli
 
             if (!editor.Edit())
             {
-                Log.Logger.Information("A text enter canceled");
+                _logger.LogInformation("A text enter canceled");
                 ViewModel.SearchNotice = "A text enter canceled";
                 return false;
             }

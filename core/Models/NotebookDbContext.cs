@@ -1,12 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Serilog.Extensions.Logging;
-using Serilog.Extensions.Hosting;
-using Serilog.AspNetCore;
-using Serilog;
 
 namespace MemoriaNote
 {
@@ -57,7 +49,6 @@ namespace MemoriaNote
                 return;
 
             optionsBuilder
-                .UseLoggerFactory(MyLoggerFactory)
                 .UseSqlite("Data Source=" + (DatabasePath ?? ":memory:"));
         }
 
@@ -90,18 +81,5 @@ namespace MemoriaNote
         /// <summary>Gets the current notebook storage format version.</summary>
         public static string CurrentVersion { get => "1"; }
 
-        /// <summary>Gets the shared Entity Framework logger factory.</summary>
-        public static ILoggerFactory MyLoggerFactory {
-            get
-            {
-                return LoggerFactory.Create(builder => {
-                    builder.AddFilter("Microsoft", LogLevel.Warning)                       
-                        .AddFilter("System", LogLevel.Warning)
-                        .AddFilter("MemoriaNote", LogLevel.Debug)     
-                        .AddSerilog(Log.Logger);
-                    }
-                );
-            }
-        }
     }
 }
