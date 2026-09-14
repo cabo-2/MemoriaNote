@@ -1,6 +1,6 @@
 using NUnit.Framework;
 
-namespace MemoriaNote.Core.Tests.Application;
+namespace MemoriaNote.Cli.Tests;
 
 /// <summary>
 /// Verifies compatibility message wording generated from typed operation codes.

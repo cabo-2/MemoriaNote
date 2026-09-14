@@ -1,6 +1,6 @@
 using System;
 
-namespace MemoriaNote
+namespace MemoriaNote.Cli
 {
     /// <summary>
     /// Maps page operation codes to the legacy English presentation messages.

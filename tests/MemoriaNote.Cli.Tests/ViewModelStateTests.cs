@@ -1,13 +1,14 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
-namespace MemoriaNote.Core.Tests.Functional;
+namespace MemoriaNote.Cli.Tests;
 
 /// <summary>
 /// Verifies that presentation notifications remain outside the workspace model.
 /// </summary>
 [TestFixture]
 [Category("Functional")]
-public sealed class PresentationWorkspaceAdapterTests
+public sealed class ViewModelStateTests
 {
     /// <summary>
     /// Verifies that selecting a note updates the workspace and notifies presentation bindings.
@@ -17,7 +18,7 @@ public sealed class PresentationWorkspaceAdapterTests
     {
         var first = CreateNotebook("first");
         var second = CreateNotebook("second");
-        var service = new TestableService(
+        var service = CreateViewModel(
             new Workspace(null, new[] { first, second }, first));
         var changedProperties = new List<string?>();
         service.PropertyChanged += (_, change) =>
@@ -31,7 +32,7 @@ public sealed class PresentationWorkspaceAdapterTests
             Assert.That(service.SelectedNotebookIndex, Is.EqualTo(1));
             Assert.That(
                 changedProperties,
-                Does.Contain(nameof(MemoriaNoteService.SelectedNotebookIndex)));
+                Does.Contain(nameof(MemoriaNoteViewModel.SelectedNotebookIndex)));
             Assert.That(service.NoteNames, Has.Count.EqualTo(2));
         }
     }
@@ -43,7 +44,7 @@ public sealed class PresentationWorkspaceAdapterTests
     public void SelectNotebook_InvalidIndex_IsRejectedWithoutChangingSelection()
     {
         var note = CreateNotebook("selected");
-        var service = new TestableService(
+        var service = CreateViewModel(
             new Workspace(null, new[] { note }, note));
 
         Action select = () => service.SelectNotebook(1);
@@ -56,6 +57,33 @@ public sealed class PresentationWorkspaceAdapterTests
         }
     }
 
+    /// <summary>
+    /// Verifies that derived search labels notify their own properties.
+    /// </summary>
+    [Test]
+    public void SearchOptions_NotifyTheirDerivedDisplayProperties()
+    {
+        var service = CreateViewModel(new Workspace());
+        var changedProperties = new List<string?>();
+        service.PropertyChanged += (_, change) =>
+            changedProperties.Add(change.PropertyName);
+
+        service.SearchRange = SearchRangeType.Workspace;
+        service.SearchMethod = SearchMethodType.FullText;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(service.SearchRangeString, Is.EqualTo("All notes"));
+            Assert.That(service.SearchMethodString, Is.EqualTo("Full text"));
+            Assert.That(
+                changedProperties,
+                Does.Contain(nameof(MemoriaNoteViewModel.SearchRangeString)));
+            Assert.That(
+                changedProperties,
+                Does.Contain(nameof(MemoriaNoteViewModel.SearchMethodString)));
+        }
+    }
+
     static Notebook CreateNotebook(string name)
     {
         return new Notebook(Path.Combine(
@@ -63,11 +91,12 @@ public sealed class PresentationWorkspaceAdapterTests
             $"adapter-{name}-{Guid.NewGuid():N}.db"));
     }
 
-    sealed class TestableService : MemoriaNoteService
+    static MemoriaNoteViewModel CreateViewModel(Workspace workspace)
     {
-        internal TestableService(Workspace workspace)
-            : base(workspace)
-        {
-        }
+        return new MemoriaNoteViewModel(
+            new ConfigurationCli(),
+            workspace,
+            new StubApplicationService(),
+            NullLogger<MemoriaNoteViewModel>.Instance);
     }
 }

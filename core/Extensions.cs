@@ -113,46 +113,6 @@ namespace MemoriaNote
     }
 
     /// <summary>
-    /// This class contains extension methods for enums
-    /// </summary>
-    public static class EnumExtensions
-    {
-        /// <summary>
-        /// Converts the SearchRangeType enum value to a display string
-        /// </summary>
-        /// <param name="range">The SearchRangeType enum value</param>
-        /// <returns>The display string corresponding to the enum value</returns>
-        public static string ToDisplayString(this SearchRangeType range)
-        {
-            switch (range)
-            {
-                case SearchRangeType.Notebook:
-                    return "A note   ";
-                case SearchRangeType.Workspace:
-                default:
-                    return "All notes";
-            }
-        }
-
-        /// <summary>
-        /// Converts the SearchMethodType enum value to a display string
-        /// </summary>
-        /// <param name="method">The SearchMethodType enum value</param>
-        /// <returns>The display string corresponding to the enum value</returns>
-        public static string ToDisplayString(this SearchMethodType method)
-        {
-            switch (method)
-            {
-                case SearchMethodType.Heading:
-                    return "Heading  ";
-                case SearchMethodType.FullText:
-                default:
-                    return "Full text";
-            }
-        }
-    }
-
-    /// <summary>
     /// This class contains extension methods for enumerable collections
     /// </summary>
     public static class EnumerableExtensions

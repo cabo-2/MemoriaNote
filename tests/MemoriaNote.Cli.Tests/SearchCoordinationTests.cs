@@ -1,6 +1,7 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
-namespace MemoriaNote.Core.Tests.Functional;
+namespace MemoriaNote.Cli.Tests;
 
 /// <summary>
 /// Verifies task completion, cancellation, and latest-result behavior for searches.
@@ -164,13 +165,17 @@ public sealed class SearchCoordinationTests
         return new SearchPage(Array.Empty<PageSummary>(), 0, 0, 0);
     }
 
-    private sealed class ControlledSearchService : MemoriaNoteService
+    private sealed class ControlledSearchService : MemoriaNoteViewModel
     {
         private readonly Func<SearchInvocation, CancellationToken, Task<SearchPage>> _search;
 
         internal ControlledSearchService(
             Func<SearchInvocation, CancellationToken, Task<SearchPage>> search)
-            : base(new Workspace())
+            : base(
+                new ConfigurationCli(),
+                new Workspace(),
+                new StubApplicationService(),
+                NullLogger<MemoriaNoteViewModel>.Instance)
         {
             _search = search;
         }
