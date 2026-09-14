@@ -11,15 +11,32 @@ namespace MemoriaNote
     public sealed class TextPageExporter
     {
         readonly INotebookTransferRepository _transferRepository;
+        readonly PageFileNameCodec _fileNameCodec;
+        readonly TextTransferPathCodec _pathCodec;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TextPageExporter"/> class.
         /// </summary>
         /// <param name="transferRepository">The repository used to read exported pages.</param>
         public TextPageExporter(INotebookTransferRepository transferRepository)
+            : this(transferRepository, new PageFileNameCodec())
+        {
+        }
+
+        /// <summary>
+        /// Initializes a text page exporter with an explicit file-name codec.
+        /// </summary>
+        /// <param name="transferRepository">The repository used to read exported pages.</param>
+        /// <param name="fileNameCodec">The codec used for file and directory names.</param>
+        public TextPageExporter(
+            INotebookTransferRepository transferRepository,
+            PageFileNameCodec fileNameCodec)
         {
             _transferRepository = transferRepository ??
                 throw new ArgumentNullException(nameof(transferRepository));
+            _fileNameCodec = fileNameCodec ??
+                throw new ArgumentNullException(nameof(fileNameCodec));
+            _pathCodec = new TextTransferPathCodec(_fileNameCodec);
         }
 
         /// <summary>
@@ -50,11 +67,12 @@ namespace MemoriaNote
                 {
                     directory = Path.Combine(
                         exportDirectory,
-                        TextUtil.ConvertSystemPath(relativeDirectory));
+                        _pathCodec.EncodeRelativePath(relativeDirectory));
                     Directory.CreateDirectory(directory);
                 }
 
-                var path = Path.Combine(directory, page.Name + ".txt");
+                var fileName = _fileNameCodec.Encode(page.Name) + ".txt";
+                var path = Path.Combine(directory, fileName);
                 await File.WriteAllTextAsync(path, page.Text ?? string.Empty, token)
                     .ConfigureAwait(false);
             }

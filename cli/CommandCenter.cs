@@ -35,6 +35,8 @@ namespace MemoriaNote.Cli
         readonly Editors.TerminalEditorFactory _terminalEditorFactory;
         readonly ILoggerFactory _loggerFactory;
         readonly ILogger<CommandCenter> _logger;
+        readonly CliSearchQueryNormalizer _searchQueryNormalizer =
+            new CliSearchQueryNormalizer();
 
         /// <summary>
         /// Initializes a command center with explicitly composed runtime services.
@@ -172,7 +174,7 @@ namespace MemoriaNote.Cli
                 var configuration = LoadConfiguration();
 
                 var vm = CreateViewModel(configuration);
-                vm.SearchEntry = GetFindKey(name);
+                vm.SearchEntry = _searchQueryNormalizer.Normalize(name);
                 vm.SearchRange = configuration.State.SearchRange;
                 vm.SearchMethod = configuration.State.SearchMethod;
 
@@ -183,21 +185,6 @@ namespace MemoriaNote.Cli
                 _configurationStore.Save(configuration);
                 return 0;
             });
-
-        static string GetFindKey(string name)
-        {
-            if (string.IsNullOrWhiteSpace(name))
-                return null;
-
-            var match = TextMatching.Create(name);
-            if (match.IsSentence)
-                return name;
-
-            if (match.IsPrefixMatch || match.IsSuffixMatch)
-                return name;
-
-            return name + "*";
-        }
 
         /// <summary>
         /// Method to edit a specific entry by name
@@ -323,7 +310,7 @@ namespace MemoriaNote.Cli
                     return 0;
 
                 var vm = CreateViewModel(configuration);
-                vm.SearchEntry = GetFindKey(name);
+                vm.SearchEntry = _searchQueryNormalizer.Normalize(name);
                 vm.SearchRange = SearchRangeType.Notebook;
                 vm.SearchMethod = SearchMethodType.Heading;
                 vm.ActivateHandler().Wait();

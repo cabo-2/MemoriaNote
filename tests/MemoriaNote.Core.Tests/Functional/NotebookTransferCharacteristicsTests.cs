@@ -181,6 +181,66 @@ public sealed class NotebookTransferCharacteristicsTests
     }
 
     /// <summary>
+    /// Verifies portable encoding preserves reserved names, unsafe characters, and literal lookalikes.
+    /// </summary>
+    [Test]
+    public async Task TextExportImport_PortableNames_RoundTripWithoutLookalikeReplacement()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        var source = database.CreateNotebook("source", "Source Note");
+        source.CreatePage("CON", "Reserved name", "AUX/design:2026");
+        source.CreatePage("Plan/2026", "Slash name");
+        source.CreatePage("Literal／Slash", "Full-width slash name");
+        var exportDirectory = Path.Combine(database.DirectoryPath, "portable-export");
+        Directory.CreateDirectory(exportDirectory);
+
+        var services = CreateServices();
+        await services.Exporter.ExportAsync(
+            GetNotebookId(source),
+            exportDirectory,
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                File.Exists(Path.Combine(
+                    exportDirectory,
+                    "~mn~1~AUX",
+                    "~mn~1~design%3A2026",
+                    "~mn~1~CON.txt")),
+                Is.True);
+            Assert.That(
+                File.Exists(Path.Combine(exportDirectory, "~mn~1~Plan%2F2026.txt")),
+                Is.True);
+            Assert.That(
+                File.Exists(Path.Combine(exportDirectory, "Literal／Slash.txt")),
+                Is.True);
+        }
+
+        var imported = database.CreateNotebook(
+            "imported-portable",
+            "Imported Portable Note",
+            Path.Combine(database.DirectoryPath, "imported-portable.db"));
+        await services.Importer.ImportAsync(
+            GetNotebookId(imported),
+            exportDirectory,
+            recursive: true,
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(imported.ReadPage("CON", 1).Text, Is.EqualTo("Reserved name"));
+            Assert.That(
+                imported.ReadPage("CON", 1).TagDict[PageTag.Dir],
+                Is.EqualTo("AUX/design:2026"));
+            Assert.That(imported.ReadPage("Plan/2026", 1).Text, Is.EqualTo("Slash name"));
+            Assert.That(
+                imported.ReadPage("Literal／Slash", 1).Text,
+                Is.EqualTo("Full-width slash name"));
+        }
+    }
+
+    /// <summary>
     /// Verifies that importing an existing page name creates another indexed page.
     /// </summary>
     [Test]

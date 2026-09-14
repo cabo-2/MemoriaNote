@@ -81,6 +81,36 @@ public sealed class SqlitePageSearchRepositoryTests
     }
 
     /// <summary>
+    /// Verifies SQLite LIKE characters remain literal when combined with CLI glob syntax.
+    /// </summary>
+    /// <param name="searchEntry">The glob query containing a special LIKE character.</param>
+    /// <param name="expectedPrefix">The literal heading prefix.</param>
+    [TestCase("%*", "%")]
+    [TestCase("_*", "_")]
+    public async Task SearchAsync_LikeSpecialCharacterWithGlob_MatchesLiteralPrefix(
+        string searchEntry,
+        string expectedPrefix)
+    {
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("test-note", "Test Note");
+        var exact = note.CreatePage(expectedPrefix, "Exact special heading.");
+        var suffix = note.CreatePage(expectedPrefix + "Suffix", "Prefixed special heading.");
+        note.CreatePage("Unrelated", "Another page.");
+
+        var result = await _repository.SearchAsync(
+            NotebookId.FromDatabasePath(database.DatabasePath),
+            searchEntry,
+            SearchMethodType.Heading,
+            0,
+            10,
+            CancellationToken.None);
+
+        Assert.That(
+            result.Select(summary => summary.PageId.Value),
+            Is.EqualTo(new[] { exact.Guid, suffix.Guid }));
+    }
+
+    /// <summary>
     /// Captures existing full-text results for punctuation and Unicode input.
     /// </summary>
     /// <param name="searchEntry">The full-text search value.</param>
