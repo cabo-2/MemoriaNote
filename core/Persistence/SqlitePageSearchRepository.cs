@@ -80,10 +80,10 @@ namespace MemoriaNote
             NotebookDbContext context,
             SqliteSearchPattern pattern)
         {
-            if (pattern.MatchingType == MatchingType.None)
+            if (pattern.MatchingType == SqliteSearchMatchType.None)
                 return SqliteSearchQuery.FromContents(context.Contents);
 
-            if (pattern.MatchingType == MatchingType.Partial)
+            if (pattern.MatchingType == SqliteSearchMatchType.Partial)
             {
                 var contents = context.Contents.Where(content =>
                     EF.Functions.Like(content.Name, pattern.Pattern, "\\"));
@@ -105,7 +105,7 @@ namespace MemoriaNote
             NotebookDbContext context,
             SqliteSearchPattern pattern)
         {
-            if (pattern.MatchingType == MatchingType.None)
+            if (pattern.MatchingType == SqliteSearchMatchType.None)
                 return SqliteSearchQuery.FromContents(context.Contents);
 
             var ftsQuery = $"Text : \"{pattern.Pattern}\"";
@@ -182,34 +182,5 @@ namespace MemoriaNote
             }
         }
 
-        sealed class SqliteSearchPattern
-        {
-            SqliteSearchPattern(string pattern, MatchingType matchingType)
-            {
-                Pattern = pattern;
-                MatchingType = matchingType;
-            }
-
-            internal string Pattern { get; }
-
-            internal MatchingType MatchingType { get; }
-
-            internal static SqliteSearchPattern Create(string searchEntry)
-            {
-                if (string.IsNullOrWhiteSpace(searchEntry))
-                    return new SqliteSearchPattern(string.Empty, MatchingType.None);
-
-                var pattern = searchEntry.Trim()
-                    .Replace("\"", "\"\"")
-                    .Replace("%", "\\%")
-                    .Replace("_", "\\_")
-                    .Replace("*", "%")
-                    .Replace("?", "_");
-                var matchingType = searchEntry.Contains("*") || searchEntry.Contains("?")
-                    ? MatchingType.Partial
-                    : MatchingType.Exact;
-                return new SqliteSearchPattern(pattern, matchingType);
-            }
-        }
     }
 }

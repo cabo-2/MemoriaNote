@@ -13,15 +13,32 @@ namespace MemoriaNote
     public sealed class TextPageImporter
     {
         readonly IPageRepository _pageRepository;
+        readonly PageFileNameCodec _fileNameCodec;
+        readonly TextTransferPathCodec _pathCodec;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="TextPageImporter"/> class.
         /// </summary>
         /// <param name="pageRepository">The repository used to create imported pages.</param>
         public TextPageImporter(IPageRepository pageRepository)
+            : this(pageRepository, new PageFileNameCodec())
+        {
+        }
+
+        /// <summary>
+        /// Initializes a text page importer with an explicit file-name codec.
+        /// </summary>
+        /// <param name="pageRepository">The repository used to create imported pages.</param>
+        /// <param name="fileNameCodec">The codec used for file and directory names.</param>
+        public TextPageImporter(
+            IPageRepository pageRepository,
+            PageFileNameCodec fileNameCodec)
         {
             _pageRepository = pageRepository ??
                 throw new ArgumentNullException(nameof(pageRepository));
+            _fileNameCodec = fileNameCodec ??
+                throw new ArgumentNullException(nameof(fileNameCodec));
+            _pathCodec = new TextTransferPathCodec(_fileNameCodec);
         }
 
         /// <summary>
@@ -49,13 +66,13 @@ namespace MemoriaNote
                 token.ThrowIfCancellationRequested();
                 var text = await File.ReadAllTextAsync(source.File.FullName, token)
                     .ConfigureAwait(false);
-                var name = TextUtil.ReplaceNameStringReverse(
+                var name = _fileNameCodec.Decode(
                     Path.GetFileNameWithoutExtension(source.File.Name));
                 await _pageRepository.CreatePageAsync(
                         notebookId,
                         name,
                         text,
-                        TextUtil.ConvertGenericPath(source.RelativeDirectory),
+                        _pathCodec.DecodeRelativePath(source.RelativeDirectory),
                         token)
                     .ConfigureAwait(false);
             }

@@ -114,6 +114,40 @@ public sealed class TextTransferWorkflowTests
         }
     }
 
+    /// <summary>
+    /// Verifies percent and underscore are literal CLI input rather than glob wildcards.
+    /// </summary>
+    [Test]
+    public async Task Completion_LikeSpecialCharacterPrefix_MatchesLiteralPageName()
+    {
+        using var harness = new CliProcessHarness();
+        var importDirectory = Path.Combine(harness.TemporaryDirectory, "import-special");
+        Directory.CreateDirectory(importDirectory);
+        await File.WriteAllTextAsync(
+            Path.Combine(importDirectory, "%Progress.txt"),
+            "Percent heading");
+        await File.WriteAllTextAsync(
+            Path.Combine(importDirectory, "_Draft.txt"),
+            "Underscore heading");
+
+        AssertSucceeded(await harness.RunAsync("import", importDirectory));
+
+        var percentResult = await harness.RunAsync("list", "%", "--completion");
+        var underscoreResult = await harness.RunAsync("list", "_", "--completion");
+
+        AssertSucceeded(percentResult);
+        AssertSucceeded(underscoreResult);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                GetOutputLines(percentResult.StandardOutput),
+                Is.EqualTo(new[] { "%progress" }));
+            Assert.That(
+                GetOutputLines(underscoreResult.StandardOutput),
+                Is.EqualTo(new[] { "_draft" }));
+        }
+    }
+
     static void AssertSucceeded(CliProcessResult result)
     {
         using (Assert.EnterMultipleScope())
