@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 
 namespace MemoriaNote
 {
@@ -30,7 +31,16 @@ namespace MemoriaNote
         /// <inheritdoc/>
         public Workspace Load()
         {
-            return _settings.CreateWorkspace();
+            var notebooks = _settings.NotebookDatabasePaths
+                .Select(databasePath => new Notebook(databasePath))
+                .ToList();
+            var selectedNotebook = _settings.SelectedNotebookName == null
+                ? notebooks.FirstOrDefault()
+                : notebooks.FirstOrDefault(
+                    notebook =>
+                        _settings.SelectedNotebookName == notebook.Metadata.Name) ??
+                    notebooks.FirstOrDefault();
+            return new Workspace(_settings.Name, notebooks, selectedNotebook);
         }
     }
 }

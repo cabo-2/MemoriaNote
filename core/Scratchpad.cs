@@ -14,7 +14,7 @@ namespace MemoriaNote
         /// <summary>
         /// Singleton instance of the Scratchpad class
         /// </summary>
-        public static Scratchpad Singleton { get; } = new Scratchpad(Configuration.ApplicationName);
+        public static Scratchpad Singleton { get; } = new Scratchpad(ApplicationPaths.ApplicationName);
 
         string _tempDir;
         /// <summary>

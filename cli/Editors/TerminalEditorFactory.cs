@@ -45,11 +45,15 @@ namespace MemoriaNote.Cli.Editors
         /// <summary>
         /// Creates an instance of ITerminalEditor based on configuration settings.
         /// </summary>
+        /// <param name="configuration">The current CLI configuration.</param>
         /// <returns>An instance of ITerminalEditor.</returns>
-        public static ITerminalEditor Create()
+        public static ITerminalEditor Create(ConfigurationCli configuration)
         {
+            if (configuration == null)
+                throw new ArgumentNullException(nameof(configuration));
+
             // Check if the environment variable for the terminal editor exists and use it if specified
-            if (ConfigurationCli.Instance.Terminal.EditorEnv)
+            if (configuration.Terminal.EditorEnv)
             {
                 var envs = Environment.GetEnvironmentVariables();
                 if (envs.Contains(ConfigurationCli.TerminalSetting.EditorEnvName))
@@ -57,11 +61,11 @@ namespace MemoriaNote.Cli.Editors
             }
 
             // Throw an exception if the editor path is not specified in configuration
-            if (string.IsNullOrWhiteSpace(ConfigurationCli.Instance.Terminal.EditorPath))
+            if (string.IsNullOrWhiteSpace(configuration.Terminal.EditorPath))
                 throw new ApplicationException("editor path");
 
             // Create a new TerminalEditor instance with the specified editor path
-            return new TerminalEditor(ConfigurationCli.Instance.Terminal.EditorPath);
+            return new TerminalEditor(configuration.Terminal.EditorPath);
         }
     }
 }

@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Newtonsoft.Json;
 using NUnit.Framework;
 
 namespace MemoriaNote.Core.Tests.Functional;
@@ -31,7 +30,8 @@ public sealed class ConfigurationCompatibilityTests
             "\"DefaultNoteTitle\":\"Legacy Note\"" +
             "}";
 
-        var configuration = JsonConvert.DeserializeObject<Configuration>(legacyJson);
+        var serializer = new JsonConfigurationSerializer<Configuration>();
+        var configuration = serializer.Deserialize(legacyJson);
 
         Assert.That(configuration, Is.Not.Null);
         using (Assert.EnterMultipleScope())
@@ -51,7 +51,7 @@ public sealed class ConfigurationCompatibilityTests
         }
 
         using var document = JsonDocument.Parse(
-            JsonConvert.SerializeObject(configuration));
+            serializer.Serialize(configuration));
         var root = document.RootElement;
         var workspace = root.GetProperty("Workgroup");
         using (Assert.EnterMultipleScope())

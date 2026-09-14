@@ -1,11 +1,6 @@
 using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Runtime.InteropServices;
-using Newtonsoft.Json;
 using System.Runtime.Serialization;
-using ReactiveUI;
-using ReactiveUI.Fody.Helpers;
 
 namespace MemoriaNote.Cli
 {
@@ -15,64 +10,63 @@ namespace MemoriaNote.Cli
     [DataContract]
     public class ConfigurationCli : Configuration
     {
-#pragma warning disable 108
-        public static ConfigurationCli Instance
-        {
-            get => (ConfigurationCli)Configuration.Instance;
-            set => Configuration.Instance = value;
-        }
-#pragma warning restore 108
-        /// <summary>
-        /// Gets or sets the instance of ConfigurationCli.
-        /// </summary>
-        public static ConfigurationCli Create() => Configuration.Create<ConfigurationCli>();
         /// <summary>
         /// Represents terminal settings for the CLI.
         /// </summary>
-        [Reactive, DataMember] public TerminalSetting Terminal { get; set; } = new TerminalSetting();
+        [DataMember] public TerminalSetting Terminal { get; set; } = new TerminalSetting();
 
+        /// <summary>Represents persisted terminal options.</summary>
         [DataContract]
-        public class TerminalSetting : ConfigurationBase
+        public class TerminalSetting
         {
             /// <summary>
             /// Gets the environment variable name for the editor.
             /// </summary>
             public static string EditorEnvName => "EDITOR";
-            [Reactive, DataMember] public bool EditorEnv { get; set; } = true;
 
-            [Reactive, DataMember] public string EditorPath { get; set; }
+            /// <summary>Gets or sets whether the editor environment variable is used.</summary>
+            [DataMember] public bool EditorEnv { get; set; } = true;
 
-            [Reactive, DataMember] public CompletionType Completion { get; set; } = CompletionType.Word;
+            /// <summary>Gets or sets the configured editor path.</summary>
+            [DataMember] public string EditorPath { get; set; }
+
+            /// <summary>Gets or sets the shell completion mode.</summary>
+            [DataMember] public CompletionType Completion { get; set; } = CompletionType.Word;
         }
 
         /// <summary>
         /// Represents state settings for the CLI.
         /// </summary>
-        [Reactive, DataMember] public StateSetting State { get; set; } = new StateSetting();
+        [DataMember] public StateSetting State { get; set; } = new StateSetting();
 
         /// <summary>
         /// Represents state setting configurations.
         /// </summary>
         [DataContract]
-        public class StateSetting : ConfigurationBase
+        public class StateSetting
         {
-            [Reactive, DataMember] public SearchRangeType SearchRange { get; set; }
-            [Reactive, DataMember] public SearchMethodType SearchMethod { get; set; }
+            /// <summary>Gets or sets the last selected search range.</summary>
+            [DataMember] public SearchRangeType SearchRange { get; set; }
+
+            /// <summary>Gets or sets the last selected search method.</summary>
+            [DataMember] public SearchMethodType SearchMethod { get; set; }
         }
 
         /// <summary>
-        /// Sets default values for ConfigurationCli properties.
+        /// Creates default CLI configuration values.
         /// </summary>
-        protected override void SetDefault<T>(T value)
+        /// <param name="paths">The application paths used by default values.</param>
+        /// <returns>A new default CLI configuration.</returns>
+        public static ConfigurationCli CreateDefault(ApplicationPaths paths)
         {
-            ConfigurationCli config = value as ConfigurationCli;
+            var configuration = ConfigurationDefaults.Create<ConfigurationCli>(paths);
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                config.Terminal.EditorPath = @"C:\Program Files\Git\usr\bin\nano.exe";
+                configuration.Terminal.EditorPath = @"C:\Program Files\Git\usr\bin\nano.exe";
             else
-                config.Terminal.EditorPath = "nano";
+                configuration.Terminal.EditorPath = "nano";
 
-            base.SetDefault(value);
+            return configuration;
         }
     }
 

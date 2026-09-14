@@ -23,9 +23,14 @@ namespace MemoriaNote
         readonly IMemoriaNoteApplicationService _applicationService;
 
         /// <summary>
-        /// Initializes the service from the configured workspace.
+        /// Initializes the service from the specified persisted configuration.
         /// </summary>
-        public MemoriaNoteService() : this(CreateConfiguredSession())
+        /// <param name="configuration">The persisted application configuration.</param>
+        /// <param name="defaultNotebookDatabasePath">The default notebook database path.</param>
+        protected MemoriaNoteService(
+            Configuration configuration,
+            string defaultNotebookDatabasePath)
+            : this(CreateConfiguredSession(configuration, defaultNotebookDatabasePath))
         {
         }
 
@@ -195,14 +200,21 @@ namespace MemoriaNote
                 .ToProperty(this, x => x.SearchMethodString);
         }
 
-        static ApplicationSession CreateConfiguredSession()
+        static ApplicationSession CreateConfiguredSession(
+            Configuration configuration,
+            string defaultNotebookDatabasePath)
         {
-            var configuration = Configuration.Instance ??
-                throw new InvalidOperationException("The application configuration is not initialized.");
+            if (configuration == null)
+                throw new ArgumentNullException(nameof(configuration));
+            if (string.IsNullOrWhiteSpace(defaultNotebookDatabasePath))
+                throw new ArgumentException(
+                    "A default notebook database path is required.",
+                    nameof(defaultNotebookDatabasePath));
+
             var request = new ApplicationStartupRequest(
                 configuration.DefaultNotebookName,
                 configuration.DefaultNotebookTitle,
-                configuration.DefaultNotebookDatabasePath,
+                defaultNotebookDatabasePath,
                 configuration.DataSources);
             var startupService = new ApplicationStartupService(
                 NotePersistence.CreateMigrator(),
