@@ -2,7 +2,7 @@ using System;
 using System.Text;
 using Terminal.Gui;
 
-namespace MemoriaNote.Cli
+namespace MemoriaNote.Cli.Terminal
 {
     /// <summary>
     /// Helper class containing methods to create various view elements for the MemoriaNote.Cli application.

@@ -10,14 +10,14 @@ using System.Reactive.Concurrency;
 using System.Threading;
 using Microsoft.Extensions.Logging;
 
-namespace MemoriaNote.Cli
+namespace MemoriaNote.Cli.Terminal
 {
     /// <summary>
-    /// This class represents the ManageView which is a Toplevel and implements IViewFor<MemoriaNoteViewModel>, ITerminalScreen, and IDisposable interfaces. It is used to manage the view of the MemoriaNoteViewModel in the terminal screen.
+    /// This class represents the HomeView which is a Toplevel view and implements IViewFor<MemoriaNoteViewModel>, ITerminalScreen, and IDisposable interfaces.
     /// </summary>
-    public class ManageView : Toplevel, IViewFor<MemoriaNoteViewModel>, ITerminalScreen, IDisposable
+    public class HomeView : Toplevel, IViewFor<MemoriaNoteViewModel>, ITerminalScreen, IDisposable
     {
-        /// <summary>Runs the management screen until it exits or is canceled.</summary>
+        /// <summary>Runs the home screen until it exits or is canceled.</summary>
         /// <param name="sc">The screen controller.</param>
         /// <param name="vm">The presentation state.</param>
         /// <param name="logger">The presentation logger.</param>
@@ -25,7 +25,7 @@ namespace MemoriaNote.Cli
         public static void Run(
             ScreenController sc,
             MemoriaNoteViewModel vm,
-            ILogger<ManageView> logger,
+            ILogger<HomeView> logger,
             CancellationToken cancellationToken)
         {
             Application.Init();
@@ -35,7 +35,7 @@ namespace MemoriaNote.Cli
             {
                 RxApp.MainThreadScheduler = TerminalScheduler.Default;
                 RxApp.TaskpoolScheduler = TaskPoolScheduler.Default;
-                Application.Run(new ManageView(sc, vm, logger));
+                Application.Run(new HomeView(sc, vm, logger));
                 cancellationToken.ThrowIfCancellationRequested();
             }
             finally
@@ -45,17 +45,17 @@ namespace MemoriaNote.Cli
         }
 
         readonly CompositeDisposable _disposable = new CompositeDisposable();
-        readonly ILogger<ManageView> _logger;
+        readonly ILogger<HomeView> _logger;
 
         protected FrameView _navigation;
         protected FrameView _contentsFrame;
         protected FrameView _editorFrame;
         protected ColorScheme _colorScheme;
 
-        public ManageView(
+        public HomeView(
             ScreenController controller,
             MemoriaNoteViewModel viewModel,
-            ILogger<ManageView> logger)
+            ILogger<HomeView> logger)
         {
             Controller = controller;
             ViewModel = viewModel;
@@ -154,48 +154,40 @@ namespace MemoriaNote.Cli
                         _logger.LogDebug("Push F2 Function");
                         Observable.Start(()=>{}).InvokeCommand(ViewModel,vm => vm.PageNext);
                     }),
-                    new StatusItem(Key.Null," ",() => {}),
-                    new StatusItem(Key.F5, "~F5~ New   ", () => {
-                        _logger.LogDebug("Push F5 Function");
-
-                        ViewModel.EditingState = EditorMode.Create;
-                        ViewModel.EditingTitle = ViewModel.SearchEntry;
-                        Controller.RequestManage ();
-                        Controller.RequestEditor ();
-                        Application.RequestStop ();
-                    }),
-                    new StatusItem(Key.F6, "~F6~ Edit  ", () => {
-                        _logger.LogDebug("Push F6 Function");
-
-                        ViewModel.EditingState = EditorMode.Edit;
-                        Controller.RequestManage ();
-                        Controller.RequestEditor ();
-                        Application.RequestStop ();
-                    }),
-                    new StatusItem(Key.F7, "~F7~ Rename", () => {
-                        _logger.LogDebug("Push F7 Function");
-
-                        ViewModel.EditingState = EditorMode.Rename;
-                        Controller.RequestManage ();
-                        Controller.RequestEditor ();
-                        Application.RequestStop ();
-                    }),
-                    new StatusItem(Key.F8, "~F8~ Delete", () => {
-                        _logger.LogDebug("Push F8 Function");
-
-                        ViewModel.EditingState = EditorMode.Delete;
-                        Controller.RequestManage ();
-                        Controller.RequestEditor ();
-                        Application.RequestStop ();
-                    }),
-                    new StatusItem(Key.Null," ",() => {}),
-                    new StatusItem(Key.F10, "~F10~ Manage Mode", () => {
-                        _logger.LogDebug("Push F10 Function");
-
-                        ViewModel.SearchRange = ViewModel.Configuration.State.SearchRange;
-                        ViewModel.SearchMethod = ViewModel.Configuration.State.SearchMethod;
+                    new StatusItem(Key.F3, "~F3~ " + ViewModel.SearchRangeString, () => {
+                        _logger.LogDebug("Push F3 Function");
+                        if (ViewModel.SearchRange == SearchRangeType.Notebook)
+                            ViewModel.SearchRange = ViewModel.Configuration.State.SearchRange = SearchRangeType.Workspace;
+                        else
+                            ViewModel.SearchRange = ViewModel.Configuration.State.SearchRange = SearchRangeType.Notebook;
 
                         Controller.RequestHome();
+                        Application.RequestStop ();
+                        _logger.LogDebug(
+                            "Search range changed: {SearchRange}",
+                            ViewModel.SearchRangeString);
+                    }),
+                    new StatusItem(Key.F4, "~F4~ " + ViewModel.SearchMethodString, () => {
+                        _logger.LogDebug("Push F4 Function");
+                        if (ViewModel.SearchMethod == SearchMethodType.Heading)
+                            ViewModel.SearchMethod = ViewModel.Configuration.State.SearchMethod = SearchMethodType.FullText;
+                        else
+                            ViewModel.SearchMethod = ViewModel.Configuration.State.SearchMethod = SearchMethodType.Heading;
+
+                        Controller.RequestHome();
+                        Application.RequestStop ();
+                        _logger.LogDebug(
+                            "Search method changed: {SearchMethod}",
+                            ViewModel.SearchMethodString);
+                    }),
+                    new StatusItem(Key.Null,"                       ",() => {}),
+                    new StatusItem(Key.F10, "~F10~ Browse Mode", () => {
+                        _logger.LogDebug("Push F10 Function");
+
+                        ViewModel.SearchRange = SearchRangeType.Notebook;
+                        ViewModel.SearchMethod = SearchMethodType.Heading;
+
+                        Controller.RequestManage();
                         Application.RequestStop ();
                     })
                 };
@@ -234,42 +226,12 @@ namespace MemoriaNote.Cli
                 ViewModel.SearchEntry = searchTextField.Text.ToString();
                 Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.Search);
             };
-            searchTextField.KeyDown += (e) =>
-            {
-                if (e.KeyEvent.Key == Key.Enter &&
-                    ViewModel.EditingState == EditorMode.None)
-                {
-                    if (!string.IsNullOrWhiteSpace(ViewModel.EditingTitle) &&
-                         ViewModel.EditingTitle == ViewModel.SearchEntry)
-                    {
-                        ViewModel.EditingState = EditorMode.Edit;
-                        Controller.RequestManage();
-                        Controller.RequestEditor();
-                        Application.RequestStop();
-                        _logger.LogDebug(
-                            "SearchTextField KeyUp1: {EditingState}",
-                            ViewModel.EditingState);
-                    }
-                    else if (string.IsNullOrWhiteSpace(ViewModel.EditingTitle) &&
-                            !string.IsNullOrWhiteSpace(ViewModel.SearchEntry))
-                    {
-                        ViewModel.EditingState = EditorMode.Create;
-                        ViewModel.EditingTitle = ViewModel.SearchEntry;
-                        Controller.RequestManage();
-                        Controller.RequestEditor();
-                        Application.RequestStop();
-                        _logger.LogDebug(
-                            "SearchTextField KeyUp2: {EditingState}",
-                            ViewModel.EditingState);
-                    }
-                }
-            };
             navigation.Add(notesView);
             navigation.Add(searchTextField);
 
             var notifyField = ViewHelper.CreateNotifyField(searchTextField);
             ViewModel
-                .WhenAnyValue(vm => vm.ManageNotice, x => NStack.ustring.Make(x))
+                .WhenAnyValue(vm => vm.SearchNotice, x => NStack.ustring.Make(x))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .BindTo(notifyField, x => x.Text)
                 .DisposeWith(_disposable);
@@ -317,23 +279,6 @@ namespace MemoriaNote.Cli
             {
                 ViewModel.ContentsViewPageIndex = (ViewModel.ContentsViewPageIndex.Item1, e.Item);
                 Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.OpenText);
-            };
-            contentsListView.KeyDown += (e) =>
-            {
-                if (e.KeyEvent.Key == Key.Enter)
-                {
-                    if (!string.IsNullOrWhiteSpace(ViewModel.EditingTitle) &&
-                        ViewModel.EditingState == EditorMode.None)
-                    {
-                        ViewModel.EditingState = EditorMode.Edit;
-                        Controller.RequestManage();
-                        Controller.RequestEditor();
-                        Application.RequestStop();
-                        _logger.LogDebug(
-                            "contentsTextField KeyDown: {EditingState}",
-                            ViewModel.EditingState);
-                    }
-                }
             };
             contentsListView.SetSource(ViewModel.ContentViewItems);
             contentsFrame.Add(contentsListView);

@@ -6,7 +6,6 @@ using ReactiveUI;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Terminal.Gui;
 using McMaster.Extensions.CommandLineUtils;
 
 namespace MemoriaNote.Cli

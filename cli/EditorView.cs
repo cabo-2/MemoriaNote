@@ -3,6 +3,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Cli.Editors;
+using MemoriaNote.Cli.Terminal;
 using Microsoft.Extensions.Logging;
 
 namespace MemoriaNote.Cli

@@ -11,7 +11,7 @@ using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using Terminal.Gui;
 
-namespace MemoriaNote.Cli
+namespace MemoriaNote.Cli.Terminal
 {
     public class TerminalScheduler : LocalScheduler
     {
