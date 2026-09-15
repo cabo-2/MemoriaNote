@@ -8,6 +8,7 @@ using Terminal.Gui;
 using ReactiveMarbles.ObservableEvents;
 using System.Reactive.Concurrency;
 using System.Threading;
+using MemoriaNote.Cli.Editors;
 using Microsoft.Extensions.Logging;
 
 namespace MemoriaNote.Cli.Terminal

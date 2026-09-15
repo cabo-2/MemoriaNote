@@ -80,35 +80,30 @@ public sealed class ScreenControllerTests
 
     static TestScreenController CreateController()
     {
-        var editorFactory = new TerminalEditorFactory(
-            new StubTemporaryFileStore(),
-            NullLoggerFactory.Instance);
         return new TestScreenController(
-            editorFactory,
+            new StubPageEditorWorkflow(),
             NullLoggerFactory.Instance);
     }
 
     sealed class TestScreenController : ScreenController
     {
         internal TestScreenController(
-            TerminalEditorFactory terminalEditorFactory,
+            IPageEditorWorkflow pageEditorWorkflow,
             NullLoggerFactory loggerFactory)
-            : base(terminalEditorFactory, loggerFactory)
+            : base(pageEditorWorkflow, loggerFactory)
         {
         }
 
         internal IReadOnlyList<Type> PendingScreens => _views.ToArray();
     }
 
-    sealed class StubTemporaryFileStore : ITemporaryFileStore
+    sealed class StubPageEditorWorkflow : IPageEditorWorkflow
     {
-        public ITemporaryFile CreateFile(string? fileName = null)
+        public Task RunAsync(
+            MemoriaNoteViewModel viewModel,
+            CancellationToken cancellationToken)
         {
-            throw new InvalidOperationException("No editor process is expected.");
-        }
-
-        public void Dispose()
-        {
+            throw new InvalidOperationException("No page editor workflow is expected.");
         }
     }
 }

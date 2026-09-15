@@ -79,9 +79,18 @@ namespace MemoriaNote.Cli
                 serializer,
                 () => ConfigurationCli.CreateDefault(applicationPaths),
                 clock);
-            var editorFactory = new Editors.TerminalEditorFactory(
-                temporaryFileStore,
-                loggerFactory);
+            var editorExecutableResolver = new Editors.EditorExecutableResolver(
+                new Editors.ProcessEnvironmentVariableSource());
+            var editorFileExchange = new Editors.EditorFileExchange(temporaryFileStore);
+            var editorProcessRunner = new Editors.ExternalEditorProcessRunner(
+                loggerFactory.CreateLogger<Editors.ExternalEditorProcessRunner>());
+            var externalEditor = new Editors.ExternalEditor(
+                editorExecutableResolver,
+                editorFileExchange,
+                editorProcessRunner);
+            var pageEditorWorkflow = new Editors.PageEditorWorkflow(
+                externalEditor,
+                loggerFactory.CreateLogger<Editors.PageEditorWorkflow>());
             var output = new ConsoleCommandOutput(Console.Out, Console.Error);
             var input = new ConsoleCommandInput(Console.In);
             var prompt = new CommandPrompt(input, output);
@@ -99,7 +108,7 @@ namespace MemoriaNote.Cli
                 configurationStore,
                 output,
                 loggerFactory);
-            var terminalUi = new TerminalUiAdapter(editorFactory, loggerFactory);
+            var terminalUi = new TerminalUiAdapter(pageEditorWorkflow, loggerFactory);
             var searchQueryNormalizer = new CliSearchQueryNormalizer();
             var textPageImporter = new TextPageImporter(pageRepository);
             var textPageExporter = new TextPageExporter(transferRepository);
@@ -126,7 +135,7 @@ namespace MemoriaNote.Cli
                     contextFactory,
                     serializer,
                     applicationPaths,
-                    editorFactory,
+                    externalEditor,
                     prompt,
                     output,
                     loggerFactory.CreateLogger<ConfigEditCommandHandler>()),
@@ -154,7 +163,7 @@ namespace MemoriaNote.Cli
                 new WorkEditCommandHandler(
                     executor,
                     contextFactory,
-                    editorFactory,
+                    externalEditor,
                     prompt,
                     output,
                     loggerFactory.CreateLogger<WorkEditCommandHandler>()),
