@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using MemoriaNote.Cli.Editors;
 using Microsoft.Extensions.Logging;
 
-namespace MemoriaNote.Cli
+namespace MemoriaNote.Cli.Terminal
 {
     internal sealed class TerminalUiAdapter : ITerminalUi
     {

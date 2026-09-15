@@ -1,4 +1,4 @@
-namespace MemoriaNote.Cli
+namespace MemoriaNote.Cli.Terminal
 {
     /// <summary>
     /// Interface for a terminal screen

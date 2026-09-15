@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Globalization;
+using MemoriaNote.Cli.Terminal;
 using Microsoft.Extensions.Logging;
 using Serilog;
 

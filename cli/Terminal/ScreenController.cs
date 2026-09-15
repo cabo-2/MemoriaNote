@@ -1,23 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
-using DynamicData;
-using DynamicData.Binding;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Reactive.Concurrency;
-using ReactiveUI;
-using Terminal.Gui;
-using McMaster.Extensions.CommandLineUtils;
-using MemoriaNote.Cli.Editors;
-using Microsoft.Extensions.Logging;
 using System.Threading;
 using System.Threading.Tasks;
+using MemoriaNote.Cli.Editors;
+using Microsoft.Extensions.Logging;
 
-namespace MemoriaNote.Cli
+namespace MemoriaNote.Cli.Terminal
 {
+    /// <summary>Coordinates terminal screens using the existing stack order.</summary>
     public class ScreenController
     {
         //
@@ -29,7 +19,7 @@ namespace MemoriaNote.Cli
         //  Edit -> Home -> Exit
         //
 
-        protected Stack<Type> views;
+        protected readonly Stack<Type> _views;
         readonly TerminalEditorFactory _terminalEditorFactory;
         readonly ILoggerFactory _loggerFactory;
 
@@ -44,7 +34,7 @@ namespace MemoriaNote.Cli
                 throw new ArgumentNullException(nameof(terminalEditorFactory));
             _loggerFactory = loggerFactory ??
                 throw new ArgumentNullException(nameof(loggerFactory));
-            views = new Stack<Type>();
+            _views = new Stack<Type>();
         }
 
         /// <summary>Processes the queued screens until completion or cancellation.</summary>
@@ -55,17 +45,17 @@ namespace MemoriaNote.Cli
             MemoriaNoteViewModel vm,
             CancellationToken cancellationToken)
         {
-            while(views.Count > 0)
+            while (_views.Count > 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 await OnScreenProcedureAsync(
-                    views.Pop(),
+                    _views.Pop(),
                     this,
                     vm,
                     cancellationToken);
             }
 
-            return 0;              
+            return 0;
         }
 
         static async Task OnScreenProcedureAsync(
@@ -74,16 +64,16 @@ namespace MemoriaNote.Cli
             MemoriaNoteViewModel vm,
             CancellationToken cancellationToken)
         {
-            if (type.Equals(typeof(HomeView))) 
-            {        
+            if (type.Equals(typeof(HomeView)))
+            {
                 HomeView.Run(
                     sc,
                     vm,
                     sc._loggerFactory.CreateLogger<HomeView>(),
                     cancellationToken);
             }
-            else if (type.Equals(typeof(ManageView))) 
-            {        
+            else if (type.Equals(typeof(ManageView)))
+            {
                 ManageView.Run(
                     sc,
                     vm,
@@ -103,27 +93,28 @@ namespace MemoriaNote.Cli
                 throw new NotImplementedException(nameof(type));
         }
 
+        /// <summary>Queues the home screen.</summary>
         public void RequestHome()
         {
-            views.Push(typeof(HomeView));   
-        }     
+            _views.Push(typeof(HomeView));
+        }
 
+        /// <summary>Queues the management screen.</summary>
         public void RequestManage()
         {
-            views.Push(typeof(ManageView));   
-        }  
+            _views.Push(typeof(ManageView));
+        }
 
+        /// <summary>Queues the external editor workflow.</summary>
         public void RequestEditor()
-        {         
-            views.Push(typeof(EditorView));           
-        }     
+        {
+            _views.Push(typeof(EditorView));
+        }
 
+        /// <summary>Removes every queued screen.</summary>
         public void RequestExit()
         {
-            views.Clear();
-        }    
-
-        //public ReadOnlyCollection<ITerminalScreen> Controls 
-        //                  => new ReadOnlyCollection<ITerminalScreen>(_views.ToList());       
+            _views.Clear();
+        }
     }
 }
