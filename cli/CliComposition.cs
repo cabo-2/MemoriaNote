@@ -15,19 +15,19 @@ namespace MemoriaNote.Cli
         bool _disposed;
 
         CliComposition(
-            CommandCenter commandCenter,
+            CliCommandHandlers commandHandlers,
             Serilog.ILogger serilogLogger,
             ILoggerFactory loggerFactory,
             ITemporaryFileStore temporaryFileStore)
         {
-            CommandCenter = commandCenter;
+            CommandHandlers = commandHandlers;
             _serilogLogger = serilogLogger;
             _loggerFactory = loggerFactory;
             _temporaryFileStore = temporaryFileStore;
         }
 
-        /// <summary>Gets the composed command center.</summary>
-        internal CommandCenter CommandCenter { get; }
+        /// <summary>Gets the composed CLI command handlers.</summary>
+        internal CliCommandHandlers CommandHandlers { get; }
 
         /// <summary>Creates the default process-scoped CLI services.</summary>
         /// <returns>The composed CLI runtime.</returns>
@@ -81,22 +81,108 @@ namespace MemoriaNote.Cli
             var editorFactory = new Editors.TerminalEditorFactory(
                 temporaryFileStore,
                 loggerFactory);
-            var commandCenter = new CommandCenter(
+            var output = new ConsoleCommandOutput(Console.Out, Console.Error);
+            var input = new ConsoleCommandInput(Console.In);
+            var prompt = new CommandPrompt(input, output);
+            var executor = new CliCommandExecutor(
+                output,
+                loggerFactory.CreateLogger<CliCommandExecutor>());
+            var contextFactory = new CliCommandContextFactory(
                 notebookMigrator,
-                databaseFactory,
                 pageRepository,
                 pageSearchRepository,
+                metadataRepository,
+                applicationPaths,
+                configurationStore,
+                output,
+                loggerFactory);
+            var terminalUi = new TerminalUiAdapter(editorFactory, loggerFactory);
+            var searchQueryNormalizer = new CliSearchQueryNormalizer();
+            var textPageImporter = new TextPageImporter(pageRepository);
+            var textPageExporter = new TextPageExporter(transferRepository);
+            var backupService = new NotebookBackupService(
                 transferRepository,
                 metadataRepository,
-                filePathFactory,
-                applicationPaths,
-                serializer,
-                configurationStore,
-                editorFactory,
-                loggerFactory);
+                notebookMigrator,
+                filePathFactory);
+
+            var workAdd = new WorkAddCommandHandler(
+                executor,
+                contextFactory,
+                databaseFactory,
+                output);
+            var commandHandlers = new CliCommandHandlers(
+                new FindCommandHandler(
+                    executor,
+                    contextFactory,
+                    searchQueryNormalizer,
+                    terminalUi),
+                new EditCommandHandler(executor, contextFactory, terminalUi),
+                new NewCommandHandler(executor, contextFactory, terminalUi),
+                new ConfigEditCommandHandler(
+                    executor,
+                    contextFactory,
+                    serializer,
+                    applicationPaths,
+                    editorFactory,
+                    prompt,
+                    output,
+                    loggerFactory.CreateLogger<ConfigEditCommandHandler>()),
+                new ConfigShowCommandHandler(
+                    executor,
+                    contextFactory,
+                    serializer,
+                    output),
+                new ListCommandHandler(
+                    executor,
+                    contextFactory,
+                    searchQueryNormalizer,
+                    output),
+                new WorkSelectCommandHandler(executor, contextFactory, output),
+                new WorkListCommandHandler(executor, contextFactory, output),
+                new WorkCreateCommandHandler(
+                    executor,
+                    contextFactory,
+                    notebookMigrator,
+                    filePathFactory,
+                    applicationPaths,
+                    workAdd,
+                    prompt,
+                    output,
+                    loggerFactory.CreateLogger<WorkCreateCommandHandler>()),
+                new WorkEditCommandHandler(
+                    executor,
+                    contextFactory,
+                    editorFactory,
+                    prompt,
+                    output,
+                    loggerFactory.CreateLogger<WorkEditCommandHandler>()),
+                workAdd,
+                new WorkRemoveCommandHandler(executor, contextFactory, output),
+                new WorkBackupCommandHandler(
+                    executor,
+                    contextFactory,
+                    backupService,
+                    filePathFactory,
+                    output),
+                new WorkRestoreCommandHandler(
+                    executor,
+                    contextFactory,
+                    backupService,
+                    output),
+                new ImportCommandHandler(
+                    executor,
+                    contextFactory,
+                    textPageImporter,
+                    output),
+                new ExportCommandHandler(
+                    executor,
+                    contextFactory,
+                    textPageExporter,
+                    output));
 
             return new CliComposition(
-                commandCenter,
+                commandHandlers,
                 serilogLogger,
                 loggerFactory,
                 temporaryFileStore);

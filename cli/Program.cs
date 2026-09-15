@@ -40,11 +40,12 @@ namespace MemoriaNote.Cli
             }
         }
 
-        static CommandCenter CommandCenter =>
+        static CliComposition Composition =>
             (_composition ??
                 throw new InvalidOperationException("CLI composition is not available."))
-            .Value
-            .CommandCenter;
+            .Value;
+
+        static CliCommandHandlers CommandHandlers => Composition.CommandHandlers;
 
         protected int OnExecute(CommandLineApplication app)
         {
@@ -61,7 +62,7 @@ namespace MemoriaNote.Cli
 
             protected int OnExecute(CommandLineApplication app)
             {
-                return CommandCenter.Find(Name);
+                return CommandHandlers.Find.Execute(Name);
             }
         }
 
@@ -74,7 +75,7 @@ namespace MemoriaNote.Cli
 
             protected int OnExecute(CommandLineApplication app)
             {
-                return CommandCenter.Edit(Name);
+                return CommandHandlers.Edit.Execute(Name);
             }
         }
 
@@ -85,15 +86,15 @@ namespace MemoriaNote.Cli
             [Argument(0, Name = "name", Description = "text name")]
             public (bool hasValue, string value) Name { get; set; }
 
-            protected int OnExecute(CommandLineApplication app)
+            protected int OnExecute(IConsole console)
             {
                 if (!Name.hasValue)
                 {
-                    Console.Error.WriteLine("Error: No name");
+                    console.Error.WriteLine("Error: No name");
                     return -1;
                 }
 
-                return CommandCenter.New(Name.value);
+                return CommandHandlers.CreatePage.Execute(Name.value);
             }
         }
 
@@ -114,7 +115,7 @@ namespace MemoriaNote.Cli
             {
                 protected int OnExecute(CommandLineApplication app)
                 {
-                    return CommandCenter.ConfigEdit();
+                    return CommandHandlers.ConfigEdit.Execute();
                 }
             }
 
@@ -123,7 +124,7 @@ namespace MemoriaNote.Cli
             {
                 protected int OnExecute(CommandLineApplication app)
                 {
-                    return CommandCenter.ConfigShow();
+                    return CommandHandlers.ConfigShow.Execute();
                 }
             }
         }
@@ -148,9 +149,9 @@ namespace MemoriaNote.Cli
             protected int OnExecute(CommandLineApplication app)
             {
                 if (Name.hasValue)
-                    return CommandCenter.WorkSelect(Name.value);
+                    return CommandHandlers.WorkSelect.Execute(Name.value);
                 else
-                    return CommandCenter.WorkList();
+                    return CommandHandlers.WorkList.Execute();
             }
 
             [Command("select", "curr", Description = "Choose and display a specific note",
@@ -162,7 +163,7 @@ namespace MemoriaNote.Cli
 
                 protected int OnExecute(IConsole console)
                 {
-                    return CommandCenter.WorkSelect(Name.value);
+                    return CommandHandlers.WorkSelect.Execute(Name.value);
                 }
             }
 
@@ -175,7 +176,7 @@ namespace MemoriaNote.Cli
 
                 protected int OnExecute(IConsole console)
                 {
-                    return CommandCenter.WorkList(Completion);
+                    return CommandHandlers.WorkList.Execute(Completion);
                 }
             }
 
@@ -191,7 +192,7 @@ namespace MemoriaNote.Cli
 
                 protected int OnExecute(IConsole console)
                 {
-                    return CommandCenter.WorkCreate(Name.value, Title.value);
+                    return CommandHandlers.WorkCreate.Execute(Name.value, Title.value);
                 }
             }
 
@@ -204,7 +205,7 @@ namespace MemoriaNote.Cli
 
                 protected int OnExecute(IConsole console)
                 {
-                    return CommandCenter.WorkEdit();
+                    return CommandHandlers.WorkEdit.Execute();
                 }
             }
             [Command("add", Description = "Add a new note to the work list",
@@ -216,7 +217,7 @@ namespace MemoriaNote.Cli
 
                 protected int OnExecute(IConsole console)
                 {
-                    return CommandCenter.WorkAdd(Path.value);
+                    return CommandHandlers.WorkAdd.Execute(Path.value);
                 }
             }
             [Command("remove", Description = "Delete the selected note",
@@ -228,7 +229,7 @@ namespace MemoriaNote.Cli
 
                 protected int OnExecute(IConsole console)
                 {
-                    return CommandCenter.WorkRemove(Name.value);
+                    return CommandHandlers.WorkRemove.Execute(Name.value);
                 }
             }
 
@@ -243,7 +244,7 @@ namespace MemoriaNote.Cli
 
                 protected int OnExecute(IConsole console)
                 {
-                    return CommandCenter.WorkBackup(Name.value, OutputPath);
+                    return CommandHandlers.WorkBackup.Execute(Name.value, OutputPath);
                 }
             }
 
@@ -260,11 +261,13 @@ namespace MemoriaNote.Cli
                 {
                     if (!InputPath.hasValue)
                     {
-                        Console.Error.WriteLine("Error: No input file");
+                        console.Error.WriteLine("Error: No input file");
                         return -1;
                     }
 
-                    return CommandCenter.WorkRestore(InputPath.value, OutputDir);
+                    return CommandHandlers.WorkRestore.Execute(
+                        InputPath.value,
+                        OutputDir);
                 }
             }
         }
@@ -281,7 +284,7 @@ namespace MemoriaNote.Cli
 
             protected int OnExecute(CommandLineApplication app)
             {
-                return CommandCenter.List(Name.value, Completion);
+                return CommandHandlers.List.Execute(Name.value, Completion);
             }
         }
 
@@ -303,7 +306,7 @@ namespace MemoriaNote.Cli
                     return -1;
                 }
 
-                return CommandCenter.Import(ImportDir.value, Recursive);
+                return CommandHandlers.Import.Execute(ImportDir.value, Recursive);
             }
         }
 
@@ -322,7 +325,7 @@ namespace MemoriaNote.Cli
                     return -1;
                 }
 
-                return CommandCenter.Export(ExportDir.value);
+                return CommandHandlers.Export.Execute(ExportDir.value);
             }
         }
     }

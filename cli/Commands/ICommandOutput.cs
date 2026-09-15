@@ -1,0 +1,21 @@
+using System.Collections.Generic;
+
+namespace MemoriaNote.Cli
+{
+    internal interface ICommandOutput
+    {
+        void Write(string value);
+
+        void WriteLine(string value);
+
+        void WriteErrorLine(string value);
+
+        void WritePageList(IReadOnlyList<PageSummary> pages, int totalCount);
+
+        void WritePageCompletion(IReadOnlyList<PageSummary> pages, int totalCount);
+
+        void WriteNotebookList(IEnumerable<Notebook> notebooks, Notebook selectedNotebook);
+
+        void WriteNotebookCompletion(IEnumerable<Notebook> notebooks);
+    }
+}
