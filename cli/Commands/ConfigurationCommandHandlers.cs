@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using MemoriaNote.Cli.Editors;
 using Microsoft.Extensions.Logging;
 
@@ -39,9 +41,9 @@ namespace MemoriaNote.Cli
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        internal int Execute()
+        internal Task<int> ExecuteAsync(CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(async token =>
             {
                 var configuration = _contextFactory.LoadConfiguration();
                 bool retry;
@@ -52,7 +54,7 @@ namespace MemoriaNote.Cli
                     editor.FileName = Path.GetFileName(_applicationPaths.ConfigurationPath);
                     editor.TextData = _serializer.Serialize(configuration);
 
-                    if (editor.Edit())
+                    if (await editor.EditAsync(token))
                     {
                         try
                         {
@@ -63,7 +65,12 @@ namespace MemoriaNote.Cli
                             _logger.LogError("Error: Unable to read modified data");
                             _output.WriteErrorLine("Error: Unable to read modified data");
                             if (!_prompt.ReadTryAgain())
-                                return -1;
+                            {
+                                return CliCommandResult.Failure(
+                                    CliErrorKind.Validation,
+                                    "Unable to read modified data",
+                                    alreadyReported: true);
+                            }
 
                             retry = true;
                             continue;
@@ -79,8 +86,8 @@ namespace MemoriaNote.Cli
                     }
                 } while (retry);
 
-                return 0;
-            });
+                return CliCommandResult.Success();
+            }, cancellationToken);
         }
     }
 
@@ -104,18 +111,19 @@ namespace MemoriaNote.Cli
             _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
-        internal int Execute()
+        internal Task<int> ExecuteAsync(CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(token =>
             {
+                token.ThrowIfCancellationRequested();
                 var configuration = _contextFactory.LoadConfiguration();
                 var serializedConfiguration = _serializer.Serialize(configuration);
                 using var reader = new StringReader(serializedConfiguration);
                 string line;
                 while ((line = reader.ReadLine()) != null)
                     _output.WriteLine(line);
-                return 0;
-            });
+                return CliCommandResult.Success();
+            }, cancellationToken);
         }
     }
 }

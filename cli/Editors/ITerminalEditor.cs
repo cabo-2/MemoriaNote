@@ -1,3 +1,6 @@
+using System.Threading;
+using System.Threading.Tasks;
+
 namespace MemoriaNote.Cli.Editors
 {
     /// <summary>
@@ -8,8 +11,9 @@ namespace MemoriaNote.Cli.Editors
         /// <summary>
         /// Method to perform editing operation
         /// </summary>
-        /// <returns></returns>
-        bool Edit();
+        /// <param name="cancellationToken">Stops the editor process when requested.</param>
+        /// <returns>True when edited text was read successfully; otherwise, false.</returns>
+        Task<bool> EditAsync(CancellationToken cancellationToken);
 
         /// <summary>
         /// Property to get or set the file name

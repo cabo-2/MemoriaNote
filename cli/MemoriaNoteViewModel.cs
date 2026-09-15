@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Data.Common;
-using System.IO;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -10,7 +8,6 @@ using System.Reactive;
 using System.Reactive.Linq;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 
@@ -23,6 +20,8 @@ namespace MemoriaNote.Cli
     {
         readonly IMemoriaNoteApplicationService _applicationService;
         readonly ILogger<MemoriaNoteViewModel> _logger;
+        readonly CancellationToken _applicationCancellationToken;
+        readonly CliErrorMapper _errorMapper = new CliErrorMapper();
 
         /// <summary>
         /// Initializes the view model from an explicitly composed application session.
@@ -30,15 +29,18 @@ namespace MemoriaNote.Cli
         /// <param name="configuration">The persisted CLI configuration.</param>
         /// <param name="session">The composed application session.</param>
         /// <param name="logger">The presentation logger.</param>
+        /// <param name="cancellationToken">Cancels application operations.</param>
         public MemoriaNoteViewModel(
             ConfigurationCli configuration,
             ApplicationSession session,
-            ILogger<MemoriaNoteViewModel> logger)
+            ILogger<MemoriaNoteViewModel> logger,
+            CancellationToken cancellationToken = default)
             : this(
                 configuration,
                 session?.Workspace ?? throw new ArgumentNullException(nameof(session)),
                 session.ApplicationService,
-                logger)
+                logger,
+                cancellationToken)
         {
         }
 
@@ -49,11 +51,13 @@ namespace MemoriaNote.Cli
         /// <param name="workspace">The workspace used by the service.</param>
         /// <param name="applicationService">The UI-independent application service.</param>
         /// <param name="logger">The presentation logger.</param>
+        /// <param name="cancellationToken">Cancels application operations.</param>
         public MemoriaNoteViewModel(
             ConfigurationCli configuration,
             Workspace workspace,
             IMemoriaNoteApplicationService applicationService,
-            ILogger<MemoriaNoteViewModel> logger)
+            ILogger<MemoriaNoteViewModel> logger,
+            CancellationToken cancellationToken = default)
         {
             Configuration = configuration ??
                 throw new ArgumentNullException(nameof(configuration));
@@ -61,20 +65,27 @@ namespace MemoriaNote.Cli
             _applicationService = applicationService ??
                 throw new ArgumentNullException(nameof(applicationService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _applicationCancellationToken = cancellationToken;
 
             ActivateHandler = async () =>
             {
                 try
                 {
-                    await Task.Run(OnActivate);
+                    _applicationCancellationToken.ThrowIfCancellationRequested();
+                    OnActivate();
                 }
-                catch (Exception exception) when (IsInfrastructureException(exception))
+                catch (Exception exception) when (_errorMapper.IsStorageException(exception))
                 {
                     LogInfrastructureError(exception, "Activation");
                     return;
                 }
 
-                await OnSearchContentsAsync(SearchEntry, SearchRange, SearchMethod, 0);
+                await OnSearchContentsAsync(
+                    SearchEntry,
+                    SearchRange,
+                    SearchMethod,
+                    0,
+                    _applicationCancellationToken);
             };
             Activate = ReactiveCommand.CreateFromTask(ActivateHandler);
 
@@ -82,7 +93,8 @@ namespace MemoriaNote.Cli
                 SearchEntry,
                 SearchRange,
                 SearchMethod,
-                0);
+                0,
+                _applicationCancellationToken);
             Search = ReactiveCommand.CreateFromTask(SearchHandler);
 
             var canPageNext = this.WhenAnyValue(
@@ -100,7 +112,8 @@ namespace MemoriaNote.Cli
                         _applicationService.GetNextPageOffset(
                             SelectedContentsIndex,
                             MaxViewResultCount,
-                            ContentsCount) ?? SelectedContentsIndex),
+                            ContentsCount) ?? SelectedContentsIndex,
+                        _applicationCancellationToken),
                 canPageNext
             );
 
@@ -117,57 +130,50 @@ namespace MemoriaNote.Cli
                 () => OnSearchContentsAsync(SearchEntry, SearchRange, SearchMethod,
                         _applicationService.GetPreviousPageOffset(
                             SelectedContentsIndex,
-                            MaxViewResultCount) ?? SelectedContentsIndex),
+                            MaxViewResultCount) ?? SelectedContentsIndex,
+                        _applicationCancellationToken),
                 canPagePrev
             );
 
-            OpenTextHandler = () => ExecuteInfrastructureOperation(
-                OnSelectedContextsIndexChanged,
+            OpenTextHandler = () => ExecuteInfrastructureOperationAsync(
+                () => OnSelectedContextsIndexChangedAsync(_applicationCancellationToken),
                 "Open text");
-            OpenText = ReactiveCommand.Create(OpenTextHandler);
+            OpenText = ReactiveCommand.CreateFromTask(OpenTextHandler);
 
-            CreateTextHandler = () => ExecutePageOperation(
+            CreateTextHandler = () => ExecutePageOperationAsync(
                 () => CreateTextAsync(
                         EditingTitle.ToString(),
                         EditingText.ToString(),
-                        CancellationToken.None)
-                    .GetAwaiter()
-                    .GetResult(),
+                        _applicationCancellationToken),
                 PageOperationKind.Create,
                 "Create text");
-            CreateText = ReactiveCommand.Create(CreateTextHandler);
+            CreateText = ReactiveCommand.CreateFromTask(CreateTextHandler);
 
-            EditTextHandler = () => ExecutePageOperation(
+            EditTextHandler = () => ExecutePageOperationAsync(
                 () => EditTextAsync(
                         OpenedContent,
                         EditingText.ToString(),
-                        CancellationToken.None)
-                    .GetAwaiter()
-                    .GetResult(),
+                        _applicationCancellationToken),
                 PageOperationKind.Edit,
                 "Edit text");
-            EditText = ReactiveCommand.Create(EditTextHandler);
+            EditText = ReactiveCommand.CreateFromTask(EditTextHandler);
 
-            RenameTextHandler = () => ExecutePageOperation(
+            RenameTextHandler = () => ExecutePageOperationAsync(
                 () => RenameTextAsync(
                         OpenedContent,
                         EditingTitle.ToString(),
-                        CancellationToken.None)
-                    .GetAwaiter()
-                    .GetResult(),
+                        _applicationCancellationToken),
                 PageOperationKind.Rename,
                 "Rename text");
-            RenameText = ReactiveCommand.Create(RenameTextHandler);
+            RenameText = ReactiveCommand.CreateFromTask(RenameTextHandler);
 
-            DeleteTextHandler = () => ExecutePageOperation(
+            DeleteTextHandler = () => ExecutePageOperationAsync(
                 () => DeleteTextAsync(
                         OpenedContent,
-                        CancellationToken.None)
-                    .GetAwaiter()
-                    .GetResult(),
+                        _applicationCancellationToken),
                 PageOperationKind.Delete,
                 "Delete text");
-            DeleteText = ReactiveCommand.Create(DeleteTextHandler);
+            DeleteText = ReactiveCommand.CreateFromTask(DeleteTextHandler);
 
             _noteNames = new ReadOnlyObservableCollection<string>(
                 new ObservableCollection<string>(
@@ -243,10 +249,12 @@ namespace MemoriaNote.Cli
         /// </summary>
         /// <param name="result">The search result containing the contents</param>
         /// <param name="newContentsIndex">The index of the new contents</param>
-        protected void ApplySearchPage(
+        protected async Task<bool> ApplySearchPageAsync(
             SearchPage result,
             int newContentsIndex,
-            TimeSpan elapsed)
+            TimeSpan elapsed,
+            CancellationToken cancellationToken,
+            Func<bool> canApply)
         {
             var newViewPageIndex = (
                 ContentsIndexToViewPage(newContentsIndex, MaxViewResultCount),
@@ -263,17 +271,15 @@ namespace MemoriaNote.Cli
             if (result.Items.Count > 0)
             {
                 newOpenedContent = result.Items[newViewPageIndex.Item2];
-                var readResult = ReadTextAsync(
-                        newOpenedContent,
-                        CancellationToken.None)
-                    .GetAwaiter()
-                    .GetResult();
+                var readResult = await ReadTextAsync(
+                    newOpenedContent,
+                    cancellationToken);
                 if (!readResult.IsSuccess)
                 {
                     _logger.LogWarning(
                         "Search result {ContentId} was not found in its owner note.",
                         newOpenedContent.PageId.Value);
-                    return;
+                    return false;
                 }
 
                 var page = readResult.Page;
@@ -286,6 +292,9 @@ namespace MemoriaNote.Cli
                 var notebook = ResolveNotebook(newOpenedContent.NotebookId);
                 newEditingNoteTitle = notebook?.Metadata?.Title ?? string.Empty;
             }
+
+            if (!canApply())
+                return false;
 
             ContentsViewPageIndex = newViewPageIndex;
             ContentsCount = result.TotalCount;
@@ -300,6 +309,7 @@ namespace MemoriaNote.Cli
             EditingUpdateTime = newEditingUpdateTime;
             EditingNoteTitle = newEditingNoteTitle;
             _logger.LogInformation("{SearchNotice}", newSearchNotice);
+            return true;
         }
 
         /// <summary>
@@ -334,7 +344,8 @@ namespace MemoriaNote.Cli
         /// Method to handle the selection change of the contexts in the view.
         /// This method retrieves the content of the selected context and updates the view accordingly.
         /// </summary>
-        protected void OnSelectedContextsIndexChanged()
+        protected async Task OnSelectedContextsIndexChangedAsync(
+            CancellationToken cancellationToken)
         {
             // Check if there are contents available
             if (0 < this.Contents.Count)
@@ -342,9 +353,7 @@ namespace MemoriaNote.Cli
                 // Retrieve the selected content based on the view page index
                 var content = this.Contents[this.ContentsViewPageIndex.Item2];
                 // Read the text content of the selected content
-                var readResult = ReadTextAsync(content, CancellationToken.None)
-                    .GetAwaiter()
-                    .GetResult();
+                var readResult = await ReadTextAsync(content, cancellationToken);
                 if (!readResult.IsSuccess)
                 {
                     _logger.LogWarning(
@@ -528,9 +537,11 @@ namespace MemoriaNote.Cli
             string searchEntry,
             SearchRangeType searchRange,
             SearchMethodType searchMethod,
-            int selectedContentsIndex)
+            int selectedContentsIndex,
+            CancellationToken cancellationToken)
         {
-            var cancellation = new CancellationTokenSource();
+            var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken);
             long generation;
 
             lock (_searchLockObject)
@@ -552,26 +563,24 @@ namespace MemoriaNote.Cli
                     cancellation.Token);
                 stopwatch.Stop();
 
-                lock (_searchLockObject)
-                {
-                    if (generation != _searchGeneration ||
-                        !ReferenceEquals(_searchCancellation, cancellation) ||
-                        cancellation.IsCancellationRequested)
-                        return null;
+                if (!IsCurrentSearch(generation, cancellation))
+                    return null;
 
-                    ApplySearchPage(
-                        result,
-                        selectedContentsIndex,
-                        stopwatch.Elapsed);
-                }
-
-                return result;
+                var applied = await ApplySearchPageAsync(
+                    result,
+                    selectedContentsIndex,
+                    stopwatch.Elapsed,
+                    cancellation.Token,
+                    () => IsCurrentSearch(generation, cancellation));
+                return applied ? result : null;
             }
-            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+            catch (OperationCanceledException) when (
+                cancellation.IsCancellationRequested &&
+                !cancellationToken.IsCancellationRequested)
             {
                 return null;
             }
-            catch (Exception exception) when (IsInfrastructureException(exception))
+            catch (Exception exception) when (_errorMapper.IsStorageException(exception))
             {
                 LogInfrastructureError(exception, "Search");
                 return null;
@@ -585,6 +594,18 @@ namespace MemoriaNote.Cli
                 }
 
                 cancellation.Dispose();
+            }
+        }
+
+        bool IsCurrentSearch(
+            long generation,
+            CancellationTokenSource cancellation)
+        {
+            lock (_searchLockObject)
+            {
+                return generation == _searchGeneration &&
+                    ReferenceEquals(_searchCancellation, cancellation) &&
+                    !cancellation.IsCancellationRequested;
             }
         }
         #endregion
@@ -661,23 +682,25 @@ namespace MemoriaNote.Cli
         /// </summary>
         /// <param name="newName"></param>
         /// <param name="newText"></param>
+        /// <param name="cancellationToken">Cancels validation.</param>
         /// <returns>Returns true if the text can be created, false otherwise.</returns>
-        public bool CanCreateText(string newName, string newText)
+        public async Task<bool> CanCreateTextAsync(
+            string newName,
+            string newText,
+            CancellationToken cancellationToken)
         {
             try
             {
                 var notebookId = SelectedNotebookId();
                 var result = notebookId == null
                     ? MissingOwner()
-                    : _applicationService.ValidateCreateAsync(
-                            new CreatePageCommand(notebookId, newName, newText),
-                            CancellationToken.None)
-                        .GetAwaiter()
-                        .GetResult();
+                    : await _applicationService.ValidateCreateAsync(
+                        new CreatePageCommand(notebookId, newName, newText),
+                        cancellationToken);
                 EditingErrors = ToErrorMessages(PageOperationKind.Create, result);
                 return result.IsSuccess;
             }
-            catch (Exception exception) when (IsInfrastructureException(exception))
+            catch (Exception exception) when (_errorMapper.IsStorageException(exception))
             {
                 LogInfrastructureError(exception, "Validate text creation");
                 return false;
@@ -690,23 +713,25 @@ namespace MemoriaNote.Cli
         /// </summary>
         /// <param name="summary">The selected page summary.</param>
         /// <param name="newText">The new text content.</param>
+        /// <param name="cancellationToken">Cancels validation.</param>
         /// <returns>Returns true if the text can be edited, false otherwise.</returns>
-        public bool CanEditText(PageSummary summary, string newText)
+        public async Task<bool> CanEditTextAsync(
+            PageSummary summary,
+            string newText,
+            CancellationToken cancellationToken)
         {
             try
             {
                 var target = CreateReference(summary);
                 var result = target == null
                     ? PageNotSelected()
-                    : _applicationService.ValidateEditAsync(
-                            new EditPageCommand(target.NotebookId, target.PageId, newText),
-                            CancellationToken.None)
-                        .GetAwaiter()
-                        .GetResult();
+                    : await _applicationService.ValidateEditAsync(
+                        new EditPageCommand(target.NotebookId, target.PageId, newText),
+                        cancellationToken);
                 EditingErrors = ToErrorMessages(PageOperationKind.Edit, result);
                 return result.IsSuccess;
             }
-            catch (Exception exception) when (IsInfrastructureException(exception))
+            catch (Exception exception) when (_errorMapper.IsStorageException(exception))
             {
                 LogInfrastructureError(exception, "Validate text editing");
                 return false;
@@ -719,23 +744,25 @@ namespace MemoriaNote.Cli
         /// </summary>
         /// <param name="summary">The selected page summary.</param>
         /// <param name="newName">The new name for the text.</param>
+        /// <param name="cancellationToken">Cancels validation.</param>
         /// <returns>Returns true if the text can be renamed, false otherwise.</returns>
-        public bool CanRenameText(PageSummary summary, string newName)
+        public async Task<bool> CanRenameTextAsync(
+            PageSummary summary,
+            string newName,
+            CancellationToken cancellationToken)
         {
             try
             {
                 var target = CreateReference(summary);
                 var result = target == null
                     ? PageNotSelected()
-                    : _applicationService.ValidateRenameAsync(
-                            new RenamePageCommand(target.NotebookId, target.PageId, newName),
-                            CancellationToken.None)
-                        .GetAwaiter()
-                        .GetResult();
+                    : await _applicationService.ValidateRenameAsync(
+                        new RenamePageCommand(target.NotebookId, target.PageId, newName),
+                        cancellationToken);
                 EditingErrors = ToErrorMessages(PageOperationKind.Rename, result);
                 return result.IsSuccess;
             }
-            catch (Exception exception) when (IsInfrastructureException(exception))
+            catch (Exception exception) when (_errorMapper.IsStorageException(exception))
             {
                 LogInfrastructureError(exception, "Validate text renaming");
                 return false;
@@ -747,40 +774,41 @@ namespace MemoriaNote.Cli
         /// Validates the deletion of a text content with the given content, and sets any validation errors.
         /// </summary>
         /// <param name="summary">The selected page summary.</param>
+        /// <param name="cancellationToken">Cancels validation.</param>
         /// <returns>Returns true if the text can be deleted, false otherwise.</returns>
-        public bool CanDeleteText(PageSummary summary)
+        public async Task<bool> CanDeleteTextAsync(
+            PageSummary summary,
+            CancellationToken cancellationToken)
         {
             try
             {
                 var target = CreateReference(summary);
                 var result = target == null
                     ? PageNotSelected()
-                    : _applicationService.ValidateDeleteAsync(
-                            new DeletePageCommand(target.NotebookId, target.PageId),
-                            CancellationToken.None)
-                        .GetAwaiter()
-                        .GetResult();
+                    : await _applicationService.ValidateDeleteAsync(
+                        new DeletePageCommand(target.NotebookId, target.PageId),
+                        cancellationToken);
                 EditingErrors = ToErrorMessages(PageOperationKind.Delete, result);
                 return result.IsSuccess;
             }
-            catch (Exception exception) when (IsInfrastructureException(exception))
+            catch (Exception exception) when (_errorMapper.IsStorageException(exception))
             {
                 LogInfrastructureError(exception, "Validate text deletion");
                 return false;
             }
         }
 
-        private void ExecutePageOperation(
-            Func<PageOperationResult> operation,
+        private async Task ExecutePageOperationAsync(
+            Func<Task<PageOperationResult>> operation,
             PageOperationKind operationType,
             string operationName)
         {
             try
             {
-                var result = operation();
+                var result = await operation();
                 OnPageOperationResultCallback(operationType, result);
             }
-            catch (Exception exception) when (IsInfrastructureException(exception))
+            catch (Exception exception) when (_errorMapper.IsStorageException(exception))
             {
                 LogInfrastructureError(exception, operationName);
             }
@@ -808,36 +836,18 @@ namespace MemoriaNote.Cli
                 new[] { PageErrorCode.PageNotSelected });
         }
 
-        private void ExecuteInfrastructureOperation(
-            Action operation,
+        private async Task ExecuteInfrastructureOperationAsync(
+            Func<Task> operation,
             string operationName)
         {
             try
             {
-                operation();
+                await operation();
             }
-            catch (Exception exception) when (IsInfrastructureException(exception))
+            catch (Exception exception) when (_errorMapper.IsStorageException(exception))
             {
                 LogInfrastructureError(exception, operationName);
             }
-        }
-
-        private static bool IsInfrastructureException(Exception exception)
-        {
-            if (exception is DbException ||
-                exception is IOException ||
-                exception is UnauthorizedAccessException)
-                return true;
-
-            if (exception is DbUpdateException dbUpdateException)
-                return dbUpdateException.InnerException != null &&
-                    IsInfrastructureException(dbUpdateException.InnerException);
-
-            if (exception is AggregateException aggregateException)
-                return aggregateException.InnerExceptions.Count > 0 &&
-                    aggregateException.InnerExceptions.All(IsInfrastructureException);
-
-            return false;
         }
 
         private void LogInfrastructureError(Exception exception, string operation)
@@ -883,7 +893,7 @@ namespace MemoriaNote.Cli
         /// <summary>
         /// Handler for opening a text content.
         /// </summary>
-        public Action OpenTextHandler { get; }
+        public Func<Task> OpenTextHandler { get; }
         /// <summary>
         /// Command to open a specific text content.
         /// </summary>
@@ -891,7 +901,7 @@ namespace MemoriaNote.Cli
         /// <summary>
         /// Handler for creating a new text content.
         /// </summary>
-        public Action CreateTextHandler { get; }
+        public Func<Task> CreateTextHandler { get; }
         /// <summary>
         /// Command to create a new text content.
         /// </summary>
@@ -899,7 +909,7 @@ namespace MemoriaNote.Cli
         /// <summary>
         /// Handler for editing an existing text content.
         /// </summary>
-        public Action EditTextHandler { get; }
+        public Func<Task> EditTextHandler { get; }
         /// <summary>
         /// Command to edit an existing text content.
         /// </summary>
@@ -907,7 +917,7 @@ namespace MemoriaNote.Cli
         /// <summary>
         /// Handler for renaming a text content.
         /// </summary>
-        public Action RenameTextHandler { get; }
+        public Func<Task> RenameTextHandler { get; }
         /// <summary>
         /// Command to rename a text content.
         /// </summary>
@@ -915,7 +925,7 @@ namespace MemoriaNote.Cli
         /// <summary>
         /// Handler for deleting a text content.
         /// </summary>
-        public Action DeleteTextHandler { get; }
+        public Func<Task> DeleteTextHandler { get; }
         /// <summary>
         /// Command to delete a text content.
         /// </summary>

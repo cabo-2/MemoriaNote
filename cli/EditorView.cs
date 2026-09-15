@@ -1,7 +1,7 @@
 using System.IO;
 using System.Text;
-using System.Reactive.Linq;
-using ReactiveUI;
+using System.Threading;
+using System.Threading.Tasks;
 using MemoriaNote.Cli.Editors;
 using Microsoft.Extensions.Logging;
 
@@ -19,15 +19,21 @@ namespace MemoriaNote.Cli
         /// </summary>
         /// <param name="sc">The ScreenController to be used.</param>
         /// <param name="vm">The MemoriaNoteViewModel to be used.</param>
-        public static void Run(
+        /// <param name="terminalEditorFactory">Creates the configured external editor.</param>
+        /// <param name="logger">The presentation logger.</param>
+        /// <param name="cancellationToken">Cancels the editing operation.</param>
+        /// <returns>A task representing the editing operation.</returns>
+        public static Task RunAsync(
             ScreenController sc,
             MemoriaNoteViewModel vm,
             TerminalEditorFactory terminalEditorFactory,
-            ILogger<EditorView> logger)
+            ILogger<EditorView> logger,
+            CancellationToken cancellationToken)
         {
             // Create a new instance of EditorView with the provided ScreenController and MemoriaNoteViewModel,
             // then start the editing process.
-            new EditorView(sc, vm, terminalEditorFactory, logger).Start();
+            return new EditorView(sc, vm, terminalEditorFactory, logger)
+                .StartAsync(cancellationToken);
         }
 
         readonly TerminalEditorFactory _terminalEditorFactory;
@@ -49,7 +55,7 @@ namespace MemoriaNote.Cli
         /// <summary>
         /// Method to start the editing process based on the current EditorMode in the ViewModel.
         /// </summary>
-        protected void Start()
+        protected async Task StartAsync(CancellationToken cancellationToken)
         {
             // Create a new instance of a terminal editor.
             var editor = _terminalEditorFactory.Create(ViewModel.Configuration);
@@ -59,19 +65,19 @@ namespace MemoriaNote.Cli
             {
                 case EditorMode.Create:
                     // Start the process for creating a new text.
-                    OnCreateText(editor);
+                    await OnCreateTextAsync(editor, cancellationToken);
                     break;
                 case EditorMode.Edit:
                     // Start the process for editing an existing text.
-                    OnEditText(editor);
+                    await OnEditTextAsync(editor, cancellationToken);
                     break;
                 case EditorMode.Rename:
                     // Start the process for renaming a text.
-                    OnRenameText(editor);
+                    await OnRenameTextAsync(editor, cancellationToken);
                     break;
                 case EditorMode.Delete:
                     // Start the process for deleting a text.
-                    OnDeleteText(editor);
+                    await OnDeleteTextAsync(editor, cancellationToken);
                     break;
                 default:
                     // Log an error if the editing state is not recognized.
@@ -83,35 +89,66 @@ namespace MemoriaNote.Cli
             ViewModel.EditingState = EditorMode.None;
         }
 
-        protected void OnCreateText(ITerminalEditor editor)
+        protected async Task OnCreateTextAsync(
+            ITerminalEditor editor,
+            CancellationToken cancellationToken)
         {
-            if (!ViewModel.CanCreateText(ViewModel.EditingTitle, ViewModel.EditingText))
-                if (!EnterName(editor, ViewModel.EditingState))
+            if (!await ViewModel.CanCreateTextAsync(
+                ViewModel.EditingTitle,
+                ViewModel.EditingText,
+                cancellationToken))
+            {
+                if (!await EnterNameAsync(
+                    editor,
+                    ViewModel.EditingState,
+                    cancellationToken))
+                {
                     return;
+                }
+            }
 
-            if (EnterText(editor))
-                Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.CreateText);
+            if (await EnterTextAsync(editor, cancellationToken))
+                await ViewModel.CreateTextHandler();
         }
 
-        protected void OnEditText(ITerminalEditor editor)
+        protected async Task OnEditTextAsync(
+            ITerminalEditor editor,
+            CancellationToken cancellationToken)
         {
-            if (EnterText(editor))
-                Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.EditText);
+            if (await EnterTextAsync(editor, cancellationToken))
+                await ViewModel.EditTextHandler();
         }
 
-        protected void OnRenameText(ITerminalEditor editor)
+        protected async Task OnRenameTextAsync(
+            ITerminalEditor editor,
+            CancellationToken cancellationToken)
         {
-            if (EnterName(editor, EditorMode.Rename))
-                Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.RenameText);
+            if (await EnterNameAsync(
+                editor,
+                EditorMode.Rename,
+                cancellationToken))
+            {
+                await ViewModel.RenameTextHandler();
+            }
         }
         
-        protected void OnDeleteText(ITerminalEditor editor)
+        protected async Task OnDeleteTextAsync(
+            ITerminalEditor editor,
+            CancellationToken cancellationToken)
         {
-            if (EnterName(editor, EditorMode.Delete))
-                Observable.Start(() => { }).InvokeCommand(ViewModel, vm => vm.DeleteText);
+            if (await EnterNameAsync(
+                editor,
+                EditorMode.Delete,
+                cancellationToken))
+            {
+                await ViewModel.DeleteTextHandler();
+            }
         }
 
-        protected bool EnterName(ITerminalEditor editor, EditorMode type)
+        protected async Task<bool> EnterNameAsync(
+            ITerminalEditor editor,
+            EditorMode type,
+            CancellationToken cancellationToken)
         {
             if (type == EditorMode.Rename)
                 editor.FileName = "Rename text";
@@ -122,7 +159,7 @@ namespace MemoriaNote.Cli
 
             editor.TextData = AddNameComment(ViewModel.EditingTitle, type);
 
-            if (!editor.Edit())
+            if (!await editor.EditAsync(cancellationToken))
             {
                 _logger.LogInformation("A name enter canceled");
                 ViewModel.ManageNotice = "A name enter canceled";
@@ -133,12 +170,14 @@ namespace MemoriaNote.Cli
             return true;
         }
 
-        protected bool EnterText(ITerminalEditor editor)
+        protected async Task<bool> EnterTextAsync(
+            ITerminalEditor editor,
+            CancellationToken cancellationToken)
         {
             editor.FileName = ViewModel.EditingTitle;
             editor.TextData = ViewModel.EditingText;
 
-            if (!editor.Edit())
+            if (!await editor.EditAsync(cancellationToken))
             {
                 _logger.LogInformation("A text enter canceled");
                 ViewModel.SearchNotice = "A text enter canceled";

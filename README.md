@@ -82,6 +82,23 @@ Commands:
 Run 'mn [command] --help' for more information about a command.
 ```
 
+### Exit codes
+
+Commands use stable exit codes so shell scripts can distinguish failures:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Success |
+| `1` | Command-line parsing or unexpected failure |
+| `2` | Invalid input or data |
+| `3` | File, directory, note, or page not found |
+| `4` | Conflict with existing data or state |
+| `5` | Storage or external I/O failure |
+| `130` | Canceled, including `Ctrl+C` |
+
+Expected diagnostics are written to standard error with an `Error:` prefix.
+Unexpected failures use `Fatal:`.
+
 ### Examples
 
 Finding text data by a keyword:

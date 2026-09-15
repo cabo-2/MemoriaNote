@@ -84,8 +84,10 @@ namespace MemoriaNote.Cli
             var output = new ConsoleCommandOutput(Console.Out, Console.Error);
             var input = new ConsoleCommandInput(Console.In);
             var prompt = new CommandPrompt(input, output);
+            var errorMapper = new CliErrorMapper();
             var executor = new CliCommandExecutor(
                 output,
+                errorMapper,
                 loggerFactory.CreateLogger<CliCommandExecutor>());
             var contextFactory = new CliCommandContextFactory(
                 notebookMigrator,
@@ -109,8 +111,7 @@ namespace MemoriaNote.Cli
             var workAdd = new WorkAddCommandHandler(
                 executor,
                 contextFactory,
-                databaseFactory,
-                output);
+                databaseFactory);
             var commandHandlers = new CliCommandHandlers(
                 new FindCommandHandler(
                     executor,
@@ -138,7 +139,7 @@ namespace MemoriaNote.Cli
                     contextFactory,
                     searchQueryNormalizer,
                     output),
-                new WorkSelectCommandHandler(executor, contextFactory, output),
+                new WorkSelectCommandHandler(executor, contextFactory),
                 new WorkListCommandHandler(executor, contextFactory, output),
                 new WorkCreateCommandHandler(
                     executor,
@@ -148,8 +149,7 @@ namespace MemoriaNote.Cli
                     applicationPaths,
                     workAdd,
                     prompt,
-                    output,
-                    loggerFactory.CreateLogger<WorkCreateCommandHandler>()),
+                    output),
                 new WorkEditCommandHandler(
                     executor,
                     contextFactory,
@@ -158,7 +158,7 @@ namespace MemoriaNote.Cli
                     output,
                     loggerFactory.CreateLogger<WorkEditCommandHandler>()),
                 workAdd,
-                new WorkRemoveCommandHandler(executor, contextFactory, output),
+                new WorkRemoveCommandHandler(executor, contextFactory),
                 new WorkBackupCommandHandler(
                     executor,
                     contextFactory,

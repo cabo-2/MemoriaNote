@@ -9,13 +9,14 @@ public sealed class CommandHandlerTests
 {
     /// <summary>Verifies that the new-page handler configures UI state without running a TUI.</summary>
     [Test]
-    public void New_UsesManageEditorAdapterAndPersistsConfiguration()
+    public async Task New_UsesManageEditorAdapterAndPersistsConfiguration()
     {
         using var standardOutput = new StringWriter();
         using var standardError = new StringWriter();
         var output = new ConsoleCommandOutput(standardOutput, standardError);
         var executor = new CliCommandExecutor(
             output,
+            new CliErrorMapper(),
             NullLogger<CliCommandExecutor>.Instance);
         var configuration = new ConfigurationCli();
         var viewModel = new MemoriaNoteViewModel(
@@ -32,7 +33,9 @@ public sealed class CommandHandlerTests
             contextFactory,
             terminalUi);
 
-        var result = handler.Execute("Roadmap");
+        var result = await handler.ExecuteAsync(
+            "Roadmap",
+            CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
@@ -71,10 +74,13 @@ public sealed class CommandHandlerTests
             return _configuration;
         }
 
-        public MemoriaNoteViewModel CreateViewModel(ConfigurationCli configuration)
+        public Task<MemoriaNoteViewModel> CreateViewModelAsync(
+            ConfigurationCli configuration,
+            CancellationToken cancellationToken)
         {
             Assert.That(configuration, Is.SameAs(_configuration));
-            return _viewModel;
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(_viewModel);
         }
 
         public void SaveConfiguration(ConfigurationCli configuration)
@@ -92,16 +98,24 @@ public sealed class CommandHandlerTests
 
         internal MemoriaNoteViewModel? ViewModel { get; private set; }
 
-        public void RunHome(MemoriaNoteViewModel viewModel)
+        public Task RunHomeAsync(
+            MemoriaNoteViewModel viewModel,
+            CancellationToken cancellationToken)
         {
             Assert.Fail("The home screen was not expected.");
+            return Task.CompletedTask;
         }
 
-        public void RunManage(MemoriaNoteViewModel viewModel, bool openEditor)
+        public Task RunManageAsync(
+            MemoriaNoteViewModel viewModel,
+            bool openEditor,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             ViewModel = viewModel;
             OpenEditor = openEditor;
             ManageRunCount++;
+            return Task.CompletedTask;
         }
     }
 }

@@ -13,6 +13,8 @@ using Terminal.Gui;
 using McMaster.Extensions.CommandLineUtils;
 using MemoriaNote.Cli.Editors;
 using Microsoft.Extensions.Logging;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MemoriaNote.Cli
 {
@@ -45,31 +47,57 @@ namespace MemoriaNote.Cli
             views = new Stack<Type>();
         }
 
-        public int Start(MemoriaNoteViewModel vm)
+        /// <summary>Processes the queued screens until completion or cancellation.</summary>
+        /// <param name="vm">The presentation state shared by the screens.</param>
+        /// <param name="cancellationToken">Cancels screen processing.</param>
+        /// <returns>The screen processing exit code.</returns>
+        public async Task<int> StartAsync(
+            MemoriaNoteViewModel vm,
+            CancellationToken cancellationToken)
         {
             while(views.Count > 0)
-                OnScreenProcedure(views.Pop(), this, vm);
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await OnScreenProcedureAsync(
+                    views.Pop(),
+                    this,
+                    vm,
+                    cancellationToken);
+            }
 
             return 0;              
         }
 
-        static void OnScreenProcedure(Type type, ScreenController sc, MemoriaNoteViewModel vm)
+        static async Task OnScreenProcedureAsync(
+            Type type,
+            ScreenController sc,
+            MemoriaNoteViewModel vm,
+            CancellationToken cancellationToken)
         {
             if (type.Equals(typeof(HomeView))) 
             {        
-                HomeView.Run(sc, vm, sc._loggerFactory.CreateLogger<HomeView>());
+                HomeView.Run(
+                    sc,
+                    vm,
+                    sc._loggerFactory.CreateLogger<HomeView>(),
+                    cancellationToken);
             }
             else if (type.Equals(typeof(ManageView))) 
             {        
-                ManageView.Run(sc, vm, sc._loggerFactory.CreateLogger<ManageView>());
+                ManageView.Run(
+                    sc,
+                    vm,
+                    sc._loggerFactory.CreateLogger<ManageView>(),
+                    cancellationToken);
             }
             else if (type.Equals(typeof(EditorView)))
             {
-                EditorView.Run(
+                await EditorView.RunAsync(
                     sc,
                     vm,
                     sc._terminalEditorFactory,
-                    sc._loggerFactory.CreateLogger<EditorView>());
+                    sc._loggerFactory.CreateLogger<EditorView>(),
+                    cancellationToken);
             }
             else
                 throw new NotImplementedException(nameof(type));

@@ -98,6 +98,33 @@ public sealed class SearchCoordinationTests
     }
 
     /// <summary>
+    /// Verifies that process cancellation remains observable by the command executor.
+    /// </summary>
+    [Test]
+    public async Task ApplicationCancellation_FaultsTheReturnedTask()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var service = new ControlledSearchService(
+            (_, token) => WaitForCancellationAsync(token),
+            cancellation.Token);
+        var searchTask = service.SearchHandler();
+
+        cancellation.Cancel();
+
+        OperationCanceledException? exception = null;
+        try
+        {
+            await searchTask;
+        }
+        catch (OperationCanceledException caught)
+        {
+            exception = caught;
+        }
+
+        Assert.That(exception, Is.Not.Null);
+    }
+
+    /// <summary>
     /// Verifies that an infrastructure failure is handled without replacing the current result.
     /// </summary>
     [Test]
@@ -170,12 +197,14 @@ public sealed class SearchCoordinationTests
         private readonly Func<SearchInvocation, CancellationToken, Task<SearchPage>> _search;
 
         internal ControlledSearchService(
-            Func<SearchInvocation, CancellationToken, Task<SearchPage>> search)
+            Func<SearchInvocation, CancellationToken, Task<SearchPage>> search,
+            CancellationToken cancellationToken = default)
             : base(
                 new ConfigurationCli(),
                 new Workspace(),
                 new StubApplicationService(),
-                NullLogger<MemoriaNoteViewModel>.Instance)
+                NullLogger<MemoriaNoteViewModel>.Instance,
+                cancellationToken)
         {
             _search = search;
         }
