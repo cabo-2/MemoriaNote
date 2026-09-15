@@ -1,4 +1,4 @@
-namespace MemoriaNote.Cli
+namespace MemoriaNote.Cli.Editors
 {
     /// <summary>
     /// Identifies the current presentation editing workflow.

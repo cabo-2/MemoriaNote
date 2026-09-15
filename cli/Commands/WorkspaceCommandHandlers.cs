@@ -61,7 +61,7 @@ namespace MemoriaNote.Cli
     {
         readonly CliCommandExecutor _executor;
         readonly ICliCommandContextFactory _contextFactory;
-        readonly TerminalEditorFactory _terminalEditorFactory;
+        readonly IExternalEditor _externalEditor;
         readonly CommandPrompt _prompt;
         readonly ICommandOutput _output;
         readonly ILogger<WorkEditCommandHandler> _logger;
@@ -70,7 +70,7 @@ namespace MemoriaNote.Cli
         internal WorkEditCommandHandler(
             CliCommandExecutor executor,
             ICliCommandContextFactory contextFactory,
-            TerminalEditorFactory terminalEditorFactory,
+            IExternalEditor externalEditor,
             CommandPrompt prompt,
             ICommandOutput output,
             ILogger<WorkEditCommandHandler> logger)
@@ -78,8 +78,8 @@ namespace MemoriaNote.Cli
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
             _contextFactory = contextFactory ??
                 throw new ArgumentNullException(nameof(contextFactory));
-            _terminalEditorFactory = terminalEditorFactory ??
-                throw new ArgumentNullException(nameof(terminalEditorFactory));
+            _externalEditor = externalEditor ??
+                throw new ArgumentNullException(nameof(externalEditor));
             _prompt = prompt ?? throw new ArgumentNullException(nameof(prompt));
             _output = output ?? throw new ArgumentNullException(nameof(output));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -100,19 +100,22 @@ namespace MemoriaNote.Cli
                 {
                     retry = false;
                     var document = NotebookMetadataEditDocument.Create(notebook.Metadata);
-                    var editor = _terminalEditorFactory.Create(configuration);
-                    editor.FileName = notebook.ToString();
-                    editor.TextData = JsonConvert.SerializeObject(
-                        document,
-                        Formatting.Indented);
+                    var editResult = await _externalEditor.EditAsync(
+                        configuration,
+                        new ExternalEditorDocument(
+                            notebook.ToString(),
+                            JsonConvert.SerializeObject(
+                                document,
+                                Formatting.Indented)),
+                        token);
 
-                    if (await editor.EditAsync(token))
+                    if (editResult.IsChanged)
                     {
                         try
                         {
                             document = JsonConvert
                                 .DeserializeObject<NotebookMetadataEditDocument>(
-                                    editor.TextData) ??
+                                    editResult.Text) ??
                                 throw new JsonException(
                                     "The metadata editor did not contain an object.");
                             var update = document.ToUpdate();

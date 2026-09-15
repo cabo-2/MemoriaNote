@@ -13,7 +13,7 @@ namespace MemoriaNote.Cli
         readonly ICliCommandContextFactory _contextFactory;
         readonly IConfigurationSerializer<ConfigurationCli> _serializer;
         readonly ApplicationPaths _applicationPaths;
-        readonly TerminalEditorFactory _terminalEditorFactory;
+        readonly IExternalEditor _externalEditor;
         readonly CommandPrompt _prompt;
         readonly ICommandOutput _output;
         readonly ILogger<ConfigEditCommandHandler> _logger;
@@ -23,7 +23,7 @@ namespace MemoriaNote.Cli
             ICliCommandContextFactory contextFactory,
             IConfigurationSerializer<ConfigurationCli> serializer,
             ApplicationPaths applicationPaths,
-            TerminalEditorFactory terminalEditorFactory,
+            IExternalEditor externalEditor,
             CommandPrompt prompt,
             ICommandOutput output,
             ILogger<ConfigEditCommandHandler> logger)
@@ -34,8 +34,8 @@ namespace MemoriaNote.Cli
             _serializer = serializer ?? throw new ArgumentNullException(nameof(serializer));
             _applicationPaths = applicationPaths ??
                 throw new ArgumentNullException(nameof(applicationPaths));
-            _terminalEditorFactory = terminalEditorFactory ??
-                throw new ArgumentNullException(nameof(terminalEditorFactory));
+            _externalEditor = externalEditor ??
+                throw new ArgumentNullException(nameof(externalEditor));
             _prompt = prompt ?? throw new ArgumentNullException(nameof(prompt));
             _output = output ?? throw new ArgumentNullException(nameof(output));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -50,15 +50,18 @@ namespace MemoriaNote.Cli
                 do
                 {
                     retry = false;
-                    var editor = _terminalEditorFactory.Create(configuration);
-                    editor.FileName = Path.GetFileName(_applicationPaths.ConfigurationPath);
-                    editor.TextData = _serializer.Serialize(configuration);
+                    var editResult = await _externalEditor.EditAsync(
+                        configuration,
+                        new ExternalEditorDocument(
+                            Path.GetFileName(_applicationPaths.ConfigurationPath),
+                            _serializer.Serialize(configuration)),
+                        token);
 
-                    if (await editor.EditAsync(token))
+                    if (editResult.IsChanged)
                     {
                         try
                         {
-                            configuration = _serializer.Deserialize(editor.TextData);
+                            configuration = _serializer.Deserialize(editResult.Text);
                         }
                         catch (ConfigurationFormatException)
                         {

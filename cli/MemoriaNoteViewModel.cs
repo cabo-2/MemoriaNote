@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Reactive;
 using System.Reactive.Linq;
+using MemoriaNote.Cli.Editors;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 using Microsoft.Extensions.Logging;

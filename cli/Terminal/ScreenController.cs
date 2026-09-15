@@ -20,18 +20,18 @@ namespace MemoriaNote.Cli.Terminal
         //
 
         protected readonly Stack<Type> _views;
-        readonly TerminalEditorFactory _terminalEditorFactory;
+        readonly IPageEditorWorkflow _pageEditorWorkflow;
         readonly ILoggerFactory _loggerFactory;
 
         /// <summary>Initializes a screen controller with its external adapters.</summary>
-        /// <param name="terminalEditorFactory">The terminal editor factory.</param>
+        /// <param name="pageEditorWorkflow">The external page editor workflow.</param>
         /// <param name="loggerFactory">The shared logger factory.</param>
         public ScreenController(
-            TerminalEditorFactory terminalEditorFactory,
+            IPageEditorWorkflow pageEditorWorkflow,
             ILoggerFactory loggerFactory)
         {
-            _terminalEditorFactory = terminalEditorFactory ??
-                throw new ArgumentNullException(nameof(terminalEditorFactory));
+            _pageEditorWorkflow = pageEditorWorkflow ??
+                throw new ArgumentNullException(nameof(pageEditorWorkflow));
             _loggerFactory = loggerFactory ??
                 throw new ArgumentNullException(nameof(loggerFactory));
             _views = new Stack<Type>();
@@ -85,8 +85,7 @@ namespace MemoriaNote.Cli.Terminal
                 await EditorView.RunAsync(
                     sc,
                     vm,
-                    sc._terminalEditorFactory,
-                    sc._loggerFactory.CreateLogger<EditorView>(),
+                    sc._pageEditorWorkflow,
                     cancellationToken);
             }
             else

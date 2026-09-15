@@ -8,15 +8,15 @@ namespace MemoriaNote.Cli.Terminal
 {
     internal sealed class TerminalUiAdapter : ITerminalUi
     {
-        readonly TerminalEditorFactory _terminalEditorFactory;
+        readonly IPageEditorWorkflow _pageEditorWorkflow;
         readonly ILoggerFactory _loggerFactory;
 
         internal TerminalUiAdapter(
-            TerminalEditorFactory terminalEditorFactory,
+            IPageEditorWorkflow pageEditorWorkflow,
             ILoggerFactory loggerFactory)
         {
-            _terminalEditorFactory = terminalEditorFactory ??
-                throw new ArgumentNullException(nameof(terminalEditorFactory));
+            _pageEditorWorkflow = pageEditorWorkflow ??
+                throw new ArgumentNullException(nameof(pageEditorWorkflow));
             _loggerFactory = loggerFactory ??
                 throw new ArgumentNullException(nameof(loggerFactory));
         }
@@ -44,7 +44,7 @@ namespace MemoriaNote.Cli.Terminal
 
         ScreenController CreateController()
         {
-            return new ScreenController(_terminalEditorFactory, _loggerFactory);
+            return new ScreenController(_pageEditorWorkflow, _loggerFactory);
         }
     }
 }
