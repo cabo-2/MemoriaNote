@@ -20,7 +20,8 @@
         "ustring",
         "Autoincrement",
         "NOCASE",
-        "Parallelizable"
+        "Parallelizable",
+        "retryable"
     ],
     "ignoreWords": [],
     "import": []

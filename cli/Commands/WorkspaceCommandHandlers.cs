@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -66,6 +65,7 @@ namespace MemoriaNote.Cli
         readonly CommandPrompt _prompt;
         readonly ICommandOutput _output;
         readonly ILogger<WorkEditCommandHandler> _logger;
+        readonly NotebookMetadataValidationPolicy _validationPolicy;
 
         internal WorkEditCommandHandler(
             CliCommandExecutor executor,
@@ -83,6 +83,7 @@ namespace MemoriaNote.Cli
             _prompt = prompt ?? throw new ArgumentNullException(nameof(prompt));
             _output = output ?? throw new ArgumentNullException(nameof(output));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _validationPolicy = new NotebookMetadataValidationPolicy();
         }
 
         internal Task<int> ExecuteAsync(CancellationToken cancellationToken)
@@ -98,52 +99,58 @@ namespace MemoriaNote.Cli
                 do
                 {
                     retry = false;
-                    var data = DataSourceTracker.Create(notebook.Metadata);
-                    var errors = new List<string>();
+                    var document = NotebookMetadataEditDocument.Create(notebook.Metadata);
                     var editor = _terminalEditorFactory.Create(configuration);
                     editor.FileName = notebook.ToString();
                     editor.TextData = JsonConvert.SerializeObject(
-                        data,
+                        document,
                         Formatting.Indented);
 
                     if (await editor.EditAsync(token))
                     {
                         try
                         {
-                            data = JsonConvert.DeserializeObject<DataSourceTracker>(
-                                editor.TextData);
-                            data.ValidateName(
-                                notebook,
-                                viewModel.Workspace,
-                                ref errors);
-                            data.ValidateTitle(
-                                notebook,
-                                viewModel.Workspace,
-                                ref errors);
-                            notebook.UpdateMetadata(
-                                NotebookMetadataPatch.Create(notebook.Metadata, data));
-                            _logger.LogInformation("Metadata updated");
-                        }
-                        catch (ValidationException)
-                        {
-                            foreach (var error in errors)
+                            document = JsonConvert
+                                .DeserializeObject<NotebookMetadataEditDocument>(
+                                    editor.TextData) ??
+                                throw new JsonException(
+                                    "The metadata editor did not contain an object.");
+                            var update = document.ToUpdate();
+                            var errors = _validationPolicy.Validate(
+                                NotebookId.FromDatabasePath(notebook.DatabasePath),
+                                update,
+                                viewModel.Workspace);
+                            if (errors.Count > 0)
                             {
-                                _logger.LogError(
-                                    "Error: {ValidationError}",
-                                    error);
-                                _output.WriteErrorLine($"Error: {error}");
-                            }
+                                foreach (var error in errors)
+                                {
+                                    var message = NotebookMetadataValidationMessageMapper
+                                        .ToErrorMessage(error);
+                                    _logger.LogError(
+                                        "Error: {ValidationError}",
+                                        message);
+                                    _output.WriteErrorLine($"Error: {message}");
+                                }
 
-                            if (_prompt.ReadTryAgain())
-                                retry = true;
-                            else
-                            {
+                                if (_prompt.ReadTryAgain())
+                                {
+                                    retry = true;
+                                    continue;
+                                }
+
                                 return CliCommandResult.Failure(
                                     CliErrorKind.Validation,
-                                    errors.FirstOrDefault() ??
-                                        "Unable to validate modified data",
+                                    NotebookMetadataValidationMessageMapper
+                                        .ToErrorMessage(errors[0]),
                                     alreadyReported: true);
                             }
+
+                            await notebook.UpdateMetadataAsync(
+                                NotebookMetadataPatch.Create(
+                                    notebook.Metadata,
+                                    update),
+                                token);
+                            _logger.LogInformation("Metadata updated");
                         }
                         catch
                         {
