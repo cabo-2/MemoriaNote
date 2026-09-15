@@ -13,14 +13,14 @@ namespace MemoriaNote
         internal IReadOnlyDictionary<string, string> Values => _values;
 
         /// <summary>
-        /// Creates an patch containing only values that differ from a persisted snapshot.
+        /// Creates a patch containing only values that differ from a persisted snapshot.
         /// </summary>
         /// <param name="persisted">The persisted metadata snapshot.</param>
         /// <param name="proposed">The proposed metadata values.</param>
-        /// <returns>An patch containing the changed fields.</returns>
+        /// <returns>A patch containing the changed fields.</returns>
         public static NotebookMetadataPatch Create(
             NotebookMetadata persisted,
-            IDataSource proposed)
+            NotebookMetadataUpdate proposed)
         {
             if (persisted == null)
                 throw new ArgumentNullException(nameof(persisted));

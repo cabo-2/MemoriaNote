@@ -99,15 +99,10 @@ public sealed class MetadataCharacteristicsTests
             .SetTag("offline")
             .SetCreateTime(new DateTime(2026, 2, 3, 4, 5, 6)));
         var snapshot = note.Metadata;
-        var tracker = DataSourceTracker.Create(snapshot);
-        var workspace = new Workspace(null, new[] { note });
-        var errors = new List<string>();
 
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         File.Delete(database.DatabasePath);
 
-        tracker.ValidateName(note, workspace, ref errors);
-        tracker.ValidateTitle(note, workspace, ref errors);
         var clone = snapshot.Clone();
 
         using (Assert.EnterMultipleScope())
@@ -117,7 +112,43 @@ public sealed class MetadataCharacteristicsTests
             Assert.That(snapshot.ToString(), Is.EqualTo("offline-note:offline"));
             Assert.That(clone, Is.EqualTo(snapshot));
             Assert.That(clone.GetHashCode(), Is.EqualTo(snapshot.GetHashCode()));
-            Assert.That(errors, Is.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Verifies that a complete proposed state is converted to one metadata patch.
+    /// </summary>
+    [Test]
+    public void CreatePatch_FromMetadataUpdate_PersistsEditableValues()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        var notebook = database.CreateNotebook("original-name", "Original Title");
+        var originalPath = notebook.DatabasePath;
+        var createTime = new DateTime(2026, 4, 5, 6, 7, 8);
+        var update = new NotebookMetadataUpdate(
+            "updated-name",
+            "Updated Title",
+            "updated-version",
+            "Updated description",
+            "Updated author",
+            true,
+            "updated-tag",
+            createTime);
+
+        notebook.UpdateMetadata(NotebookMetadataPatch.Create(notebook.Metadata, update));
+
+        var reopened = new Notebook(originalPath);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(reopened.DatabasePath, Is.EqualTo(originalPath));
+            Assert.That(reopened.Metadata.Name, Is.EqualTo(update.Name));
+            Assert.That(reopened.Metadata.Title, Is.EqualTo(update.Title));
+            Assert.That(reopened.Metadata.Version, Is.EqualTo(update.Version));
+            Assert.That(reopened.Metadata.Description, Is.EqualTo(update.Description));
+            Assert.That(reopened.Metadata.Author, Is.EqualTo(update.Author));
+            Assert.That(reopened.Metadata.ReadOnly, Is.EqualTo(update.ReadOnly));
+            Assert.That(reopened.Metadata.Tag, Is.EqualTo(update.Tag));
+            Assert.That(reopened.Metadata.CreateTime, Is.EqualTo(update.CreateTime));
         }
     }
 }

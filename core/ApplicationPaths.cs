@@ -54,11 +54,6 @@ namespace MemoriaNote
             ApplicationDataDirectory,
             _configurationFileName);
 
-        /// <summary>Gets the data-source catalog file path.</summary>
-        public string DataSourcesPath => Path.Combine(
-            ApplicationDataDirectory,
-            "data-sources.json");
-
         /// <summary>Gets the default notebook database path.</summary>
         public string DefaultNotebookDatabasePath => Path.Combine(
             ApplicationDataDirectory,
