@@ -47,7 +47,7 @@ public sealed class ViewModelErrorHandlingTests
     /// Verifies that page validation and management consume infrastructure failures.
     /// </summary>
     [Test]
-    public void PageManagementInfrastructureFailure_PreservesViewModelState()
+    public async Task PageManagementInfrastructureFailure_PreservesViewModelState()
     {
         var notebook = CreateNotebook();
         var content = CreateSummary(notebook, "Existing text");
@@ -72,15 +72,16 @@ public sealed class ViewModelErrorHandlingTests
         viewModel.ContentsViewPageIndex = (0, 0);
         viewModel.PlaceHolder = "Unchanged";
 
-        var canCreate = viewModel.CanCreateText(
+        var canCreate = await viewModel.CanCreateTextAsync(
             viewModel.EditingTitle,
-            viewModel.EditingText);
-        viewModel.OpenTextHandler();
+            viewModel.EditingText,
+            CancellationToken.None);
+        await viewModel.OpenTextHandler();
+        await viewModel.CreateTextHandler();
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(canCreate, Is.False);
-            viewModel.CreateTextHandler();
             Assert.That(viewModel.ManageNotice, Is.EqualTo("Unchanged"));
             Assert.That(viewModel.OpenedContent, Is.Null);
             Assert.That(viewModel.PlaceHolder, Is.EqualTo("Unchanged"));
@@ -91,7 +92,7 @@ public sealed class ViewModelErrorHandlingTests
     /// Verifies that opening a deleted search result preserves the displayed page.
     /// </summary>
     [Test]
-    public void OpenDeletedPage_PreservesViewModelState()
+    public async Task OpenDeletedPage_PreservesViewModelState()
     {
         var notebook = CreateNotebook();
         var content = CreateSummary(notebook, "Deleted text");
@@ -108,7 +109,7 @@ public sealed class ViewModelErrorHandlingTests
         viewModel.ContentsViewPageIndex = (0, 0);
         viewModel.PlaceHolder = "Unchanged";
 
-        viewModel.OpenTextHandler();
+        await viewModel.OpenTextHandler();
 
         using (Assert.EnterMultipleScope())
         {

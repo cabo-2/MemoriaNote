@@ -1,9 +1,17 @@
+using System.Threading;
+using System.Threading.Tasks;
+
 namespace MemoriaNote.Cli
 {
     internal interface ITerminalUi
     {
-        void RunHome(MemoriaNoteViewModel viewModel);
+        Task RunHomeAsync(
+            MemoriaNoteViewModel viewModel,
+            CancellationToken cancellationToken);
 
-        void RunManage(MemoriaNoteViewModel viewModel, bool openEditor);
+        Task RunManageAsync(
+            MemoriaNoteViewModel viewModel,
+            bool openEditor,
+            CancellationToken cancellationToken);
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 namespace MemoriaNote.Cli
@@ -58,7 +59,9 @@ namespace MemoriaNote.Cli
             return result.Configuration;
         }
 
-        public MemoriaNoteViewModel CreateViewModel(ConfigurationCli configuration)
+        public async Task<MemoriaNoteViewModel> CreateViewModelAsync(
+            ConfigurationCli configuration,
+            CancellationToken cancellationToken)
         {
             if (configuration == null)
                 throw new ArgumentNullException(nameof(configuration));
@@ -76,16 +79,17 @@ namespace MemoriaNote.Cli
                     _pageRepository,
                     _pageSearchRepository,
                     _metadataRepository));
-            var session = startupService.StartAsync(request, CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
+            var session = await startupService.StartAsync(
+                request,
+                cancellationToken);
             if (session.DefaultNotebookCreated)
                 _logger.LogInformation("Default note created");
 
             return new MemoriaNoteViewModel(
                 configuration,
                 session,
-                _loggerFactory.CreateLogger<MemoriaNoteViewModel>());
+                _loggerFactory.CreateLogger<MemoriaNoteViewModel>(),
+                cancellationToken);
         }
 
         public void SaveConfiguration(ConfigurationCli configuration)

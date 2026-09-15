@@ -55,25 +55,61 @@ public sealed class CommandOutputAdapterTests
 
     /// <summary>Verifies that the shared executor preserves fatal error mapping.</summary>
     [Test]
-    public void Execute_UnexpectedExceptionWritesFatalErrorAndReturnsFailure()
+    public async Task Execute_UnexpectedExceptionWritesFatalErrorAndReturnsFailure()
     {
         using var standardOutput = new StringWriter();
         using var standardError = new StringWriter();
         var output = new ConsoleCommandOutput(standardOutput, standardError);
         var executor = new CliCommandExecutor(
             output,
+            new CliErrorMapper(),
             NullLogger<CliCommandExecutor>.Instance);
 
-        var result = executor.Execute(
-            () => throw new InvalidOperationException("unavailable"));
+        var result = await executor.ExecuteAsync(
+            _ => Task.FromException<CliCommandResult>(
+                new InvalidOperationException("unavailable")),
+            CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.EqualTo(-1));
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Unexpected));
             Assert.That(standardOutput.ToString(), Is.Empty);
             Assert.That(
                 standardError.ToString(),
                 Is.EqualTo("Fatal: unavailable" + Environment.NewLine));
+        }
+    }
+
+    /// <summary>Verifies that cancellation is mapped before command execution.</summary>
+    [Test]
+    public async Task Execute_CanceledTokenWritesErrorAndReturnsCanceled()
+    {
+        using var standardOutput = new StringWriter();
+        using var standardError = new StringWriter();
+        var executor = new CliCommandExecutor(
+            new ConsoleCommandOutput(standardOutput, standardError),
+            new CliErrorMapper(),
+            NullLogger<CliCommandExecutor>.Instance);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var executed = false;
+
+        var result = await executor.ExecuteAsync(
+            _ =>
+            {
+                executed = true;
+                return CliCommandResult.Success();
+            },
+            cancellation.Token);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Canceled));
+            Assert.That(executed, Is.False);
+            Assert.That(standardOutput.ToString(), Is.Empty);
+            Assert.That(
+                standardError.ToString(),
+                Is.EqualTo("Error: Operation was canceled" + Environment.NewLine));
         }
     }
 

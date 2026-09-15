@@ -7,6 +7,7 @@ using ReactiveUI;
 using Terminal.Gui;
 using ReactiveMarbles.ObservableEvents;
 using System.Reactive.Concurrency;
+using System.Threading;
 using Microsoft.Extensions.Logging;
 
 namespace MemoriaNote.Cli
@@ -16,16 +17,31 @@ namespace MemoriaNote.Cli
     /// </summary>
     public class HomeView : Toplevel, IViewFor<MemoriaNoteViewModel>, ITerminalScreen, IDisposable
     {
+        /// <summary>Runs the home screen until it exits or is canceled.</summary>
+        /// <param name="sc">The screen controller.</param>
+        /// <param name="vm">The presentation state.</param>
+        /// <param name="logger">The presentation logger.</param>
+        /// <param name="cancellationToken">Cancels the screen.</param>
         public static void Run(
             ScreenController sc,
             MemoriaNoteViewModel vm,
-            ILogger<HomeView> logger)
+            ILogger<HomeView> logger,
+            CancellationToken cancellationToken)
         {
             Application.Init();
-            RxApp.MainThreadScheduler = TerminalScheduler.Default;
-            RxApp.TaskpoolScheduler = TaskPoolScheduler.Default;
-            Application.Run(new HomeView(sc, vm, logger));
-            Application.Shutdown();
+            using var registration = cancellationToken.Register(() =>
+                Application.MainLoop?.Invoke(() => Application.RequestStop()));
+            try
+            {
+                RxApp.MainThreadScheduler = TerminalScheduler.Default;
+                RxApp.TaskpoolScheduler = TaskPoolScheduler.Default;
+                Application.Run(new HomeView(sc, vm, logger));
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            finally
+            {
+                Application.Shutdown();
+            }
         }
 
         readonly CompositeDisposable _disposable = new CompositeDisposable();

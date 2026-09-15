@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using MemoriaNote.Cli.Editors;
 using Microsoft.Extensions.Logging;
 
@@ -19,20 +21,25 @@ namespace MemoriaNote.Cli
                 throw new ArgumentNullException(nameof(loggerFactory));
         }
 
-        public void RunHome(MemoriaNoteViewModel viewModel)
+        public Task RunHomeAsync(
+            MemoriaNoteViewModel viewModel,
+            CancellationToken cancellationToken)
         {
             var controller = CreateController();
             controller.RequestHome();
-            controller.Start(viewModel);
+            return controller.StartAsync(viewModel, cancellationToken);
         }
 
-        public void RunManage(MemoriaNoteViewModel viewModel, bool openEditor)
+        public Task RunManageAsync(
+            MemoriaNoteViewModel viewModel,
+            bool openEditor,
+            CancellationToken cancellationToken)
         {
             var controller = CreateController();
             controller.RequestManage();
             if (openEditor)
                 controller.RequestEditor();
-            controller.Start(viewModel);
+            return controller.StartAsync(viewModel, cancellationToken);
         }
 
         ScreenController CreateController()

@@ -59,7 +59,7 @@ public sealed class CliProcessHarnessTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.ExitCode, Is.EqualTo(1));
             Assert.That(
                 result.StandardError,
                 Does.Contain("Unrecognized command or argument 'unknown-command'"));
@@ -80,10 +80,33 @@ public sealed class CliProcessHarnessTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.ExitCode, Is.EqualTo(2));
             Assert.That(result.StandardOutput, Is.Empty);
             Assert.That(result.StandardError, Does.Contain("Error: No name"));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
+        }
+    }
+
+    /// <summary>
+    /// Verifies that a missing import directory uses the not-found exit code.
+    /// </summary>
+    [Test]
+    public async Task ImportMissingDirectory_ReturnsNotFound()
+    {
+        using var harness = new CliProcessHarness();
+        var missingDirectory = Path.Combine(
+            harness.WorkingDirectory,
+            "missing-import-directory");
+
+        var result = await harness.RunAsync("import", missingDirectory);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo(3));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(
+                result.StandardError,
+                Is.EqualTo("Error: No such directory" + Environment.NewLine));
         }
     }
 
@@ -99,7 +122,7 @@ public sealed class CliProcessHarnessTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.ExitCode, Is.EqualTo(2));
             Assert.That(result.StandardOutput, Does.Contain("Usage: mn import"));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
@@ -121,9 +144,9 @@ public sealed class CliProcessHarnessTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.ExitCode, Is.Not.Zero);
+            Assert.That(result.ExitCode, Is.EqualTo(5));
             Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.StartWith("Fatal: "));
+            Assert.That(result.StandardError, Does.StartWith("Error: "));
         }
     }
 

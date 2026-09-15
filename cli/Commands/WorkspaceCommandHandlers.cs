@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using MemoriaNote.Cli.Editors;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -14,40 +15,46 @@ namespace MemoriaNote.Cli
     {
         readonly CliCommandExecutor _executor;
         readonly ICliCommandContextFactory _contextFactory;
-        readonly ICommandOutput _output;
 
         internal WorkSelectCommandHandler(
             CliCommandExecutor executor,
-            ICliCommandContextFactory contextFactory,
-            ICommandOutput output)
+            ICliCommandContextFactory contextFactory)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
             _contextFactory = contextFactory ??
                 throw new ArgumentNullException(nameof(contextFactory));
-            _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
-        internal int Execute(string name)
+        internal Task<int> ExecuteAsync(
+            string name,
+            CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(async token =>
             {
                 if (name == null)
-                    throw new ArgumentNullException(nameof(name));
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Validation,
+                        "No note name");
+                }
 
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = _contextFactory.CreateViewModel(configuration);
+                var viewModel = await _contextFactory.CreateViewModelAsync(
+                    configuration,
+                    token);
                 var workspace = viewModel.Workspace;
                 if (!workspace.Notebooks.Any(
                     notebook => name == notebook.Metadata.Name))
                 {
-                    _output.WriteErrorLine("Error: No such note");
-                    return -1;
+                    return CliCommandResult.Failure(
+                        CliErrorKind.NotFound,
+                        "No such note");
                 }
 
                 configuration.Workspace.SelectedNotebookName = name;
                 _contextFactory.SaveConfiguration(configuration);
-                return 0;
-            });
+                return CliCommandResult.Success();
+            }, cancellationToken);
         }
     }
 
@@ -78,12 +85,14 @@ namespace MemoriaNote.Cli
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        internal int Execute()
+        internal Task<int> ExecuteAsync(CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(async token =>
             {
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = _contextFactory.CreateViewModel(configuration);
+                var viewModel = await _contextFactory.CreateViewModelAsync(
+                    configuration,
+                    token);
                 var notebook = viewModel.Workspace.SelectedNotebook;
                 bool retry;
                 do
@@ -97,7 +106,7 @@ namespace MemoriaNote.Cli
                         data,
                         Formatting.Indented);
 
-                    if (editor.Edit())
+                    if (await editor.EditAsync(token))
                     {
                         try
                         {
@@ -128,7 +137,13 @@ namespace MemoriaNote.Cli
                             if (_prompt.ReadTryAgain())
                                 retry = true;
                             else
-                                return -1;
+                            {
+                                return CliCommandResult.Failure(
+                                    CliErrorKind.Validation,
+                                    errors.FirstOrDefault() ??
+                                        "Unable to validate modified data",
+                                    alreadyReported: true);
+                            }
                         }
                         catch
                         {
@@ -137,7 +152,12 @@ namespace MemoriaNote.Cli
                             if (_prompt.ReadTryAgain())
                                 retry = true;
                             else
-                                return -1;
+                            {
+                                return CliCommandResult.Failure(
+                                    CliErrorKind.Validation,
+                                    "Unable to read modified data",
+                                    alreadyReported: true);
+                            }
                         }
                     }
                     else
@@ -147,8 +167,8 @@ namespace MemoriaNote.Cli
                     }
                 } while (retry);
 
-                return 0;
-            });
+                return CliCommandResult.Success();
+            }, cancellationToken);
         }
     }
 
@@ -162,7 +182,6 @@ namespace MemoriaNote.Cli
         readonly WorkAddCommandHandler _workAddCommandHandler;
         readonly CommandPrompt _prompt;
         readonly ICommandOutput _output;
-        readonly ILogger<WorkCreateCommandHandler> _logger;
 
         internal WorkCreateCommandHandler(
             CliCommandExecutor executor,
@@ -172,8 +191,7 @@ namespace MemoriaNote.Cli
             ApplicationPaths applicationPaths,
             WorkAddCommandHandler workAddCommandHandler,
             CommandPrompt prompt,
-            ICommandOutput output,
-            ILogger<WorkCreateCommandHandler> logger)
+            ICommandOutput output)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
             _contextFactory = contextFactory ??
@@ -188,15 +206,19 @@ namespace MemoriaNote.Cli
                 throw new ArgumentNullException(nameof(workAddCommandHandler));
             _prompt = prompt ?? throw new ArgumentNullException(nameof(prompt));
             _output = output ?? throw new ArgumentNullException(nameof(output));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        internal int Execute(string name = null, string title = null)
+        internal Task<int> ExecuteAsync(
+            string name,
+            string title,
+            CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(async token =>
             {
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = _contextFactory.CreateViewModel(configuration);
+                var viewModel = await _contextFactory.CreateViewModelAsync(
+                    configuration,
+                    token);
                 var workspace = viewModel.Workspace;
                 if (name == null)
                     name = _prompt.ReadNotebookName();
@@ -211,7 +233,12 @@ namespace MemoriaNote.Cli
                         _output.WriteErrorLine(
                             "Error: A note with that name already exists");
                         if (!_prompt.ReadTryAgain())
-                            return -1;
+                        {
+                            return CliCommandResult.Failure(
+                                CliErrorKind.Conflict,
+                                "A note with that name already exists",
+                                alreadyReported: true);
+                        }
                         name = _prompt.ReadNotebookName();
                         retry = true;
                     }
@@ -227,24 +254,29 @@ namespace MemoriaNote.Cli
                     name);
                 try
                 {
-                    _notebookMigrator.CreateAsync(
-                            name,
-                            title,
-                            path,
-                            CancellationToken.None)
-                        .GetAwaiter()
-                        .GetResult();
+                    await _notebookMigrator.CreateAsync(
+                        name,
+                        title,
+                        path,
+                        token);
                 }
-                catch (Exception exception)
+                catch (ArgumentException exception) when (File.Exists(path))
                 {
-                    _logger.LogError(exception, "Notebook creation failed.");
-                    _output.WriteLine($"Error: {exception.Message}");
-                    return -1;
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Conflict,
+                        exception.Message,
+                        exception);
+                }
+                catch (ArgumentException exception)
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Validation,
+                        exception.Message,
+                        exception);
                 }
 
-                _workAddCommandHandler.Execute(path);
-                return 0;
-            });
+                return _workAddCommandHandler.Add(path, token);
+            }, cancellationToken);
         }
     }
 
@@ -265,12 +297,16 @@ namespace MemoriaNote.Cli
             _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
-        internal int Execute(bool completion = false)
+        internal Task<int> ExecuteAsync(
+            bool completion,
+            CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(async token =>
             {
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = _contextFactory.CreateViewModel(configuration);
+                var viewModel = await _contextFactory.CreateViewModelAsync(
+                    configuration,
+                    token);
                 if (completion)
                 {
                     _output.WriteNotebookCompletion(viewModel.Workspace.Notebooks);
@@ -283,8 +319,8 @@ namespace MemoriaNote.Cli
                 }
 
                 _contextFactory.SaveConfiguration(configuration);
-                return 0;
-            });
+                return CliCommandResult.Success();
+            }, cancellationToken);
         }
     }
 
@@ -293,52 +329,64 @@ namespace MemoriaNote.Cli
         readonly CliCommandExecutor _executor;
         readonly ICliCommandContextFactory _contextFactory;
         readonly INotebookDbContextFactory _databaseFactory;
-        readonly ICommandOutput _output;
 
         internal WorkAddCommandHandler(
             CliCommandExecutor executor,
             ICliCommandContextFactory contextFactory,
-            INotebookDbContextFactory databaseFactory,
-            ICommandOutput output)
+            INotebookDbContextFactory databaseFactory)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
             _contextFactory = contextFactory ??
                 throw new ArgumentNullException(nameof(contextFactory));
             _databaseFactory = databaseFactory ??
                 throw new ArgumentNullException(nameof(databaseFactory));
-            _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
-        internal int Execute(string path)
+        internal Task<int> ExecuteAsync(
+            string path,
+            CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(
+                token => Add(path, token),
+                cancellationToken);
+        }
+
+        internal CliCommandResult Add(
+            string path,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (path == null)
             {
-                if (path == null)
-                    throw new ArgumentNullException(nameof(path));
-                if (!File.Exists(path))
-                {
-                    _output.WriteErrorLine("Error: No such file");
-                    return -1;
-                }
+                return CliCommandResult.Failure(
+                    CliErrorKind.Validation,
+                    "No path");
+            }
+            if (!File.Exists(path))
+            {
+                return CliCommandResult.Failure(
+                    CliErrorKind.NotFound,
+                    "No such file");
+            }
 
-                var configuration = _contextFactory.LoadConfiguration();
-                try
-                {
-                    using var database = _databaseFactory.CreateDbContext(path);
-                }
-                catch
-                {
-                    _output.WriteErrorLine("Error: Failed to load");
-                    return -1;
-                }
+            var configuration = _contextFactory.LoadConfiguration();
+            try
+            {
+                using var database = _databaseFactory.CreateDbContext(path);
+            }
+            catch
+            {
+                return CliCommandResult.Failure(
+                    CliErrorKind.Storage,
+                    "Failed to load");
+            }
 
-                if (!configuration.DataSources.Contains(path))
-                    configuration.DataSources.Add(path);
-                if (!configuration.Workspace.NotebookDatabasePaths.Contains(path))
-                    configuration.Workspace.NotebookDatabasePaths.Add(path);
-                _contextFactory.SaveConfiguration(configuration);
-                return 0;
-            });
+            if (!configuration.DataSources.Contains(path))
+                configuration.DataSources.Add(path);
+            if (!configuration.Workspace.NotebookDatabasePaths.Contains(path))
+                configuration.Workspace.NotebookDatabasePaths.Add(path);
+            _contextFactory.SaveConfiguration(configuration);
+            return CliCommandResult.Success();
         }
     }
 
@@ -346,39 +394,46 @@ namespace MemoriaNote.Cli
     {
         readonly CliCommandExecutor _executor;
         readonly ICliCommandContextFactory _contextFactory;
-        readonly ICommandOutput _output;
 
         internal WorkRemoveCommandHandler(
             CliCommandExecutor executor,
-            ICliCommandContextFactory contextFactory,
-            ICommandOutput output)
+            ICliCommandContextFactory contextFactory)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
             _contextFactory = contextFactory ??
                 throw new ArgumentNullException(nameof(contextFactory));
-            _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
-        internal int Execute(string name)
+        internal Task<int> ExecuteAsync(
+            string name,
+            CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(async token =>
             {
                 if (name == null)
-                    throw new ArgumentNullException(nameof(name));
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Validation,
+                        "No note name");
+                }
 
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = _contextFactory.CreateViewModel(configuration);
+                var viewModel = await _contextFactory.CreateViewModelAsync(
+                    configuration,
+                    token);
                 var workspace = viewModel.Workspace;
                 if (!workspace.Notebooks.Any(
                     notebook => name == notebook.Metadata.Name))
                 {
-                    _output.WriteErrorLine("Error: No such remove note");
-                    return -1;
+                    return CliCommandResult.Failure(
+                        CliErrorKind.NotFound,
+                        "No such remove note");
                 }
                 if (workspace.Notebooks.Count == 1)
                 {
-                    _output.WriteErrorLine("Error: Cannot remove the last note");
-                    return -1;
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Conflict,
+                        "Cannot remove the last note");
                 }
 
                 var dataSource = workspace.Notebooks
@@ -386,8 +441,8 @@ namespace MemoriaNote.Cli
                     .DatabasePath;
                 configuration.Workspace.NotebookDatabasePaths.Remove(dataSource);
                 _contextFactory.SaveConfiguration(configuration);
-                return 0;
-            });
+                return CliCommandResult.Success();
+            }, cancellationToken);
         }
     }
 
@@ -416,12 +471,17 @@ namespace MemoriaNote.Cli
             _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
-        internal int Execute(string name = null, string outputPath = null)
+        internal Task<int> ExecuteAsync(
+            string name,
+            string outputPath,
+            CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(async token =>
             {
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = _contextFactory.CreateViewModel(configuration);
+                var viewModel = await _contextFactory.CreateViewModelAsync(
+                    configuration,
+                    token);
                 var current = name switch
                 {
                     null => viewModel.Workspace.SelectedNotebook,
@@ -430,8 +490,9 @@ namespace MemoriaNote.Cli
                 };
                 if (current == null)
                 {
-                    _output.WriteErrorLine("Error: No such name");
-                    return -1;
+                    return CliCommandResult.Failure(
+                        CliErrorKind.NotFound,
+                        "No such name");
                 }
 
                 if (outputPath != null)
@@ -439,13 +500,15 @@ namespace MemoriaNote.Cli
                     var directory = Path.GetDirectoryName(outputPath);
                     if (!Directory.Exists(directory))
                     {
-                        _output.WriteErrorLine("Error: No such output directory");
-                        return -1;
+                        return CliCommandResult.Failure(
+                            CliErrorKind.NotFound,
+                            "No such output directory");
                     }
                     if (File.Exists(outputPath))
                     {
-                        _output.WriteErrorLine("Error: Output file exists");
-                        return -1;
+                        return CliCommandResult.Failure(
+                            CliErrorKind.Conflict,
+                            "Output file exists");
                     }
                 }
                 else
@@ -455,15 +518,13 @@ namespace MemoriaNote.Cli
                         current.Metadata.Name);
                 }
 
-                _backupService.CreateBackupAsync(
-                        NotebookId.FromDatabasePath(current.DatabasePath),
-                        outputPath,
-                        CancellationToken.None)
-                    .GetAwaiter()
-                    .GetResult();
+                await _backupService.CreateBackupAsync(
+                    NotebookId.FromDatabasePath(current.DatabasePath),
+                    outputPath,
+                    token);
                 _output.WriteLine("Backup completed");
-                return 0;
-            });
+                return CliCommandResult.Success();
+            }, cancellationToken);
         }
     }
 
@@ -488,16 +549,24 @@ namespace MemoriaNote.Cli
             _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
-        internal int Execute(string inputPath, string outputDirectory = null)
+        internal Task<int> ExecuteAsync(
+            string inputPath,
+            string outputDirectory,
+            CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(async token =>
             {
                 if (inputPath == null)
-                    throw new ArgumentNullException(nameof(inputPath));
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Validation,
+                        "No input file");
+                }
                 if (!File.Exists(inputPath))
                 {
-                    _output.WriteErrorLine("Error: No such input file");
-                    return -1;
+                    return CliCommandResult.Failure(
+                        CliErrorKind.NotFound,
+                        "No such input file");
                 }
 
                 _contextFactory.LoadConfiguration();
@@ -505,8 +574,9 @@ namespace MemoriaNote.Cli
                 {
                     if (!Directory.Exists(outputDirectory))
                     {
-                        _output.WriteErrorLine("Error: No such directory");
-                        return -1;
+                        return CliCommandResult.Failure(
+                            CliErrorKind.NotFound,
+                            "No such directory");
                     }
                 }
                 else
@@ -514,15 +584,13 @@ namespace MemoriaNote.Cli
                     outputDirectory = Environment.CurrentDirectory;
                 }
 
-                _backupService.RestoreBackupAsync(
-                        inputPath,
-                        outputDirectory,
-                        CancellationToken.None)
-                    .GetAwaiter()
-                    .GetResult();
+                await _backupService.RestoreBackupAsync(
+                    inputPath,
+                    outputDirectory,
+                    token);
                 _output.WriteLine("Restore completed");
-                return 0;
-            });
+                return CliCommandResult.Success();
+            }, cancellationToken);
         }
     }
 }

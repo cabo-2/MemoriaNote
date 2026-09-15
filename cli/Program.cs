@@ -4,6 +4,8 @@ using System.Reflection;
 using System.Reactive.Concurrency;
 using ReactiveUI;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Terminal.Gui;
 using McMaster.Extensions.CommandLineUtils;
 
@@ -25,15 +27,25 @@ namespace MemoriaNote.Cli
     {
         static Lazy<CliComposition> _composition;
 
-        public static int Main(string[] args)
+        public static async Task<int> Main(string[] args)
         {
             _composition = new Lazy<CliComposition>(CliComposition.CreateDefault);
+            using var cancellation = new CancellationTokenSource();
+            ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
+            {
+                eventArgs.Cancel = true;
+                cancellation.Cancel();
+            };
+            Console.CancelKeyPress += cancelHandler;
             try
             {
-                return CommandLineApplication.Execute<Program>(args);
+                return await CommandLineApplication.ExecuteAsync<Program>(
+                    args,
+                    cancellation.Token);
             }
             finally
             {
+                Console.CancelKeyPress -= cancelHandler;
                 if (_composition.IsValueCreated)
                     _composition.Value.Dispose();
                 _composition = null;
@@ -47,10 +59,10 @@ namespace MemoriaNote.Cli
 
         static CliCommandHandlers CommandHandlers => Composition.CommandHandlers;
 
-        protected int OnExecute(CommandLineApplication app)
+        protected Task<int> OnExecuteAsync(CommandLineApplication app)
         {
             app.ShowHint();
-            return 0;
+            return Task.FromResult((int)CliExitCode.Success);
         }
 
         [Command("find", Description = "Find and browse text commands")]
@@ -60,9 +72,9 @@ namespace MemoriaNote.Cli
             [Argument(0, Name = "name", Description = "text name")]
             public string Name { get; set; }
 
-            protected int OnExecute(CommandLineApplication app)
+            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
-                return CommandHandlers.Find.Execute(Name);
+                return CommandHandlers.Find.ExecuteAsync(Name, cancellationToken);
             }
         }
 
@@ -73,9 +85,9 @@ namespace MemoriaNote.Cli
             [Argument(0, Name = "name", Description = "text name")]
             public string Name { get; set; }
 
-            protected int OnExecute(CommandLineApplication app)
+            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
-                return CommandHandlers.Edit.Execute(Name);
+                return CommandHandlers.Edit.ExecuteAsync(Name, cancellationToken);
             }
         }
 
@@ -86,15 +98,19 @@ namespace MemoriaNote.Cli
             [Argument(0, Name = "name", Description = "text name")]
             public (bool hasValue, string value) Name { get; set; }
 
-            protected int OnExecute(IConsole console)
+            protected Task<int> OnExecuteAsync(
+                CommandLineApplication app,
+                CancellationToken cancellationToken)
             {
                 if (!Name.hasValue)
                 {
-                    console.Error.WriteLine("Error: No name");
-                    return -1;
+                    app.Error.WriteLine("Error: No name");
+                    return Task.FromResult((int)CliExitCode.Validation);
                 }
 
-                return CommandHandlers.CreatePage.Execute(Name.value);
+                return CommandHandlers.CreatePage.ExecuteAsync(
+                    Name.value,
+                    cancellationToken);
             }
         }
 
@@ -104,27 +120,29 @@ namespace MemoriaNote.Cli
         [HelpOption("--help")]
         class ConfigCommand
         {
-            protected int OnExecute(CommandLineApplication app)
+            protected Task<int> OnExecuteAsync(CommandLineApplication app)
             {
                 app.ShowHelp();
-                return 0;
+                return Task.FromResult((int)CliExitCode.Success);
             }
 
             [Command("edit", Description = "Edit config")]
             class ConfigEditCommand
             {
-                protected int OnExecute(CommandLineApplication app)
+                protected Task<int> OnExecuteAsync(
+                    CancellationToken cancellationToken)
                 {
-                    return CommandHandlers.ConfigEdit.Execute();
+                    return CommandHandlers.ConfigEdit.ExecuteAsync(cancellationToken);
                 }
             }
 
             [Command("show", Description = "Show config")]
             class ConfigShowCommand
             {
-                protected int OnExecute(CommandLineApplication app)
+                protected Task<int> OnExecuteAsync(
+                    CancellationToken cancellationToken)
                 {
-                    return CommandHandlers.ConfigShow.Execute();
+                    return CommandHandlers.ConfigShow.ExecuteAsync(cancellationToken);
                 }
             }
         }
@@ -146,12 +164,20 @@ namespace MemoriaNote.Cli
             [Argument(0, "name", "note name")]
             public (bool hasValue, string value) Name { get; set; }
 
-            protected int OnExecute(CommandLineApplication app)
+            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
                 if (Name.hasValue)
-                    return CommandHandlers.WorkSelect.Execute(Name.value);
+                {
+                    return CommandHandlers.WorkSelect.ExecuteAsync(
+                        Name.value,
+                        cancellationToken);
+                }
                 else
-                    return CommandHandlers.WorkList.Execute();
+                {
+                    return CommandHandlers.WorkList.ExecuteAsync(
+                        completion: false,
+                        cancellationToken);
+                }
             }
 
             [Command("select", "curr", Description = "Choose and display a specific note",
@@ -161,9 +187,12 @@ namespace MemoriaNote.Cli
                 [Argument(0, "name")]
                 public (bool hasValue, string value) Name { get; set; }
 
-                protected int OnExecute(IConsole console)
+                protected Task<int> OnExecuteAsync(
+                    CancellationToken cancellationToken)
                 {
-                    return CommandHandlers.WorkSelect.Execute(Name.value);
+                    return CommandHandlers.WorkSelect.ExecuteAsync(
+                        Name.value,
+                        cancellationToken);
                 }
             }
 
@@ -174,9 +203,12 @@ namespace MemoriaNote.Cli
                 [Option("--completion", Description = "Completion option")]
                 public bool Completion { get; set; }
 
-                protected int OnExecute(IConsole console)
+                protected Task<int> OnExecuteAsync(
+                    CancellationToken cancellationToken)
                 {
-                    return CommandHandlers.WorkList.Execute(Completion);
+                    return CommandHandlers.WorkList.ExecuteAsync(
+                        Completion,
+                        cancellationToken);
                 }
             }
 
@@ -190,9 +222,13 @@ namespace MemoriaNote.Cli
                 [Argument(1, "title")]
                 public (bool hasValue, string value) Title { get; set; }
 
-                protected int OnExecute(IConsole console)
+                protected Task<int> OnExecuteAsync(
+                    CancellationToken cancellationToken)
                 {
-                    return CommandHandlers.WorkCreate.Execute(Name.value, Title.value);
+                    return CommandHandlers.WorkCreate.ExecuteAsync(
+                        Name.value,
+                        Title.value,
+                        cancellationToken);
                 }
             }
 
@@ -203,9 +239,10 @@ namespace MemoriaNote.Cli
                 [Argument(0, "name")]
                 public (bool hasValue, string value) Name { get; set; }
 
-                protected int OnExecute(IConsole console)
+                protected Task<int> OnExecuteAsync(
+                    CancellationToken cancellationToken)
                 {
-                    return CommandHandlers.WorkEdit.Execute();
+                    return CommandHandlers.WorkEdit.ExecuteAsync(cancellationToken);
                 }
             }
             [Command("add", Description = "Add a new note to the work list",
@@ -215,9 +252,12 @@ namespace MemoriaNote.Cli
                 [Argument(0, "path")]
                 public (bool hasValue, string value) Path { get; set; }
 
-                protected int OnExecute(IConsole console)
+                protected Task<int> OnExecuteAsync(
+                    CancellationToken cancellationToken)
                 {
-                    return CommandHandlers.WorkAdd.Execute(Path.value);
+                    return CommandHandlers.WorkAdd.ExecuteAsync(
+                        Path.value,
+                        cancellationToken);
                 }
             }
             [Command("remove", Description = "Delete the selected note",
@@ -227,9 +267,12 @@ namespace MemoriaNote.Cli
                 [Argument(0, "name")]
                 public (bool hasValue, string value) Name { get; set; }
 
-                protected int OnExecute(IConsole console)
+                protected Task<int> OnExecuteAsync(
+                    CancellationToken cancellationToken)
                 {
-                    return CommandHandlers.WorkRemove.Execute(Name.value);
+                    return CommandHandlers.WorkRemove.ExecuteAsync(
+                        Name.value,
+                        cancellationToken);
                 }
             }
 
@@ -242,9 +285,13 @@ namespace MemoriaNote.Cli
                 [Option("--output <path>", Description = "Output file path")]
                 public string OutputPath { get; set; }
 
-                protected int OnExecute(IConsole console)
+                protected Task<int> OnExecuteAsync(
+                    CancellationToken cancellationToken)
                 {
-                    return CommandHandlers.WorkBackup.Execute(Name.value, OutputPath);
+                    return CommandHandlers.WorkBackup.ExecuteAsync(
+                        Name.value,
+                        OutputPath,
+                        cancellationToken);
                 }
             }
 
@@ -257,17 +304,20 @@ namespace MemoriaNote.Cli
                 [Option("--output-dir <dir>", Description = "Output directory")]
                 public string OutputDir { get; set; }
 
-                protected int OnExecute(IConsole console)
+                protected Task<int> OnExecuteAsync(
+                    CommandLineApplication app,
+                    CancellationToken cancellationToken)
                 {
                     if (!InputPath.hasValue)
                     {
-                        console.Error.WriteLine("Error: No input file");
-                        return -1;
+                        app.Error.WriteLine("Error: No input file");
+                        return Task.FromResult((int)CliExitCode.Validation);
                     }
 
-                    return CommandHandlers.WorkRestore.Execute(
+                    return CommandHandlers.WorkRestore.ExecuteAsync(
                         InputPath.value,
-                        OutputDir);
+                        OutputDir,
+                        cancellationToken);
                 }
             }
         }
@@ -282,9 +332,12 @@ namespace MemoriaNote.Cli
             [Option("--completion", Description = "Completion option")]
             public bool Completion { get; set; }
 
-            protected int OnExecute(CommandLineApplication app)
+            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
-                return CommandHandlers.List.Execute(Name.value, Completion);
+                return CommandHandlers.List.ExecuteAsync(
+                    Name.value,
+                    Completion,
+                    cancellationToken);
             }
         }
 
@@ -298,15 +351,20 @@ namespace MemoriaNote.Cli
             [Option("-r, --recursive", Description = "Sub directories recursively")]
             public bool Recursive { get; set; }
 
-            protected int OnExecute(CommandLineApplication app)
+            protected Task<int> OnExecuteAsync(
+                CommandLineApplication app,
+                CancellationToken cancellationToken)
             {
                 if (!ImportDir.hasValue)
                 {
                     app.ShowHelp();
-                    return -1;
+                    return Task.FromResult((int)CliExitCode.Validation);
                 }
 
-                return CommandHandlers.Import.Execute(ImportDir.value, Recursive);
+                return CommandHandlers.Import.ExecuteAsync(
+                    ImportDir.value,
+                    Recursive,
+                    cancellationToken);
             }
         }
 
@@ -317,15 +375,19 @@ namespace MemoriaNote.Cli
             [Argument(0, "export-dir")]
             public (bool hasValue, string value) ExportDir { get; set; }
 
-            protected int OnExecute(CommandLineApplication app)
+            protected Task<int> OnExecuteAsync(
+                CommandLineApplication app,
+                CancellationToken cancellationToken)
             {
                 if (!ExportDir.hasValue)
                 {
                     app.ShowHelp();
-                    return -1;
+                    return Task.FromResult((int)CliExitCode.Validation);
                 }
 
-                return CommandHandlers.Export.Execute(ExportDir.value);
+                return CommandHandlers.Export.ExecuteAsync(
+                    ExportDir.value,
+                    cancellationToken);
             }
         }
     }

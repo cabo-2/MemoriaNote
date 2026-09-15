@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace MemoriaNote.Cli
 {
@@ -25,31 +26,39 @@ namespace MemoriaNote.Cli
             _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
-        internal int Execute(string importDirectory, bool recursive = false)
+        internal Task<int> ExecuteAsync(
+            string importDirectory,
+            bool recursive,
+            CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(async token =>
             {
                 if (importDirectory == null)
-                    throw new ArgumentNullException(nameof(importDirectory));
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Validation,
+                        "No import directory");
+                }
                 if (!Directory.Exists(importDirectory))
                 {
-                    _output.WriteErrorLine("Error: No such directory");
-                    return -1;
+                    return CliCommandResult.Failure(
+                        CliErrorKind.NotFound,
+                        "No such directory");
                 }
 
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = _contextFactory.CreateViewModel(configuration);
-                _textPageImporter.ImportAsync(
-                        NotebookId.FromDatabasePath(
-                            viewModel.Workspace.SelectedNotebook.DatabasePath),
-                        importDirectory,
-                        recursive,
-                        CancellationToken.None)
-                    .GetAwaiter()
-                    .GetResult();
+                var viewModel = await _contextFactory.CreateViewModelAsync(
+                    configuration,
+                    token);
+                await _textPageImporter.ImportAsync(
+                    NotebookId.FromDatabasePath(
+                        viewModel.Workspace.SelectedNotebook.DatabasePath),
+                    importDirectory,
+                    recursive,
+                    token);
                 _output.WriteLine("Import completed");
-                return 0;
-            });
+                return CliCommandResult.Success();
+            }, cancellationToken);
         }
     }
 
@@ -74,30 +83,37 @@ namespace MemoriaNote.Cli
             _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
-        internal int Execute(string exportDirectory)
+        internal Task<int> ExecuteAsync(
+            string exportDirectory,
+            CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(async token =>
             {
                 if (exportDirectory == null)
-                    throw new ArgumentNullException(nameof(exportDirectory));
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Validation,
+                        "No export directory");
+                }
                 if (!Directory.Exists(exportDirectory))
                 {
-                    _output.WriteErrorLine("Error: No such directory");
-                    return -1;
+                    return CliCommandResult.Failure(
+                        CliErrorKind.NotFound,
+                        "No such directory");
                 }
 
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = _contextFactory.CreateViewModel(configuration);
-                _textPageExporter.ExportAsync(
-                        NotebookId.FromDatabasePath(
-                            viewModel.Workspace.SelectedNotebook.DatabasePath),
-                        exportDirectory,
-                        CancellationToken.None)
-                    .GetAwaiter()
-                    .GetResult();
+                var viewModel = await _contextFactory.CreateViewModelAsync(
+                    configuration,
+                    token);
+                await _textPageExporter.ExportAsync(
+                    NotebookId.FromDatabasePath(
+                        viewModel.Workspace.SelectedNotebook.DatabasePath),
+                    exportDirectory,
+                    token);
                 _output.WriteLine("Export completed");
-                return 0;
-            });
+                return CliCommandResult.Success();
+            }, cancellationToken);
         }
     }
 }

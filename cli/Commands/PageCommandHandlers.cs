@@ -1,4 +1,6 @@
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MemoriaNote.Cli
 {
@@ -24,20 +26,24 @@ namespace MemoriaNote.Cli
                 throw new ArgumentNullException(nameof(terminalUi));
         }
 
-        internal int Execute(string name = null)
+        internal Task<int> ExecuteAsync(
+            string name,
+            CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(async token =>
             {
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = _contextFactory.CreateViewModel(configuration);
+                var viewModel = await _contextFactory.CreateViewModelAsync(
+                    configuration,
+                    token);
                 viewModel.SearchEntry = _searchQueryNormalizer.Normalize(name);
                 viewModel.SearchRange = configuration.State.SearchRange;
                 viewModel.SearchMethod = configuration.State.SearchMethod;
 
-                _terminalUi.RunHome(viewModel);
+                await _terminalUi.RunHomeAsync(viewModel, token);
                 _contextFactory.SaveConfiguration(configuration);
-                return 0;
-            });
+                return CliCommandResult.Success();
+            }, cancellationToken);
         }
     }
 
@@ -59,20 +65,27 @@ namespace MemoriaNote.Cli
                 throw new ArgumentNullException(nameof(terminalUi));
         }
 
-        internal int Execute(string name = null)
+        internal Task<int> ExecuteAsync(
+            string name,
+            CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(async token =>
             {
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = _contextFactory.CreateViewModel(configuration);
+                var viewModel = await _contextFactory.CreateViewModelAsync(
+                    configuration,
+                    token);
                 viewModel.SearchEntry = name;
                 viewModel.SearchRange = SearchRangeType.Notebook;
                 viewModel.SearchMethod = SearchMethodType.Heading;
 
-                _terminalUi.RunManage(viewModel, openEditor: false);
+                await _terminalUi.RunManageAsync(
+                    viewModel,
+                    openEditor: false,
+                    token);
                 _contextFactory.SaveConfiguration(configuration);
-                return 0;
-            });
+                return CliCommandResult.Success();
+            }, cancellationToken);
         }
     }
 
@@ -94,25 +107,36 @@ namespace MemoriaNote.Cli
                 throw new ArgumentNullException(nameof(terminalUi));
         }
 
-        internal int Execute(string name)
+        internal Task<int> ExecuteAsync(
+            string name,
+            CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(async token =>
             {
                 if (name == null)
-                    throw new ArgumentNullException(nameof(name));
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Validation,
+                        "No name");
+                }
 
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = _contextFactory.CreateViewModel(configuration);
+                var viewModel = await _contextFactory.CreateViewModelAsync(
+                    configuration,
+                    token);
                 viewModel.SearchEntry = name;
                 viewModel.SearchRange = SearchRangeType.Notebook;
                 viewModel.SearchMethod = SearchMethodType.Heading;
                 viewModel.EditingTitle = name;
                 viewModel.EditingState = EditorMode.Create;
 
-                _terminalUi.RunManage(viewModel, openEditor: true);
+                await _terminalUi.RunManageAsync(
+                    viewModel,
+                    openEditor: true,
+                    token);
                 _contextFactory.SaveConfiguration(configuration);
-                return 0;
-            });
+                return CliCommandResult.Success();
+            }, cancellationToken);
         }
     }
 
@@ -137,22 +161,27 @@ namespace MemoriaNote.Cli
             _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
-        internal int Execute(string name = null, bool completion = false)
+        internal Task<int> ExecuteAsync(
+            string name,
+            bool completion,
+            CancellationToken cancellationToken)
         {
-            return _executor.Execute(() =>
+            return _executor.ExecuteAsync(async token =>
             {
                 var configuration = _contextFactory.LoadConfiguration();
                 if (completion &&
                     configuration.Terminal.Completion == CompletionType.None)
                 {
-                    return 0;
+                    return CliCommandResult.Success();
                 }
 
-                var viewModel = _contextFactory.CreateViewModel(configuration);
+                var viewModel = await _contextFactory.CreateViewModelAsync(
+                    configuration,
+                    token);
                 viewModel.SearchEntry = _searchQueryNormalizer.Normalize(name);
                 viewModel.SearchRange = SearchRangeType.Notebook;
                 viewModel.SearchMethod = SearchMethodType.Heading;
-                viewModel.ActivateHandler().Wait();
+                await viewModel.ActivateHandler();
 
                 if (completion)
                 {
@@ -168,8 +197,8 @@ namespace MemoriaNote.Cli
                 }
 
                 _contextFactory.SaveConfiguration(configuration);
-                return 0;
-            });
+                return CliCommandResult.Success();
+            }, cancellationToken);
         }
     }
 }
