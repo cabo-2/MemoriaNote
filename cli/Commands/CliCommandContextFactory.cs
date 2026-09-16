@@ -1,6 +1,9 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MemoriaNote.Application;
+using MemoriaNote.Compatibility;
+using MemoriaNote.Persistence;
 using Microsoft.Extensions.Logging;
 
 namespace MemoriaNote.Cli

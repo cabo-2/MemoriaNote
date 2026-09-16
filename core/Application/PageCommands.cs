@@ -1,6 +1,7 @@
 using System;
+using MemoriaNote.Domain;
 
-namespace MemoriaNote
+namespace MemoriaNote.Application
 {
     /// <summary>
     /// Identifies a page together with the note that owns it.

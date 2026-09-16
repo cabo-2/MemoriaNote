@@ -2,6 +2,8 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MemoriaNote.Domain;
+using MemoriaNote.Transfer;
 
 namespace MemoriaNote.Cli
 {

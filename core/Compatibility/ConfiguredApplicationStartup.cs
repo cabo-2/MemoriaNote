@@ -1,8 +1,12 @@
 using System;
 using System.IO;
 using System.Linq;
+using MemoriaNote;
+using MemoriaNote.Application;
+using MemoriaNote.Models;
+using MemoriaNote.Persistence;
 
-namespace MemoriaNote
+namespace MemoriaNote.Compatibility
 {
     /// <summary>
     /// Checks file-backed notebook databases for the compatibility composition root.

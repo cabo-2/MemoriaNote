@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MemoriaNote;
+using MemoriaNote.Domain;
 
-namespace MemoriaNote
+namespace MemoriaNote.Application
 {
     /// <summary>
     /// Identifies a notebook metadata validation failure without presentation wording.

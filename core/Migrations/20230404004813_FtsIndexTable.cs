@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace MemoriaNote.Core.Migrations
+namespace MemoriaNote.Migrations
 {
     public partial class FtsIndexTable : Migration
     {

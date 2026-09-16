@@ -4,8 +4,9 @@ using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using MemoriaNote.Models;
 
-namespace MemoriaNote
+namespace MemoriaNote.Persistence
 {
     /// <summary>
     /// Loads and updates notebook metadata stored as SQLite key-value rows.

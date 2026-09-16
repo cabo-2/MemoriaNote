@@ -54,6 +54,52 @@ public sealed class SourceDependencyTests
             () => string.Join(Environment.NewLine, violations));
     }
 
+    /// <summary>
+    /// Verifies that core production namespaces match their source directories.
+    /// </summary>
+    [Test]
+    public void CoreSources_UseNamespaceMatchingDirectory()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var coreDirectory = Path.Combine(repositoryRoot, "core");
+        var violations = Directory
+            .EnumerateFiles(coreDirectory, "*.cs", SearchOption.AllDirectories)
+            .Where(file => !Path.GetRelativePath(coreDirectory, file)
+                .Split(
+                    new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                    StringSplitOptions.RemoveEmptyEntries)
+                .Any(directory => directory == "bin" || directory == "obj"))
+            .Select(file =>
+            {
+                var relativeDirectory = Path.GetRelativePath(
+                    coreDirectory,
+                    Path.GetDirectoryName(file)!);
+                var expectedNamespace = relativeDirectory == "."
+                    ? "MemoriaNote"
+                    : "MemoriaNote." + relativeDirectory
+                        .Replace(Path.DirectorySeparatorChar, '.')
+                        .Replace(Path.AltDirectorySeparatorChar, '.');
+                var namespaceLine = File.ReadLines(file)
+                    .FirstOrDefault(line => line.TrimStart().StartsWith(
+                        "namespace ",
+                        StringComparison.Ordinal));
+                var actualNamespace = namespaceLine == null
+                    ? null
+                    : namespaceLine.Trim()["namespace ".Length..].Trim().TrimEnd(';');
+                return actualNamespace == expectedNamespace
+                    ? null
+                    : $"{Path.GetRelativePath(repositoryRoot, file)}: " +
+                        $"expected {expectedNamespace}, found {actualNamespace ?? "<missing>"}";
+            })
+            .Where(violation => violation != null)
+            .ToList();
+
+        Assert.That(
+            violations,
+            Is.Empty,
+            () => string.Join(Environment.NewLine, violations));
+    }
+
     static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);

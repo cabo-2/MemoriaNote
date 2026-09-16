@@ -5,6 +5,11 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Cli.Editors;
+using MemoriaNote.Application;
+using MemoriaNote.Domain;
+using MemoriaNote.Models;
+using MemoriaNote.Persistence;
+using MemoriaNote.Transfer;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 

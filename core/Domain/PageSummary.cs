@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
-namespace MemoriaNote
+namespace MemoriaNote.Domain
 {
     /// <summary>
     /// Represents an immutable, body-free page summary with an explicit owning notebook.

@@ -10,6 +10,7 @@ using System;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using Terminal.Gui;
+using TerminalApplication = Terminal.Gui.Application;
 
 namespace MemoriaNote.Cli.Terminal
 {
@@ -27,7 +28,7 @@ namespace MemoriaNote.Cli.Terminal
             {
                 var composite = new CompositeDisposable(2);
                 var cancellation = new CancellationDisposable();
-                Application.MainLoop.Invoke(() =>
+                TerminalApplication.MainLoop.Invoke(() =>
                 {
                     if (!cancellation.Token.IsCancellationRequested)
                         composite.Add(action(this, state));
@@ -39,12 +40,12 @@ namespace MemoriaNote.Cli.Terminal
             IDisposable PostOnMainLoopAsTimeout()
             {
                 var composite = new CompositeDisposable(2);
-                var timeout = Application.MainLoop.AddTimeout(dueTime, args =>
+                var timeout = TerminalApplication.MainLoop.AddTimeout(dueTime, args =>
                 {
                     composite.Add(action(this, state));
                     return false;
                 });
-                composite.Add(Disposable.Create(() => Application.MainLoop.RemoveTimeout(timeout)));
+                composite.Add(Disposable.Create(() => TerminalApplication.MainLoop.RemoveTimeout(timeout)));
                 return composite;
             }
 

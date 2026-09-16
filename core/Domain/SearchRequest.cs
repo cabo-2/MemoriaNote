@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using MemoriaNote;
 
-namespace MemoriaNote
+namespace MemoriaNote.Domain
 {
     /// <summary>
     /// Describes an immutable search query, its ordered notebook targets, and paging values.

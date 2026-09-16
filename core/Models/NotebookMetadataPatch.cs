@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using MemoriaNote;
+using MemoriaNote.Application;
 
-namespace MemoriaNote
+namespace MemoriaNote.Models
 {
     /// <summary>
     /// Describes metadata fields that should be persisted together.

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
-namespace MemoriaNote
+namespace MemoriaNote.Domain
 {
     /// <summary>
     /// Contains an immutable ordered slice of search results and its unpaged total count.

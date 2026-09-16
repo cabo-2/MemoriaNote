@@ -7,8 +7,9 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using MemoriaNote.Models;
 
-namespace MemoriaNote
+namespace MemoriaNote.Transfer
 {
     internal sealed class NotebookArchiveCodec
     {

@@ -1,6 +1,8 @@
 using System;
+using MemoriaNote.Domain;
+using MemoriaNote.Models;
 
-namespace MemoriaNote
+namespace MemoriaNote.Persistence
 {
     static class PageSummaryMapper
     {

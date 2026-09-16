@@ -5,8 +5,11 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
+using MemoriaNote.Domain;
+using MemoriaNote.Models;
+using MemoriaNote.Persistence;
 
-namespace MemoriaNote
+namespace MemoriaNote.Transfer
 {
     /// <summary>
     /// Creates and restores notebook backup archives.

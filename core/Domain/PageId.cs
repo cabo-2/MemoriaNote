@@ -1,6 +1,6 @@
 using System;
 
-namespace MemoriaNote
+namespace MemoriaNote.Domain
 {
     /// <summary>
     /// Identifies a page using the UUID stored by the note database.

@@ -1,6 +1,6 @@
 using System;
 
-namespace MemoriaNote
+namespace MemoriaNote.Application
 {
     /// <summary>
     /// Describes the complete proposed metadata state for a notebook update.

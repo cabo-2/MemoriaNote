@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace MemoriaNote
+namespace MemoriaNote.Models
 {
     /// <summary>
     /// Represents one key-value row in the note metadata table.

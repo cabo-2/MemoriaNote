@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 
-namespace MemoriaNote
+namespace MemoriaNote.Transfer
 {
     /// <summary>
     /// Encodes page names as portable file-name components and decodes them again.

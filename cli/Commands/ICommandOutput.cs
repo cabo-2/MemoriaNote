@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using MemoriaNote.Domain;
+using MemoriaNote.Models;
 
 namespace MemoriaNote.Cli
 {

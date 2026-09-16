@@ -1,4 +1,6 @@
 using System;
+using MemoriaNote.Application;
+using MemoriaNote.Models;
 using Newtonsoft.Json;
 
 namespace MemoriaNote.Cli
