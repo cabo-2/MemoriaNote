@@ -1,4 +1,5 @@
 using System;
+using MemoriaNote.Application;
 
 namespace MemoriaNote.Cli
 {

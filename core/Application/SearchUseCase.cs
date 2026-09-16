@@ -2,8 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MemoriaNote;
+using MemoriaNote.Domain;
+using MemoriaNote.Persistence;
 
-namespace MemoriaNote
+namespace MemoriaNote.Application
 {
     /// <summary>
     /// Coordinates counting and paged searches across ordered note repositories.

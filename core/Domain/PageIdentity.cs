@@ -1,6 +1,7 @@
 using System;
+using MemoriaNote.Models;
 
-namespace MemoriaNote
+namespace MemoriaNote.Domain
 {
     /// <summary>
     /// Defines the identity contract for page entities.

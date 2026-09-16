@@ -1,6 +1,8 @@
 using System;
+using MemoriaNote;
+using MemoriaNote.Compatibility;
 
-namespace MemoriaNote
+namespace MemoriaNote.Application
 {
     /// <summary>
     /// Composes the application use cases for a loaded workspace.

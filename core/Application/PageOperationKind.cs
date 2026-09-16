@@ -1,4 +1,4 @@
-namespace MemoriaNote
+namespace MemoriaNote.Application
 {
     /// <summary>
     /// Identifies the page mutation whose typed result is being presented.

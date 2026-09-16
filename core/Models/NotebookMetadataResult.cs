@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MemoriaNote
+namespace MemoriaNote.Models
 {
     /// <summary>
     /// Identifies a metadata value that could not be interpreted normally.

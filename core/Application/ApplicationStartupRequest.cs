@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 
-namespace MemoriaNote
+namespace MemoriaNote.Application
 {
     /// <summary>
     /// Describes the database paths and default notebook required to start the application.

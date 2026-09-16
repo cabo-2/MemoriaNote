@@ -1,4 +1,4 @@
-namespace MemoriaNote
+namespace MemoriaNote.Persistence
 {
     /// <summary>
     /// Identifies a kind of read model inconsistency.

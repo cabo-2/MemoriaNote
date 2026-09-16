@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using MemoriaNote;
 
-namespace MemoriaNote
+namespace MemoriaNote.Models
 {
     /// <summary>
     /// Represents a database-independent snapshot of persisted notebook metadata.

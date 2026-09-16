@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MemoriaNote.Application;
+using MemoriaNote.Domain;
+using MemoriaNote.Models;
 
-namespace MemoriaNote
+namespace MemoriaNote.Compatibility
 {
     /// <summary>
     /// Resolves application notebook contexts from the current workspace collection.

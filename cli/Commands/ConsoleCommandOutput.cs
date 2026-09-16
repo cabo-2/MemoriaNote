@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using MemoriaNote.Domain;
+using MemoriaNote.Models;
 
 namespace MemoriaNote.Cli
 {

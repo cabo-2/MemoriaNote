@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace MemoriaNote
+namespace MemoriaNote.Application
 {
     /// <summary>
     /// Coordinates owner-qualified page reads, validation, and mutations.

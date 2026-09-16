@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
-namespace MemoriaNote
+using MemoriaNote.Persistence;
+
+namespace MemoriaNote.Models
 {
     /// <summary>
     /// Provides Entity Framework access to one notebook's SQLite database.

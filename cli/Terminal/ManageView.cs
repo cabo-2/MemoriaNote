@@ -10,6 +10,7 @@ using System.Reactive.Concurrency;
 using System.Threading;
 using MemoriaNote.Cli.Editors;
 using Microsoft.Extensions.Logging;
+using TerminalApplication = Terminal.Gui.Application;
 
 namespace MemoriaNote.Cli.Terminal
 {
@@ -29,19 +30,19 @@ namespace MemoriaNote.Cli.Terminal
             ILogger<ManageView> logger,
             CancellationToken cancellationToken)
         {
-            Application.Init();
+            TerminalApplication.Init();
             using var registration = cancellationToken.Register(() =>
-                Application.MainLoop?.Invoke(() => Application.RequestStop()));
+                TerminalApplication.MainLoop?.Invoke(() => TerminalApplication.RequestStop()));
             try
             {
                 RxApp.MainThreadScheduler = TerminalScheduler.Default;
                 RxApp.TaskpoolScheduler = TaskPoolScheduler.Default;
-                Application.Run(new ManageView(sc, vm, logger));
+                TerminalApplication.Run(new ManageView(sc, vm, logger));
                 cancellationToken.ThrowIfCancellationRequested();
             }
             finally
             {
-                Application.Shutdown();
+                TerminalApplication.Shutdown();
             }
         }
 
@@ -126,7 +127,7 @@ namespace MemoriaNote.Cli.Terminal
                                 "Selected note changed: {NotebookName}",
                                 ViewModel.Configuration.Workspace.SelectedNotebookName);
                             Controller.RequestHome();
-                            Application.RequestStop();
+                            TerminalApplication.RequestStop();
                         }
                     }
                 };
@@ -144,7 +145,7 @@ namespace MemoriaNote.Cli.Terminal
             };
             StatusBar.Items = new StatusItem[] {
                     new StatusItem(Key.Q | Key.CtrlMask, "~CTRL-Q~ Quit", () => {
-                        Application.RequestStop ();
+                        TerminalApplication.RequestStop ();
                     }),
                     new StatusItem(Key.Null," ",() => {}),
                     new StatusItem(Key.F1, "~F1~ Prev  ", () => {
@@ -163,7 +164,7 @@ namespace MemoriaNote.Cli.Terminal
                         ViewModel.EditingTitle = ViewModel.SearchEntry;
                         Controller.RequestManage ();
                         Controller.RequestEditor ();
-                        Application.RequestStop ();
+                        TerminalApplication.RequestStop ();
                     }),
                     new StatusItem(Key.F6, "~F6~ Edit  ", () => {
                         _logger.LogDebug("Push F6 Function");
@@ -171,7 +172,7 @@ namespace MemoriaNote.Cli.Terminal
                         ViewModel.EditingState = EditorMode.Edit;
                         Controller.RequestManage ();
                         Controller.RequestEditor ();
-                        Application.RequestStop ();
+                        TerminalApplication.RequestStop ();
                     }),
                     new StatusItem(Key.F7, "~F7~ Rename", () => {
                         _logger.LogDebug("Push F7 Function");
@@ -179,7 +180,7 @@ namespace MemoriaNote.Cli.Terminal
                         ViewModel.EditingState = EditorMode.Rename;
                         Controller.RequestManage ();
                         Controller.RequestEditor ();
-                        Application.RequestStop ();
+                        TerminalApplication.RequestStop ();
                     }),
                     new StatusItem(Key.F8, "~F8~ Delete", () => {
                         _logger.LogDebug("Push F8 Function");
@@ -187,7 +188,7 @@ namespace MemoriaNote.Cli.Terminal
                         ViewModel.EditingState = EditorMode.Delete;
                         Controller.RequestManage ();
                         Controller.RequestEditor ();
-                        Application.RequestStop ();
+                        TerminalApplication.RequestStop ();
                     }),
                     new StatusItem(Key.Null," ",() => {}),
                     new StatusItem(Key.F10, "~F10~ Manage Mode", () => {
@@ -197,7 +198,7 @@ namespace MemoriaNote.Cli.Terminal
                         ViewModel.SearchMethod = ViewModel.Configuration.State.SearchMethod;
 
                         Controller.RequestHome();
-                        Application.RequestStop ();
+                        TerminalApplication.RequestStop ();
                     })
                 };
             return StatusBar;
@@ -246,7 +247,7 @@ namespace MemoriaNote.Cli.Terminal
                         ViewModel.EditingState = EditorMode.Edit;
                         Controller.RequestManage();
                         Controller.RequestEditor();
-                        Application.RequestStop();
+                        TerminalApplication.RequestStop();
                         _logger.LogDebug(
                             "SearchTextField KeyUp1: {EditingState}",
                             ViewModel.EditingState);
@@ -258,7 +259,7 @@ namespace MemoriaNote.Cli.Terminal
                         ViewModel.EditingTitle = ViewModel.SearchEntry;
                         Controller.RequestManage();
                         Controller.RequestEditor();
-                        Application.RequestStop();
+                        TerminalApplication.RequestStop();
                         _logger.LogDebug(
                             "SearchTextField KeyUp2: {EditingState}",
                             ViewModel.EditingState);
@@ -329,7 +330,7 @@ namespace MemoriaNote.Cli.Terminal
                         ViewModel.EditingState = EditorMode.Edit;
                         Controller.RequestManage();
                         Controller.RequestEditor();
-                        Application.RequestStop();
+                        TerminalApplication.RequestStop();
                         _logger.LogDebug(
                             "contentsTextField KeyDown: {EditingState}",
                             ViewModel.EditingState);

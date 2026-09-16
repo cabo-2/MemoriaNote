@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MemoriaNote.Domain;
+using MemoriaNote.Models;
 
-namespace MemoriaNote
+namespace MemoriaNote.Persistence
 {
     /// <summary>
     /// Provides materialized page operations for a single notebook database.

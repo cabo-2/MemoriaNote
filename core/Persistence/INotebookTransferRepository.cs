@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MemoriaNote.Domain;
+using MemoriaNote.Models;
 
-namespace MemoriaNote
+namespace MemoriaNote.Persistence
 {
     /// <summary>
     /// Provides bulk page persistence required by notebook transfer operations.

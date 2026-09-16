@@ -1,7 +1,8 @@
 using System.Threading;
 using System.Threading.Tasks;
+using MemoriaNote.Models;
 
-namespace MemoriaNote
+namespace MemoriaNote.Persistence
 {
     /// <summary>
     /// Creates notebook databases and migrates existing notebook databases.

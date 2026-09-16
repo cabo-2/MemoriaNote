@@ -1,8 +1,9 @@
 using System;
 using System.Globalization;
 using System.IO;
+using MemoriaNote;
 
-namespace MemoriaNote
+namespace MemoriaNote.Transfer
 {
     /// <summary>
     /// Creates file paths for notebook databases and backup archives.

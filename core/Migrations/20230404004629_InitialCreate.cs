@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace MemoriaNote.Core.Migrations
+namespace MemoriaNote.Migrations
 {
     public partial class InitialCreate : Migration
     {

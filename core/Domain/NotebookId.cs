@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace MemoriaNote
+namespace MemoriaNote.Domain
 {
     /// <summary>
     /// Identifies a notebook by its normalized database locator.

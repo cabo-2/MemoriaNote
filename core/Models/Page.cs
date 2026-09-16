@@ -4,8 +4,10 @@ using System.Linq;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Newtonsoft.Json;
+using MemoriaNote;
+using MemoriaNote.Domain;
 
-namespace MemoriaNote
+namespace MemoriaNote.Models
 {
     /// <summary>
     /// Represents a persisted page with its body and metadata.

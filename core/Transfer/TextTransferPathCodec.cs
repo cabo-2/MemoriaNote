@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace MemoriaNote
+namespace MemoriaNote.Transfer
 {
     /// <summary>
     /// Converts text-transfer directory paths between portable and system forms.

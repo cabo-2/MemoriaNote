@@ -1,4 +1,4 @@
-namespace MemoriaNote
+namespace MemoriaNote.Persistence
 {
     /// <summary>
     /// Represents a search value escaped for SQLite LIKE and FTS queries.

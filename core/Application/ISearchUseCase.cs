@@ -1,7 +1,8 @@
 using System.Threading;
 using System.Threading.Tasks;
+using MemoriaNote.Domain;
 
-namespace MemoriaNote
+namespace MemoriaNote.Application
 {
     /// <summary>
     /// Searches one note or an ordered collection of notes.

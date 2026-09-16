@@ -3,8 +3,9 @@ using System.IO;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MemoriaNote.Models;
 
-namespace MemoriaNote
+namespace MemoriaNote.Persistence
 {
     /// <summary>
     /// Creates notebook database contexts configured for SQLite files.

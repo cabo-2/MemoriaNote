@@ -4,8 +4,10 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MemoriaNote.Domain;
+using MemoriaNote.Persistence;
 
-namespace MemoriaNote
+namespace MemoriaNote.Transfer
 {
     /// <summary>
     /// Imports text files as pages in a notebook.

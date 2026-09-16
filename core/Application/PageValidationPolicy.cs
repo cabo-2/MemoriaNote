@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace MemoriaNote
+namespace MemoriaNote.Application
 {
     /// <summary>
     /// Applies page input rules that do not require I/O.

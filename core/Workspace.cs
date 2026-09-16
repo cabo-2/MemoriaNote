@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using MemoriaNote.Domain;
+using MemoriaNote.Models;
 
 namespace MemoriaNote
 {

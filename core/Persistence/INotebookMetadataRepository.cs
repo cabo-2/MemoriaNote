@@ -1,7 +1,8 @@
 using System.Threading;
 using System.Threading.Tasks;
+using MemoriaNote.Models;
 
-namespace MemoriaNote
+namespace MemoriaNote.Persistence
 {
     /// <summary>
     /// Loads and updates materialized metadata snapshots for notebook databases.

@@ -1,6 +1,8 @@
 using System;
+using MemoriaNote.Domain;
+using MemoriaNote.Persistence;
 
-namespace MemoriaNote
+namespace MemoriaNote.Application
 {
     /// <summary>
     /// Provides the current metadata snapshot and persistence ports for one notebook.

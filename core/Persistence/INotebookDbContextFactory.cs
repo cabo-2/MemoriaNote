@@ -1,4 +1,6 @@
-namespace MemoriaNote
+using MemoriaNote.Models;
+
+namespace MemoriaNote.Persistence
 {
     /// <summary>
     /// Creates independently configured database contexts for notebook data sources.
