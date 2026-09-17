@@ -7,8 +7,12 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
         (request, _) => Task.FromResult(
             new SearchPage(Array.Empty<PageSummary>(), 0, request.Offset, request.Limit));
 
+    internal int SearchAsyncCallCount { get; private set; }
+
     internal Func<PageReference, CancellationToken, Task<PageOperationResult>> ReadAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(PageOperationResult.Succeeded());
+
+    internal int ReadAsyncCallCount { get; private set; }
 
     internal Func<CreatePageCommand, CancellationToken, Task<PageOperationResult>> ValidateCreateAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(PageOperationResult.Succeeded());
@@ -36,6 +40,7 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
 
     public Task<SearchPage> SearchAsync(SearchRequest request, CancellationToken token)
     {
+        SearchAsyncCallCount++;
         return SearchAsyncHandler(request, token);
     }
 
@@ -57,6 +62,7 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
 
     public Task<PageOperationResult> ReadAsync(PageReference target, CancellationToken token)
     {
+        ReadAsyncCallCount++;
         return ReadAsyncHandler(target, token);
     }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MemoriaNote.Domain;
 using MemoriaNote.Cli.Editors;
 
 namespace MemoriaNote.Cli
@@ -176,25 +177,38 @@ namespace MemoriaNote.Cli
                     return CliCommandResult.Success();
                 }
 
-                var viewModel = await _contextFactory.CreateViewModelAsync(
+                var session = await _contextFactory.CreateSessionAsync(
                     configuration,
                     token);
-                viewModel.SearchEntry = _searchQueryNormalizer.Normalize(name);
-                viewModel.SearchRange = SearchRangeType.Notebook;
-                viewModel.SearchMethod = SearchMethodType.Heading;
-                await viewModel.ActivateHandler();
+                var selectedNotebook = session.Workspace.SelectedNotebook;
+                if (selectedNotebook == null)
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.NotFound,
+                        "No selected notebook");
+                }
+
+                var request = SearchRequest.ForNotebook(
+                    _searchQueryNormalizer.Normalize(name),
+                    SearchMethodType.Heading,
+                    NotebookId.FromDatabasePath(selectedNotebook.DatabasePath),
+                    offset: 0,
+                    limit: 1000);
+                var page = await session.ApplicationService.SearchAsync(
+                    request,
+                    token);
 
                 if (completion)
                 {
                     _output.WritePageCompletion(
-                        viewModel.Contents,
-                        viewModel.ContentsCount);
+                        page.Items,
+                        page.TotalCount);
                 }
                 else
                 {
                     _output.WritePageList(
-                        viewModel.Contents,
-                        viewModel.ContentsCount);
+                        page.Items,
+                        page.TotalCount);
                 }
 
                 _contextFactory.SaveConfiguration(configuration);

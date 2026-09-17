@@ -66,6 +66,19 @@ namespace MemoriaNote.Cli
             ConfigurationCli configuration,
             CancellationToken cancellationToken)
         {
+            var session = await CreateSessionAsync(configuration, cancellationToken);
+
+            return new MemoriaNoteViewModel(
+                configuration,
+                session,
+                _loggerFactory.CreateLogger<MemoriaNoteViewModel>(),
+                cancellationToken);
+        }
+
+        public async Task<ApplicationSession> CreateSessionAsync(
+            ConfigurationCli configuration,
+            CancellationToken cancellationToken)
+        {
             if (configuration == null)
                 throw new ArgumentNullException(nameof(configuration));
 
@@ -88,11 +101,7 @@ namespace MemoriaNote.Cli
             if (session.DefaultNotebookCreated)
                 _logger.LogInformation("Default note created");
 
-            return new MemoriaNoteViewModel(
-                configuration,
-                session,
-                _loggerFactory.CreateLogger<MemoriaNoteViewModel>(),
-                cancellationToken);
+            return session;
         }
 
         public void SaveConfiguration(ConfigurationCli configuration)

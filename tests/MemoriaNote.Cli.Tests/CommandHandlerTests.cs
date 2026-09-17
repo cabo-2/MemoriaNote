@@ -1,3 +1,4 @@
+using MemoriaNote.Application;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
@@ -72,6 +73,16 @@ public sealed class CommandHandlerTests
         public ConfigurationCli LoadConfiguration()
         {
             return _configuration;
+        }
+
+        public Task<ApplicationSession> CreateSessionAsync(
+            ConfigurationCli configuration,
+            CancellationToken cancellationToken)
+        {
+            Assert.That(configuration, Is.SameAs(_configuration));
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromException<ApplicationSession>(
+                new NotSupportedException("The session path is not used by this test."));
         }
 
         public Task<MemoriaNoteViewModel> CreateViewModelAsync(

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using MemoriaNote.Application;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
@@ -176,8 +177,11 @@ public sealed class TuiCommandCharacterizationTests
             Assert.That(request.Offset, Is.Zero);
             Assert.That(request.Limit, Is.EqualTo(1000));
             Assert.That(applicationTokens, Has.Count.EqualTo(1));
-            Assert.That(applicationTokens[0].CanBeCanceled, Is.True);
+            Assert.That(applicationTokens[0], Is.EqualTo(cancellation.Token));
             Assert.That(fixture.Context.LoadCount, Is.EqualTo(1));
+            Assert.That(fixture.Context.CreateCount, Is.Zero);
+            Assert.That(fixture.Context.CreateSessionCount, Is.EqualTo(1));
+            Assert.That(fixture.Context.LastSessionCancellationToken, Is.EqualTo(cancellation.Token));
             Assert.That(fixture.Context.SaveCount, Is.EqualTo(1));
             Assert.That(fixture.Output.PageListCallCount, Is.EqualTo(1));
             Assert.That(fixture.Output.PageListTotalCount, Is.Zero);
@@ -217,26 +221,20 @@ public sealed class TuiCommandCharacterizationTests
     }
 
     /// <summary>
-    /// Verifies that list uses the completion output path and currently reads the first result body during activation.
+    /// Verifies that list uses the completion output path without reading page bodies through the ViewModel.
     /// </summary>
     [Test]
-    public async Task List_Completion_WritesCompletionOutputAfterActivation()
+    public async Task List_Completion_WritesCompletionOutputWithoutReadingPageBody()
     {
         var fixture = CommandFixture.Create();
         var first = CreatePageSummary(fixture.NotebookId, "Beta page");
         var second = CreatePageSummary(fixture.NotebookId, "Alpha page");
-        var readTargets = new List<PageReference>();
         fixture.Application.SearchAsyncHandler = (request, _) => Task.FromResult(
             new SearchPage(
                 new[] { first, second },
                 2,
                 request.Offset,
                 request.Limit));
-        fixture.Application.ReadAsyncHandler = (target, _) =>
-        {
-            readTargets.Add(target);
-            return Task.FromResult(PageOperationResult.Succeeded(Page.Create("Alpha page", "body")));
-        };
 
         var result = await fixture.List.ExecuteAsync(
             "page",
@@ -250,18 +248,18 @@ public sealed class TuiCommandCharacterizationTests
             Assert.That(fixture.Output.PageCompletionPages, Is.EqualTo(new[] { first, second }));
             Assert.That(fixture.Output.PageCompletionTotalCount, Is.EqualTo(2));
             Assert.That(fixture.Output.PageListCallCount, Is.Zero);
-            Assert.That(readTargets, Has.Count.EqualTo(1));
-            Assert.That(readTargets[0].NotebookId, Is.EqualTo(fixture.NotebookId));
-            Assert.That(readTargets[0].PageId, Is.EqualTo(first.PageId));
+            Assert.That(fixture.Application.ReadAsyncCallCount, Is.Zero);
+            Assert.That(fixture.Context.CreateCount, Is.Zero);
+            Assert.That(fixture.Context.CreateSessionCount, Is.EqualTo(1));
             Assert.That(fixture.Context.SaveCount, Is.EqualTo(1));
         }
     }
 
     /// <summary>
-    /// Verifies the current empty-target behavior that will be changed when list leaves the ViewModel path.
+    /// Verifies that list fails when startup returns a workspace without a selected notebook.
     /// </summary>
     [Test]
-    public async Task List_WithoutSelectedNotebook_UsesEmptyNotebookScope()
+    public async Task List_WithoutSelectedNotebook_ReturnsNotFoundWithoutSearching()
     {
         var fixture = CommandFixture.Create();
         fixture.Workspace.SelectNotebook(null);
@@ -279,11 +277,71 @@ public sealed class TuiCommandCharacterizationTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.Zero);
-            Assert.That(request, Is.Not.Null);
-            Assert.That(request!.Scope, Is.EqualTo(SearchRangeType.Notebook));
-            Assert.That(request.NotebookIds, Is.Empty);
-            Assert.That(fixture.Output.PageListCallCount, Is.EqualTo(1));
+            Assert.That(result, Is.EqualTo((int)CliExitCode.NotFound));
+            Assert.That(request, Is.Null);
+            Assert.That(fixture.Application.SearchAsyncCallCount, Is.Zero);
+            Assert.That(fixture.Output.PageListCallCount, Is.Zero);
+            Assert.That(fixture.Context.SaveCount, Is.Zero);
+            Assert.That(
+                fixture.Output.StandardError,
+                Is.EqualTo("Error: No selected notebook" + Environment.NewLine));
+        }
+    }
+
+    /// <summary>
+    /// Verifies that list maps application storage failures without writing success output or saving configuration.
+    /// </summary>
+    [Test]
+    public async Task List_WhenSearchFails_UsesCommonStorageErrorMapping()
+    {
+        var fixture = CommandFixture.Create();
+        fixture.Application.SearchAsyncHandler = (_, _) =>
+            throw new IOException("database is unavailable");
+
+        var result = await fixture.List.ExecuteAsync(
+            "Roadmap",
+            completion: false,
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Storage));
+            Assert.That(fixture.Output.PageListCallCount, Is.Zero);
+            Assert.That(fixture.Output.PageCompletionCallCount, Is.Zero);
+            Assert.That(fixture.Context.SaveCount, Is.Zero);
+            Assert.That(
+                fixture.Output.StandardError,
+                Is.EqualTo("Error: database is unavailable" + Environment.NewLine));
+        }
+    }
+
+    /// <summary>
+    /// Verifies that list passes the caller cancellation token through application search.
+    /// </summary>
+    [Test]
+    public async Task List_WhenSearchIsCanceled_ReturnsCanceledWithoutSaving()
+    {
+        var fixture = CommandFixture.Create();
+        using var cancellation = new CancellationTokenSource();
+        fixture.Application.SearchAsyncHandler = (_, token) =>
+        {
+            cancellation.Cancel();
+            return Task.FromCanceled<SearchPage>(token);
+        };
+
+        var result = await fixture.List.ExecuteAsync(
+            "Roadmap",
+            completion: false,
+            cancellation.Token);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Canceled));
+            Assert.That(fixture.Output.PageListCallCount, Is.Zero);
+            Assert.That(fixture.Context.SaveCount, Is.Zero);
+            Assert.That(
+                fixture.Output.StandardError,
+                Is.EqualTo("Error: Operation was canceled" + Environment.NewLine));
         }
     }
 
@@ -394,8 +452,10 @@ public sealed class TuiCommandCharacterizationTests
                 notebook);
             var application = new StubApplicationService();
             var output = new RecordingCommandOutput();
+            var session = new ApplicationSession(workspace, application);
             var context = new RecordingContextFactory(
                 configuration,
+                session,
                 token => new MemoriaNoteViewModel(
                     configuration,
                     workspace,
@@ -435,13 +495,16 @@ public sealed class TuiCommandCharacterizationTests
     sealed class RecordingContextFactory : ICliCommandContextFactory
     {
         readonly ConfigurationCli _configuration;
+        readonly ApplicationSession _session;
         readonly Func<CancellationToken, MemoriaNoteViewModel> _viewModelFactory;
 
         internal RecordingContextFactory(
             ConfigurationCli configuration,
+            ApplicationSession session,
             Func<CancellationToken, MemoriaNoteViewModel> viewModelFactory)
         {
             _configuration = configuration;
+            _session = session;
             _viewModelFactory = viewModelFactory;
         }
 
@@ -449,18 +512,37 @@ public sealed class TuiCommandCharacterizationTests
 
         internal int CreateCount { get; private set; }
 
+        internal int CreateSessionCount { get; private set; }
+
         internal int SaveCount { get; private set; }
 
         internal CancellationToken LastCancellationToken { get; private set; }
+
+        internal CancellationToken LastSessionCancellationToken { get; private set; }
 
         internal MemoriaNoteViewModel? LastViewModel { get; private set; }
 
         internal Exception? CreateViewModelException { get; set; }
 
+        internal Exception? CreateSessionException { get; set; }
+
         public ConfigurationCli LoadConfiguration()
         {
             LoadCount++;
             return _configuration;
+        }
+
+        public Task<ApplicationSession> CreateSessionAsync(
+            ConfigurationCli configuration,
+            CancellationToken cancellationToken)
+        {
+            Assert.That(configuration, Is.SameAs(_configuration));
+            CreateSessionCount++;
+            LastSessionCancellationToken = cancellationToken;
+            if (CreateSessionException != null)
+                return Task.FromException<ApplicationSession>(CreateSessionException);
+
+            return Task.FromResult(_session);
         }
 
         public Task<MemoriaNoteViewModel> CreateViewModelAsync(
