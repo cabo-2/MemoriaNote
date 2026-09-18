@@ -27,7 +27,7 @@ namespace MemoriaNote.Cli
                     result.Errors.Select(error =>
                         PageOperationMessageMapper.ToErrorMessage(operation, error)));
             return CliCommandResult.Failure(
-                ToErrorKind(result.Status),
+                ToErrorKind(result),
                 message);
         }
 
@@ -43,15 +43,18 @@ namespace MemoriaNote.Cli
                     PageErrorCode.PageNotFound));
         }
 
-        static CliErrorKind ToErrorKind(PageOperationStatus status)
+        static CliErrorKind ToErrorKind(PageOperationResult result)
         {
-            return status switch
+            return result.Status switch
             {
-                PageOperationStatus.ValidationFailed => CliErrorKind.Validation,
+                PageOperationStatus.ValidationFailed => result.Errors.Contains(
+                    PageErrorCode.DuplicateName)
+                    ? CliErrorKind.Conflict
+                    : CliErrorKind.Validation,
                 PageOperationStatus.OwnerNotFound => CliErrorKind.NotFound,
                 PageOperationStatus.PageNotFound => CliErrorKind.NotFound,
-                PageOperationStatus.ReadOnly => CliErrorKind.Validation,
-                _ => throw new ArgumentOutOfRangeException(nameof(status))
+                PageOperationStatus.ReadOnly => CliErrorKind.Conflict,
+                _ => throw new ArgumentOutOfRangeException(nameof(result))
             };
         }
     }

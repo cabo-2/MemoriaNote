@@ -130,7 +130,11 @@ namespace MemoriaNote.Cli
                     new ExternalEditorDocument(page.Name, page.Text),
                     token);
                 if (!editorResult.IsChanged)
+                {
+                    _contextFactory.SaveConfiguration(configuration);
+                    _output.WriteLine("No changes.");
                     return CliCommandResult.Success();
+                }
 
                 var editedCommand = new EditPageCommand(
                     target.NotebookId,
@@ -156,9 +160,9 @@ namespace MemoriaNote.Cli
                         editResult);
                 }
 
+                _contextFactory.SaveConfiguration(configuration);
                 _output.WriteLine(
                     PageOperationMessageMapper.ToSuccessNotification(PageOperationKind.Edit));
-                _contextFactory.SaveConfiguration(configuration);
                 return CliCommandResult.Success();
             }, cancellationToken);
         }
@@ -230,7 +234,11 @@ namespace MemoriaNote.Cli
                     new ExternalEditorDocument(name, string.Empty),
                     token);
                 if (!editorResult.IsChanged)
+                {
+                    _contextFactory.SaveConfiguration(configuration);
+                    _output.WriteLine("No changes.");
                     return CliCommandResult.Success();
+                }
 
                 var editedCommand = new CreatePageCommand(
                     notebookId,
@@ -256,9 +264,9 @@ namespace MemoriaNote.Cli
                         createResult);
                 }
 
+                _contextFactory.SaveConfiguration(configuration);
                 _output.WriteLine(
                     PageOperationMessageMapper.ToSuccessNotification(PageOperationKind.Create));
-                _contextFactory.SaveConfiguration(configuration);
                 return CliCommandResult.Success();
             }, cancellationToken);
         }

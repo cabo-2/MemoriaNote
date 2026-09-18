@@ -57,7 +57,7 @@ public sealed class PageCommandHandlerTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Conflict));
             Assert.That(fixture.Application.ValidateCreateAsyncCallCount, Is.EqualTo(1));
             Assert.That(fixture.Editor.Documents, Is.Empty);
             Assert.That(fixture.Application.CreateAsyncCallCount, Is.Zero);
@@ -81,8 +81,10 @@ public sealed class PageCommandHandlerTests
             Assert.That(fixture.Editor.Documents[0].FileName, Is.EqualTo("New page"));
             Assert.That(fixture.Editor.Documents[0].Text, Is.Empty);
             Assert.That(fixture.Application.CreateAsyncCallCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
-            Assert.That(fixture.Output.StandardOutput, Is.Empty);
+            Assert.That(fixture.Context.SaveCount, Is.EqualTo(1));
+            Assert.That(
+                fixture.Output.StandardOutput,
+                Is.EqualTo("No changes." + Environment.NewLine));
         }
     }
 
@@ -128,7 +130,7 @@ public sealed class PageCommandHandlerTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Conflict));
             Assert.That(fixture.Application.ValidateCreateAsyncCallCount, Is.EqualTo(2));
             Assert.That(fixture.Application.CreateAsyncCallCount, Is.Zero);
             Assert.That(fixture.Context.SaveCount, Is.Zero);
@@ -283,7 +285,7 @@ public sealed class PageCommandHandlerTests
         }
     }
 
-    /// <summary>Verifies that an unchanged edit does not update or save configuration.</summary>
+    /// <summary>Verifies that an unchanged edit reports a no-op and saves configuration.</summary>
     [Test]
     public async Task Edit_WhenEditorIsUnchanged_DoesNotUpdatePage()
     {
@@ -297,7 +299,10 @@ public sealed class PageCommandHandlerTests
             Assert.That(result, Is.Zero);
             Assert.That(fixture.Application.ValidateEditAsyncCallCount, Is.EqualTo(1));
             Assert.That(fixture.Application.EditAsyncCallCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
+            Assert.That(fixture.Context.SaveCount, Is.EqualTo(1));
+            Assert.That(
+                fixture.Output.StandardOutput,
+                Is.EqualTo("No changes." + Environment.NewLine));
         }
     }
 

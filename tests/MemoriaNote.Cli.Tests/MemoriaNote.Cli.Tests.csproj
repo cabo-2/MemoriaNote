@@ -6,6 +6,9 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <CliAssemblyPath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../../cli/bin/$(Configuration)/$(TargetFramework)/mn.dll'))</CliAssemblyPath>
+    <TestEditorExecutableName>MemoriaNote.TestEditor</TestEditorExecutableName>
+    <TestEditorExecutableName Condition="$([MSBuild]::IsOSPlatform('Windows'))">MemoriaNote.TestEditor.exe</TestEditorExecutableName>
+    <TestEditorExecutablePath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../MemoriaNote.TestEditor/bin/$(Configuration)/$(TargetFramework)/$(TestEditorExecutableName)'))</TestEditorExecutablePath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,6 +32,8 @@
   <ItemGroup>
     <ProjectReference Include="../../cli/mn.csproj" />
     <ProjectReference Include="../../core/MemoriaNote.Core.csproj" />
+    <ProjectReference Include="../MemoriaNote.TestEditor/MemoriaNote.TestEditor.csproj" ReferenceOutputAssembly="false" />
     <AssemblyMetadata Include="CliAssemblyPath" Value="$(CliAssemblyPath)" />
+    <AssemblyMetadata Include="TestEditorExecutablePath" Value="$(TestEditorExecutablePath)" />
   </ItemGroup>
 </Project>

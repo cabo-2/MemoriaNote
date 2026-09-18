@@ -1,5 +1,7 @@
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -25,7 +27,7 @@ namespace MemoriaNote.Cli.Editors
         void Kill(bool entireProcessTree);
     }
 
-    internal sealed class ExternalEditorProcessException : Exception
+    internal sealed class ExternalEditorProcessException : ExternalEditorException
     {
         internal ExternalEditorProcessException(string executablePath, int exitCode)
             : base($"External editor '{executablePath}' exited with code {exitCode}.")
@@ -62,10 +64,32 @@ namespace MemoriaNote.Cli.Editors
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            using var process = _startProcess(CreateStartInfo(
-                executablePath,
-                documentPath)) ?? throw new InvalidOperationException(
-                    "The external editor process could not be started.");
+            IEditorProcess process;
+            try
+            {
+                process = _startProcess(CreateStartInfo(
+                    executablePath,
+                    documentPath)) ?? throw new ExternalEditorStartException(executablePath);
+            }
+            catch (Exception exception) when (
+                exception is Win32Exception ||
+                exception is FileNotFoundException ||
+                exception is DirectoryNotFoundException)
+            {
+                throw new ExternalEditorStartException(executablePath, exception);
+            }
+
+            using (process)
+            {
+                await WaitForExitAsync(process, executablePath, cancellationToken);
+            }
+        }
+
+        async Task WaitForExitAsync(
+            IEditorProcess process,
+            string executablePath,
+            CancellationToken cancellationToken)
+        {
             try
             {
                 await process.WaitForExitAsync(cancellationToken);
@@ -124,8 +148,7 @@ namespace MemoriaNote.Cli.Editors
         static IEditorProcess StartProcess(ProcessStartInfo startInfo)
         {
             var process = Process.Start(startInfo) ??
-                throw new InvalidOperationException(
-                    "The external editor process could not be started.");
+                throw new ExternalEditorStartException(startInfo.FileName);
             return new SystemEditorProcess(process);
         }
 

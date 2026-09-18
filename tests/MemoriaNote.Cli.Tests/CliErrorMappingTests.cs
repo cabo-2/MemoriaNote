@@ -143,6 +143,10 @@ public sealed class CliErrorMappingTests
         yield return new IOException("disk unavailable");
         yield return new UnauthorizedAccessException("access denied");
         yield return new StubDbException("database unavailable");
+        yield return new ExternalEditorConfigurationException(
+            "editor is not configured");
+        yield return new ExternalEditorStartException("missing-editor");
+        yield return new ExternalEditorProcessException("editor", 17);
         yield return new DbUpdateException(
             "update failed",
             new IOException("disk unavailable"));

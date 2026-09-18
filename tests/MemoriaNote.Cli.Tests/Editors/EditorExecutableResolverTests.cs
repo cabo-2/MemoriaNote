@@ -59,7 +59,7 @@ public sealed class EditorExecutableResolverTests
 
         Assert.That(
             resolve,
-            Throws.TypeOf<InvalidOperationException>()
+            Throws.TypeOf<ExternalEditorConfigurationException>()
                 .With.Message.EqualTo("External editor path is not configured."));
     }
 

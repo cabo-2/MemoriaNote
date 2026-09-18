@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using System.Text.Json;
 using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
@@ -95,6 +96,37 @@ public sealed class CliArchitectureTests
             () => string.Join(Environment.NewLine, violations));
     }
 
+    /// <summary>Verifies that restored transitive dependency graphs omit removed packages.</summary>
+    [Test]
+    public void RestoredDependencies_DoNotContainRemovedPackages()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var assetPaths = new[]
+        {
+            Path.Combine(repositoryRoot, "cli", "obj", "project.assets.json"),
+            Path.Combine(
+                repositoryRoot,
+                "tests",
+                "MemoriaNote.Cli.Tests",
+                "obj",
+                "project.assets.json")
+        };
+        var violations = assetPaths
+            .SelectMany(assetPath => ReadPackageNames(assetPath)
+                .Where(packageName => ForbiddenSourceReferences.Any(forbidden =>
+                    packageName.Contains(
+                        forbidden,
+                        StringComparison.OrdinalIgnoreCase)))
+                .Select(packageName =>
+                    $"{Path.GetRelativePath(repositoryRoot, assetPath)}: {packageName}"))
+            .ToList();
+
+        Assert.That(
+            violations,
+            Is.Empty,
+            () => string.Join(Environment.NewLine, violations));
+    }
+
     /// <summary>Verifies that removed source and weaving files are absent.</summary>
     [Test]
     public void RemovedTuiFiles_AreAbsent()
@@ -121,6 +153,17 @@ public sealed class CliArchitectureTests
                     new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
                     StringSplitOptions.RemoveEmptyEntries)
                 .Any(directory => directory == "bin" || directory == "obj");
+    }
+
+    static IEnumerable<string> ReadPackageNames(string assetPath)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(assetPath));
+        return document.RootElement
+            .GetProperty("libraries")
+            .EnumerateObject()
+            .Where(library => library.Value.GetProperty("type").GetString() == "package")
+            .Select(library => library.Name.Split('/')[0])
+            .ToArray();
     }
 
     static string FindRepositoryRoot()

@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoriaNote.Core.Tests", "t
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoriaNote.Cli.Tests", "tests\MemoriaNote.Cli.Tests\MemoriaNote.Cli.Tests.csproj", "{ED503B10-F831-4C03-8DB5-0DBDD49B1836}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoriaNote.TestEditor", "tests\MemoriaNote.TestEditor\MemoriaNote.TestEditor.csproj", "{B7B174EA-6E46-4BF4-8D91-E7457C9EE68D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,6 +34,10 @@ Global
 		{ED503B10-F831-4C03-8DB5-0DBDD49B1836}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{ED503B10-F831-4C03-8DB5-0DBDD49B1836}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{ED503B10-F831-4C03-8DB5-0DBDD49B1836}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B7B174EA-6E46-4BF4-8D91-E7457C9EE68D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7B174EA-6E46-4BF4-8D91-E7457C9EE68D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7B174EA-6E46-4BF4-8D91-E7457C9EE68D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B7B174EA-6E46-4BF4-8D91-E7457C9EE68D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

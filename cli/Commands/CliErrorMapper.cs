@@ -42,7 +42,7 @@ namespace MemoriaNote.Cli
                     exception);
             }
 
-            if (exception is ExternalEditorProcessException)
+            if (exception is ExternalEditorException)
             {
                 return CliCommandResult.Failure(
                     CliErrorKind.Storage,
