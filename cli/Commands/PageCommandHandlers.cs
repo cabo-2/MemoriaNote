@@ -10,43 +10,25 @@ namespace MemoriaNote.Cli
     internal sealed class FindCommandHandler
     {
         readonly CliCommandExecutor _executor;
-        readonly ICliCommandContextFactory _contextFactory;
-        readonly CliSearchQueryNormalizer _searchQueryNormalizer;
-        readonly ITerminalUi _terminalUi;
 
-        internal FindCommandHandler(
-            CliCommandExecutor executor,
-            ICliCommandContextFactory contextFactory,
-            CliSearchQueryNormalizer searchQueryNormalizer,
-            ITerminalUi terminalUi)
+        const string TemporarilyUnavailableMessage =
+            "The find command is temporarily unavailable. Use 'mn list [name]' to list page names; " +
+            "full-text search will be redesigned after the initial release.";
+
+        internal FindCommandHandler(CliCommandExecutor executor)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
-            _contextFactory = contextFactory ??
-                throw new ArgumentNullException(nameof(contextFactory));
-            _searchQueryNormalizer = searchQueryNormalizer ??
-                throw new ArgumentNullException(nameof(searchQueryNormalizer));
-            _terminalUi = terminalUi ??
-                throw new ArgumentNullException(nameof(terminalUi));
         }
 
         internal Task<int> ExecuteAsync(
-            string name,
+            string query,
             CancellationToken cancellationToken)
         {
-            return _executor.ExecuteAsync(async token =>
-            {
-                var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = await _contextFactory.CreateViewModelAsync(
-                    configuration,
-                    token);
-                viewModel.SearchEntry = _searchQueryNormalizer.Normalize(name);
-                viewModel.SearchRange = configuration.State.SearchRange;
-                viewModel.SearchMethod = configuration.State.SearchMethod;
-
-                await _terminalUi.RunHomeAsync(viewModel, token);
-                _contextFactory.SaveConfiguration(configuration);
-                return CliCommandResult.Success();
-            }, cancellationToken);
+            return _executor.ExecuteAsync(
+                _ => CliCommandResult.Failure(
+                    CliErrorKind.Validation,
+                    TemporarilyUnavailableMessage),
+                cancellationToken);
         }
     }
 

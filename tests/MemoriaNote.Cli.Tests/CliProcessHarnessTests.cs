@@ -22,6 +22,12 @@ public sealed class CliProcessHarnessTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(
+                result.StandardOutput,
+                Does.Contain(
+                    "A lightweight, cross-platform CLI for creating, organizing, and editing workspace-based notes"));
+            Assert.That(result.StandardOutput, Does.Not.Contain("Terminal.Gui"));
+            Assert.That(result.StandardOutput, Does.Contain("Temporarily unavailable"));
             Assert.That(result.StandardOutput, Does.Contain("Usage: mn"));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
@@ -44,6 +50,74 @@ public sealed class CliProcessHarnessTests
                 ContainsCommand(result.StandardOutput, command),
                 Is.True,
                 $"Root help did not describe the '{command}' command.");
+        }
+    }
+
+    /// <summary>
+    /// Verifies that find reports its temporary pause without initializing configuration or storage.
+    /// </summary>
+    [Test]
+    public async Task FindWithoutQuery_IsPausedWithoutInitializingApplication()
+    {
+        using var harness = new CliProcessHarness();
+
+        var result = await harness.RunAsync("find");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo(2));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(
+                result.StandardError,
+                Is.EqualTo(
+                    "Error: The find command is temporarily unavailable. Use 'mn list [name]' to list page names; " +
+                    "full-text search will be redesigned after the initial release." +
+                    Environment.NewLine));
+            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
+        }
+    }
+
+    /// <summary>Verifies that find has the same paused contract when a query is supplied.</summary>
+    [Test]
+    public async Task FindWithQuery_HasTheSamePausedContract()
+    {
+        using var harness = new CliProcessHarness();
+
+        var result = await harness.RunAsync("find", "Roadmap");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo(2));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(
+                result.StandardError,
+                Is.EqualTo(
+                    "Error: The find command is temporarily unavailable. Use 'mn list [name]' to list page names; " +
+                    "full-text search will be redesigned after the initial release." +
+                    Environment.NewLine));
+            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
+        }
+    }
+
+    /// <summary>Verifies that find help explains its pause and the limited list alternative.</summary>
+    [Test]
+    public async Task FindHelp_ExplainsPauseAndScope()
+    {
+        using var harness = new CliProcessHarness();
+
+        var result = await harness.RunAsync("find", "--help");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(result.StandardOutput, Does.Contain("Usage: mn find"));
+            Assert.That(result.StandardOutput, Does.Contain("<query>"));
+            Assert.That(result.StandardOutput, Does.Contain("Temporarily unavailable"));
+            Assert.That(result.StandardOutput, Does.Contain("mn list [name]"));
+            Assert.That(result.StandardOutput, Does.Contain("not full-text search"));
+            Assert.That(result.StandardOutput, Does.Contain("separate follow-up"));
+            Assert.That(result.StandardError, Is.Empty);
+            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
         }
     }
 

@@ -14,37 +14,32 @@ namespace MemoriaNote.Cli.Tests;
 public sealed class TuiCommandCharacterizationTests
 {
     /// <summary>
-    /// Verifies that find normalizes its name and copies persisted search options before opening the home UI adapter.
+    /// Verifies that find reports its intentional pause without starting the application.
     /// </summary>
     [Test]
-    public async Task Find_ProjectsNameAndConfiguredSearchOptionsIntoHomeUi()
+    public async Task Find_ReportsTemporaryPauseWithoutStartingApplication()
     {
         var fixture = CommandFixture.Create();
-        fixture.Configuration.State.SearchRange = SearchRangeType.Workspace;
-        fixture.Configuration.State.SearchMethod = SearchMethodType.FullText;
-        using var cancellation = new CancellationTokenSource();
 
         var result = await fixture.Find.ExecuteAsync(
             "Roadmap",
-            cancellation.Token);
+            CancellationToken.None);
 
-        var viewModel = fixture.Context.LastViewModel;
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.Zero);
-            Assert.That(fixture.Context.LoadCount, Is.EqualTo(1));
-            Assert.That(fixture.Context.SaveCount, Is.EqualTo(1));
-            Assert.That(fixture.Context.LastCancellationToken, Is.EqualTo(cancellation.Token));
-            Assert.That(fixture.TerminalUi.HomeRunCount, Is.EqualTo(1));
-            Assert.That(fixture.TerminalUi.HomeViewModel, Is.SameAs(viewModel));
-            Assert.That(fixture.TerminalUi.HomeCancellationToken, Is.EqualTo(cancellation.Token));
-            Assert.That(viewModel, Is.Not.Null);
-            Assert.That(viewModel!.SearchEntry, Is.EqualTo("Roadmap*"));
-            Assert.That(viewModel.SearchRange, Is.EqualTo(SearchRangeType.Workspace));
-            Assert.That(viewModel.SearchMethod, Is.EqualTo(SearchMethodType.FullText));
-            Assert.That(fixture.TerminalUi.ManageRunCount, Is.Zero);
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(fixture.Context.LoadCount, Is.Zero);
+            Assert.That(fixture.Context.CreateCount, Is.Zero);
+            Assert.That(fixture.Context.CreateSessionCount, Is.Zero);
+            Assert.That(fixture.Context.SaveCount, Is.Zero);
+            Assert.That(fixture.TerminalUi.HomeRunCount, Is.Zero);
             Assert.That(fixture.Output.StandardOutput, Is.Empty);
-            Assert.That(fixture.Output.StandardError, Is.Empty);
+            Assert.That(
+                fixture.Output.StandardError,
+                Is.EqualTo(
+                    "Error: The find command is temporarily unavailable. Use 'mn list [name]' to list page names; " +
+                    "full-text search will be redesigned after the initial release." +
+                    Environment.NewLine));
         }
     }
 
@@ -346,29 +341,32 @@ public sealed class TuiCommandCharacterizationTests
     }
 
     /// <summary>
-    /// Verifies that startup failures use the common not-found error mapping and do not save configuration.
+    /// Verifies that find ignores the query and keeps the same paused command contract.
     /// </summary>
     [Test]
-    public async Task Find_WhenStartupFails_UsesCommonErrorMapping()
+    public async Task Find_WithoutQuery_HasTheSamePausedContract()
     {
         var fixture = CommandFixture.Create();
-        fixture.Context.CreateViewModelException = new FileNotFoundException("database is missing");
 
         var result = await fixture.Find.ExecuteAsync(
-            "Roadmap",
+            null,
             CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.EqualTo((int)CliExitCode.NotFound));
-            Assert.That(fixture.Context.LoadCount, Is.EqualTo(1));
-            Assert.That(fixture.Context.CreateCount, Is.EqualTo(1));
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(fixture.Context.LoadCount, Is.Zero);
+            Assert.That(fixture.Context.CreateCount, Is.Zero);
+            Assert.That(fixture.Context.CreateSessionCount, Is.Zero);
             Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(fixture.TerminalUi.HomeRunCount, Is.Zero);
             Assert.That(fixture.Output.StandardOutput, Is.Empty);
             Assert.That(
                 fixture.Output.StandardError,
-                Is.EqualTo("Error: database is missing" + Environment.NewLine));
+                Is.EqualTo(
+                    "Error: The find command is temporarily unavailable. Use 'mn list [name]' to list page names; " +
+                    "full-text search will be redesigned after the initial release." +
+                    Environment.NewLine));
         }
     }
 
@@ -483,11 +481,7 @@ public sealed class TuiCommandCharacterizationTests
                 terminalUi,
                 editor,
                 output,
-                new FindCommandHandler(
-                    executor,
-                    context,
-                    normalizer,
-                    terminalUi),
+                new FindCommandHandler(executor),
                 new EditCommandHandler(executor, context, editor, output),
                 new NewCommandHandler(executor, context, editor, output),
                 new ListCommandHandler(

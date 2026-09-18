@@ -11,7 +11,7 @@ using McMaster.Extensions.CommandLineUtils;
 namespace MemoriaNote.Cli
 {
     [Command("mn",
-     Description = "Memoria Note CLI - A simple, .NET Terminal.Gui based, Text viewer and editor")]
+     Description = "A lightweight, cross-platform CLI for creating, organizing, and editing workspace-based notes")]
     [Subcommand(
         typeof(FindCommand),
         typeof(EditCommand),
@@ -64,16 +64,19 @@ namespace MemoriaNote.Cli
             return Task.FromResult((int)CliExitCode.Success);
         }
 
-        [Command("find", Description = "Find and browse text commands")]
+        [Command(
+            "find",
+            Description = "Temporarily unavailable after TUI removal; use 'mn list [name]' for page names, not full-text search. " +
+                "Full-text search will be redesigned as a separate follow-up.")]
         [HelpOption("--help")]
         class FindCommand
         {
-            [Argument(0, Name = "name", Description = "text name")]
-            public string Name { get; set; }
+            [Argument(0, Name = "query", Description = "search query")]
+            public string Query { get; set; }
 
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
-                return CommandHandlers.Find.ExecuteAsync(Name, cancellationToken);
+                return CommandHandlers.Find.ExecuteAsync(Query, cancellationToken);
             }
         }
 

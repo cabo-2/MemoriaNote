@@ -90,9 +90,6 @@ namespace MemoriaNote.Cli
                 editorExecutableResolver,
                 editorFileExchange,
                 editorProcessRunner);
-            var pageEditorWorkflow = new Editors.PageEditorWorkflow(
-                externalEditor,
-                loggerFactory.CreateLogger<Editors.PageEditorWorkflow>());
             var output = new ConsoleCommandOutput(Console.Out, Console.Error);
             var input = new ConsoleCommandInput(Console.In);
             var prompt = new CommandPrompt(input, output);
@@ -110,7 +107,6 @@ namespace MemoriaNote.Cli
                 configurationStore,
                 output,
                 loggerFactory);
-            var terminalUi = new TerminalUiAdapter(pageEditorWorkflow, loggerFactory);
             var searchQueryNormalizer = new CliSearchQueryNormalizer();
             var textPageImporter = new TextPageImporter(pageRepository);
             var textPageExporter = new TextPageExporter(transferRepository);
@@ -125,11 +121,7 @@ namespace MemoriaNote.Cli
                 contextFactory,
                 databaseFactory);
             var commandHandlers = new CliCommandHandlers(
-                new FindCommandHandler(
-                    executor,
-                    contextFactory,
-                    searchQueryNormalizer,
-                    terminalUi),
+                new FindCommandHandler(executor),
                 new EditCommandHandler(executor, contextFactory, externalEditor, output),
                 new NewCommandHandler(executor, contextFactory, externalEditor, output),
                 new ConfigEditCommandHandler(
