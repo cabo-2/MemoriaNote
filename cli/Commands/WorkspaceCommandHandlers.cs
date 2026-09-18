@@ -43,10 +43,10 @@ namespace MemoriaNote.Cli
                 }
 
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = await _contextFactory.CreateViewModelAsync(
+                var session = await _contextFactory.CreateSessionAsync(
                     configuration,
                     token);
-                var workspace = viewModel.Workspace;
+                var workspace = session.Workspace;
                 if (!workspace.Notebooks.Any(
                     notebook => name == notebook.Metadata.Name))
                 {
@@ -96,10 +96,10 @@ namespace MemoriaNote.Cli
             return _executor.ExecuteAsync(async token =>
             {
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = await _contextFactory.CreateViewModelAsync(
+                var session = await _contextFactory.CreateSessionAsync(
                     configuration,
                     token);
-                var notebook = viewModel.Workspace.SelectedNotebook;
+                var notebook = session.Workspace.SelectedNotebook;
                 bool retry;
                 do
                 {
@@ -127,7 +127,7 @@ namespace MemoriaNote.Cli
                             var errors = _validationPolicy.Validate(
                                 NotebookId.FromDatabasePath(notebook.DatabasePath),
                                 update,
-                                viewModel.Workspace);
+                                session.Workspace);
                             if (errors.Count > 0)
                             {
                                 foreach (var error in errors)
@@ -231,10 +231,10 @@ namespace MemoriaNote.Cli
             return _executor.ExecuteAsync(async token =>
             {
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = await _contextFactory.CreateViewModelAsync(
+                var session = await _contextFactory.CreateSessionAsync(
                     configuration,
                     token);
-                var workspace = viewModel.Workspace;
+                var workspace = session.Workspace;
                 if (name == null)
                     name = _prompt.ReadNotebookName();
 
@@ -319,18 +319,18 @@ namespace MemoriaNote.Cli
             return _executor.ExecuteAsync(async token =>
             {
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = await _contextFactory.CreateViewModelAsync(
+                var session = await _contextFactory.CreateSessionAsync(
                     configuration,
                     token);
                 if (completion)
                 {
-                    _output.WriteNotebookCompletion(viewModel.Workspace.Notebooks);
+                    _output.WriteNotebookCompletion(session.Workspace.Notebooks);
                 }
                 else
                 {
                     _output.WriteNotebookList(
-                        viewModel.Workspace.Notebooks,
-                        viewModel.Workspace.SelectedNotebook);
+                        session.Workspace.Notebooks,
+                        session.Workspace.SelectedNotebook);
                 }
 
                 _contextFactory.SaveConfiguration(configuration);
@@ -433,10 +433,10 @@ namespace MemoriaNote.Cli
                 }
 
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = await _contextFactory.CreateViewModelAsync(
+                var session = await _contextFactory.CreateSessionAsync(
                     configuration,
                     token);
-                var workspace = viewModel.Workspace;
+                var workspace = session.Workspace;
                 if (!workspace.Notebooks.Any(
                     notebook => name == notebook.Metadata.Name))
                 {
@@ -494,13 +494,13 @@ namespace MemoriaNote.Cli
             return _executor.ExecuteAsync(async token =>
             {
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = await _contextFactory.CreateViewModelAsync(
+                var session = await _contextFactory.CreateSessionAsync(
                     configuration,
                     token);
                 var current = name switch
                 {
-                    null => viewModel.Workspace.SelectedNotebook,
-                    _ => viewModel.Workspace.Notebooks.FirstOrDefault(
+                    null => session.Workspace.SelectedNotebook,
+                    _ => session.Workspace.Notebooks.FirstOrDefault(
                         notebook => notebook.Metadata.Name == name)
                 };
                 if (current == null)

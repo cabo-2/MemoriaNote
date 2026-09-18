@@ -8,6 +8,7 @@ internal sealed class CliProcessHarness : IDisposable
 {
     static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(10);
     readonly string _testRoot;
+    readonly Dictionary<string, string> _environmentVariables = new();
 
     internal CliProcessHarness()
     {
@@ -41,6 +42,19 @@ internal sealed class CliProcessHarness : IDisposable
     internal string ConfigurationPath => Path.Combine(
         ApplicationDataDirectory,
         "configuration.json");
+
+    internal string TestEditorExecutablePath => GetAssemblyMetadataPath(
+        "TestEditorExecutablePath");
+
+    internal void SetEnvironmentVariable(string name, string value)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("An environment variable name is required.", nameof(name));
+        if (value == null)
+            throw new ArgumentNullException(nameof(value));
+
+        _environmentVariables[name] = value;
+    }
 
     internal Task<CliProcessResult> RunAsync(params string[] arguments)
     {
@@ -149,20 +163,29 @@ internal sealed class CliProcessHarness : IDisposable
         startInfo.Environment["TMPDIR"] = TemporaryDirectory;
         startInfo.Environment["TMP"] = TemporaryDirectory;
         startInfo.Environment["TEMP"] = TemporaryDirectory;
+        foreach (var environmentVariable in _environmentVariables)
+        {
+            startInfo.Environment[environmentVariable.Key] = environmentVariable.Value;
+        }
 
         return startInfo;
     }
 
     static string GetCliAssemblyPath()
     {
+        return GetAssemblyMetadataPath("CliAssemblyPath");
+    }
+
+    static string GetAssemblyMetadataPath(string key)
+    {
         var path = Assembly.GetExecutingAssembly()
             .GetCustomAttributes<AssemblyMetadataAttribute>()
-            .Single(attribute => attribute.Key == "CliAssemblyPath")
+            .Single(attribute => attribute.Key == key)
             .Value;
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
         {
             throw new FileNotFoundException(
-                "The CLI assembly was not built before the test run.",
+                $"The '{key}' test artifact was not built before the test run.",
                 path);
         }
 

@@ -1,5 +1,6 @@
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
@@ -75,11 +76,77 @@ public sealed class CliErrorMappingTests
         }
     }
 
+    /// <summary>Verifies that the command executor writes mapped failures to standard error.</summary>
+    [Test]
+    public async Task Executor_FailureWritesDiagnosticAndReturnsExitCode()
+    {
+        using var standardOutput = new StringWriter();
+        using var standardError = new StringWriter();
+        var output = new ConsoleCommandOutput(standardOutput, standardError);
+        var executor = new CliCommandExecutor(
+            output,
+            new CliErrorMapper(),
+            NullLogger<CliCommandExecutor>.Instance);
+
+        var result = await executor.ExecuteAsync(
+            _ => CliCommandResult.Failure(
+                CliErrorKind.Validation,
+                "invalid input"),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(standardOutput.ToString(), Is.Empty);
+            Assert.That(
+                standardError.ToString(),
+                Is.EqualTo("Error: invalid input" + Environment.NewLine));
+        }
+    }
+
+    /// <summary>Verifies that command cancellation stops the handler and uses the canceled exit code.</summary>
+    [Test]
+    public async Task Executor_WhenCanceled_ReturnsCanceledWithoutInvokingHandler()
+    {
+        using var standardOutput = new StringWriter();
+        using var standardError = new StringWriter();
+        var output = new ConsoleCommandOutput(standardOutput, standardError);
+        var executor = new CliCommandExecutor(
+            output,
+            new CliErrorMapper(),
+            NullLogger<CliCommandExecutor>.Instance);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var invoked = false;
+
+        var result = await executor.ExecuteAsync(
+            _ =>
+            {
+                invoked = true;
+                return CliCommandResult.Success();
+            },
+            cancellation.Token);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Canceled));
+            Assert.That(invoked, Is.False);
+            Assert.That(standardOutput.ToString(), Is.Empty);
+            Assert.That(
+                standardError.ToString(),
+                Is.EqualTo("Error: Operation was canceled" + Environment.NewLine));
+        }
+    }
+
     private static IEnumerable<Exception> StorageExceptions()
     {
         yield return new IOException("disk unavailable");
         yield return new UnauthorizedAccessException("access denied");
         yield return new StubDbException("database unavailable");
+        yield return new ExternalEditorConfigurationException(
+            "editor is not configured");
+        yield return new ExternalEditorStartException("missing-editor");
+        yield return new ExternalEditorProcessException("editor", 17);
         yield return new DbUpdateException(
             "update failed",
             new IOException("disk unavailable"));

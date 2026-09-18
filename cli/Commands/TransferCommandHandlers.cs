@@ -49,12 +49,12 @@ namespace MemoriaNote.Cli
                 }
 
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = await _contextFactory.CreateViewModelAsync(
+                var session = await _contextFactory.CreateSessionAsync(
                     configuration,
                     token);
                 await _textPageImporter.ImportAsync(
                     NotebookId.FromDatabasePath(
-                        viewModel.Workspace.SelectedNotebook.DatabasePath),
+                        session.Workspace.SelectedNotebook.DatabasePath),
                     importDirectory,
                     recursive,
                     token);
@@ -105,12 +105,12 @@ namespace MemoriaNote.Cli
                 }
 
                 var configuration = _contextFactory.LoadConfiguration();
-                var viewModel = await _contextFactory.CreateViewModelAsync(
+                var session = await _contextFactory.CreateSessionAsync(
                     configuration,
                     token);
                 await _textPageExporter.ExportAsync(
                     NotebookId.FromDatabasePath(
-                        viewModel.Workspace.SelectedNotebook.DatabasePath),
+                        session.Workspace.SelectedNotebook.DatabasePath),
                     exportDirectory,
                     token);
                 _output.WriteLine("Export completed");

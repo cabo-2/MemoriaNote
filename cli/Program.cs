@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Linq;
-using System.Reflection;
-using System.Reactive.Concurrency;
-using ReactiveUI;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,7 +7,7 @@ using McMaster.Extensions.CommandLineUtils;
 namespace MemoriaNote.Cli
 {
     [Command("mn",
-     Description = "Memoria Note CLI - A simple, .NET Terminal.Gui based, Text viewer and editor")]
+     Description = "A lightweight, cross-platform CLI for creating, organizing, and editing workspace-based notes")]
     [Subcommand(
         typeof(FindCommand),
         typeof(EditCommand),
@@ -64,29 +60,42 @@ namespace MemoriaNote.Cli
             return Task.FromResult((int)CliExitCode.Success);
         }
 
-        [Command("find", Description = "Find and browse text commands")]
+        [Command(
+            "find",
+            Description = "Temporarily unavailable after TUI removal; use 'mn list [name]' for page names, not full-text search. " +
+                "Full-text search will be redesigned as a separate follow-up.")]
         [HelpOption("--help")]
         class FindCommand
         {
-            [Argument(0, Name = "name", Description = "text name")]
-            public string Name { get; set; }
+            [Argument(0, Name = "query", Description = "search query")]
+            public string Query { get; set; }
 
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
-                return CommandHandlers.Find.ExecuteAsync(Name, cancellationToken);
+                return CommandHandlers.Find.ExecuteAsync(Query, cancellationToken);
             }
         }
 
-        [Command("edit", Description = "Edit and manage text commands")]
+        [Command("edit", Description = "Edit text with an external editor")]
         [HelpOption("--help")]
         class EditCommand
         {
             [Argument(0, Name = "name", Description = "text name")]
-            public string Name { get; set; }
+            public (bool hasValue, string value) Name { get; set; }
 
-            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+            protected Task<int> OnExecuteAsync(
+                CommandLineApplication app,
+                CancellationToken cancellationToken)
             {
-                return CommandHandlers.Edit.ExecuteAsync(Name, cancellationToken);
+                if (!Name.hasValue)
+                {
+                    app.Error.WriteLine("Error: No name");
+                    return Task.FromResult((int)CliExitCode.Validation);
+                }
+
+                return CommandHandlers.Edit.ExecuteAsync(
+                    Name.value,
+                    cancellationToken);
             }
         }
 

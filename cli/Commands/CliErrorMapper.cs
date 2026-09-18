@@ -2,6 +2,7 @@ using System;
 using System.Data.Common;
 using System.IO;
 using System.Linq;
+using MemoriaNote.Cli.Editors;
 using Microsoft.EntityFrameworkCore;
 
 namespace MemoriaNote.Cli
@@ -37,6 +38,14 @@ namespace MemoriaNote.Cli
             {
                 return CliCommandResult.Failure(
                     CliErrorKind.Validation,
+                    exception.Message,
+                    exception);
+            }
+
+            if (exception is ExternalEditorException)
+            {
+                return CliCommandResult.Failure(
+                    CliErrorKind.Storage,
                     exception.Message,
                     exception);
             }

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
@@ -47,6 +48,30 @@ public sealed class ExternalEditorProcessRunnerTests
             Assert.That(exception!.ExitCode, Is.EqualTo(17));
             Assert.That(process.DisposeCount, Is.EqualTo(1));
             Assert.That(process.KillEntireProcessTree, Is.Null);
+        }
+    }
+
+    /// <summary>Verifies that an operating-system start failure has a typed editor error.</summary>
+    [Test]
+    public void RunAsync_StartFailure_ThrowsExternalEditorStartException()
+    {
+        var runner = new ExternalEditorProcessRunner(
+            NullLogger<ExternalEditorProcessRunner>.Instance,
+            _ => throw new Win32Exception("executable missing"));
+
+        Func<Task> run = () => runner.RunAsync(
+            "missing-editor",
+            "/tmp/document",
+            CancellationToken.None);
+
+        var exception = Assert.ThrowsAsync<ExternalEditorStartException>(run);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                exception!.Message,
+                Is.EqualTo("External editor 'missing-editor' could not be started."));
+            Assert.That(exception.InnerException, Is.TypeOf<Win32Exception>());
         }
     }
 

@@ -31,7 +31,8 @@ namespace MemoriaNote.Cli.Editors
                 throw new ArgumentNullException(nameof(configuration));
 
             var settings = configuration.Terminal ??
-                throw new InvalidOperationException("External editor settings are missing.");
+                throw new ExternalEditorConfigurationException(
+                    "External editor settings are missing.");
             if (settings.EditorEnv)
             {
                 var environmentEditor = _environmentVariables.Get(
@@ -41,7 +42,10 @@ namespace MemoriaNote.Cli.Editors
             }
 
             if (string.IsNullOrWhiteSpace(settings.EditorPath))
-                throw new InvalidOperationException("External editor path is not configured.");
+            {
+                throw new ExternalEditorConfigurationException(
+                    "External editor path is not configured.");
+            }
 
             return settings.EditorPath;
         }

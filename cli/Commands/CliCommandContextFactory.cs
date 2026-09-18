@@ -62,7 +62,7 @@ namespace MemoriaNote.Cli
             return result.Configuration;
         }
 
-        public async Task<MemoriaNoteViewModel> CreateViewModelAsync(
+        public async Task<ApplicationSession> CreateSessionAsync(
             ConfigurationCli configuration,
             CancellationToken cancellationToken)
         {
@@ -88,11 +88,7 @@ namespace MemoriaNote.Cli
             if (session.DefaultNotebookCreated)
                 _logger.LogInformation("Default note created");
 
-            return new MemoriaNoteViewModel(
-                configuration,
-                session,
-                _loggerFactory.CreateLogger<MemoriaNoteViewModel>(),
-                cancellationToken);
+            return session;
         }
 
         public void SaveConfiguration(ConfigurationCli configuration)
