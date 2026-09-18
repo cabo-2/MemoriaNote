@@ -48,44 +48,43 @@ public sealed class TuiCommandCharacterizationTests
         }
     }
 
-    /// <summary>
-    /// Verifies that edit passes the supplied name as a notebook-scoped heading search to the manage UI adapter.
-    /// </summary>
+    /// <summary>Verifies that edit resolves a unique page and uses the external editor.</summary>
     [Test]
-    public async Task Edit_ProjectsNameIntoNotebookHeadingSearchWithoutOpeningEditor()
+    public async Task Edit_ResolvesUniqueTargetAndUsesExternalEditor()
     {
         var fixture = CommandFixture.Create();
+        var summary = CreatePageSummary(fixture.NotebookId, "Existing page");
+        var page = Page.Create(summary.Name, "Before");
+        page.Guid = summary.PageId.Value;
+        fixture.Application.SearchAsyncHandler = (request, _) => Task.FromResult(
+            new SearchPage(new[] { summary }, 1, request.Offset, request.Limit));
+        fixture.Application.ReadAsyncHandler = (_, _) => Task.FromResult(
+            PageOperationResult.Succeeded(page));
+        fixture.Editor.Results.Enqueue(ExternalEditorResult.Changed("After"));
         using var cancellation = new CancellationTokenSource();
 
         var result = await fixture.Edit.ExecuteAsync(
             "Existing page",
             cancellation.Token);
 
-        var viewModel = fixture.Context.LastViewModel;
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.Zero);
             Assert.That(fixture.Context.LoadCount, Is.EqualTo(1));
+            Assert.That(fixture.Context.CreateSessionCount, Is.EqualTo(1));
             Assert.That(fixture.Context.SaveCount, Is.EqualTo(1));
-            Assert.That(fixture.Context.LastCancellationToken, Is.EqualTo(cancellation.Token));
-            Assert.That(fixture.TerminalUi.ManageRunCount, Is.EqualTo(1));
-            Assert.That(fixture.TerminalUi.OpenEditor, Is.False);
-            Assert.That(fixture.TerminalUi.ManageViewModel, Is.SameAs(viewModel));
-            Assert.That(fixture.TerminalUi.ManageCancellationToken, Is.EqualTo(cancellation.Token));
-            Assert.That(viewModel, Is.Not.Null);
-            Assert.That(viewModel!.SearchEntry, Is.EqualTo("Existing page"));
-            Assert.That(viewModel.SearchRange, Is.EqualTo(SearchRangeType.Notebook));
-            Assert.That(viewModel.SearchMethod, Is.EqualTo(SearchMethodType.Heading));
-            Assert.That(fixture.Output.StandardOutput, Is.Empty);
+            Assert.That(fixture.Application.ReadAsyncCallCount, Is.EqualTo(1));
+            Assert.That(fixture.Editor.Documents, Has.Count.EqualTo(1));
+            Assert.That(fixture.Editor.Documents[0].FileName, Is.EqualTo("Existing page"));
+            Assert.That(fixture.Editor.Documents[0].Text, Is.EqualTo("Before"));
+            Assert.That(fixture.Output.StandardOutput, Does.Contain("updated successfully"));
             Assert.That(fixture.Output.StandardError, Is.Empty);
         }
     }
 
-    /// <summary>
-    /// Verifies the current edit behavior when no name is supplied before target resolution is introduced.
-    /// </summary>
+    /// <summary>Verifies that edit requires a page name before application startup.</summary>
     [Test]
-    public async Task Edit_WithoutName_StillStartsManageUiInCurrentHandler()
+    public async Task Edit_WithoutName_ReturnsValidationFailureBeforeStartup()
     {
         var fixture = CommandFixture.Create();
 
@@ -96,14 +95,15 @@ public sealed class TuiCommandCharacterizationTests
         var viewModel = fixture.Context.LastViewModel;
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.Zero);
-            Assert.That(fixture.TerminalUi.ManageRunCount, Is.EqualTo(1));
-            Assert.That(fixture.TerminalUi.OpenEditor, Is.False);
-            Assert.That(viewModel, Is.Not.Null);
-            Assert.That(viewModel!.SearchEntry, Is.Null);
-            Assert.That(viewModel.SearchRange, Is.EqualTo(SearchRangeType.Notebook));
-            Assert.That(viewModel.SearchMethod, Is.EqualTo(SearchMethodType.Heading));
-            Assert.That(fixture.Context.SaveCount, Is.EqualTo(1));
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(fixture.Context.LoadCount, Is.Zero);
+            Assert.That(fixture.Context.CreateSessionCount, Is.Zero);
+            Assert.That(fixture.Editor.Documents, Is.Empty);
+            Assert.That(fixture.Context.SaveCount, Is.Zero);
+            Assert.That(viewModel, Is.Null);
+            Assert.That(
+                fixture.Output.StandardError,
+                Is.EqualTo("Error: No name" + Environment.NewLine));
         }
     }
 
@@ -396,6 +396,7 @@ public sealed class TuiCommandCharacterizationTests
             StubApplicationService application,
             RecordingContextFactory context,
             RecordingTerminalUi terminalUi,
+            RecordingExternalEditor editor,
             RecordingCommandOutput output,
             FindCommandHandler find,
             EditCommandHandler edit,
@@ -408,6 +409,7 @@ public sealed class TuiCommandCharacterizationTests
             Application = application;
             Context = context;
             TerminalUi = terminalUi;
+            Editor = editor;
             Output = output;
             Find = find;
             Edit = edit;
@@ -428,6 +430,8 @@ public sealed class TuiCommandCharacterizationTests
         internal RecordingContextFactory Context { get; }
 
         internal RecordingTerminalUi TerminalUi { get; }
+
+        internal RecordingExternalEditor Editor { get; }
 
         internal RecordingCommandOutput Output { get; }
 
@@ -463,6 +467,7 @@ public sealed class TuiCommandCharacterizationTests
                     NullLogger<MemoriaNoteViewModel>.Instance,
                     token));
             var terminalUi = new RecordingTerminalUi();
+            var editor = new RecordingExternalEditor();
             var executor = new CliCommandExecutor(
                 output,
                 new CliErrorMapper(),
@@ -476,14 +481,15 @@ public sealed class TuiCommandCharacterizationTests
                 application,
                 context,
                 terminalUi,
+                editor,
                 output,
                 new FindCommandHandler(
                     executor,
                     context,
                     normalizer,
                     terminalUi),
-                new EditCommandHandler(executor, context, terminalUi),
-                new NewCommandHandler(executor, context, terminalUi),
+                new EditCommandHandler(executor, context, editor, output),
+                new NewCommandHandler(executor, context, editor, output),
                 new ListCommandHandler(
                     executor,
                     context,
@@ -602,6 +608,26 @@ public sealed class TuiCommandCharacterizationTests
             OpenEditor = openEditor;
             ManageCancellationToken = cancellationToken;
             return Task.CompletedTask;
+        }
+    }
+
+    sealed class RecordingExternalEditor : IExternalEditor
+    {
+        internal Queue<ExternalEditorResult> Results { get; } = new();
+
+        internal List<ExternalEditorDocument> Documents { get; } = new();
+
+        public Task<ExternalEditorResult> EditAsync(
+            ConfigurationCli configuration,
+            ExternalEditorDocument document,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Documents.Add(document);
+            return Task.FromResult(
+                Results.Count == 0
+                    ? ExternalEditorResult.Unchanged(document.Text)
+                    : Results.Dequeue());
         }
     }
 

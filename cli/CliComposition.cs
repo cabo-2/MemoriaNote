@@ -130,8 +130,8 @@ namespace MemoriaNote.Cli
                     contextFactory,
                     searchQueryNormalizer,
                     terminalUi),
-                new EditCommandHandler(executor, contextFactory, terminalUi),
-                new NewCommandHandler(executor, contextFactory, terminalUi),
+                new EditCommandHandler(executor, contextFactory, externalEditor, output),
+                new NewCommandHandler(executor, contextFactory, externalEditor, output),
                 new ConfigEditCommandHandler(
                     executor,
                     contextFactory,

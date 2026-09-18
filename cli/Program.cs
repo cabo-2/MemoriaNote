@@ -77,16 +77,26 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("edit", Description = "Edit and manage text commands")]
+        [Command("edit", Description = "Edit text with an external editor")]
         [HelpOption("--help")]
         class EditCommand
         {
             [Argument(0, Name = "name", Description = "text name")]
-            public string Name { get; set; }
+            public (bool hasValue, string value) Name { get; set; }
 
-            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+            protected Task<int> OnExecuteAsync(
+                CommandLineApplication app,
+                CancellationToken cancellationToken)
             {
-                return CommandHandlers.Edit.ExecuteAsync(Name, cancellationToken);
+                if (!Name.hasValue)
+                {
+                    app.Error.WriteLine("Error: No name");
+                    return Task.FromResult((int)CliExitCode.Validation);
+                }
+
+                return CommandHandlers.Edit.ExecuteAsync(
+                    Name.value,
+                    cancellationToken);
             }
         }
 

@@ -8,9 +8,9 @@ namespace MemoriaNote.Cli.Tests;
 [TestFixture]
 public sealed class CommandHandlerTests
 {
-    /// <summary>Verifies that the new-page handler configures UI state without running a TUI.</summary>
+    /// <summary>Verifies that the new-page handler uses the stateless editor flow.</summary>
     [Test]
-    public async Task New_UsesManageEditorAdapterAndPersistsConfiguration()
+    public async Task New_UsesExternalEditorAndPersistsConfigurationAfterCreation()
     {
         using var standardOutput = new StringWriter();
         using var standardError = new StringWriter();
@@ -20,19 +20,23 @@ public sealed class CommandHandlerTests
             new CliErrorMapper(),
             NullLogger<CliCommandExecutor>.Instance);
         var configuration = new ConfigurationCli();
-        var viewModel = new MemoriaNoteViewModel(
-            configuration,
-            new Workspace(),
-            new StubApplicationService(),
-            NullLogger<MemoriaNoteViewModel>.Instance);
+        var notebookPath = Path.Combine(
+            Path.GetTempPath(),
+            $"command-handler-{Guid.NewGuid():N}.db");
+        var notebook = new Notebook(notebookPath);
+        var workspace = new Workspace("command-handler", new[] { notebook }, notebook);
+        var application = new StubApplicationService();
+        var session = new ApplicationSession(workspace, application);
         var contextFactory = new StubCommandContextFactory(
             configuration,
-            viewModel);
-        var terminalUi = new StubTerminalUi();
+            session);
+        var externalEditor = new StubExternalEditor(
+            ExternalEditorResult.Changed("Roadmap body"));
         var handler = new NewCommandHandler(
             executor,
             contextFactory,
-            terminalUi);
+            externalEditor,
+            output);
 
         var result = await handler.ExecuteAsync(
             "Roadmap",
@@ -42,15 +46,14 @@ public sealed class CommandHandlerTests
         {
             Assert.That(result, Is.Zero);
             Assert.That(contextFactory.SaveCount, Is.EqualTo(1));
-            Assert.That(terminalUi.ManageRunCount, Is.EqualTo(1));
-            Assert.That(terminalUi.OpenEditor, Is.True);
-            Assert.That(terminalUi.ViewModel, Is.SameAs(viewModel));
-            Assert.That(viewModel.SearchEntry, Is.EqualTo("Roadmap"));
-            Assert.That(viewModel.SearchRange, Is.EqualTo(SearchRangeType.Notebook));
-            Assert.That(viewModel.SearchMethod, Is.EqualTo(SearchMethodType.Heading));
-            Assert.That(viewModel.EditingTitle.ToString(), Is.EqualTo("Roadmap"));
-            Assert.That(viewModel.EditingState, Is.EqualTo(EditorMode.Create));
-            Assert.That(standardOutput.ToString(), Is.Empty);
+            Assert.That(application.ValidateCreateAsyncCallCount, Is.EqualTo(2));
+            Assert.That(application.CreateAsyncCallCount, Is.EqualTo(1));
+            Assert.That(externalEditor.Documents, Has.Count.EqualTo(1));
+            Assert.That(externalEditor.Documents[0].FileName, Is.EqualTo("Roadmap"));
+            Assert.That(externalEditor.Documents[0].Text, Is.Empty);
+            Assert.That(
+                standardOutput.ToString(),
+                Does.Contain("The text created successfully."));
             Assert.That(standardError.ToString(), Is.Empty);
         }
     }
@@ -58,14 +61,14 @@ public sealed class CommandHandlerTests
     sealed class StubCommandContextFactory : ICliCommandContextFactory
     {
         readonly ConfigurationCli _configuration;
-        readonly MemoriaNoteViewModel _viewModel;
+        readonly ApplicationSession _session;
 
         internal StubCommandContextFactory(
             ConfigurationCli configuration,
-            MemoriaNoteViewModel viewModel)
+            ApplicationSession session)
         {
             _configuration = configuration;
-            _viewModel = viewModel;
+            _session = session;
         }
 
         internal int SaveCount { get; private set; }
@@ -81,8 +84,7 @@ public sealed class CommandHandlerTests
         {
             Assert.That(configuration, Is.SameAs(_configuration));
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromException<ApplicationSession>(
-                new NotSupportedException("The session path is not used by this test."));
+            return Task.FromResult(_session);
         }
 
         public Task<MemoriaNoteViewModel> CreateViewModelAsync(
@@ -91,7 +93,8 @@ public sealed class CommandHandlerTests
         {
             Assert.That(configuration, Is.SameAs(_configuration));
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(_viewModel);
+            return Task.FromException<MemoriaNoteViewModel>(
+                new NotSupportedException("The ViewModel path is not used by this test."));
         }
 
         public void SaveConfiguration(ConfigurationCli configuration)
@@ -101,32 +104,25 @@ public sealed class CommandHandlerTests
         }
     }
 
-    sealed class StubTerminalUi : ITerminalUi
+    sealed class StubExternalEditor : IExternalEditor
     {
-        internal int ManageRunCount { get; private set; }
+        readonly ExternalEditorResult _result;
 
-        internal bool OpenEditor { get; private set; }
-
-        internal MemoriaNoteViewModel? ViewModel { get; private set; }
-
-        public Task RunHomeAsync(
-            MemoriaNoteViewModel viewModel,
-            CancellationToken cancellationToken)
+        internal StubExternalEditor(ExternalEditorResult result)
         {
-            Assert.Fail("The home screen was not expected.");
-            return Task.CompletedTask;
+            _result = result;
         }
 
-        public Task RunManageAsync(
-            MemoriaNoteViewModel viewModel,
-            bool openEditor,
+        internal List<ExternalEditorDocument> Documents { get; } = new();
+
+        public Task<ExternalEditorResult> EditAsync(
+            ConfigurationCli configuration,
+            ExternalEditorDocument document,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            ViewModel = viewModel;
-            OpenEditor = openEditor;
-            ManageRunCount++;
-            return Task.CompletedTask;
+            Documents.Add(document);
+            return Task.FromResult(_result);
         }
     }
 }

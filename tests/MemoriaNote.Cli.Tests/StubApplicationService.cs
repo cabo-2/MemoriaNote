@@ -17,8 +17,12 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
     internal Func<CreatePageCommand, CancellationToken, Task<PageOperationResult>> ValidateCreateAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(PageOperationResult.Succeeded());
 
+    internal int ValidateCreateAsyncCallCount { get; private set; }
+
     internal Func<EditPageCommand, CancellationToken, Task<PageOperationResult>> ValidateEditAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(PageOperationResult.Succeeded());
+
+    internal int ValidateEditAsyncCallCount { get; private set; }
 
     internal Func<RenamePageCommand, CancellationToken, Task<PageOperationResult>> ValidateRenameAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(PageOperationResult.Succeeded());
@@ -29,8 +33,12 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
     internal Func<CreatePageCommand, CancellationToken, Task<PageOperationResult>> CreateAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(PageOperationResult.Succeeded());
 
+    internal int CreateAsyncCallCount { get; private set; }
+
     internal Func<EditPageCommand, CancellationToken, Task<PageOperationResult>> EditAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(PageOperationResult.Succeeded());
+
+    internal int EditAsyncCallCount { get; private set; }
 
     internal Func<RenamePageCommand, CancellationToken, Task<PageOperationResult>> RenameAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(PageOperationResult.Succeeded());
@@ -70,6 +78,7 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
         CreatePageCommand command,
         CancellationToken token)
     {
+        ValidateCreateAsyncCallCount++;
         return ValidateCreateAsyncHandler(command, token);
     }
 
@@ -77,6 +86,7 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
         EditPageCommand command,
         CancellationToken token)
     {
+        ValidateEditAsyncCallCount++;
         return ValidateEditAsyncHandler(command, token);
     }
 
@@ -98,6 +108,7 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
         CreatePageCommand command,
         CancellationToken token)
     {
+        CreateAsyncCallCount++;
         return CreateAsyncHandler(command, token);
     }
 
@@ -105,6 +116,7 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
         EditPageCommand command,
         CancellationToken token)
     {
+        EditAsyncCallCount++;
         return EditAsyncHandler(command, token);
     }
 
