@@ -29,10 +29,8 @@ public sealed class TuiCommandCharacterizationTests
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(fixture.Context.LoadCount, Is.Zero);
-            Assert.That(fixture.Context.CreateCount, Is.Zero);
             Assert.That(fixture.Context.CreateSessionCount, Is.Zero);
             Assert.That(fixture.Context.SaveCount, Is.Zero);
-            Assert.That(fixture.TerminalUi.HomeRunCount, Is.Zero);
             Assert.That(fixture.Output.StandardOutput, Is.Empty);
             Assert.That(
                 fixture.Output.StandardError,
@@ -87,7 +85,6 @@ public sealed class TuiCommandCharacterizationTests
             null,
             CancellationToken.None);
 
-        var viewModel = fixture.Context.LastViewModel;
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
@@ -95,7 +92,6 @@ public sealed class TuiCommandCharacterizationTests
             Assert.That(fixture.Context.CreateSessionCount, Is.Zero);
             Assert.That(fixture.Editor.Documents, Is.Empty);
             Assert.That(fixture.Context.SaveCount, Is.Zero);
-            Assert.That(viewModel, Is.Null);
             Assert.That(
                 fixture.Output.StandardError,
                 Is.EqualTo("Error: No name" + Environment.NewLine));
@@ -118,9 +114,7 @@ public sealed class TuiCommandCharacterizationTests
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(fixture.Context.LoadCount, Is.Zero);
-            Assert.That(fixture.Context.CreateCount, Is.Zero);
             Assert.That(fixture.Context.SaveCount, Is.Zero);
-            Assert.That(fixture.TerminalUi.ManageRunCount, Is.Zero);
             Assert.That(fixture.Output.StandardOutput, Is.Empty);
             Assert.That(
                 fixture.Output.StandardError,
@@ -174,7 +168,6 @@ public sealed class TuiCommandCharacterizationTests
             Assert.That(applicationTokens, Has.Count.EqualTo(1));
             Assert.That(applicationTokens[0], Is.EqualTo(cancellation.Token));
             Assert.That(fixture.Context.LoadCount, Is.EqualTo(1));
-            Assert.That(fixture.Context.CreateCount, Is.Zero);
             Assert.That(fixture.Context.CreateSessionCount, Is.EqualTo(1));
             Assert.That(fixture.Context.LastSessionCancellationToken, Is.EqualTo(cancellation.Token));
             Assert.That(fixture.Context.SaveCount, Is.EqualTo(1));
@@ -244,7 +237,6 @@ public sealed class TuiCommandCharacterizationTests
             Assert.That(fixture.Output.PageCompletionTotalCount, Is.EqualTo(2));
             Assert.That(fixture.Output.PageListCallCount, Is.Zero);
             Assert.That(fixture.Application.ReadAsyncCallCount, Is.Zero);
-            Assert.That(fixture.Context.CreateCount, Is.Zero);
             Assert.That(fixture.Context.CreateSessionCount, Is.EqualTo(1));
             Assert.That(fixture.Context.SaveCount, Is.EqualTo(1));
         }
@@ -356,10 +348,8 @@ public sealed class TuiCommandCharacterizationTests
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(fixture.Context.LoadCount, Is.Zero);
-            Assert.That(fixture.Context.CreateCount, Is.Zero);
             Assert.That(fixture.Context.CreateSessionCount, Is.Zero);
             Assert.That(fixture.Context.SaveCount, Is.Zero);
-            Assert.That(fixture.TerminalUi.HomeRunCount, Is.Zero);
             Assert.That(fixture.Output.StandardOutput, Is.Empty);
             Assert.That(
                 fixture.Output.StandardError,
@@ -393,7 +383,6 @@ public sealed class TuiCommandCharacterizationTests
             Notebook notebook,
             StubApplicationService application,
             RecordingContextFactory context,
-            RecordingTerminalUi terminalUi,
             RecordingExternalEditor editor,
             RecordingCommandOutput output,
             FindCommandHandler find,
@@ -406,7 +395,6 @@ public sealed class TuiCommandCharacterizationTests
             Notebook = notebook;
             Application = application;
             Context = context;
-            TerminalUi = terminalUi;
             Editor = editor;
             Output = output;
             Find = find;
@@ -426,8 +414,6 @@ public sealed class TuiCommandCharacterizationTests
         internal StubApplicationService Application { get; }
 
         internal RecordingContextFactory Context { get; }
-
-        internal RecordingTerminalUi TerminalUi { get; }
 
         internal RecordingExternalEditor Editor { get; }
 
@@ -455,16 +441,7 @@ public sealed class TuiCommandCharacterizationTests
             var application = new StubApplicationService();
             var output = new RecordingCommandOutput();
             var session = new ApplicationSession(workspace, application);
-            var context = new RecordingContextFactory(
-                configuration,
-                session,
-                token => new MemoriaNoteViewModel(
-                    configuration,
-                    workspace,
-                    application,
-                    NullLogger<MemoriaNoteViewModel>.Instance,
-                    token));
-            var terminalUi = new RecordingTerminalUi();
+            var context = new RecordingContextFactory(configuration, session);
             var editor = new RecordingExternalEditor();
             var executor = new CliCommandExecutor(
                 output,
@@ -478,7 +455,6 @@ public sealed class TuiCommandCharacterizationTests
                 notebook,
                 application,
                 context,
-                terminalUi,
                 editor,
                 output,
                 new FindCommandHandler(executor),
@@ -496,33 +472,22 @@ public sealed class TuiCommandCharacterizationTests
     {
         readonly ConfigurationCli _configuration;
         readonly ApplicationSession _session;
-        readonly Func<CancellationToken, MemoriaNoteViewModel> _viewModelFactory;
 
         internal RecordingContextFactory(
             ConfigurationCli configuration,
-            ApplicationSession session,
-            Func<CancellationToken, MemoriaNoteViewModel> viewModelFactory)
+            ApplicationSession session)
         {
             _configuration = configuration;
             _session = session;
-            _viewModelFactory = viewModelFactory;
         }
 
         internal int LoadCount { get; private set; }
-
-        internal int CreateCount { get; private set; }
 
         internal int CreateSessionCount { get; private set; }
 
         internal int SaveCount { get; private set; }
 
-        internal CancellationToken LastCancellationToken { get; private set; }
-
         internal CancellationToken LastSessionCancellationToken { get; private set; }
-
-        internal MemoriaNoteViewModel? LastViewModel { get; private set; }
-
-        internal Exception? CreateViewModelException { get; set; }
 
         internal Exception? CreateSessionException { get; set; }
 
@@ -545,63 +510,10 @@ public sealed class TuiCommandCharacterizationTests
             return Task.FromResult(_session);
         }
 
-        public Task<MemoriaNoteViewModel> CreateViewModelAsync(
-            ConfigurationCli configuration,
-            CancellationToken cancellationToken)
-        {
-            Assert.That(configuration, Is.SameAs(_configuration));
-            CreateCount++;
-            LastCancellationToken = cancellationToken;
-            if (CreateViewModelException != null)
-                return Task.FromException<MemoriaNoteViewModel>(CreateViewModelException);
-
-            LastViewModel = _viewModelFactory(cancellationToken);
-            return Task.FromResult(LastViewModel);
-        }
-
         public void SaveConfiguration(ConfigurationCli configuration)
         {
             Assert.That(configuration, Is.SameAs(_configuration));
             SaveCount++;
-        }
-    }
-
-    sealed class RecordingTerminalUi : ITerminalUi
-    {
-        internal int HomeRunCount { get; private set; }
-
-        internal int ManageRunCount { get; private set; }
-
-        internal bool OpenEditor { get; private set; }
-
-        internal MemoriaNoteViewModel? HomeViewModel { get; private set; }
-
-        internal MemoriaNoteViewModel? ManageViewModel { get; private set; }
-
-        internal CancellationToken HomeCancellationToken { get; private set; }
-
-        internal CancellationToken ManageCancellationToken { get; private set; }
-
-        public Task RunHomeAsync(
-            MemoriaNoteViewModel viewModel,
-            CancellationToken cancellationToken)
-        {
-            HomeRunCount++;
-            HomeViewModel = viewModel;
-            HomeCancellationToken = cancellationToken;
-            return Task.CompletedTask;
-        }
-
-        public Task RunManageAsync(
-            MemoriaNoteViewModel viewModel,
-            bool openEditor,
-            CancellationToken cancellationToken)
-        {
-            ManageRunCount++;
-            ManageViewModel = viewModel;
-            OpenEditor = openEditor;
-            ManageCancellationToken = cancellationToken;
-            return Task.CompletedTask;
         }
     }
 

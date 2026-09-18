@@ -536,14 +536,6 @@ public sealed class PageCommandHandlerTests
             return Task.FromResult(_session);
         }
 
-        public Task<MemoriaNoteViewModel> CreateViewModelAsync(
-            ConfigurationCli configuration,
-            CancellationToken cancellationToken)
-        {
-            return Task.FromException<MemoriaNoteViewModel>(
-                new NotSupportedException("Page command tests must not create a ViewModel."));
-        }
-
         public void SaveConfiguration(ConfigurationCli configuration)
         {
             SaveCount++;

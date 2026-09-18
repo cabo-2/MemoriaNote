@@ -62,19 +62,6 @@ namespace MemoriaNote.Cli
             return result.Configuration;
         }
 
-        public async Task<MemoriaNoteViewModel> CreateViewModelAsync(
-            ConfigurationCli configuration,
-            CancellationToken cancellationToken)
-        {
-            var session = await CreateSessionAsync(configuration, cancellationToken);
-
-            return new MemoriaNoteViewModel(
-                configuration,
-                session,
-                _loggerFactory.CreateLogger<MemoriaNoteViewModel>(),
-                cancellationToken);
-        }
-
         public async Task<ApplicationSession> CreateSessionAsync(
             ConfigurationCli configuration,
             CancellationToken cancellationToken)

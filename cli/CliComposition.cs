@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Globalization;
-using MemoriaNote.Cli.Terminal;
 using MemoriaNote.Persistence;
 using MemoriaNote.Transfer;
 using Microsoft.Extensions.Logging;

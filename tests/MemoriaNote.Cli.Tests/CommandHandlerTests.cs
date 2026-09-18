@@ -87,16 +87,6 @@ public sealed class CommandHandlerTests
             return Task.FromResult(_session);
         }
 
-        public Task<MemoriaNoteViewModel> CreateViewModelAsync(
-            ConfigurationCli configuration,
-            CancellationToken cancellationToken)
-        {
-            Assert.That(configuration, Is.SameAs(_configuration));
-            cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromException<MemoriaNoteViewModel>(
-                new NotSupportedException("The ViewModel path is not used by this test."));
-        }
-
         public void SaveConfiguration(ConfigurationCli configuration)
         {
             Assert.That(configuration, Is.SameAs(_configuration));

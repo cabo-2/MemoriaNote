@@ -12,10 +12,6 @@ namespace MemoriaNote.Cli
             ConfigurationCli configuration,
             CancellationToken cancellationToken);
 
-        Task<MemoriaNoteViewModel> CreateViewModelAsync(
-            ConfigurationCli configuration,
-            CancellationToken cancellationToken);
-
         void SaveConfiguration(ConfigurationCli configuration);
     }
 }
