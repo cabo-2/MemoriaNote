@@ -8,10 +8,10 @@ using NUnit.Framework;
 namespace MemoriaNote.Cli.Tests;
 
 /// <summary>
-/// Records the command-boundary behavior that is allowed to change while the TUI is removed.
+/// Verifies the stateless CLI command contracts at the handler boundary.
 /// </summary>
 [TestFixture]
-public sealed class TuiCommandCharacterizationTests
+public sealed class CliCommandContractTests
 {
     /// <summary>
     /// Verifies that find reports its intentional pause without starting the application.
@@ -209,7 +209,7 @@ public sealed class TuiCommandCharacterizationTests
     }
 
     /// <summary>
-    /// Verifies that list uses the completion output path without reading page bodies through the ViewModel.
+    /// Verifies that list uses completion output without reading page bodies through the application service.
     /// </summary>
     [Test]
     public async Task List_Completion_WritesCompletionOutputWithoutReadingPageBody()
