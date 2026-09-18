@@ -1,13 +1,14 @@
 # Memoria Note
 
-Memoria Note is a console-based notepad application that leverages the power of databases over traditional file systems for managing text data. Built with C# and compatible with both Windows and Linux, Memoria Note offers a robust solution for those who prefer the simplicity and efficiency of terminal-based applications.
+Memoria Note is a lightweight, database-backed command-line notepad for Windows and Linux. It organizes pages into SQLite notebooks and uses your preferred external editor for writing and editing content.
 
 ## Features
 
-- **Database-Backed Storage:** Instead of relying on the file system, all text data is stored in an SQLite database.
+- **Database-Backed Storage:** Pages and notebook metadata are stored in SQLite databases.
 - **Cross-Platform:** Runs on both Windows and Linux.
-- **[Terminal.Gui](https://github.com/gui-cs/Terminal.Gui) Interface:** Offers a modern terminal UI experience for managing your notes.
-- **Comprehensive CLI:** A wide range of commands for managing configuration, editing, exporting, importing, finding, listing, and creating text data.
+- **One-shot editing:** `new` and `edit` open an external editor once and update a page only after successful validation.
+- **Notebook Workspaces:** Create, add, select, edit, back up, and restore notebooks from the command line.
+- **Import and Export:** Move pages between a notebook and text files.
 - **Shell Integration:** Supports zsh autocomplete for quickly finding and managing your notes.
 
 ## Installation
@@ -19,7 +20,9 @@ git clone "https://github.com/cabo-2/MemoriaNote.git"
 cd MemoriaNote
 ```
 
-### Build on Windows 
+Building Memoria Note requires the .NET 10 SDK. An external editor is also required for commands that modify pages or notebook metadata. Set the `EDITOR` environment variable to select one; otherwise Memoria Note uses its configured editor path.
+
+### Build on Windows
 
 ```pwsh
 cd cli
@@ -28,7 +31,7 @@ dotnet publish -c Release -r win-x64 --self-contained
 ```
 
 ```pwsh
-cp -r bin\Release\net6.0\win-x64\publish C:\\path\to\dir
+Copy-Item -Recurse bin\Release\net10.0\win-x64\publish C:\path\to\dir
 ```
 
 ### Build on Linux (Here for WSL)
@@ -40,7 +43,7 @@ dotnet publish -c Release -r linux-x64 --self-contained
 ```
 
 ```bash
-cp -r bin/Release/net6.0/linux-x64/publish /path/to/dir
+cp -r bin/Release/net10.0/linux-x64/publish /path/to/dir
 ```
 
 #### Supports zsh autocomplete
@@ -62,7 +65,7 @@ mn --help
 This command displays a help message outlining all available commands and options:
 
 ```
-Memoria Note CLI - A simple, .NET Terminal.Gui based, Text viewer and editor
+A lightweight, cross-platform CLI for creating, organizing, and editing workspace-based notes
 
 Usage: mn [command] [options]
 
@@ -71,13 +74,13 @@ Options:
 
 Commands:
   config  Manage configuration options
-  edit    Edit and manage text commands
+  edit    Edit text with an external editor
   export  Export text files
-  find    Find and browse text commands
+  find    Currently under development and unavailable
   import  Import text files
   list    List text
   new     Create text command
-  work    List, change and manage note options
+  work    List, select and manage note options
 
 Run 'mn [command] --help' for more information about a command.
 ```
@@ -101,10 +104,30 @@ Unexpected failures use `Fatal:`.
 
 ### Examples
 
-Finding text data by a keyword:
+List the available notebooks (`*` marks the selected notebook) and select one:
 
 ```bash
-mn find foo*
+mn work list
+mn work select personal
 ```
 
-This command would list all text data that matches the keyword, supporting autocomplete for faster navigation.
+Create a page in the selected notebook. The command opens the configured external editor and saves the page when the editor exits successfully with changed content:
+
+```bash
+mn new meeting-notes
+```
+
+List all page names or filter them by a prefix:
+
+```bash
+mn list
+mn list meet
+```
+
+Edit an existing page:
+
+```bash
+mn edit meeting-notes
+```
+
+Full-text search with `mn find` is currently under development and cannot be used yet. In the meantime, use `mn list [name]` to filter page names.
