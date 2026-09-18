@@ -1,11 +1,9 @@
 # Development Guidance for Memoria Note
 
-This project uses C# targeting **.NET 6**. The repository currently hosts two production projects:
+This project uses C# targeting **.NET 10**. The repository currently hosts two production projects:
 
 - `core/` – library providing the data model, database access and services
 - `cli/` – console application depending on `core`
-
-The project is expected to move to **.NET 10** after the baseline functional test suite is in place. Do not combine that framework upgrade with unrelated refactoring or feature work.
 
 ## Development Workflow
 
@@ -29,13 +27,7 @@ dotnet test MemoriaNote.sln --no-build
 
 ## Spelling
 
-Check source files with [cspell](https://cspell.org/):
-
-```bash
-cspell --config cspell.json "**/*.cs"
-```
-
-Correct any reported typos.
+[cspell](https://cspell.org/) is not part of the required pre-commit checks. Do not run it routinely before committing; run it only when specifically requested.
 
 ## Commit Messages
 
@@ -55,7 +47,7 @@ Each pull request should include:
 
 - A concise summary of the change and its motivation.
 - The roadmap ID or any issue it addresses.
-- Build, test, and spell-check results, including anything not run and the reason.
+- Build and test results, including anything not run and the reason.
 - Compatibility or migration notes when the database schema, backup format, configuration format, target framework, or dependencies change.
 
-Keep framework and package upgrades in dedicated pull requests. For the planned .NET 10 migration, first retarget the production and test projects while preserving the existing test suite, then update the test platform and other tooling separately when practical.
+Keep framework and package upgrades in dedicated pull requests. Update production and test projects together when changing the target framework, while preserving the existing test suite; update the test platform and other tooling separately when practical.
