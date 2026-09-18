@@ -22,28 +22,33 @@ cd MemoriaNote
 
 Building Memoria Note requires the .NET 10 SDK. An external editor is also required for commands that modify pages or notebook metadata. Set the `EDITOR` environment variable to select one; otherwise Memoria Note uses its configured editor path.
 
-### Build on Windows
+### Build and test
 
-```pwsh
-cd cli
-dotnet build
-dotnet publish -c Release -r win-x64 --self-contained
-```
-
-```pwsh
-Copy-Item -Recurse bin\Release\net10.0\win-x64\publish C:\path\to\dir
-```
-
-### Build on Linux (Here for WSL)
+Run the following commands from the repository root:
 
 ```bash
-cd cli
-dotnet build
-dotnet publish -c Release -r linux-x64 --self-contained
+dotnet build MemoriaNote.sln
+dotnet test MemoriaNote.sln --no-build
+```
+
+### Publish for Windows
+
+```pwsh
+dotnet publish cli/mn.csproj -c Release -r win-x64 --self-contained
+```
+
+```pwsh
+Copy-Item -Recurse cli\bin\Release\net10.0\win-x64\publish C:\path\to\dir
+```
+
+### Publish for Linux (including WSL)
+
+```bash
+dotnet publish cli/mn.csproj -c Release -r linux-x64 --self-contained
 ```
 
 ```bash
-cp -r bin/Release/net10.0/linux-x64/publish /path/to/dir
+cp -r cli/bin/Release/net10.0/linux-x64/publish /path/to/dir
 ```
 
 #### Supports zsh autocomplete
@@ -51,7 +56,7 @@ cp -r bin/Release/net10.0/linux-x64/publish /path/to/dir
 **Requires administrator privileges**
 
 ```bash
-sudo cp ../misc/zsh-completion/_mn /usr/share/zsh/site-functions/
+sudo cp misc/zsh-completion/_mn /usr/share/zsh/site-functions/
 ```
 
 ## Usage
