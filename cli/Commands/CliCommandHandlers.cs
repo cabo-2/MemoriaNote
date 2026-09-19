@@ -5,6 +5,7 @@ namespace MemoriaNote.Cli
     internal sealed class CliCommandHandlers
     {
         internal CliCommandHandlers(
+            CreateNotebookCommandHandler createNotebook,
             FindCommandHandler find,
             EditCommandHandler edit,
             NewCommandHandler createPage,
@@ -22,6 +23,8 @@ namespace MemoriaNote.Cli
             ImportCommandHandler import,
             ExportCommandHandler export)
         {
+            CreateNotebook = createNotebook ??
+                throw new ArgumentNullException(nameof(createNotebook));
             Find = find ?? throw new ArgumentNullException(nameof(find));
             Edit = edit ?? throw new ArgumentNullException(nameof(edit));
             CreatePage = createPage ??
@@ -47,6 +50,8 @@ namespace MemoriaNote.Cli
             Import = import ?? throw new ArgumentNullException(nameof(import));
             Export = export ?? throw new ArgumentNullException(nameof(export));
         }
+
+        internal CreateNotebookCommandHandler CreateNotebook { get; }
 
         internal FindCommandHandler Find { get; }
 

@@ -75,10 +75,12 @@ A lightweight, cross-platform CLI for creating, organizing, and editing workspac
 Usage: mn [command] [options]
 
 Options:
-  --help  Show help information.
+  --help                   Show help information.
+  --workspace <directory>  Use this directory as the workspace for this invocation
 
 Commands:
   config  Manage configuration options
+  create  Create a live notebook without overwriting an existing file
   edit    Edit text with an external editor
   export  Export text files
   find    Currently under development and unavailable
@@ -108,6 +110,20 @@ Expected diagnostics are written to standard error with an `Error:` prefix.
 Unexpected failures use `Fatal:`.
 
 ### Examples
+
+Create a live notebook in the current directory, or in an explicitly selected
+workspace. Relative notebook paths are resolved from the workspace, and existing
+files are never overwritten:
+
+```bash
+mn create work.mnote
+mn --workspace /path/to/notes create work.mnote
+```
+
+The `.mnote` extension identifies live notebook candidates. A created notebook is
+also reopened and checked for the current SQLite schema and format metadata before
+the command reports success. `create` does not create or update user configuration
+or `mn-workspace.toml`.
 
 List the available notebooks (`*` marks the selected notebook) and select one:
 
