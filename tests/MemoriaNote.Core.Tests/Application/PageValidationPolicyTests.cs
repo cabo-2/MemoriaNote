@@ -22,6 +22,32 @@ public sealed class PageValidationPolicyTests
         Assert.That(result, Is.EqualTo(new[] { PageErrorCode.NameRequired }));
     }
 
+    /// <summary>Verifies surrounding whitespace is rejected instead of being normalized.</summary>
+    /// <param name="name">The invalid name.</param>
+    [TestCase(" leading")]
+    [TestCase("trailing ")]
+    [TestCase("\tTabbed")]
+    public void ValidateName_SurroundingWhitespace_ReturnsValidationError(string name)
+    {
+        var result = new PageValidationPolicy().ValidateName(name);
+
+        Assert.That(
+            result,
+            Is.EqualTo(new[] { PageErrorCode.NameHasSurroundingWhitespace }));
+    }
+
+    /// <summary>Verifies page names are preserved without case or Unicode normalization.</summary>
+    [TestCase("Meeting")]
+    [TestCase("meeting")]
+    [TestCase("Caf\u00e9")]
+    [TestCase("Cafe\u0301")]
+    public void ValidateName_ExactNonWhitespaceName_HasNoErrors(string name)
+    {
+        var result = new PageValidationPolicy().ValidateName(name);
+
+        Assert.That(result, Is.Empty);
+    }
+
     /// <summary>
     /// Verifies the existing policy continues to accept arbitrary page text.
     /// </summary>

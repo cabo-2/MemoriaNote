@@ -42,6 +42,14 @@ namespace MemoriaNote.Cli
                     exception);
             }
 
+            if (exception is NotebookTargetConflictException)
+            {
+                return CliCommandResult.Failure(
+                    CliErrorKind.Conflict,
+                    exception.Message,
+                    exception);
+            }
+
             if (exception is ExternalEditorException)
             {
                 return CliCommandResult.Failure(

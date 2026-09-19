@@ -10,7 +10,7 @@ public sealed class CommandHandlerTests
 {
     /// <summary>Verifies that the new-page handler uses the stateless editor flow.</summary>
     [Test]
-    public async Task New_UsesExternalEditorAndPersistsConfigurationAfterCreation()
+    public async Task New_UsesExternalEditorWithoutPersistingLegacyConfiguration()
     {
         using var standardOutput = new StringWriter();
         using var standardError = new StringWriter();
@@ -35,6 +35,7 @@ public sealed class CommandHandlerTests
         var handler = new NewCommandHandler(
             executor,
             contextFactory,
+            new StubNotebookTargetSessionResolver(session),
             externalEditor,
             output);
 
@@ -45,7 +46,7 @@ public sealed class CommandHandlerTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.Zero);
-            Assert.That(contextFactory.SaveCount, Is.EqualTo(1));
+            Assert.That(contextFactory.SaveCount, Is.Zero);
             Assert.That(application.ValidateCreateAsyncCallCount, Is.EqualTo(2));
             Assert.That(application.CreateAsyncCallCount, Is.EqualTo(1));
             Assert.That(externalEditor.Documents, Has.Count.EqualTo(1));

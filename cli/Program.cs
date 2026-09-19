@@ -133,8 +133,15 @@ namespace MemoriaNote.Cli
         [HelpOption("--help")]
         class NewCommand
         {
+            public Program Parent { get; set; }
+
             [Argument(0, Name = "name", Description = "text name")]
             public (bool hasValue, string value) Name { get; set; }
+
+            [Option(
+                "--notebook <path>",
+                Description = "Use this workspace-relative .mnote file for this invocation")]
+            public string Notebook { get; set; }
 
             protected Task<int> OnExecuteAsync(
                 CommandLineApplication app,
@@ -147,6 +154,8 @@ namespace MemoriaNote.Cli
                 }
 
                 return CommandHandlers.CreatePage.ExecuteAsync(
+                    Parent?.Workspace,
+                    Notebook,
                     Name.value,
                     cancellationToken);
             }

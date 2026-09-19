@@ -17,6 +17,11 @@ namespace MemoriaNote.Application
         {
             if (string.IsNullOrWhiteSpace(name))
                 return Array.AsReadOnly(new[] { PageErrorCode.NameRequired });
+            if (!string.Equals(name, name.Trim(), StringComparison.Ordinal))
+            {
+                return Array.AsReadOnly(
+                    new[] { PageErrorCode.NameHasSurroundingWhitespace });
+            }
 
             return Array.Empty<PageErrorCode>();
         }

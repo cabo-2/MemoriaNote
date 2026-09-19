@@ -22,6 +22,8 @@ namespace MemoriaNote.Cli
             {
                 PageErrorCode.PageNotSelected => "The text not yet opened.",
                 PageErrorCode.NameRequired => "The text name have not been entered.",
+                PageErrorCode.NameHasSurroundingWhitespace =>
+                    "The text name cannot start or end with whitespace.",
                 PageErrorCode.DuplicateName => "The text name is already in use.",
                 PageErrorCode.OwnerNotFound => "The text owner note was not found.",
                 PageErrorCode.PageNotFound => "The text was not found in its owner note.",
