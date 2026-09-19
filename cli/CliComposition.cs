@@ -74,6 +74,14 @@ namespace MemoriaNote.Cli
             var notebookMigrator = new SqliteNotebookMigrator(
                 databaseFactory,
                 metadataRepository);
+            var notebookFormatValidator = new SqliteNotebookFormatValidator(
+                databaseFactory,
+                metadataRepository);
+            var notebookTargetResolver = new NotebookTargetSessionResolver(
+                notebookFormatValidator,
+                pageRepository,
+                pageSearchRepository,
+                metadataRepository);
             var createNotebook = new CreateNotebookUseCase(notebookMigrator);
             var filePathFactory = new NotebookFilePathFactory(clock);
             var serializer = new JsonConfigurationSerializer<ConfigurationCli>();
@@ -128,7 +136,12 @@ namespace MemoriaNote.Cli
                     output),
                 new FindCommandHandler(executor),
                 new EditCommandHandler(executor, contextFactory, externalEditor, output),
-                new NewCommandHandler(executor, contextFactory, externalEditor, output),
+                new NewCommandHandler(
+                    executor,
+                    contextFactory,
+                    notebookTargetResolver,
+                    externalEditor,
+                    output),
                 new ConfigEditCommandHandler(
                     executor,
                     contextFactory,

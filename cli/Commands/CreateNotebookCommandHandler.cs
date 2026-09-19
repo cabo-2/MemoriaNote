@@ -36,7 +36,7 @@ namespace MemoriaNote.Cli
                 string notebookPath;
                 try
                 {
-                    workspacePath = ResolveWorkspacePath(workspaceOption);
+                    workspacePath = WorkspacePathResolver.Resolve(workspaceOption);
                     notebookPath = ResolveNotebookPath(workspacePath, notebookFile);
                 }
                 catch (DirectoryNotFoundException exception)
@@ -84,28 +84,6 @@ namespace MemoriaNote.Cli
             }, cancellationToken);
         }
 
-        static string ResolveWorkspacePath(string workspaceOption)
-        {
-            var currentDirectory = Directory.GetCurrentDirectory();
-            var workspacePath = string.IsNullOrWhiteSpace(workspaceOption)
-                ? currentDirectory
-                : Path.GetFullPath(workspaceOption, currentDirectory);
-
-            if (File.Exists(workspacePath))
-            {
-                throw new ArgumentException(
-                    $"The workspace path is not a directory: {workspacePath}",
-                    nameof(workspaceOption));
-            }
-            if (!Directory.Exists(workspacePath))
-            {
-                throw new DirectoryNotFoundException(
-                    $"The workspace directory does not exist: {workspacePath}");
-            }
-
-            return Path.GetFullPath(workspacePath);
-        }
-
         static string ResolveNotebookPath(string workspacePath, string notebookFile)
         {
             if (string.IsNullOrWhiteSpace(notebookFile))
@@ -120,21 +98,9 @@ namespace MemoriaNote.Cli
                     nameof(notebookFile));
             }
 
-            var notebookPath = Path.GetFullPath(notebookFile, workspacePath);
-            var relativePath = Path.GetRelativePath(workspacePath, notebookPath);
-            if (Path.IsPathRooted(relativePath) ||
-                relativePath == ".." ||
-                relativePath.StartsWith(
-                    ".." + Path.DirectorySeparatorChar,
-                    StringComparison.Ordinal) ||
-                relativePath.StartsWith(
-                    ".." + Path.AltDirectorySeparatorChar,
-                    StringComparison.Ordinal))
-            {
-                throw new ArgumentException(
-                    "The notebook file must be inside the workspace.",
-                    nameof(notebookFile));
-            }
+            var notebookPath = WorkspacePathResolver.ResolveInside(
+                workspacePath,
+                notebookFile);
 
             var name = Path.GetFileNameWithoutExtension(notebookPath);
             if (string.IsNullOrWhiteSpace(name))

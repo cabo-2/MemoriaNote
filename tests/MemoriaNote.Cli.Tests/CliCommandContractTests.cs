@@ -459,7 +459,12 @@ public sealed class CliCommandContractTests
                 output,
                 new FindCommandHandler(executor),
                 new EditCommandHandler(executor, context, editor, output),
-                new NewCommandHandler(executor, context, editor, output),
+                new NewCommandHandler(
+                    executor,
+                    context,
+                    new StubNotebookTargetSessionResolver(session),
+                    editor,
+                    output),
                 new ListCommandHandler(
                     executor,
                     context,

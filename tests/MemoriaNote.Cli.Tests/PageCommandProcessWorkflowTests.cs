@@ -1,4 +1,5 @@
 using MemoriaNote.Cli.Tests.Infrastructure;
+using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
@@ -9,42 +10,61 @@ public sealed class PageCommandProcessWorkflowTests
 {
     const string EditedTextEnvironmentVariable = "MEMORIA_NOTE_TEST_EDITOR_TEXT";
 
-    /// <summary>Verifies new, list, and edit with a real external editor process.</summary>
+    /// <summary>
+    /// Verifies new resolves the only root notebook and rejects the same exact name later.
+    /// </summary>
     [Test]
-    public async Task NewListAndEdit_PersistsPageAcrossProcesses()
+    public async Task New_WithSingleNotebook_PersistsPageAndRejectsDuplicateName()
     {
         using var harness = new CliProcessHarness();
         harness.SetEnvironmentVariable("EDITOR", harness.TestEditorExecutablePath);
         harness.SetEnvironmentVariable(EditedTextEnvironmentVariable, "Created body");
+        var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
+
+        var notebookResult = await harness.RunAsync("create", "work.mnote");
+        AssertSucceeded(notebookResult);
 
         var createResult = await harness.RunAsync("new", "Roadmap");
 
         AssertSucceeded(createResult);
-        Assert.That(createResult.StandardOutput, Does.Contain("created successfully"));
-
-        var listResult = await harness.RunAsync("list");
-
-        AssertSucceeded(listResult);
+        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        var repository = new SqlitePageRepository(factory);
+        var pages = await repository.ListPagesByHeadingAsync(
+            notebookPath,
+            "Roadmap",
+            CancellationToken.None);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(listResult.StandardOutput, Does.Contain("Roadmap"));
-            Assert.That(listResult.StandardOutput, Does.Contain("Total count: 1"));
+            Assert.That(createResult.StandardOutput, Does.Contain("Created page \"Roadmap\""));
+            Assert.That(
+                createResult.StandardOutput,
+                Does.Contain(pages.Single().Guid.ToString("D")));
+            Assert.That(pages.Single().Text, Is.EqualTo("Created body"));
         }
 
-        harness.SetEnvironmentVariable(EditedTextEnvironmentVariable, "Edited body");
-        var editResult = await harness.RunAsync("edit", "Roadmap");
+        var duplicateResult = await harness.RunAsync("new", "Roadmap");
 
-        AssertSucceeded(editResult);
-        Assert.That(editResult.StandardOutput, Does.Contain("updated successfully"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(duplicateResult.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
+            Assert.That(duplicateResult.StandardOutput, Is.Empty);
+            Assert.That(duplicateResult.StandardError, Does.Contain("already in use"));
+            Assert.That(
+                (await repository.ListPagesByHeadingAsync(
+                    notebookPath,
+                    "Roadmap",
+                    CancellationToken.None)).Count,
+                Is.EqualTo(1));
+        }
 
-        var exportDirectory = Path.Combine(harness.TemporaryDirectory, "export");
-        Directory.CreateDirectory(exportDirectory);
-        var exportResult = await harness.RunAsync("export", exportDirectory);
-
-        AssertSucceeded(exportResult);
+        var differentCaseResult = await harness.RunAsync("new", "roadmap");
+        AssertSucceeded(differentCaseResult);
         Assert.That(
-            await File.ReadAllTextAsync(Path.Combine(exportDirectory, "Roadmap.txt")),
-            Is.EqualTo("Edited body"));
+            await repository.ListPagesByHeadingAsync(
+                notebookPath,
+                "roadmap",
+                CancellationToken.None),
+            Has.Count.EqualTo(1));
     }
 
     /// <summary>Verifies that a missing editor executable is an external I/O failure.</summary>
@@ -56,6 +76,8 @@ public sealed class PageCommandProcessWorkflowTests
             harness.TemporaryDirectory,
             "missing-editor");
         harness.SetEnvironmentVariable("EDITOR", missingEditor);
+        var notebookResult = await harness.RunAsync("create", "work.mnote");
+        AssertSucceeded(notebookResult);
 
         var result = await harness.RunAsync("new", "Roadmap");
 
@@ -67,9 +89,14 @@ public sealed class PageCommandProcessWorkflowTests
             Assert.That(result.StandardError, Does.Not.StartWith("Fatal:"));
         }
 
-        var listResult = await harness.RunAsync("list");
-        AssertSucceeded(listResult);
-        Assert.That(listResult.StandardOutput, Does.Contain("Total count: 0"));
+        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        var repository = new SqlitePageRepository(factory);
+        Assert.That(
+            await repository.ListPagesByHeadingAsync(
+                Path.Combine(harness.WorkingDirectory, "work.mnote"),
+                "Roadmap",
+                CancellationToken.None),
+            Is.Empty);
     }
 
     static void AssertSucceeded(CliProcessResult result)

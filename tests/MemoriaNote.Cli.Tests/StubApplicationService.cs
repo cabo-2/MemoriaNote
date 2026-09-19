@@ -1,5 +1,24 @@
 namespace MemoriaNote.Cli.Tests;
 
+internal sealed class StubNotebookTargetSessionResolver : INotebookTargetSessionResolver
+{
+    readonly ApplicationSession _session;
+
+    internal StubNotebookTargetSessionResolver(ApplicationSession session)
+    {
+        _session = session;
+    }
+
+    public Task<ApplicationSession> ResolveAsync(
+        string workspaceOption,
+        string notebookOption,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(_session);
+    }
+}
+
 /// <summary>Provides configurable application behavior for CLI presentation tests.</summary>
 internal sealed class StubApplicationService : IMemoriaNoteApplicationService
 {

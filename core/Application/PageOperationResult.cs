@@ -37,6 +37,9 @@ namespace MemoriaNote.Application
         /// <summary>The page name is empty or whitespace.</summary>
         NameRequired,
 
+        /// <summary>The page name starts or ends with whitespace.</summary>
+        NameHasSurroundingWhitespace,
+
         /// <summary>The requested page name is already in use.</summary>
         DuplicateName,
 

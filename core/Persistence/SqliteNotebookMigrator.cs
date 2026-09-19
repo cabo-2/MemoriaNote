@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
@@ -16,6 +15,7 @@ namespace MemoriaNote.Persistence
     {
         readonly INotebookDbContextFactory _databaseFactory;
         readonly INotebookMetadataRepository _metadataRepository;
+        readonly INotebookFormatValidator _formatValidator;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SqliteNotebookMigrator"/> class.
@@ -30,6 +30,9 @@ namespace MemoriaNote.Persistence
                 throw new ArgumentNullException(nameof(databaseFactory));
             _metadataRepository = metadataRepository ??
                 throw new ArgumentNullException(nameof(metadataRepository));
+            _formatValidator = new SqliteNotebookFormatValidator(
+                _databaseFactory,
+                _metadataRepository);
         }
 
         /// <inheritdoc/>
@@ -73,16 +76,10 @@ namespace MemoriaNote.Persistence
                         token)
                     .ConfigureAwait(false);
 
-                var reopened = await _metadataRepository
-                    .LoadAsync(normalizedDatabasePath, token)
+                var reopened = await _formatValidator
+                    .ValidateCurrentAsync(normalizedDatabasePath, token)
                     .ConfigureAwait(false);
-                await ValidateCreatedNotebookAsync(
-                        name,
-                        title,
-                        normalizedDatabasePath,
-                        reopened,
-                        token)
-                    .ConfigureAwait(false);
+                ValidateCreatedNotebookMetadata(name, title, reopened);
 
                 return new Notebook(
                     normalizedDatabasePath,
@@ -98,27 +95,14 @@ namespace MemoriaNote.Persistence
             }
         }
 
-        async Task ValidateCreatedNotebookAsync(
+        static void ValidateCreatedNotebookMetadata(
             string expectedName,
             string expectedTitle,
-            string databasePath,
-            NotebookMetadataResult reopened,
-            CancellationToken token)
+            NotebookMetadataResult reopened)
         {
-            using var verificationContext = _databaseFactory.CreateDbContext(databasePath);
-            var expectedMigrations = verificationContext.Database
-                .GetMigrations()
-                .ToArray();
-            var appliedMigrations = (await verificationContext.Database
-                    .GetAppliedMigrationsAsync(token)
-                    .ConfigureAwait(false))
-                .ToArray();
             if (reopened == null ||
-                reopened.HasIssues ||
                 reopened.Metadata.Name != expectedName ||
-                reopened.Metadata.Title != expectedTitle ||
-                reopened.Metadata.Version != NotebookDbContext.CurrentVersion ||
-                !appliedMigrations.SequenceEqual(expectedMigrations))
+                reopened.Metadata.Title != expectedTitle)
             {
                 throw new InvalidDataException(
                     "The created file could not be verified as a current Memoria Note notebook.");

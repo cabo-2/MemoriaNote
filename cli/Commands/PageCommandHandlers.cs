@@ -172,24 +172,37 @@ namespace MemoriaNote.Cli
     {
         readonly CliCommandExecutor _executor;
         readonly ICliCommandContextFactory _contextFactory;
+        readonly INotebookTargetSessionResolver _targetResolver;
         readonly IExternalEditor _externalEditor;
         readonly ICommandOutput _output;
 
         internal NewCommandHandler(
             CliCommandExecutor executor,
             ICliCommandContextFactory contextFactory,
+            INotebookTargetSessionResolver targetResolver,
             IExternalEditor externalEditor,
             ICommandOutput output)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
             _contextFactory = contextFactory ??
                 throw new ArgumentNullException(nameof(contextFactory));
+            _targetResolver = targetResolver ??
+                throw new ArgumentNullException(nameof(targetResolver));
             _externalEditor = externalEditor ??
                 throw new ArgumentNullException(nameof(externalEditor));
             _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
         internal Task<int> ExecuteAsync(
+            string name,
+            CancellationToken cancellationToken)
+        {
+            return ExecuteAsync(null, null, name, cancellationToken);
+        }
+
+        internal Task<int> ExecuteAsync(
+            string workspaceOption,
+            string notebookOption,
             string name,
             CancellationToken cancellationToken)
         {
@@ -202,9 +215,9 @@ namespace MemoriaNote.Cli
                         "No name");
                 }
 
-                var configuration = _contextFactory.LoadConfiguration();
-                var session = await _contextFactory.CreateSessionAsync(
-                    configuration,
+                var session = await _targetResolver.ResolveAsync(
+                    workspaceOption,
+                    notebookOption,
                     token);
                 var selectedNotebook = session.Workspace.SelectedNotebook;
                 if (selectedNotebook == null)
@@ -214,6 +227,7 @@ namespace MemoriaNote.Cli
                         "No selected notebook");
                 }
 
+                var configuration = _contextFactory.LoadConfiguration();
                 var notebookId = NotebookId.FromDatabasePath(selectedNotebook.DatabasePath);
                 var initialCommand = new CreatePageCommand(
                     notebookId,
@@ -235,7 +249,6 @@ namespace MemoriaNote.Cli
                     token);
                 if (!editorResult.IsChanged)
                 {
-                    _contextFactory.SaveConfiguration(configuration);
                     _output.WriteLine("No changes.");
                     return CliCommandResult.Success();
                 }
@@ -264,9 +277,18 @@ namespace MemoriaNote.Cli
                         createResult);
                 }
 
-                _contextFactory.SaveConfiguration(configuration);
-                _output.WriteLine(
-                    PageOperationMessageMapper.ToSuccessNotification(PageOperationKind.Create));
+                var createdPage = createResult.Page;
+                if (createdPage == null)
+                {
+                    _output.WriteLine(
+                        PageOperationMessageMapper.ToSuccessNotification(
+                            PageOperationKind.Create));
+                }
+                else
+                {
+                    _output.WriteLine(
+                        $"Created page \"{createdPage.Name}\" ({createdPage.Guid:D}).");
+                }
                 return CliCommandResult.Success();
             }, cancellationToken);
         }
