@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Globalization;
+using MemoriaNote.Application;
 using MemoriaNote.Persistence;
 using MemoriaNote.Transfer;
 using Microsoft.Extensions.Logging;
@@ -73,6 +74,7 @@ namespace MemoriaNote.Cli
             var notebookMigrator = new SqliteNotebookMigrator(
                 databaseFactory,
                 metadataRepository);
+            var createNotebook = new CreateNotebookUseCase(notebookMigrator);
             var filePathFactory = new NotebookFilePathFactory(clock);
             var serializer = new JsonConfigurationSerializer<ConfigurationCli>();
             var configurationStore = new FileConfigurationStore<ConfigurationCli>(
@@ -120,6 +122,10 @@ namespace MemoriaNote.Cli
                 contextFactory,
                 databaseFactory);
             var commandHandlers = new CliCommandHandlers(
+                new CreateNotebookCommandHandler(
+                    executor,
+                    createNotebook,
+                    output),
                 new FindCommandHandler(executor),
                 new EditCommandHandler(executor, contextFactory, externalEditor, output),
                 new NewCommandHandler(executor, contextFactory, externalEditor, output),

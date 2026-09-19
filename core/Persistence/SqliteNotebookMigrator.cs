@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
@@ -63,7 +64,7 @@ namespace MemoriaNote.Persistence
                 }
 
                 await context.Database.MigrateAsync(token).ConfigureAwait(false);
-                var metadata = await _metadataRepository.UpdateAsync(
+                await _metadataRepository.UpdateAsync(
                         normalizedDatabasePath,
                         new NotebookMetadataPatch()
                             .SetName(name)
@@ -72,7 +73,21 @@ namespace MemoriaNote.Persistence
                         token)
                     .ConfigureAwait(false);
 
-                return new Notebook(normalizedDatabasePath, _metadataRepository, metadata);
+                var reopened = await _metadataRepository
+                    .LoadAsync(normalizedDatabasePath, token)
+                    .ConfigureAwait(false);
+                await ValidateCreatedNotebookAsync(
+                        name,
+                        title,
+                        normalizedDatabasePath,
+                        reopened,
+                        token)
+                    .ConfigureAwait(false);
+
+                return new Notebook(
+                    normalizedDatabasePath,
+                    _metadataRepository,
+                    reopened);
             }
             catch
             {
@@ -80,6 +95,33 @@ namespace MemoriaNote.Persistence
                 if (ownsDatabase)
                     DeleteCreatedDatabase(normalizedDatabasePath);
                 throw;
+            }
+        }
+
+        async Task ValidateCreatedNotebookAsync(
+            string expectedName,
+            string expectedTitle,
+            string databasePath,
+            NotebookMetadataResult reopened,
+            CancellationToken token)
+        {
+            using var verificationContext = _databaseFactory.CreateDbContext(databasePath);
+            var expectedMigrations = verificationContext.Database
+                .GetMigrations()
+                .ToArray();
+            var appliedMigrations = (await verificationContext.Database
+                    .GetAppliedMigrationsAsync(token)
+                    .ConfigureAwait(false))
+                .ToArray();
+            if (reopened == null ||
+                reopened.HasIssues ||
+                reopened.Metadata.Name != expectedName ||
+                reopened.Metadata.Title != expectedTitle ||
+                reopened.Metadata.Version != NotebookDbContext.CurrentVersion ||
+                !appliedMigrations.SequenceEqual(expectedMigrations))
+            {
+                throw new InvalidDataException(
+                    "The created file could not be verified as a current Memoria Note notebook.");
             }
         }
 

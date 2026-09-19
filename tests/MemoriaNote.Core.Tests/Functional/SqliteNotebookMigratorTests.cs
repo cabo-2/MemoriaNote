@@ -119,6 +119,29 @@ public sealed class SqliteNotebookMigratorTests
     }
 
     /// <summary>
+    /// Verifies that creation removes a database that cannot be reopened as the current format.
+    /// </summary>
+    [Test]
+    public void CreateAsync_WhenReopenedMetadataIsInvalid_RemovesUnverifiedDatabase()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        var metadataRepository = new SqliteNotebookMetadataRepository(factory);
+        var migrator = new SqliteNotebookMigrator(
+            factory,
+            new InvalidatingMetadataRepository(factory, metadataRepository));
+
+        Assert.ThrowsAsync<InvalidDataException>(new Func<Task>(async () =>
+            await migrator.CreateAsync(
+                "created-note",
+                "Created Note",
+                database.DatabasePath,
+                CancellationToken.None)));
+
+        Assert.That(File.Exists(database.DatabasePath), Is.False);
+    }
+
+    /// <summary>
     /// Verifies that migrating a missing database fails without creating a file.
     /// </summary>
     [Test]
@@ -239,6 +262,42 @@ public sealed class SqliteNotebookMigratorTests
             CancellationToken token)
         {
             throw new IOException("Forced metadata initialization failure.");
+        }
+    }
+
+    private sealed class InvalidatingMetadataRepository : INotebookMetadataRepository
+    {
+        private readonly INotebookDbContextFactory _factory;
+        private readonly INotebookMetadataRepository _inner;
+
+        internal InvalidatingMetadataRepository(
+            INotebookDbContextFactory factory,
+            INotebookMetadataRepository inner)
+        {
+            _factory = factory;
+            _inner = inner;
+        }
+
+        public Task<NotebookMetadataResult> LoadAsync(
+            string dataSource,
+            CancellationToken token)
+        {
+            return _inner.LoadAsync(dataSource, token);
+        }
+
+        public async Task<NotebookMetadataResult> UpdateAsync(
+            string dataSource,
+            NotebookMetadataPatch update,
+            CancellationToken token)
+        {
+            var result = await _inner.UpdateAsync(dataSource, update, token);
+            using var context = _factory.CreateDbContext(dataSource);
+            var version = await context.Metadata.SingleAsync(
+                value => value.Key == NoteKeyValue.Version,
+                token);
+            context.Metadata.Remove(version);
+            await context.SaveChangesAsync(token);
+            return result;
         }
     }
 }

@@ -9,6 +9,7 @@ namespace MemoriaNote.Cli
     [Command("mn",
      Description = "A lightweight, cross-platform CLI for creating, organizing, and editing workspace-based notes")]
     [Subcommand(
+        typeof(CreateCommand),
         typeof(FindCommand),
         typeof(EditCommand),
         typeof(NewCommand),
@@ -54,10 +55,39 @@ namespace MemoriaNote.Cli
 
         static CliCommandHandlers CommandHandlers => Composition.CommandHandlers;
 
+        [Option(
+            "--workspace <directory>",
+            Description = "Use this directory as the workspace for this invocation",
+            Inherited = true)]
+        public string Workspace { get; set; }
+
         protected Task<int> OnExecuteAsync(CommandLineApplication app)
         {
             app.ShowHint();
             return Task.FromResult((int)CliExitCode.Success);
+        }
+
+        [Command(
+            "create",
+            Description = "Create a live notebook without overwriting an existing file")]
+        [HelpOption("--help")]
+        class CreateCommand
+        {
+            public Program Parent { get; set; }
+
+            [Argument(
+                0,
+                Name = "notebook-file",
+                Description = "workspace-relative .mnote file to create")]
+            public (bool hasValue, string value) NotebookFile { get; set; }
+
+            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+            {
+                return CommandHandlers.CreateNotebook.ExecuteAsync(
+                    Parent?.Workspace,
+                    NotebookFile.hasValue ? NotebookFile.value : null,
+                    cancellationToken);
+            }
         }
 
         [Command(
