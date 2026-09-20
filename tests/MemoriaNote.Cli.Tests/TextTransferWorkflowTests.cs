@@ -4,16 +4,16 @@ using NUnit.Framework;
 namespace MemoriaNote.Cli.Tests;
 
 /// <summary>
-/// Verifies text transfer and completion workflows through the CLI process boundary.
+/// Verifies text transfer workflows through the CLI process boundary.
 /// </summary>
 [TestFixture]
 public sealed class TextTransferWorkflowTests
 {
     /// <summary>
-    /// Verifies that root and nested files survive import, listing, and export.
+    /// Verifies that root and nested files survive import and export.
     /// </summary>
     [Test]
-    public async Task ImportListAndExport_RoundTripsFilesAcrossProcesses()
+    public async Task ImportAndExport_RoundTripsFilesAcrossProcesses()
     {
         using var harness = new CliProcessHarness();
         var importDirectory = Path.Combine(harness.TemporaryDirectory, "import");
@@ -41,16 +41,6 @@ public sealed class TextTransferWorkflowTests
         AssertSucceeded(importResult);
         Assert.That(importResult.StandardOutput, Does.Contain("Import completed"));
 
-        var listResult = await harness.RunAsync("list");
-
-        AssertSucceeded(listResult);
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(listResult.StandardOutput, Does.Contain(rootName));
-            Assert.That(listResult.StandardOutput, Does.Contain(nestedName));
-            Assert.That(listResult.StandardOutput, Does.Contain("Total count: 2"));
-        }
-
         var exportResult = await harness.RunAsync("export", exportDirectory);
 
         AssertSucceeded(exportResult);
@@ -75,79 +65,6 @@ public sealed class TextTransferWorkflowTests
         }
     }
 
-    /// <summary>
-    /// Verifies that page and note completion emit line-oriented candidates.
-    /// </summary>
-    [Test]
-    public async Task Completion_WritesMachineReadablePageAndNoteCandidates()
-    {
-        using var harness = new CliProcessHarness();
-        var importDirectory = Path.Combine(harness.TemporaryDirectory, "import");
-        Directory.CreateDirectory(importDirectory);
-        await File.WriteAllTextAsync(
-            Path.Combine(importDirectory, "Meeting Notes.txt"),
-            "Agenda");
-
-        var importResult = await harness.RunAsync("import", importDirectory);
-
-        AssertSucceeded(importResult);
-
-        var pageCompletionResult = await harness.RunAsync(
-            "list",
-            "meet",
-            "--completion");
-        var noteCompletionResult = await harness.RunAsync(
-            "work",
-            "list",
-            "--completion");
-
-        AssertSucceeded(pageCompletionResult);
-        AssertSucceeded(noteCompletionResult);
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(
-                GetOutputLines(pageCompletionResult.StandardOutput),
-                Is.EqualTo(new[] { "meeting" }));
-            Assert.That(
-                GetOutputLines(noteCompletionResult.StandardOutput),
-                Is.EqualTo(new[] { "note" }));
-        }
-    }
-
-    /// <summary>
-    /// Verifies percent and underscore are literal CLI input rather than glob wildcards.
-    /// </summary>
-    [Test]
-    public async Task Completion_LikeSpecialCharacterPrefix_MatchesLiteralPageName()
-    {
-        using var harness = new CliProcessHarness();
-        var importDirectory = Path.Combine(harness.TemporaryDirectory, "import-special");
-        Directory.CreateDirectory(importDirectory);
-        await File.WriteAllTextAsync(
-            Path.Combine(importDirectory, "%Progress.txt"),
-            "Percent heading");
-        await File.WriteAllTextAsync(
-            Path.Combine(importDirectory, "_Draft.txt"),
-            "Underscore heading");
-
-        AssertSucceeded(await harness.RunAsync("import", importDirectory));
-
-        var percentResult = await harness.RunAsync("list", "%", "--completion");
-        var underscoreResult = await harness.RunAsync("list", "_", "--completion");
-
-        AssertSucceeded(percentResult);
-        AssertSucceeded(underscoreResult);
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(
-                GetOutputLines(percentResult.StandardOutput),
-                Is.EqualTo(new[] { "%progress" }));
-            Assert.That(
-                GetOutputLines(underscoreResult.StandardOutput),
-                Is.EqualTo(new[] { "_draft" }));
-        }
-    }
-
     static void AssertSucceeded(CliProcessResult result)
     {
         using (Assert.EnterMultipleScope())
@@ -157,12 +74,4 @@ public sealed class TextTransferWorkflowTests
         }
     }
 
-    static string[] GetOutputLines(string output)
-    {
-        return output.Split(
-                new[] { '\r', '\n' },
-                StringSplitOptions.RemoveEmptyEntries)
-            .Select(line => line.Trim())
-            .ToArray();
-    }
 }

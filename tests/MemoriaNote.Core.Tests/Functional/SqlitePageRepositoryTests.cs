@@ -17,6 +17,51 @@ public sealed class SqlitePageRepositoryTests
             new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
 
     /// <summary>
+    /// Verifies listing applies binary page-name order, stable tie-breakers, and limit in SQLite.
+    /// </summary>
+    [Test]
+    public async Task ListPageSummariesAsync_OrdersByNameIndexAndPageIdBeforeLimit()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("ordered", "Ordered");
+        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        var firstTieId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var secondTieId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+        using (var context = factory.CreateDbContext(database.DatabasePath))
+        {
+            var lower = Page.Create("alpha", "lower");
+            var upper = Page.Create("Alpha", "upper");
+            var secondTie = Page.Create("Same", "second");
+            secondTie.Guid = secondTieId;
+            secondTie.Index = 1;
+            var firstTie = Page.Create("Same", "first");
+            firstTie.Guid = firstTieId;
+            firstTie.Index = 1;
+            context.Pages.AddRange(lower, secondTie, upper, firstTie);
+            await context.SaveChangesAsync();
+        }
+
+        var result = await _repository.ListPageSummariesAsync(
+            database.DatabasePath,
+            0,
+            3,
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Select(page => page.Name), Is.EqualTo(new[]
+            {
+                "Alpha",
+                "Same",
+                "Same"
+            }));
+            Assert.That(
+                result.Skip(1).Select(page => page.PageId.Value),
+                Is.EqualTo(new[] { firstTieId, secondTieId }));
+        }
+    }
+
+    /// <summary>
     /// Verifies materialized reads and mutations through the repository interface.
     /// </summary>
     [Test]

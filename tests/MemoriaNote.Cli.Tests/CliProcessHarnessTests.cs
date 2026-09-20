@@ -41,7 +41,7 @@ public sealed class CliProcessHarnessTests
             "export",
             "find",
             "import",
-            "list",
+            "ls",
             "new",
             "work"
         };
@@ -280,7 +280,7 @@ public sealed class CliProcessHarnessTests
             Assert.That(
                 result.StandardError,
                 Is.EqualTo(
-                    "Error: The find command is temporarily unavailable. Use 'mn list [name]' to list page names; " +
+                    "Error: The find command is temporarily unavailable. Use 'mn ls' to list page names; " +
                     "full-text search will be redesigned after the initial release." +
                     Environment.NewLine));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
@@ -302,7 +302,7 @@ public sealed class CliProcessHarnessTests
             Assert.That(
                 result.StandardError,
                 Is.EqualTo(
-                    "Error: The find command is temporarily unavailable. Use 'mn list [name]' to list page names; " +
+                    "Error: The find command is temporarily unavailable. Use 'mn ls' to list page names; " +
                     "full-text search will be redesigned after the initial release." +
                     Environment.NewLine));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
@@ -323,9 +323,7 @@ public sealed class CliProcessHarnessTests
             Assert.That(result.StandardOutput, Does.Contain("Usage: mn find"));
             Assert.That(result.StandardOutput, Does.Contain("<query>"));
             Assert.That(result.StandardOutput, Does.Contain("Temporarily unavailable"));
-            Assert.That(result.StandardOutput, Does.Contain("mn list [name]"));
-            Assert.That(result.StandardOutput, Does.Contain("not full-text search"));
-            Assert.That(result.StandardOutput, Does.Contain("separate follow-up"));
+            Assert.That(result.StandardOutput, Does.Contain("mn ls"));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
         }
@@ -414,23 +412,21 @@ public sealed class CliProcessHarnessTests
     }
 
     /// <summary>
-    /// Verifies that a list handler failure reaches the process exit code.
+    /// Verifies ls reports a missing notebook without creating configuration.
     /// </summary>
     [Test]
-    public async Task ListHandlerFailure_ReturnsFailure()
+    public async Task Ls_WithoutNotebook_ReturnsNotFound()
     {
         using var harness = new CliProcessHarness();
-        await File.WriteAllTextAsync(
-            harness.ApplicationDataDirectory,
-            "This file prevents creation of the application data directory.");
 
-        var result = await harness.RunAsync("list");
+        var result = await harness.RunAsync("ls");
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.ExitCode, Is.EqualTo(5));
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.NotFound));
             Assert.That(result.StandardOutput, Is.Empty);
             Assert.That(result.StandardError, Does.StartWith("Error: "));
+            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
         }
     }
 

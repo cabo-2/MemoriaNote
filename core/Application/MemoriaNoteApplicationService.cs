@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Domain;
@@ -26,6 +27,17 @@ namespace MemoriaNote.Application
                 throw new ArgumentNullException(nameof(searchUseCase));
             _pageUseCase = pageUseCase ??
                 throw new ArgumentNullException(nameof(pageUseCase));
+        }
+
+        /// <inheritdoc/>
+        public Task<IReadOnlyList<PageSummary>> ListPagesAsync(
+            PageListRequest request,
+            CancellationToken token)
+        {
+            if (request == null)
+                throw new ArgumentNullException(nameof(request));
+
+            return _pageUseCase.ListAsync(request, token);
         }
 
         /// <inheritdoc/>

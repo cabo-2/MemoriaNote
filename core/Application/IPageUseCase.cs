@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MemoriaNote.Domain;
 
 namespace MemoriaNote.Application
 {
@@ -8,6 +10,11 @@ namespace MemoriaNote.Application
     /// </summary>
     public interface IPageUseCase
     {
+        /// <summary>Lists body-free page summaries in stable page-name order.</summary>
+        Task<IReadOnlyList<PageSummary>> ListAsync(
+            PageListRequest request,
+            CancellationToken token);
+
         /// <summary>Reads an owner-qualified page.</summary>
         Task<PageOperationResult> ReadAsync(PageReference target, CancellationToken token);
 

@@ -9,7 +9,8 @@ _1st_arguments=(
   'export:Export text files'
   'find:Find and browse text commands'
   'import:Import text files'
-  'list:List text'
+  'list:List pages in stable page-name order'
+  'ls:List pages in stable page-name order'
   'new:Create text command'
   'work:List, change and manage note options'
 )
@@ -18,16 +19,6 @@ _arguments -C \
   '1: :->arg1' \
   '2: :->arg2' \
   '3: :->arg3' && ret=0
-
-__mn_list(){
-  local -a mn_list
-  mn_list=$(_call_program commands $prog list "$1" --completion | grep -v "^$1$")
-  if [ -n "$mn_list" ]; then
-    echo "$mn_list"
-  else
-    echo "$1"
-  fi
-}
 
 __mn_work_list(){
   _call_program commands $prog work list --completion
@@ -40,10 +31,6 @@ case $state in
 
   arg2)
     case $words[2] in
-      (edit|find|list|ls)
-        _values 'name' $(__mn_list ${words[-1]}) && ret=0
-        ;;
-
       (work)
         local -a _work_arguments
         _work_arguments=(

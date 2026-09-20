@@ -286,7 +286,9 @@ namespace MemoriaNote.Persistence
             using var context = _databaseFactory.CreateDbContext(databasePath);
             var contents = await context.Contents
                 .AsNoTracking()
-                .OrderBy(content => content.Rowid)
+                .OrderBy(content => content.Name)
+                .ThenBy(content => content.Index)
+                .ThenBy(content => content.Uuid)
                 .Skip(skipCount)
                 .Take(takeCount)
                 .ToListAsync(token)

@@ -10,6 +10,22 @@ namespace MemoriaNote.Cli.Tests;
 [TestFixture]
 public sealed class NoteWorkflowTests
 {
+    /// <summary>Verifies notebook completion remains available while page completion is paused.</summary>
+    [Test]
+    public async Task WorkList_Completion_WritesNotebookCandidate()
+    {
+        using var harness = new CliProcessHarness();
+
+        var result = await harness.RunAsync("work", "list", "--completion");
+
+        AssertSucceeded(result);
+        Assert.That(
+            result.StandardOutput.Split(
+                new[] { '\r', '\n' },
+                StringSplitOptions.RemoveEmptyEntries),
+            Is.EqualTo(new[] { "note" }));
+    }
+
     /// <summary>
     /// Verifies that note creation and selection persist across CLI processes.
     /// </summary>

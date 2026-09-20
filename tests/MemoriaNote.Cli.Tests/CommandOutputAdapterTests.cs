@@ -7,48 +7,86 @@ namespace MemoriaNote.Cli.Tests;
 [TestFixture]
 public sealed class CommandOutputAdapterTests
 {
-    /// <summary>Verifies that page completion remains sorted and line-oriented.</summary>
+    /// <summary>Verifies that normal page output is line-oriented and does not truncate names.</summary>
     [Test]
-    public void WritePageCompletion_SortsLowercasesAndRemovesDuplicates()
-    {
-        using var standardOutput = new StringWriter();
-        using var standardError = new StringWriter();
-        var output = new ConsoleCommandOutput(standardOutput, standardError);
-        var pages = new[]
-        {
-            CreateSummary("Release Notes"),
-            CreateSummary("meeting Agenda"),
-            CreateSummary("Meeting Notes")
-        };
-
-        output.WritePageCompletion(pages, pages.Length);
-
-        Assert.That(
-            GetLines(standardOutput),
-            Is.EqualTo(new[] { "meeting", "release" }));
-        Assert.That(standardError.ToString(), Is.Empty);
-    }
-
-    /// <summary>Verifies the bounded page table and overflow notice.</summary>
-    [Test]
-    public void WritePageList_TruncatesLongNamesAndReportsTotalCount()
+    public void WritePageList_NormalFormat_WritesOnlyEscapedFullNames()
     {
         using var standardOutput = new StringWriter();
         using var standardError = new StringWriter();
         var output = new ConsoleCommandOutput(standardOutput, standardError);
         var longName = new string('x', 65);
+        var pages = new[]
+        {
+            CreateSummary("Meeting\nNotes"),
+            CreateSummary(longName)
+        };
 
-        output.WritePageList(new[] { CreateSummary(longName) }, 2);
+        output.WritePageList(pages, longFormat: false);
 
-        var rendered = standardOutput.ToString();
+        Assert.That(
+            GetLines(standardOutput),
+            Is.EqualTo(new[] { "Meeting\\nNotes", longName }));
+        Assert.That(standardError.ToString(), Is.Empty);
+    }
+
+    /// <summary>Verifies long output includes all page-summary metadata.</summary>
+    [Test]
+    public void WritePageList_LongFormat_WritesStableMetadataColumns()
+    {
+        using var standardOutput = new StringWriter();
+        using var standardError = new StringWriter();
+        var output = new ConsoleCommandOutput(standardOutput, standardError);
+        var pageId = PageId.FromGuid(
+            Guid.Parse("550e8400-e29b-41d4-a716-446655440000"));
+        var page = new PageSummary(
+            NotebookId.FromDatabasePath(
+                Path.Combine(Path.GetTempPath(), "output-adapter.db")),
+            pageId,
+            "Meeting - Project A",
+            2,
+            new Dictionary<string, string>
+            {
+                ["zeta"] = "last",
+                ["alpha"] = "first"
+            },
+            "T",
+            new DateTime(2026, 9, 18, 1, 20, 30, DateTimeKind.Utc),
+            new DateTime(2026, 9, 20, 4, 10, 0, DateTimeKind.Utc),
+            false);
+
+        output.WritePageList(new[] { page }, longFormat: true);
+
+        var lines = GetLines(standardOutput);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(rendered, Does.Contain(new string('x', 64)));
-            Assert.That(rendered, Does.Not.Contain(longName));
-            Assert.That(
-                rendered,
-                Does.Contain("Number of text messages exceeds 1000"));
-            Assert.That(rendered, Does.Contain("Total count: 2"));
+            Assert.That(lines, Has.Length.EqualTo(2));
+            Assert.That(lines[0], Does.Contain("IDX"));
+            Assert.That(lines[0], Does.Contain("PAGE-ID"));
+            Assert.That(lines[0], Does.EndWith("NAME"));
+            Assert.That(lines[1], Does.StartWith("2"));
+            Assert.That(lines[1], Does.Contain("2026-09-18T01:20:30.0000000Z"));
+            Assert.That(lines[1], Does.Contain("2026-09-20T04:10:00.0000000Z"));
+            Assert.That(lines[1], Does.Contain("{\"alpha\":\"first\",\"zeta\":\"last\"}"));
+            Assert.That(lines[1], Does.Contain(pageId.ToString()));
+            Assert.That(lines[1], Does.EndWith("Meeting - Project A"));
+            Assert.That(standardError.ToString(), Is.Empty);
+        }
+    }
+
+    /// <summary>Verifies an empty page list produces no headers or summary text.</summary>
+    [TestCase(false)]
+    [TestCase(true)]
+    public void WritePageList_Empty_WritesNothing(bool longFormat)
+    {
+        using var standardOutput = new StringWriter();
+        using var standardError = new StringWriter();
+        var output = new ConsoleCommandOutput(standardOutput, standardError);
+
+        output.WritePageList(Array.Empty<PageSummary>(), longFormat);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(standardOutput.ToString(), Is.Empty);
             Assert.That(standardError.ToString(), Is.Empty);
         }
     }
