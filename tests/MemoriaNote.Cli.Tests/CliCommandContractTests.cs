@@ -35,7 +35,7 @@ public sealed class CliCommandContractTests
             Assert.That(
                 fixture.Output.StandardError,
                 Is.EqualTo(
-                    "Error: The find command is temporarily unavailable. Use 'mn list [name]' to list page names; " +
+                    "Error: The find command is temporarily unavailable. Use 'mn ls' to list page names; " +
                     "full-text search will be redesigned after the initial release." +
                     Environment.NewLine));
         }
@@ -122,179 +122,121 @@ public sealed class CliCommandContractTests
         }
     }
 
-    /// <summary>
-    /// Verifies the current list request normalization, notebook scope, method, and paging values.
-    /// </summary>
-    [TestCase("Roadmap", "Roadmap*")]
-    [TestCase("Road map", "Road map")]
-    [TestCase("*Roadmap", "*Roadmap")]
-    public async Task List_PassesCharacterizedSearchRequest(
-        string name,
-        string expectedQuery)
+    /// <summary>Verifies ls passes the explicit target and optional limit without configuration I/O.</summary>
+    [Test]
+    public async Task List_PassesTargetLimitAndFormatWithoutConfigurationAccess()
     {
         var fixture = CommandFixture.Create();
-        var requests = new List<SearchRequest>();
-        var applicationTokens = new List<CancellationToken>();
-        fixture.Application.SearchAsyncHandler = (request, token) =>
+        PageListRequest? request = null;
+        CancellationToken applicationToken = default;
+        fixture.Application.ListPagesAsyncHandler = (value, token) =>
         {
-            requests.Add(request);
-            applicationTokens.Add(token);
-            return Task.FromResult(
-                new SearchPage(
-                    Array.Empty<PageSummary>(),
-                    0,
-                    request.Offset,
-                    request.Limit));
+            request = value;
+            applicationToken = token;
+            return Task.FromResult<IReadOnlyList<PageSummary>>(
+                new[] { CreatePageSummary(fixture.NotebookId, "Roadmap") });
         };
         using var cancellation = new CancellationTokenSource();
 
         var result = await fixture.List.ExecuteAsync(
-            name,
-            completion: false,
+            "workspace",
+            "notes.mnote",
+            25,
+            longFormat: true,
             cancellation.Token);
 
-        Assert.That(requests, Has.Count.EqualTo(1));
-        var request = requests[0];
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.Zero);
-            Assert.That(request.Query, Is.EqualTo(expectedQuery));
-            Assert.That(request.Scope, Is.EqualTo(SearchRangeType.Notebook));
-            Assert.That(request.Method, Is.EqualTo(SearchMethodType.Heading));
-            Assert.That(request.NotebookIds, Has.Count.EqualTo(1));
-            Assert.That(request.NotebookIds[0], Is.EqualTo(fixture.NotebookId));
-            Assert.That(request.Offset, Is.Zero);
-            Assert.That(request.Limit, Is.EqualTo(1000));
-            Assert.That(applicationTokens, Has.Count.EqualTo(1));
-            Assert.That(applicationTokens[0], Is.EqualTo(cancellation.Token));
-            Assert.That(fixture.Context.LoadCount, Is.EqualTo(1));
-            Assert.That(fixture.Context.CreateSessionCount, Is.EqualTo(1));
-            Assert.That(fixture.Context.LastSessionCancellationToken, Is.EqualTo(cancellation.Token));
-            Assert.That(fixture.Context.SaveCount, Is.EqualTo(1));
+            Assert.That(fixture.TargetResolver.WorkspaceOption, Is.EqualTo("workspace"));
+            Assert.That(fixture.TargetResolver.NotebookOption, Is.EqualTo("notes.mnote"));
+            Assert.That(request, Is.Not.Null);
+            Assert.That(request!.NotebookId, Is.EqualTo(fixture.NotebookId));
+            Assert.That(request.Limit, Is.EqualTo(25));
+            Assert.That(applicationToken, Is.EqualTo(cancellation.Token));
+            Assert.That(fixture.Context.LoadCount, Is.Zero);
+            Assert.That(fixture.Context.CreateSessionCount, Is.Zero);
+            Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(fixture.Output.PageListCallCount, Is.EqualTo(1));
-            Assert.That(fixture.Output.PageListTotalCount, Is.Zero);
-            Assert.That(fixture.Output.PageCompletionCallCount, Is.Zero);
+            Assert.That(fixture.Output.PageListLongFormat, Is.True);
+            Assert.That(fixture.Application.SearchAsyncCallCount, Is.Zero);
             Assert.That(fixture.Output.StandardError, Is.Empty);
         }
     }
 
-    /// <summary>
-    /// Verifies that a missing list name becomes the empty query in the current application request.
-    /// </summary>
+    /// <summary>Verifies an omitted limit requests every page.</summary>
     [Test]
-    public async Task List_WithoutName_UsesEmptyQuery()
+    public async Task List_WithoutLimit_RequestsAllPages()
     {
         var fixture = CommandFixture.Create();
-        SearchRequest? request = null;
-        fixture.Application.SearchAsyncHandler = (value, _) =>
+        PageListRequest? request = null;
+        fixture.Application.ListPagesAsyncHandler = (value, _) =>
         {
             request = value;
-            return Task.FromResult(new SearchPage(Array.Empty<PageSummary>(), 0, 0, 1000));
+            return Task.FromResult<IReadOnlyList<PageSummary>>(Array.Empty<PageSummary>());
         };
 
         var result = await fixture.List.ExecuteAsync(
             null,
-            completion: false,
+            null,
+            null,
+            longFormat: false,
             CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.Zero);
             Assert.That(request, Is.Not.Null);
-            Assert.That(request!.Query, Is.Empty);
-            Assert.That(request.Scope, Is.EqualTo(SearchRangeType.Notebook));
-            Assert.That(request.Method, Is.EqualTo(SearchMethodType.Heading));
-            Assert.That(fixture.Output.PageListCallCount, Is.EqualTo(1));
+            Assert.That(request!.Limit, Is.Null);
+            Assert.That(fixture.Output.PageListLongFormat, Is.False);
         }
     }
 
-    /// <summary>
-    /// Verifies that list uses completion output without reading page bodies through the application service.
-    /// </summary>
-    [Test]
-    public async Task List_Completion_WritesCompletionOutputWithoutReadingPageBody()
+    /// <summary>Verifies an invalid limit fails before resolving a notebook.</summary>
+    [TestCase(0)]
+    [TestCase(-1)]
+    public async Task List_WithInvalidLimit_ReturnsValidationFailure(int limit)
     {
         var fixture = CommandFixture.Create();
-        var first = CreatePageSummary(fixture.NotebookId, "Beta page");
-        var second = CreatePageSummary(fixture.NotebookId, "Alpha page");
-        fixture.Application.SearchAsyncHandler = (request, _) => Task.FromResult(
-            new SearchPage(
-                new[] { first, second },
-                2,
-                request.Offset,
-                request.Limit));
-
-        var result = await fixture.List.ExecuteAsync(
-            "page",
-            completion: true,
-            CancellationToken.None);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result, Is.Zero);
-            Assert.That(fixture.Output.PageCompletionCallCount, Is.EqualTo(1));
-            Assert.That(fixture.Output.PageCompletionPages, Is.EqualTo(new[] { first, second }));
-            Assert.That(fixture.Output.PageCompletionTotalCount, Is.EqualTo(2));
-            Assert.That(fixture.Output.PageListCallCount, Is.Zero);
-            Assert.That(fixture.Application.ReadAsyncCallCount, Is.Zero);
-            Assert.That(fixture.Context.CreateSessionCount, Is.EqualTo(1));
-            Assert.That(fixture.Context.SaveCount, Is.EqualTo(1));
-        }
-    }
-
-    /// <summary>
-    /// Verifies that list fails when startup returns a workspace without a selected notebook.
-    /// </summary>
-    [Test]
-    public async Task List_WithoutSelectedNotebook_ReturnsNotFoundWithoutSearching()
-    {
-        var fixture = CommandFixture.Create();
-        fixture.Workspace.SelectNotebook(null);
-        SearchRequest? request = null;
-        fixture.Application.SearchAsyncHandler = (value, _) =>
-        {
-            request = value;
-            return Task.FromResult(new SearchPage(Array.Empty<PageSummary>(), 0, 0, 1000));
-        };
 
         var result = await fixture.List.ExecuteAsync(
             null,
-            completion: false,
+            null,
+            limit,
+            longFormat: false,
             CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result, Is.EqualTo((int)CliExitCode.NotFound));
-            Assert.That(request, Is.Null);
-            Assert.That(fixture.Application.SearchAsyncCallCount, Is.Zero);
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(fixture.TargetResolver.ResolveCount, Is.Zero);
+            Assert.That(fixture.Application.ListPagesAsyncCallCount, Is.Zero);
             Assert.That(fixture.Output.PageListCallCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardError,
-                Is.EqualTo("Error: No selected notebook" + Environment.NewLine));
+                Is.EqualTo("Error: Limit must be greater than zero." + Environment.NewLine));
         }
     }
 
-    /// <summary>
-    /// Verifies that list maps application storage failures without writing success output or saving configuration.
-    /// </summary>
+    /// <summary>Verifies list maps storage failures without writing page output.</summary>
     [Test]
-    public async Task List_WhenSearchFails_UsesCommonStorageErrorMapping()
+    public async Task List_WhenReadFails_UsesCommonStorageErrorMapping()
     {
         var fixture = CommandFixture.Create();
-        fixture.Application.SearchAsyncHandler = (_, _) =>
+        fixture.Application.ListPagesAsyncHandler = (_, _) =>
             throw new IOException("database is unavailable");
 
         var result = await fixture.List.ExecuteAsync(
-            "Roadmap",
-            completion: false,
+            null,
+            null,
+            null,
+            longFormat: false,
             CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Storage));
             Assert.That(fixture.Output.PageListCallCount, Is.Zero);
-            Assert.That(fixture.Output.PageCompletionCallCount, Is.Zero);
             Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardError,
@@ -302,30 +244,29 @@ public sealed class CliCommandContractTests
         }
     }
 
-    /// <summary>
-    /// Verifies that list passes the caller cancellation token through application search.
-    /// </summary>
+    /// <summary>Verifies list passes cancellation through the application boundary.</summary>
     [Test]
-    public async Task List_WhenSearchIsCanceled_ReturnsCanceledWithoutSaving()
+    public async Task List_WhenReadIsCanceled_ReturnsCanceled()
     {
         var fixture = CommandFixture.Create();
         using var cancellation = new CancellationTokenSource();
-        fixture.Application.SearchAsyncHandler = (_, token) =>
+        fixture.Application.ListPagesAsyncHandler = (_, token) =>
         {
             cancellation.Cancel();
-            return Task.FromCanceled<SearchPage>(token);
+            return Task.FromCanceled<IReadOnlyList<PageSummary>>(token);
         };
 
         var result = await fixture.List.ExecuteAsync(
-            "Roadmap",
-            completion: false,
+            null,
+            null,
+            null,
+            longFormat: false,
             cancellation.Token);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Canceled));
             Assert.That(fixture.Output.PageListCallCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardError,
                 Is.EqualTo("Error: Operation was canceled" + Environment.NewLine));
@@ -354,7 +295,7 @@ public sealed class CliCommandContractTests
             Assert.That(
                 fixture.Output.StandardError,
                 Is.EqualTo(
-                    "Error: The find command is temporarily unavailable. Use 'mn list [name]' to list page names; " +
+                    "Error: The find command is temporarily unavailable. Use 'mn ls' to list page names; " +
                     "full-text search will be redesigned after the initial release." +
                     Environment.NewLine));
         }
@@ -383,6 +324,7 @@ public sealed class CliCommandContractTests
             Notebook notebook,
             StubApplicationService application,
             RecordingContextFactory context,
+            StubNotebookTargetSessionResolver targetResolver,
             RecordingExternalEditor editor,
             RecordingCommandOutput output,
             FindCommandHandler find,
@@ -395,6 +337,7 @@ public sealed class CliCommandContractTests
             Notebook = notebook;
             Application = application;
             Context = context;
+            TargetResolver = targetResolver;
             Editor = editor;
             Output = output;
             Find = find;
@@ -414,6 +357,8 @@ public sealed class CliCommandContractTests
         internal StubApplicationService Application { get; }
 
         internal RecordingContextFactory Context { get; }
+
+        internal StubNotebookTargetSessionResolver TargetResolver { get; }
 
         internal RecordingExternalEditor Editor { get; }
 
@@ -442,19 +387,19 @@ public sealed class CliCommandContractTests
             var output = new RecordingCommandOutput();
             var session = new ApplicationSession(workspace, application);
             var context = new RecordingContextFactory(configuration, session);
+            var targetResolver = new StubNotebookTargetSessionResolver(session);
             var editor = new RecordingExternalEditor();
             var executor = new CliCommandExecutor(
                 output,
                 new CliErrorMapper(),
                 NullLogger<CliCommandExecutor>.Instance);
-            var normalizer = new CliSearchQueryNormalizer();
-
             return new CommandFixture(
                 configuration,
                 workspace,
                 notebook,
                 application,
                 context,
+                targetResolver,
                 editor,
                 output,
                 new FindCommandHandler(executor),
@@ -462,13 +407,12 @@ public sealed class CliCommandContractTests
                 new NewCommandHandler(
                     executor,
                     context,
-                    new StubNotebookTargetSessionResolver(session),
+                    targetResolver,
                     editor,
                     output),
                 new ListCommandHandler(
                     executor,
-                    context,
-                    normalizer,
+                    targetResolver,
                     output));
         }
     }
@@ -552,13 +496,7 @@ public sealed class CliCommandContractTests
 
         internal int PageListCallCount { get; private set; }
 
-        internal int PageListTotalCount { get; private set; }
-
-        internal int PageCompletionCallCount { get; private set; }
-
-        internal int PageCompletionTotalCount { get; private set; }
-
-        internal IReadOnlyList<PageSummary>? PageCompletionPages { get; private set; }
+        internal bool PageListLongFormat { get; private set; }
 
         public void Write(string value)
         {
@@ -575,19 +513,10 @@ public sealed class CliCommandContractTests
             StandardError += value + Environment.NewLine;
         }
 
-        public void WritePageList(IReadOnlyList<PageSummary> pages, int totalCount)
+        public void WritePageList(IReadOnlyList<PageSummary> pages, bool longFormat)
         {
             PageListCallCount++;
-            PageListTotalCount = totalCount;
-        }
-
-        public void WritePageCompletion(
-            IReadOnlyList<PageSummary> pages,
-            int totalCount)
-        {
-            PageCompletionCallCount++;
-            PageCompletionPages = pages.ToList();
-            PageCompletionTotalCount = totalCount;
+            PageListLongFormat = longFormat;
         }
 
         public void WriteNotebookList(

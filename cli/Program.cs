@@ -92,8 +92,7 @@ namespace MemoriaNote.Cli
 
         [Command(
             "find",
-            Description = "Temporarily unavailable after TUI removal; use 'mn list [name]' for page names, not full-text search. " +
-                "Full-text search will be redesigned as a separate follow-up.")]
+            Description = "Temporarily unavailable; use 'mn ls' for page names")]
         [HelpOption("--help")]
         class FindCommand
         {
@@ -369,21 +368,30 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("list", "ls", Description = "List text")]
+        [Command("ls", "list", Description = "List pages in stable page-name order")]
         [HelpOption("--help")]
         class ListCommand
         {
-            [Argument(0, "name")]
-            public (bool hasValue, string value) Name { get; set; }
+            public Program Parent { get; set; }
 
-            [Option("--completion", Description = "Completion option")]
-            public bool Completion { get; set; }
+            [Option(
+                "--notebook <path>",
+                Description = "Use this workspace-relative .mnote file")]
+            public string Notebook { get; set; }
+
+            [Option("--limit <count>", Description = "Return at most this many pages")]
+            public int? Limit { get; set; }
+
+            [Option("-l|--long", Description = "Show all page metadata columns")]
+            public bool Long { get; set; }
 
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
                 return CommandHandlers.List.ExecuteAsync(
-                    Name.value,
-                    Completion,
+                    Parent?.Workspace,
+                    Notebook,
+                    Limit,
+                    Long,
                     cancellationToken);
             }
         }

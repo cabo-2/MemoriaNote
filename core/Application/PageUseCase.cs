@@ -32,6 +32,25 @@ namespace MemoriaNote.Application
         }
 
         /// <inheritdoc/>
+        public Task<IReadOnlyList<PageSummary>> ListAsync(
+            PageListRequest request,
+            CancellationToken token)
+        {
+            if (request == null)
+                throw new ArgumentNullException(nameof(request));
+
+            token.ThrowIfCancellationRequested();
+            var context = _contextResolver.Resolve(request.NotebookId) ??
+                throw new InvalidOperationException(
+                    "No page repository was found for the notebook.");
+            return context.PageRepository.ListPageSummariesAsync(
+                request.NotebookId.Locator,
+                skipCount: 0,
+                takeCount: request.Limit ?? int.MaxValue,
+                token);
+        }
+
+        /// <inheritdoc/>
         public async Task<PageOperationResult> ReadAsync(
             PageReference target,
             CancellationToken token)

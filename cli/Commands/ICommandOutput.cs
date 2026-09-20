@@ -12,9 +12,7 @@ namespace MemoriaNote.Cli
 
         void WriteErrorLine(string value);
 
-        void WritePageList(IReadOnlyList<PageSummary> pages, int totalCount);
-
-        void WritePageCompletion(IReadOnlyList<PageSummary> pages, int totalCount);
+        void WritePageList(IReadOnlyList<PageSummary> pages, bool longFormat);
 
         void WriteNotebookList(IEnumerable<Notebook> notebooks, Notebook selectedNotebook);
 

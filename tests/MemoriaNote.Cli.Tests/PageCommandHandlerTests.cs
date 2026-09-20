@@ -603,13 +603,7 @@ public sealed class PageCommandHandlerTests
             StandardError += value + Environment.NewLine;
         }
 
-        public void WritePageList(IReadOnlyList<PageSummary> pages, int totalCount)
-        {
-        }
-
-        public void WritePageCompletion(
-            IReadOnlyList<PageSummary> pages,
-            int totalCount)
+        public void WritePageList(IReadOnlyList<PageSummary> pages, bool longFormat)
         {
         }
 

@@ -9,12 +9,21 @@ internal sealed class StubNotebookTargetSessionResolver : INotebookTargetSession
         _session = session;
     }
 
+    internal int ResolveCount { get; private set; }
+
+    internal string? WorkspaceOption { get; private set; }
+
+    internal string? NotebookOption { get; private set; }
+
     public Task<ApplicationSession> ResolveAsync(
         string workspaceOption,
         string notebookOption,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        ResolveCount++;
+        WorkspaceOption = workspaceOption;
+        NotebookOption = notebookOption;
         return Task.FromResult(_session);
     }
 }
@@ -22,6 +31,11 @@ internal sealed class StubNotebookTargetSessionResolver : INotebookTargetSession
 /// <summary>Provides configurable application behavior for CLI presentation tests.</summary>
 internal sealed class StubApplicationService : IMemoriaNoteApplicationService
 {
+    internal Func<PageListRequest, CancellationToken, Task<IReadOnlyList<PageSummary>>> ListPagesAsyncHandler { get; set; } =
+        (_, _) => Task.FromResult<IReadOnlyList<PageSummary>>(Array.Empty<PageSummary>());
+
+    internal int ListPagesAsyncCallCount { get; private set; }
+
     internal Func<SearchRequest, CancellationToken, Task<SearchPage>> SearchAsyncHandler { get; set; } =
         (request, _) => Task.FromResult(
             new SearchPage(Array.Empty<PageSummary>(), 0, request.Offset, request.Limit));
@@ -64,6 +78,14 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
 
     internal Func<DeletePageCommand, CancellationToken, Task<PageOperationResult>> DeleteAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(PageOperationResult.Succeeded());
+
+    public Task<IReadOnlyList<PageSummary>> ListPagesAsync(
+        PageListRequest request,
+        CancellationToken token)
+    {
+        ListPagesAsyncCallCount++;
+        return ListPagesAsyncHandler(request, token);
+    }
 
     public Task<SearchPage> SearchAsync(SearchRequest request, CancellationToken token)
     {

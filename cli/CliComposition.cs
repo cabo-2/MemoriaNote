@@ -116,7 +116,6 @@ namespace MemoriaNote.Cli
                 configurationStore,
                 output,
                 loggerFactory);
-            var searchQueryNormalizer = new CliSearchQueryNormalizer();
             var textPageImporter = new TextPageImporter(pageRepository);
             var textPageExporter = new TextPageExporter(transferRepository);
             var backupService = new NotebookBackupService(
@@ -158,8 +157,7 @@ namespace MemoriaNote.Cli
                     output),
                 new ListCommandHandler(
                     executor,
-                    contextFactory,
-                    searchQueryNormalizer,
+                    notebookTargetResolver,
                     output),
                 new WorkSelectCommandHandler(executor, contextFactory),
                 new WorkListCommandHandler(executor, contextFactory, output),

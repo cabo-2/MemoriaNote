@@ -8,6 +8,35 @@ namespace MemoriaNote.Core.Tests.Application;
 [TestFixture]
 public sealed class PageUseCaseTests
 {
+    /// <summary>Verifies listing uses the explicitly owned repository and optional limit.</summary>
+    [Test]
+    public async Task ListAsync_UsesExplicitOwnerAndLimitWithoutMutation()
+    {
+        var selectedId = CreateNotebookId("selected-list");
+        var targetId = CreateNotebookId("target-list");
+        var selectedRepository = new FakeNoteRepository(
+            CreatePage(PageId.FromGuid(Guid.NewGuid()), "Selected", "Body"));
+        var targetRepository = new FakeNoteRepository(
+            CreatePage(PageId.FromGuid(Guid.NewGuid()), "Target", "Body"));
+        var useCase = CreateUseCase(
+            (selectedId, false, selectedRepository),
+            (targetId, true, targetRepository));
+
+        var result = await useCase.ListAsync(
+            new PageListRequest(targetId, 7),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Select(page => page.Name), Is.EqualTo(new[] { "Target" }));
+            Assert.That(selectedRepository.ListCallCount, Is.Zero);
+            Assert.That(targetRepository.ListCallCount, Is.EqualTo(1));
+            Assert.That(targetRepository.LastSkipCount, Is.Zero);
+            Assert.That(targetRepository.LastTakeCount, Is.EqualTo(7));
+            Assert.That(targetRepository.MutationCount, Is.Zero);
+        }
+    }
+
     /// <summary>
     /// Verifies creation uses the command target rather than another available note.
     /// </summary>
@@ -299,6 +328,12 @@ public sealed class PageUseCaseTests
 
         internal int MutationCount { get; private set; }
 
+        internal int ListCallCount { get; private set; }
+
+        internal int LastSkipCount { get; private set; }
+
+        internal int LastTakeCount { get; private set; }
+
         internal bool DeleteResult { get; set; } = true;
 
         internal bool ThrowMissingOnUpdate { get; set; }
@@ -401,6 +436,9 @@ public sealed class PageUseCaseTests
             int takeCount,
             CancellationToken token)
         {
+            ListCallCount++;
+            LastSkipCount = skipCount;
+            LastTakeCount = takeCount;
             var notebookId = NotebookId.FromDatabasePath(dataSource);
             return Task.FromResult<IReadOnlyList<PageSummary>>(
                 _pages

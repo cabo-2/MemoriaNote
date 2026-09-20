@@ -236,7 +236,7 @@ namespace MemoriaNote.Persistence
         Task<int> CountPagesAsync(string databasePath, CancellationToken token);
 
         /// <summary>
-        /// Reads an owner-qualified page of immutable summaries in row order.
+        /// Reads an owner-qualified page of immutable summaries in stable page-name order.
         /// </summary>
         /// <param name="databasePath">The path of the notebook database.</param>
         /// <param name="skipCount">The number of summaries to skip.</param>

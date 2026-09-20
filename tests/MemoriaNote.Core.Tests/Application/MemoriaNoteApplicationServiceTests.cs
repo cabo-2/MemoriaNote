@@ -100,6 +100,9 @@ public sealed class MemoriaNoteApplicationServiceTests
             new FakeSearchUseCase(new SearchPage(Array.Empty<PageSummary>(), 0, 0, 0)),
             pageUseCase);
 
+        await service.ListPagesAsync(
+            new PageListRequest(notebookId, 5),
+            CancellationToken.None);
         await service.ReadAsync(reference, CancellationToken.None);
         await service.ValidateCreateAsync(create, CancellationToken.None);
         await service.ValidateEditAsync(edit, CancellationToken.None);
@@ -114,6 +117,7 @@ public sealed class MemoriaNoteApplicationServiceTests
             pageUseCase.Calls,
             Is.EqualTo(new[]
             {
+                "list",
                 "read",
                 "validate-create",
                 "validate-edit",
@@ -280,6 +284,14 @@ public sealed class MemoriaNoteApplicationServiceTests
     sealed class FakePageUseCase : IPageUseCase
     {
         internal List<string> Calls { get; } = new();
+
+        public Task<IReadOnlyList<PageSummary>> ListAsync(
+            PageListRequest request,
+            CancellationToken token)
+        {
+            Calls.Add("list");
+            return Task.FromResult<IReadOnlyList<PageSummary>>(Array.Empty<PageSummary>());
+        }
 
         public Task<PageOperationResult> ReadAsync(
             PageReference target,

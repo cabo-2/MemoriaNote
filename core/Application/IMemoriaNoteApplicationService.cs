@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Domain;
@@ -9,6 +10,11 @@ namespace MemoriaNote.Application
     /// </summary>
     public interface IMemoriaNoteApplicationService
     {
+        /// <summary>Lists body-free page summaries in stable page-name order.</summary>
+        Task<IReadOnlyList<PageSummary>> ListPagesAsync(
+            PageListRequest request,
+            CancellationToken token);
+
         /// <summary>Executes an immutable search request.</summary>
         Task<SearchPage> SearchAsync(SearchRequest request, CancellationToken token);
 

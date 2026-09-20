@@ -83,14 +83,17 @@ Commands:
   create  Create a live notebook without overwriting an existing file
   edit    Edit text with an external editor
   export  Export text files
-  find    Currently under development and unavailable
+  find    Temporarily unavailable; use 'mn ls' for page names
   import  Import text files
-  list    List text
+  ls      List pages in stable page-name order
   new     Create text command
   work    List, select and manage note options
 
 Run 'mn [command] --help' for more information about a command.
 ```
+
+`list` remains available as a compatibility alias for `ls`. Dynamic page-name completion is
+temporarily disabled while a dedicated completion command is designed.
 
 ### Exit codes
 
@@ -138,11 +141,12 @@ Create a page in the selected notebook. The command opens the configured externa
 mn new meeting-notes
 ```
 
-List all page names or filter them by a prefix:
+List page names in stable name order, optionally limiting the result or showing metadata:
 
 ```bash
-mn list
-mn list meet
+mn ls
+mn ls --limit 50
+mn ls --long
 ```
 
 Edit an existing page:
@@ -151,4 +155,4 @@ Edit an existing page:
 mn edit meeting-notes
 ```
 
-Full-text search with `mn find` is currently under development and cannot be used yet. In the meantime, use `mn list [name]` to filter page names.
+Full-text search and page-name filtering with `mn find` are currently under development and cannot be used yet.

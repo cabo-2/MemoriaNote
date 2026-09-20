@@ -12,7 +12,7 @@ namespace MemoriaNote.Cli
         readonly CliCommandExecutor _executor;
 
         const string TemporarilyUnavailableMessage =
-            "The find command is temporarily unavailable. Use 'mn list [name]' to list page names; " +
+            "The find command is temporarily unavailable. Use 'mn ls' to list page names; " +
             "full-text search will be redesigned after the initial release.";
 
         internal FindCommandHandler(CliCommandExecutor executor)
@@ -297,40 +297,39 @@ namespace MemoriaNote.Cli
     internal sealed class ListCommandHandler
     {
         readonly CliCommandExecutor _executor;
-        readonly ICliCommandContextFactory _contextFactory;
-        readonly CliSearchQueryNormalizer _searchQueryNormalizer;
+        readonly INotebookTargetSessionResolver _targetResolver;
         readonly ICommandOutput _output;
 
         internal ListCommandHandler(
             CliCommandExecutor executor,
-            ICliCommandContextFactory contextFactory,
-            CliSearchQueryNormalizer searchQueryNormalizer,
+            INotebookTargetSessionResolver targetResolver,
             ICommandOutput output)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
-            _contextFactory = contextFactory ??
-                throw new ArgumentNullException(nameof(contextFactory));
-            _searchQueryNormalizer = searchQueryNormalizer ??
-                throw new ArgumentNullException(nameof(searchQueryNormalizer));
+            _targetResolver = targetResolver ??
+                throw new ArgumentNullException(nameof(targetResolver));
             _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
         internal Task<int> ExecuteAsync(
-            string name,
-            bool completion,
+            string workspaceOption,
+            string notebookOption,
+            int? limit,
+            bool longFormat,
             CancellationToken cancellationToken)
         {
             return _executor.ExecuteAsync(async token =>
             {
-                var configuration = _contextFactory.LoadConfiguration();
-                if (completion &&
-                    configuration.Terminal.Completion == CompletionType.None)
+                if (limit <= 0)
                 {
-                    return CliCommandResult.Success();
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Validation,
+                        "Limit must be greater than zero.");
                 }
 
-                var session = await _contextFactory.CreateSessionAsync(
-                    configuration,
+                var session = await _targetResolver.ResolveAsync(
+                    workspaceOption,
+                    notebookOption,
                     token);
                 var selectedNotebook = session.Workspace.SelectedNotebook;
                 if (selectedNotebook == null)
@@ -340,30 +339,12 @@ namespace MemoriaNote.Cli
                         "No selected notebook");
                 }
 
-                var request = SearchRequest.ForNotebook(
-                    _searchQueryNormalizer.Normalize(name),
-                    SearchMethodType.Heading,
-                    NotebookId.FromDatabasePath(selectedNotebook.DatabasePath),
-                    offset: 0,
-                    limit: 1000);
-                var page = await session.ApplicationService.SearchAsync(
-                    request,
+                var pages = await session.ApplicationService.ListPagesAsync(
+                    new PageListRequest(
+                        NotebookId.FromDatabasePath(selectedNotebook.DatabasePath),
+                        limit),
                     token);
-
-                if (completion)
-                {
-                    _output.WritePageCompletion(
-                        page.Items,
-                        page.TotalCount);
-                }
-                else
-                {
-                    _output.WritePageList(
-                        page.Items,
-                        page.TotalCount);
-                }
-
-                _contextFactory.SaveConfiguration(configuration);
+                _output.WritePageList(pages, longFormat);
                 return CliCommandResult.Success();
             }, cancellationToken);
         }
