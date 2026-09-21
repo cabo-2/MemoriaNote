@@ -51,6 +51,53 @@ namespace MemoriaNote.Application
         }
 
         /// <inheritdoc/>
+        public async Task<PageTargetResolution> ResolveAsync(
+            PageTargetRequest request,
+            CancellationToken token)
+        {
+            if (request == null)
+                throw new ArgumentNullException(nameof(request));
+
+            token.ThrowIfCancellationRequested();
+            var context = _contextResolver.Resolve(request.NotebookId);
+            if (context == null)
+            {
+                return PageTargetResolution.Failed(
+                    PageTargetResolutionStatus.OwnerNotFound);
+            }
+
+            IReadOnlyList<Page> matches;
+            if (request.Selector.IsName)
+            {
+                matches = await context.PageRepository.ListPagesByHeadingAsync(
+                    request.NotebookId,
+                    request.Selector.Name,
+                    token).ConfigureAwait(false);
+            }
+            else
+            {
+                matches = await context.PageRepository.ListPagesByIdPrefixAsync(
+                    request.NotebookId,
+                    request.Selector.PageIdPrefix,
+                    maximumCount: 2,
+                    token).ConfigureAwait(false);
+            }
+
+            if (matches.Count == 0)
+            {
+                return PageTargetResolution.Failed(
+                    PageTargetResolutionStatus.PageNotFound);
+            }
+            if (matches.Count > 1)
+                return PageTargetResolution.Failed(PageTargetResolutionStatus.Conflict);
+
+            return PageTargetResolution.Succeeded(
+                new PageReference(
+                    request.NotebookId,
+                    PageId.FromGuid(matches[0].Guid)));
+        }
+
+        /// <inheritdoc/>
         public async Task<PageOperationResult> ReadAsync(
             PageReference target,
             CancellationToken token)

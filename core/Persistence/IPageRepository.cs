@@ -105,6 +105,44 @@ namespace MemoriaNote.Persistence
         }
 
         /// <summary>
+        /// Reads pages whose UUID starts with a normalized hexadecimal prefix.
+        /// </summary>
+        /// <param name="databasePath">The path of the notebook database.</param>
+        /// <param name="pageIdPrefix">The lowercase, hyphen-free UUID prefix.</param>
+        /// <param name="maximumCount">The maximum number of matches to return.</param>
+        /// <param name="token">The cancellation token for the database operation.</param>
+        /// <returns>Matching pages ordered by UUID.</returns>
+        Task<IReadOnlyList<Page>> ListPagesByIdPrefixAsync(
+            string databasePath,
+            string pageIdPrefix,
+            int maximumCount,
+            CancellationToken token);
+
+        /// <summary>
+        /// Reads pages in an explicitly identified notebook whose UUID starts with a prefix.
+        /// </summary>
+        /// <param name="notebookId">The identifier of the notebook.</param>
+        /// <param name="pageIdPrefix">The lowercase, hyphen-free UUID prefix.</param>
+        /// <param name="maximumCount">The maximum number of matches to return.</param>
+        /// <param name="token">The cancellation token for the database operation.</param>
+        /// <returns>Matching pages ordered by UUID.</returns>
+        Task<IReadOnlyList<Page>> ListPagesByIdPrefixAsync(
+            NotebookId notebookId,
+            string pageIdPrefix,
+            int maximumCount,
+            CancellationToken token)
+        {
+            if (notebookId == null)
+                throw new ArgumentNullException(nameof(notebookId));
+
+            return ListPagesByIdPrefixAsync(
+                notebookId.Locator,
+                pageIdPrefix,
+                maximumCount,
+                token);
+        }
+
+        /// <summary>
         /// Creates a page at the end of its exact-heading group.
         /// </summary>
         /// <param name="databasePath">The path of the notebook database.</param>

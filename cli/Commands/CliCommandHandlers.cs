@@ -12,6 +12,7 @@ namespace MemoriaNote.Cli
             ConfigEditCommandHandler configEdit,
             ConfigShowCommandHandler configShow,
             ListCommandHandler list,
+            CatCommandHandler cat,
             WorkSelectCommandHandler workSelect,
             WorkListCommandHandler workList,
             WorkCreateCommandHandler workCreate,
@@ -34,6 +35,7 @@ namespace MemoriaNote.Cli
             ConfigShow = configShow ??
                 throw new ArgumentNullException(nameof(configShow));
             List = list ?? throw new ArgumentNullException(nameof(list));
+            Cat = cat ?? throw new ArgumentNullException(nameof(cat));
             WorkSelect = workSelect ??
                 throw new ArgumentNullException(nameof(workSelect));
             WorkList = workList ?? throw new ArgumentNullException(nameof(workList));
@@ -64,6 +66,8 @@ namespace MemoriaNote.Cli
         internal ConfigShowCommandHandler ConfigShow { get; }
 
         internal ListCommandHandler List { get; }
+
+        internal CatCommandHandler Cat { get; }
 
         internal WorkSelectCommandHandler WorkSelect { get; }
 

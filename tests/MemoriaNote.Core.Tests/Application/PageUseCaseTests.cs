@@ -8,6 +8,87 @@ namespace MemoriaNote.Core.Tests.Application;
 [TestFixture]
 public sealed class PageUseCaseTests
 {
+    /// <summary>Verifies exact-name resolution returns only a unique owner-qualified page.</summary>
+    [Test]
+    public async Task ResolveAsync_ExactName_ClassifiesUniqueMissingAndConflict()
+    {
+        var notebookId = CreateNotebookId("resolve-name");
+        var unique = CreatePage(PageId.FromGuid(Guid.NewGuid()), "Unique", "Body");
+        var firstDuplicate = CreatePage(PageId.FromGuid(Guid.NewGuid()), "Duplicate", "First");
+        var secondDuplicate = CreatePage(PageId.FromGuid(Guid.NewGuid()), "Duplicate", "Second");
+        var useCase = CreateUseCase((
+            notebookId,
+            false,
+            new FakeNoteRepository(unique, firstDuplicate, secondDuplicate)));
+
+        var found = await useCase.ResolveAsync(
+            new PageTargetRequest(notebookId, PageSelector.FromName("Unique")),
+            CancellationToken.None);
+        var missing = await useCase.ResolveAsync(
+            new PageTargetRequest(notebookId, PageSelector.FromName("Missing")),
+            CancellationToken.None);
+        var conflict = await useCase.ResolveAsync(
+            new PageTargetRequest(notebookId, PageSelector.FromName("Duplicate")),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(found.Status, Is.EqualTo(PageTargetResolutionStatus.Success));
+            Assert.That(found.Target?.NotebookId, Is.EqualTo(notebookId));
+            Assert.That(found.Target?.PageId.Value, Is.EqualTo(unique.Guid));
+            Assert.That(missing.Status, Is.EqualTo(PageTargetResolutionStatus.PageNotFound));
+            Assert.That(conflict.Status, Is.EqualTo(PageTargetResolutionStatus.Conflict));
+        }
+    }
+
+    /// <summary>Verifies Page ID prefix resolution is case-insensitive and rejects ambiguity.</summary>
+    [Test]
+    public async Task ResolveAsync_PageIdPrefix_ClassifiesUniqueAndConflict()
+    {
+        var notebookId = CreateNotebookId("resolve-id");
+        var first = CreatePage(
+            PageId.FromGuid(Guid.Parse("abcd0000-0000-0000-0000-000000000001")),
+            "First",
+            "Body");
+        var second = CreatePage(
+            PageId.FromGuid(Guid.Parse("abcd0000-0000-0000-0000-000000000002")),
+            "Second",
+            "Body");
+        var useCase = CreateUseCase((
+            notebookId,
+            false,
+            new FakeNoteRepository(first, second)));
+        PageSelector.TryFromPageId("ABCD0000-0000-0000-0000-000000000001", out var fullId);
+        PageSelector.TryFromPageId("ABCD", out var ambiguousPrefix);
+
+        var found = await useCase.ResolveAsync(
+            new PageTargetRequest(notebookId, fullId!),
+            CancellationToken.None);
+        var conflict = await useCase.ResolveAsync(
+            new PageTargetRequest(notebookId, ambiguousPrefix!),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(found.Status, Is.EqualTo(PageTargetResolutionStatus.Success));
+            Assert.That(found.Target?.PageId.Value, Is.EqualTo(first.Guid));
+            Assert.That(conflict.Status, Is.EqualTo(PageTargetResolutionStatus.Conflict));
+        }
+    }
+
+    /// <summary>Verifies target resolution distinguishes an unavailable notebook.</summary>
+    [Test]
+    public async Task ResolveAsync_MissingOwner_ReturnsOwnerNotFound()
+    {
+        var result = await CreateUseCase().ResolveAsync(
+            new PageTargetRequest(
+                CreateNotebookId("missing-resolve-owner"),
+                PageSelector.FromName("Page")),
+            CancellationToken.None);
+
+        Assert.That(result.Status, Is.EqualTo(PageTargetResolutionStatus.OwnerNotFound));
+    }
+
     /// <summary>Verifies listing uses the explicitly owned repository and optional limit.</summary>
     [Test]
     public async Task ListAsync_UsesExplicitOwnerAndLimitWithoutMutation()
@@ -371,6 +452,24 @@ public sealed class PageUseCaseTests
             BeforeRead?.Invoke(token);
             return Task.FromResult<IReadOnlyList<Page>>(
                 _pages.Where(page => page.Name == name).ToList());
+        }
+
+        public Task<IReadOnlyList<Page>> ListPagesByIdPrefixAsync(
+            string dataSource,
+            string pageIdPrefix,
+            int maximumCount,
+            CancellationToken token)
+        {
+            ReadCount++;
+            BeforeRead?.Invoke(token);
+            return Task.FromResult<IReadOnlyList<Page>>(
+                _pages
+                    .Where(page => page.Guid.ToString("N").StartsWith(
+                        pageIdPrefix,
+                        StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(page => page.Guid)
+                    .Take(maximumCount)
+                    .ToList());
         }
 
         public Task<Page> CreatePageAsync(

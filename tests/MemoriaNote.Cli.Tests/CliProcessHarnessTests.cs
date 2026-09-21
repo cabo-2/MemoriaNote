@@ -35,6 +35,7 @@ public sealed class CliProcessHarnessTests
 
         var publicCommands = new[]
         {
+            "cat",
             "config",
             "create",
             "edit",
