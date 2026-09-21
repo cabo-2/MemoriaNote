@@ -27,31 +27,42 @@ public sealed class CliProcessHarnessTests
                 Does.Contain(
                     "A lightweight, cross-platform CLI for creating, organizing, and editing workspace-based notes"));
             Assert.That(result.StandardOutput, Does.Not.Contain("Terminal.Gui"));
-            Assert.That(result.StandardOutput, Does.Contain("Temporarily unavailable"));
+            Assert.That(result.StandardOutput, Does.Not.Contain("Temporarily unavailable"));
             Assert.That(result.StandardOutput, Does.Contain("Usage: mn"));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
         }
 
-        var publicCommands = new[]
+        var visibleCommands = new[]
         {
             "cat",
-            "config",
             "create",
             "edit",
-            "export",
-            "find",
-            "import",
             "ls",
-            "new",
-            "work"
+            "new"
         };
-        foreach (var command in publicCommands)
+        foreach (var command in visibleCommands)
         {
             Assert.That(
                 ContainsCommand(result.StandardOutput, command),
                 Is.True,
                 $"Root help did not describe the '{command}' command.");
+        }
+
+        var hiddenCommands = new[]
+        {
+            "config",
+            "export",
+            "find",
+            "import",
+            "work"
+        };
+        foreach (var command in hiddenCommands)
+        {
+            Assert.That(
+                ContainsCommand(result.StandardOutput, command),
+                Is.False,
+                $"Root help described the hidden '{command}' command.");
         }
     }
 

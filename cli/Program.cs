@@ -93,7 +93,8 @@ namespace MemoriaNote.Cli
 
         [Command(
             "find",
-            Description = "Temporarily unavailable; use 'mn ls' for page names")]
+            Description = "Temporarily unavailable; use 'mn ls' for page names",
+            ShowInHelpText = false)]
         [HelpOption("--help")]
         class FindCommand
         {
@@ -161,7 +162,10 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("config", Description = "Manage configuration options")]
+        [Command(
+            "config",
+            Description = "Manage configuration options",
+            ShowInHelpText = false)]
         [Subcommand(typeof(ConfigEditCommand),
                     typeof(ConfigShowCommand))]
         [HelpOption("--help")]
@@ -195,6 +199,7 @@ namespace MemoriaNote.Cli
         }
 
         [Command("work", Description = "List, select and manage note options",
+                ShowInHelpText = false,
                 AllowArgumentSeparator = true,
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
         [Subcommand(typeof(WorkSelectCommand),
@@ -427,7 +432,10 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("import", Description = "Import text files")]
+        [Command(
+            "import",
+            Description = "Import text files",
+            ShowInHelpText = false)]
         [HelpOption("--help")]
         class ImportCommand
         {
@@ -454,7 +462,10 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("export", Description = "Export text files")]
+        [Command(
+            "export",
+            Description = "Export text files",
+            ShowInHelpText = false)]
         [HelpOption("--help")]
         class ExportCommand
         {

@@ -79,15 +79,11 @@ Options:
   --workspace <directory>  Use this directory as the workspace for this invocation
 
 Commands:
-  config  Manage configuration options
+  cat     Write one page body to standard output
   create  Create a live notebook without overwriting an existing file
   edit    Edit text with an external editor
-  export  Export text files
-  find    Temporarily unavailable; use 'mn ls' for page names
-  import  Import text files
   ls      List pages in stable page-name order
   new     Create text command
-  work    List, select and manage note options
 
 Run 'mn [command] --help' for more information about a command.
 ```
@@ -128,34 +124,29 @@ also reopened and checked for the current SQLite schema and format metadata befo
 the command reports success. `create` does not create or update user configuration
 or `mn-workspace.toml`.
 
-List the available notebooks (`*` marks the selected notebook) and select one:
+Create a page in the new notebook by targeting it explicitly. The command opens
+the configured external editor and saves the page when the editor exits
+successfully with changed content:
 
 ```bash
-mn work list
-mn work select personal
-```
-
-Create a page in the selected notebook. The command opens the configured external editor and saves the page when the editor exits successfully with changed content:
-
-```bash
-mn new meeting-notes
+mn new --notebook work.mnote meeting-notes
 ```
 
 List page names in stable name order, optionally limiting the result or showing metadata:
 
 ```bash
-mn ls
-mn ls --limit 50
-mn ls --long
+mn ls --notebook work.mnote
+mn ls --notebook work.mnote --limit 50
+mn ls --notebook work.mnote --long
 ```
 
 Write exactly one page body to standard output by its exact name, complete Page ID,
 or a unique Page ID prefix of at least four hexadecimal characters:
 
 ```bash
-mn cat meeting-notes
-mn cat --id 744ffba0-0000-0000-0000-000000000000
-mn cat --id 744f
+mn cat --notebook work.mnote meeting-notes
+mn cat --notebook work.mnote --id 744ffba0-0000-0000-0000-000000000000
+mn cat --notebook work.mnote --id 744f
 ```
 
 If a page name or Page ID prefix matches more than one page, `cat` reports a
@@ -167,5 +158,3 @@ Edit an existing page:
 ```bash
 mn edit meeting-notes
 ```
-
-Full-text search and page-name filtering with `mn find` are currently under development and cannot be used yet.
