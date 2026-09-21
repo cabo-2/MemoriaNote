@@ -17,7 +17,8 @@ namespace MemoriaNote.Cli
 
         internal FindCommandHandler(CliCommandExecutor executor)
         {
-            _executor = executor ?? throw new ArgumentNullException(nameof(executor));
+            _executor = executor ??
+                throw new ArgumentNullException(nameof(executor));
         }
 
         internal Task<int> ExecuteAsync(
@@ -347,6 +348,129 @@ namespace MemoriaNote.Cli
                 _output.WritePageList(pages, longFormat);
                 return CliCommandResult.Success();
             }, cancellationToken);
+        }
+    }
+
+    internal sealed class CatCommandHandler
+    {
+        readonly CliCommandExecutor _executor;
+        readonly INotebookTargetSessionResolver _targetResolver;
+        readonly ICommandOutput _output;
+
+        internal CatCommandHandler(
+            CliCommandExecutor executor,
+            INotebookTargetSessionResolver targetResolver,
+            ICommandOutput output)
+        {
+            _executor = executor ?? throw new ArgumentNullException(nameof(executor));
+            _targetResolver = targetResolver ??
+                throw new ArgumentNullException(nameof(targetResolver));
+            _output = output ?? throw new ArgumentNullException(nameof(output));
+        }
+
+        internal Task<int> ExecuteAsync(
+            string workspaceOption,
+            string notebookOption,
+            string pageName,
+            string pageId,
+            CancellationToken cancellationToken)
+        {
+            return _executor.ExecuteAsync(async token =>
+            {
+                var hasName = pageName != null;
+                var hasPageId = pageId != null;
+                if (!hasName && !hasPageId)
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Validation,
+                        "Specify a page name or --id.");
+                }
+                if (hasName && hasPageId)
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Validation,
+                        "A page name and --id cannot be used together.");
+                }
+
+                PageSelector selector;
+                if (hasName)
+                {
+                    if (string.IsNullOrWhiteSpace(pageName))
+                    {
+                        return CliCommandResult.Failure(
+                            CliErrorKind.Validation,
+                            "The page name cannot be empty or whitespace.");
+                    }
+                    selector = PageSelector.FromName(pageName);
+                }
+                else if (!PageSelector.TryFromPageId(pageId, out selector))
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Validation,
+                        "Page ID must be a complete UUID or a prefix of 4 to 32 " +
+                        "hexadecimal characters.");
+                }
+
+                var session = await _targetResolver.ResolveAsync(
+                    workspaceOption,
+                    notebookOption,
+                    token);
+                var selectedNotebook = session.Workspace.SelectedNotebook;
+                if (selectedNotebook == null)
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.NotFound,
+                        "No selected notebook");
+                }
+
+                var resolution = await session.ApplicationService.ResolvePageAsync(
+                    new PageTargetRequest(
+                        NotebookId.FromDatabasePath(selectedNotebook.DatabasePath),
+                        selector),
+                    token);
+                if (!resolution.IsSuccess)
+                    return ToResolutionFailure(resolution.Status, selector);
+
+                var readResult = await session.ApplicationService.ReadAsync(
+                    resolution.Target,
+                    token);
+                if (!readResult.IsSuccess)
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.NotFound,
+                        "The resolved page was no longer available.");
+                }
+
+                var page = readResult.Page ??
+                    throw new InvalidOperationException("A successful page read returned no page.");
+                _output.Write(page.Text ?? string.Empty);
+                return CliCommandResult.Success();
+            }, cancellationToken);
+        }
+
+        static CliCommandResult ToResolutionFailure(
+            PageTargetResolutionStatus status,
+            PageSelector selector)
+        {
+            return status switch
+            {
+                PageTargetResolutionStatus.OwnerNotFound => CliCommandResult.Failure(
+                    CliErrorKind.NotFound,
+                    "The target notebook was not found."),
+                PageTargetResolutionStatus.PageNotFound => CliCommandResult.Failure(
+                    CliErrorKind.NotFound,
+                    selector.IsName
+                        ? "No page matched the supplied name."
+                        : "No page matched the supplied Page ID."),
+                PageTargetResolutionStatus.Conflict => CliCommandResult.Failure(
+                    CliErrorKind.Conflict,
+                    selector.IsName
+                        ? "More than one page matched the supplied name. " +
+                            "Use --id to select one."
+                        : "The Page ID prefix matched more than one page. " +
+                            "Specify more characters."),
+                _ => throw new ArgumentOutOfRangeException(nameof(status))
+            };
         }
     }
 }

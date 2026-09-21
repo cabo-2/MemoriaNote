@@ -16,6 +16,7 @@ namespace MemoriaNote.Cli
         typeof(ConfigCommand),
         typeof(WorkCommand),
         typeof(ListCommand),
+        typeof(CatCommand),
         typeof(ImportCommand),
         typeof(ExportCommand))]
     [HelpOption("--help")]
@@ -392,6 +393,36 @@ namespace MemoriaNote.Cli
                     Notebook,
                     Limit,
                     Long,
+                    cancellationToken);
+            }
+        }
+
+        [Command("cat", Description = "Write one page body to standard output")]
+        [HelpOption("--help")]
+        class CatCommand
+        {
+            public Program Parent { get; set; }
+
+            [Argument(0, Name = "page-name", Description = "exact page name")]
+            public (bool hasValue, string value) PageName { get; set; }
+
+            [Option(
+                "--id <uuid-or-prefix>",
+                Description = "Select by a complete Page ID or a hexadecimal prefix")]
+            public string PageId { get; set; }
+
+            [Option(
+                "--notebook <path>",
+                Description = "Use this workspace-relative .mnote file")]
+            public string Notebook { get; set; }
+
+            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+            {
+                return CommandHandlers.Cat.ExecuteAsync(
+                    Parent?.Workspace,
+                    Notebook,
+                    PageName.hasValue ? PageName.value : null,
+                    PageId,
                     cancellationToken);
             }
         }

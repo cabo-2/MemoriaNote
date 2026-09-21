@@ -113,6 +113,34 @@ namespace MemoriaNote.Persistence
         }
 
         /// <inheritdoc/>
+        public async Task<IReadOnlyList<Page>> ListPagesByIdPrefixAsync(
+            string databasePath,
+            string pageIdPrefix,
+            int maximumCount,
+            CancellationToken token)
+        {
+            if (string.IsNullOrEmpty(pageIdPrefix))
+            {
+                throw new ArgumentException(
+                    "A Page ID prefix is required.",
+                    nameof(pageIdPrefix));
+            }
+            if (maximumCount <= 0)
+                throw new ArgumentOutOfRangeException(nameof(maximumCount));
+
+            token.ThrowIfCancellationRequested();
+            var storagePrefix = ToStorageUuidPrefix(pageIdPrefix);
+            using var context = _databaseFactory.CreateDbContext(databasePath);
+            return await context.Pages
+                .AsNoTracking()
+                .Where(page => page.Uuid.StartsWith(storagePrefix))
+                .OrderBy(page => page.Uuid)
+                .Take(maximumCount)
+                .ToListAsync(token)
+                .ConfigureAwait(false);
+        }
+
+        /// <inheritdoc/>
         public async Task<Page> CreatePageAsync(
             string databasePath,
             string heading,
@@ -332,6 +360,18 @@ namespace MemoriaNote.Persistence
                 page.Index = ordinal;
                 ordinal++;
             }
+        }
+
+        static string ToStorageUuidPrefix(string hexadecimalPrefix)
+        {
+            var builder = new System.Text.StringBuilder(hexadecimalPrefix.Length + 4);
+            for (var index = 0; index < hexadecimalPrefix.Length; index++)
+            {
+                if (index == 8 || index == 12 || index == 16 || index == 20)
+                    builder.Append('-');
+                builder.Append(hexadecimalPrefix[index]);
+            }
+            return builder.ToString();
         }
 
     }

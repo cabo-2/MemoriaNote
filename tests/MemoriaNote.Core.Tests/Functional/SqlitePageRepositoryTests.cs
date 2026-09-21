@@ -16,6 +16,49 @@ public sealed class SqlitePageRepositoryTests
         new SqlitePageRepository(
             new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
 
+    /// <summary>Verifies Page ID prefix lookup is ordered and limited in SQLite.</summary>
+    [Test]
+    public async Task ListPagesByIdPrefixAsync_FiltersOrdersAndLimitsMatches()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("prefix", "Prefix");
+        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        using (var context = factory.CreateDbContext(database.DatabasePath))
+        {
+            var second = Page.Create("Second", "Body");
+            second.Guid = Guid.Parse("abcd0000-0000-0000-0000-000000000002");
+            var other = Page.Create("Other", "Body");
+            other.Guid = Guid.Parse("ffff0000-0000-0000-0000-000000000001");
+            var first = Page.Create("First", "Body");
+            first.Guid = Guid.Parse("abcd0000-0000-0000-0000-000000000001");
+            context.Pages.AddRange(second, other, first);
+            await context.SaveChangesAsync();
+        }
+
+        var result = await _repository.ListPagesByIdPrefixAsync(
+            database.DatabasePath,
+            "abcd",
+            2,
+            CancellationToken.None);
+        var limited = await _repository.ListPagesByIdPrefixAsync(
+            database.DatabasePath,
+            "abcd",
+            1,
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                result.Select(page => page.Guid),
+                Is.EqualTo(new[]
+                {
+                    Guid.Parse("abcd0000-0000-0000-0000-000000000001"),
+                    Guid.Parse("abcd0000-0000-0000-0000-000000000002")
+                }));
+            Assert.That(limited.Select(page => page.Name), Is.EqualTo(new[] { "First" }));
+        }
+    }
+
     /// <summary>
     /// Verifies listing applies binary page-name order, stable tie-breakers, and limit in SQLite.
     /// </summary>

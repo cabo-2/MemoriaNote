@@ -41,6 +41,17 @@ namespace MemoriaNote.Application
         }
 
         /// <inheritdoc/>
+        public Task<PageTargetResolution> ResolvePageAsync(
+            PageTargetRequest request,
+            CancellationToken token)
+        {
+            if (request == null)
+                throw new ArgumentNullException(nameof(request));
+
+            return _pageUseCase.ResolveAsync(request, token);
+        }
+
+        /// <inheritdoc/>
         public Task<SearchPage> SearchAsync(
             SearchRequest request,
             CancellationToken token)

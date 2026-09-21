@@ -59,6 +59,15 @@ public sealed class PageRepositoryDelegationTests
             throw new NotSupportedException();
         }
 
+        public Task<IReadOnlyList<Page>> ListPagesByIdPrefixAsync(
+            string dataSource,
+            string pageIdPrefix,
+            int maximumCount,
+            CancellationToken token)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task<Page> CreatePageAsync(
             string dataSource,
             string name,

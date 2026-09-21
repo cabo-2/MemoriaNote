@@ -103,6 +103,9 @@ public sealed class MemoriaNoteApplicationServiceTests
         await service.ListPagesAsync(
             new PageListRequest(notebookId, 5),
             CancellationToken.None);
+        await service.ResolvePageAsync(
+            new PageTargetRequest(notebookId, PageSelector.FromName("Created")),
+            CancellationToken.None);
         await service.ReadAsync(reference, CancellationToken.None);
         await service.ValidateCreateAsync(create, CancellationToken.None);
         await service.ValidateEditAsync(edit, CancellationToken.None);
@@ -118,6 +121,7 @@ public sealed class MemoriaNoteApplicationServiceTests
             Is.EqualTo(new[]
             {
                 "list",
+                "resolve",
                 "read",
                 "validate-create",
                 "validate-edit",
@@ -291,6 +295,15 @@ public sealed class MemoriaNoteApplicationServiceTests
         {
             Calls.Add("list");
             return Task.FromResult<IReadOnlyList<PageSummary>>(Array.Empty<PageSummary>());
+        }
+
+        public Task<PageTargetResolution> ResolveAsync(
+            PageTargetRequest request,
+            CancellationToken token)
+        {
+            Calls.Add("resolve");
+            return Task.FromResult(
+                PageTargetResolution.Failed(PageTargetResolutionStatus.PageNotFound));
         }
 
         public Task<PageOperationResult> ReadAsync(

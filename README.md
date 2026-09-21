@@ -149,6 +149,19 @@ mn ls --limit 50
 mn ls --long
 ```
 
+Write exactly one page body to standard output by its exact name, complete Page ID,
+or a unique Page ID prefix of at least four hexadecimal characters:
+
+```bash
+mn cat meeting-notes
+mn cat --id 744ffba0-0000-0000-0000-000000000000
+mn cat --id 744f
+```
+
+If a page name or Page ID prefix matches more than one page, `cat` reports a
+conflict and requires a more specific `--id` value. It does not add a trailing
+newline to the stored page body.
+
 Edit an existing page:
 
 ```bash

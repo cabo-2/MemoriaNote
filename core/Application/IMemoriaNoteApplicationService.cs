@@ -15,6 +15,11 @@ namespace MemoriaNote.Application
             PageListRequest request,
             CancellationToken token);
 
+        /// <summary>Resolves an exact page name or Page ID prefix within one notebook.</summary>
+        Task<PageTargetResolution> ResolvePageAsync(
+            PageTargetRequest request,
+            CancellationToken token);
+
         /// <summary>Executes an immutable search request.</summary>
         Task<SearchPage> SearchAsync(SearchRequest request, CancellationToken token);
 
