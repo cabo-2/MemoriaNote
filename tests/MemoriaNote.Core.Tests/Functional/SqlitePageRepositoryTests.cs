@@ -274,6 +274,45 @@ public sealed class SqlitePageRepositoryTests
         }
     }
 
+    /// <summary>Verifies page text compare-and-update distinguishes success, conflict, and absence.</summary>
+    [Test]
+    public async Task TryUpdatePageTextAsync_UsesExpectedTextAtomically()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        var note = database.CreateNotebook("conditional-edit", "Conditional Edit");
+        var page = note.CreatePage("Existing", "Original");
+        var notebookId = NotebookId.FromDatabasePath(database.DatabasePath);
+        var pageId = PageId.FromGuid(page.Guid);
+
+        var updated = await _repository.TryUpdatePageTextAsync(
+            notebookId,
+            pageId,
+            "Original",
+            "Updated",
+            CancellationToken.None);
+        var conflict = await _repository.TryUpdatePageTextAsync(
+            notebookId,
+            pageId,
+            "Original",
+            "Overwritten",
+            CancellationToken.None);
+        var missing = await _repository.TryUpdatePageTextAsync(
+            notebookId,
+            PageId.FromGuid(Guid.NewGuid()),
+            "Original",
+            "Replacement",
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(updated.Status, Is.EqualTo(PageTextUpdateStatus.Success));
+            Assert.That(updated.Page?.Guid, Is.EqualTo(page.Guid));
+            Assert.That(conflict.Status, Is.EqualTo(PageTextUpdateStatus.Conflict));
+            Assert.That(missing.Status, Is.EqualTo(PageTextUpdateStatus.PageNotFound));
+            Assert.That(note.ReadPage(page.Guid)?.Text, Is.EqualTo("Updated"));
+        }
+    }
+
     /// <summary>
     /// Verifies that a pre-cancelled token prevents repository database access.
     /// </summary>

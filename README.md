@@ -20,7 +20,7 @@ git clone "https://github.com/cabo-2/MemoriaNote.git"
 cd MemoriaNote
 ```
 
-Building Memoria Note requires the .NET 10 SDK. An external editor is also required for commands that modify pages or notebook metadata. Set the `EDITOR` environment variable to select one; otherwise Memoria Note uses its configured editor path.
+Building Memoria Note requires the .NET 10 SDK. An external editor is also required for commands that modify pages or notebook metadata. During the configuration transition, Memoria Note uses `EDITOR` when legacy `EditorEnv` is enabled, then falls back to legacy `EditorPath`. `--editor` can override both for one `new` or `edit` invocation.
 
 ### Build and test
 
@@ -153,8 +153,25 @@ If a page name or Page ID prefix matches more than one page, `cat` reports a
 conflict and requires a more specific `--id` value. It does not add a trailing
 newline to the stored page body.
 
-Edit an existing page:
+Edit an existing page by exact name, complete Page ID, or unique Page ID prefix:
 
 ```bash
-mn edit meeting-notes
+mn edit --notebook work.mnote meeting-notes
+mn edit --notebook work.mnote --id 744f
 ```
+
+Override the editor for one invocation and pass arguments without shell parsing.
+`{file}` is replaced with the temporary document path; if it is omitted, the path
+is appended automatically. Use the `=` form when an editor argument begins with
+`-` so the CLI parser does not treat it as an `mn` option:
+
+```bash
+mn edit meeting-notes --editor code --editor-arg=--wait --editor-arg={file}
+```
+
+The temporary document uses a sanitized page name followed by a random suffix and
+`.txt`. Saving only to another location leaves the original temporary document
+unchanged, so the command reports no changes. Removing or moving the original
+temporary document is an error. A page is updated only after the editor exits with
+code 0, the edited file is valid UTF-8, validation succeeds, and the stored body
+has not changed since the editor was opened.

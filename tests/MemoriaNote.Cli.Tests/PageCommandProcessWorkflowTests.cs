@@ -99,6 +99,52 @@ public sealed class PageCommandProcessWorkflowTests
             Is.Empty);
     }
 
+    /// <summary>
+    /// Verifies edit resolves a Page ID and an invocation editor override with arguments.
+    /// </summary>
+    [Test]
+    public async Task Edit_ByPageId_WithEditorOverride_UpdatesExistingPage()
+    {
+        using var harness = new CliProcessHarness();
+        harness.SetEnvironmentVariable("EDITOR", harness.TestEditorExecutablePath);
+        harness.SetEnvironmentVariable(EditedTextEnvironmentVariable, "Initial body");
+        var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
+
+        AssertSucceeded(await harness.RunAsync("create", "work.mnote"));
+        AssertSucceeded(await harness.RunAsync("new", "Roadmap"));
+
+        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        var repository = new SqlitePageRepository(factory);
+        var page = (await repository.ListPagesByHeadingAsync(
+            notebookPath,
+            "Roadmap",
+            CancellationToken.None)).Single();
+        harness.SetEnvironmentVariable(
+            "EDITOR",
+            Path.Combine(harness.TemporaryDirectory, "missing-editor"));
+        harness.SetEnvironmentVariable(EditedTextEnvironmentVariable, "Edited body");
+
+        var result = await harness.RunAsync(
+            "edit",
+            "--id",
+            page.Guid.ToString("D"),
+            "--editor",
+            harness.TestEditorExecutablePath,
+            "--editor-arg=--wait");
+
+        AssertSucceeded(result);
+        var updated = await repository.FindPageAsync(
+            notebookPath,
+            page.Guid,
+            CancellationToken.None);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.StandardOutput, Does.Contain("updated successfully"));
+            Assert.That(updated.Text, Is.EqualTo("Edited body"));
+            Assert.That(updated.Guid, Is.EqualTo(page.Guid));
+        }
+    }
+
     static void AssertSucceeded(CliProcessResult result)
     {
         using (Assert.EnterMultipleScope())

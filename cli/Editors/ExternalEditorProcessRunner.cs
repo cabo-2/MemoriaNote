@@ -11,7 +11,7 @@ namespace MemoriaNote.Cli.Editors
     internal interface IExternalEditorProcessRunner
     {
         Task RunAsync(
-            string executablePath,
+            ExternalEditorCommand command,
             string documentPath,
             CancellationToken cancellationToken);
     }
@@ -59,29 +59,33 @@ namespace MemoriaNote.Cli.Editors
         }
 
         public async Task RunAsync(
-            string executablePath,
+            ExternalEditorCommand command,
             string documentPath,
             CancellationToken cancellationToken)
         {
+            if (command == null)
+                throw new ArgumentNullException(nameof(command));
+
             cancellationToken.ThrowIfCancellationRequested();
             IEditorProcess process;
             try
             {
                 process = _startProcess(CreateStartInfo(
-                    executablePath,
-                    documentPath)) ?? throw new ExternalEditorStartException(executablePath);
+                    command,
+                    documentPath)) ?? throw new ExternalEditorStartException(
+                        command.ExecutablePath);
             }
             catch (Exception exception) when (
                 exception is Win32Exception ||
                 exception is FileNotFoundException ||
                 exception is DirectoryNotFoundException)
             {
-                throw new ExternalEditorStartException(executablePath, exception);
+                throw new ExternalEditorStartException(command.ExecutablePath, exception);
             }
 
             using (process)
             {
-                await WaitForExitAsync(process, executablePath, cancellationToken);
+                await WaitForExitAsync(process, command.ExecutablePath, cancellationToken);
             }
         }
 
@@ -109,13 +113,11 @@ namespace MemoriaNote.Cli.Editors
         }
 
         internal static ProcessStartInfo CreateStartInfo(
-            string executablePath,
+            ExternalEditorCommand command,
             string documentPath)
         {
-            if (string.IsNullOrWhiteSpace(executablePath))
-                throw new ArgumentException(
-                    "An external editor executable is required.",
-                    nameof(executablePath));
+            if (command == null)
+                throw new ArgumentNullException(nameof(command));
             if (string.IsNullOrWhiteSpace(documentPath))
                 throw new ArgumentException(
                     "A document path is required.",
@@ -123,10 +125,25 @@ namespace MemoriaNote.Cli.Editors
 
             var startInfo = new ProcessStartInfo
             {
-                FileName = executablePath,
+                FileName = command.ExecutablePath,
                 UseShellExecute = false
             };
-            startInfo.ArgumentList.Add(documentPath);
+            var expandedFilePlaceholder = false;
+            foreach (var argument in command.Arguments)
+            {
+                if (argument.Contains("{file}", StringComparison.Ordinal))
+                {
+                    startInfo.ArgumentList.Add(
+                        argument.Replace("{file}", documentPath, StringComparison.Ordinal));
+                    expandedFilePlaceholder = true;
+                }
+                else
+                {
+                    startInfo.ArgumentList.Add(argument);
+                }
+            }
+            if (!expandedFilePlaceholder)
+                startInfo.ArgumentList.Add(documentPath);
             return startInfo;
         }
 

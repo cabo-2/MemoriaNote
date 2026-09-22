@@ -223,6 +223,54 @@ namespace MemoriaNote.Persistence
         }
 
         /// <inheritdoc/>
+        public async Task<PageTextUpdateResult> TryUpdatePageTextAsync(
+            NotebookId notebookId,
+            PageId pageId,
+            string expectedText,
+            string replacementText,
+            CancellationToken token)
+        {
+            if (notebookId == null)
+                throw new ArgumentNullException(nameof(notebookId));
+            if (pageId == null)
+                throw new ArgumentNullException(nameof(pageId));
+
+            token.ThrowIfCancellationRequested();
+            using var context = _databaseFactory.CreateDbContext(notebookId.Locator);
+            await using var transaction = await context.Database
+                .BeginTransactionAsync(token)
+                .ConfigureAwait(false);
+            var uuid = pageId.ToUuid();
+            var updatedAt = _clock.UtcNow.UtcDateTime;
+            var updatedCount = await context.Pages
+                .Where(candidate =>
+                    candidate.Uuid == uuid && candidate.Text == expectedText)
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(candidate => candidate.Text, replacementText)
+                        .SetProperty(candidate => candidate.UpdateTime, updatedAt),
+                    token)
+                .ConfigureAwait(false);
+            if (updatedCount == 0)
+            {
+                var exists = await context.Pages
+                    .AnyAsync(candidate => candidate.Uuid == uuid, token)
+                    .ConfigureAwait(false);
+                return PageTextUpdateResult.Failed(
+                    exists
+                        ? PageTextUpdateStatus.Conflict
+                        : PageTextUpdateStatus.PageNotFound);
+            }
+
+            var persistedPage = await context.Pages
+                .AsNoTracking()
+                .SingleAsync(candidate => candidate.Uuid == uuid, token)
+                .ConfigureAwait(false);
+            await transaction.CommitAsync(token).ConfigureAwait(false);
+            return PageTextUpdateResult.Succeeded(persistedPage);
+        }
+
+        /// <inheritdoc/>
         public Task DeletePageAsync(
             string databasePath,
             Guid pageId,

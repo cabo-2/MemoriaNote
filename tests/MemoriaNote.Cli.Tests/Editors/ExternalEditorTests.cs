@@ -29,6 +29,7 @@ public sealed class ExternalEditorTests
 
         var result = await editor.EditAsync(
             configuration,
+            null,
             document,
             CancellationToken.None);
 
@@ -86,11 +87,11 @@ public sealed class ExternalEditorTests
         internal string? DocumentPath { get; private set; }
 
         public Task RunAsync(
-            string executablePath,
+            ExternalEditorCommand command,
             string documentPath,
             CancellationToken cancellationToken)
         {
-            ExecutablePath = executablePath;
+            ExecutablePath = command.ExecutablePath;
             DocumentPath = documentPath;
             return Task.CompletedTask;
         }

@@ -23,7 +23,10 @@ namespace MemoriaNote.Application
         PageNotFound,
 
         /// <summary>The owning note does not permit writes.</summary>
-        ReadOnly
+        ReadOnly,
+
+        /// <summary>The target changed after the caller read it.</summary>
+        Conflict
     }
 
     /// <summary>
@@ -50,7 +53,10 @@ namespace MemoriaNote.Application
         PageNotFound,
 
         /// <summary>The owning note does not permit writes.</summary>
-        ReadOnly
+        ReadOnly,
+
+        /// <summary>The page body changed after it was opened for editing.</summary>
+        ConcurrentEdit
     }
 
     /// <summary>

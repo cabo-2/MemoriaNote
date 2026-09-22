@@ -35,6 +35,8 @@ namespace MemoriaNote.Cli
                     PageOperationKind.Delete => "Delete text is not allowed.",
                     _ => throw new ArgumentOutOfRangeException(nameof(operation))
                 },
+                PageErrorCode.ConcurrentEdit =>
+                    "The text changed after it was opened. Reopen it and try again.",
                 _ => throw new ArgumentOutOfRangeException(nameof(error))
             };
         }

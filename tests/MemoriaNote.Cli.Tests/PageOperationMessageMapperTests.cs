@@ -23,6 +23,10 @@ public sealed class PageOperationMessageMapperTests
     [TestCase(PageOperationKind.Edit, PageErrorCode.ReadOnly, "Edit text is not allowed.")]
     [TestCase(PageOperationKind.Rename, PageErrorCode.ReadOnly, "Rename text is not allowed.")]
     [TestCase(PageOperationKind.Delete, PageErrorCode.ReadOnly, "Delete text is not allowed.")]
+    [TestCase(
+        PageOperationKind.Edit,
+        PageErrorCode.ConcurrentEdit,
+        "The text changed after it was opened. Reopen it and try again.")]
     public void ToErrorMessage_ReturnsExistingWording(
         PageOperationKind operation,
         PageErrorCode error,

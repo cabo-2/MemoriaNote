@@ -34,4 +34,17 @@ namespace MemoriaNote.Cli.Editors
         {
         }
     }
+
+    internal sealed class ExternalEditorExchangeException : ExternalEditorException
+    {
+        internal ExternalEditorExchangeException(string message)
+            : base(message)
+        {
+        }
+
+        internal ExternalEditorExchangeException(string message, Exception innerException)
+            : base(message, innerException)
+        {
+        }
+    }
 }

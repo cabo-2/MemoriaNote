@@ -17,7 +17,7 @@ public sealed class ExternalEditorProcessRunnerTests
         const string documentPath = "/tmp/Page Draft \"one\".txt";
 
         var startInfo = ExternalEditorProcessRunner.CreateStartInfo(
-            executablePath,
+            new ExternalEditorCommand(executablePath),
             documentPath);
 
         using (Assert.EnterMultipleScope())
@@ -29,6 +29,29 @@ public sealed class ExternalEditorProcessRunnerTests
         }
     }
 
+    /// <summary>Verifies arguments stay separate and the file placeholder is expanded in place.</summary>
+    [Test]
+    public void CreateStartInfo_ExpandsFilePlaceholderWithoutUsingAShell()
+    {
+        const string documentPath = "/tmp/Page Draft.txt";
+        var command = new ExternalEditorCommand(
+            "code",
+            new[] { "--wait", "--file={file}" });
+
+        var startInfo = ExternalEditorProcessRunner.CreateStartInfo(
+            command,
+            documentPath);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(startInfo.FileName, Is.EqualTo("code"));
+            Assert.That(startInfo.UseShellExecute, Is.False);
+            Assert.That(
+                startInfo.ArgumentList,
+                Is.EqualTo(new[] { "--wait", $"--file={documentPath}" }));
+        }
+    }
+
     /// <summary>Verifies that a non-zero editor exit is reported as a failure.</summary>
     [Test]
     public void RunAsync_NonZeroExit_ThrowsAndDisposesProcess()
@@ -37,7 +60,7 @@ public sealed class ExternalEditorProcessRunnerTests
         var runner = CreateRunner(process);
 
         Func<Task> run = () => runner.RunAsync(
-            "editor",
+            new ExternalEditorCommand("editor"),
             "/tmp/document",
             CancellationToken.None);
 
@@ -60,7 +83,7 @@ public sealed class ExternalEditorProcessRunnerTests
             _ => throw new Win32Exception("executable missing"));
 
         Func<Task> run = () => runner.RunAsync(
-            "missing-editor",
+            new ExternalEditorCommand("missing-editor"),
             "/tmp/document",
             CancellationToken.None);
 
@@ -91,7 +114,7 @@ public sealed class ExternalEditorProcessRunnerTests
         var runner = CreateRunner(process);
 
         Func<Task> run = () => runner.RunAsync(
-            "editor",
+            new ExternalEditorCommand("editor"),
             "/tmp/document",
             cancellation.Token);
 

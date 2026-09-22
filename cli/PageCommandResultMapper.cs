@@ -54,6 +54,7 @@ namespace MemoriaNote.Cli
                 PageOperationStatus.OwnerNotFound => CliErrorKind.NotFound,
                 PageOperationStatus.PageNotFound => CliErrorKind.NotFound,
                 PageOperationStatus.ReadOnly => CliErrorKind.Conflict,
+                PageOperationStatus.Conflict => CliErrorKind.Conflict,
                 _ => throw new ArgumentOutOfRangeException(nameof(result))
             };
         }

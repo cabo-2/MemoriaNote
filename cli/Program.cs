@@ -111,21 +111,41 @@ namespace MemoriaNote.Cli
         [HelpOption("--help")]
         class EditCommand
         {
-            [Argument(0, Name = "name", Description = "text name")]
-            public (bool hasValue, string value) Name { get; set; }
+            public Program Parent { get; set; }
 
-            protected Task<int> OnExecuteAsync(
-                CommandLineApplication app,
-                CancellationToken cancellationToken)
+            [Argument(0, Name = "page-name", Description = "exact page name")]
+            public (bool hasValue, string value) PageName { get; set; }
+
+            [Option(
+                "--id <uuid-or-prefix>",
+                Description = "Select by a complete Page ID or a hexadecimal prefix")]
+            public string PageId { get; set; }
+
+            [Option(
+                "--notebook <path>",
+                Description = "Use this workspace-relative .mnote file")]
+            public string Notebook { get; set; }
+
+            [Option(
+                "--editor <executable>",
+                Description = "Use this editor for this invocation")]
+            public string Editor { get; set; }
+
+            [Option(
+                "--editor-arg <argument>",
+                CommandOptionType.MultipleValue,
+                Description = "Pass an argument to --editor; may be repeated")]
+            public string[] EditorArguments { get; set; }
+
+            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
-                if (!Name.hasValue)
-                {
-                    app.Error.WriteLine("Error: No name");
-                    return Task.FromResult((int)CliExitCode.Validation);
-                }
-
                 return CommandHandlers.Edit.ExecuteAsync(
-                    Name.value,
+                    Parent?.Workspace,
+                    Notebook,
+                    PageName.hasValue ? PageName.value : null,
+                    PageId,
+                    Editor,
+                    EditorArguments,
                     cancellationToken);
             }
         }
@@ -144,6 +164,17 @@ namespace MemoriaNote.Cli
                 Description = "Use this workspace-relative .mnote file for this invocation")]
             public string Notebook { get; set; }
 
+            [Option(
+                "--editor <executable>",
+                Description = "Use this editor for this invocation")]
+            public string Editor { get; set; }
+
+            [Option(
+                "--editor-arg <argument>",
+                CommandOptionType.MultipleValue,
+                Description = "Pass an argument to --editor; may be repeated")]
+            public string[] EditorArguments { get; set; }
+
             protected Task<int> OnExecuteAsync(
                 CommandLineApplication app,
                 CancellationToken cancellationToken)
@@ -158,6 +189,8 @@ namespace MemoriaNote.Cli
                     Parent?.Workspace,
                     Notebook,
                     Name.value,
+                    Editor,
+                    EditorArguments,
                     cancellationToken);
             }
         }
