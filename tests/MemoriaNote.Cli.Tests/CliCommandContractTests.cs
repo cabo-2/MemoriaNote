@@ -49,8 +49,9 @@ public sealed class CliCommandContractTests
         var summary = CreatePageSummary(fixture.NotebookId, "Existing page");
         var page = Page.Create(summary.Name, "Before");
         page.Guid = summary.PageId.Value;
-        fixture.Application.SearchAsyncHandler = (request, _) => Task.FromResult(
-            new SearchPage(new[] { summary }, 1, request.Offset, request.Limit));
+        fixture.Application.ResolvePageAsyncHandler = (_, _) => Task.FromResult(
+            PageTargetResolution.Succeeded(
+                new PageReference(summary.NotebookId, summary.PageId)));
         fixture.Application.ReadAsyncHandler = (_, _) => Task.FromResult(
             PageOperationResult.Succeeded(page));
         fixture.Editor.Results.Enqueue(ExternalEditorResult.Changed("After"));
@@ -64,8 +65,9 @@ public sealed class CliCommandContractTests
         {
             Assert.That(result, Is.Zero);
             Assert.That(fixture.Context.LoadCount, Is.EqualTo(1));
-            Assert.That(fixture.Context.CreateSessionCount, Is.EqualTo(1));
-            Assert.That(fixture.Context.SaveCount, Is.EqualTo(1));
+            Assert.That(fixture.Context.CreateSessionCount, Is.Zero);
+            Assert.That(fixture.Context.SaveCount, Is.Zero);
+            Assert.That(fixture.TargetResolver.ResolveCount, Is.EqualTo(1));
             Assert.That(fixture.Application.ReadAsyncCallCount, Is.EqualTo(1));
             Assert.That(fixture.Editor.Documents, Has.Count.EqualTo(1));
             Assert.That(fixture.Editor.Documents[0].FileName, Is.EqualTo("Existing page"));
@@ -94,7 +96,8 @@ public sealed class CliCommandContractTests
             Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardError,
-                Is.EqualTo("Error: No name" + Environment.NewLine));
+                Is.EqualTo(
+                    "Error: Specify a page name or --id." + Environment.NewLine));
         }
     }
 
@@ -403,7 +406,12 @@ public sealed class CliCommandContractTests
                 editor,
                 output,
                 new FindCommandHandler(executor),
-                new EditCommandHandler(executor, context, editor, output),
+                new EditCommandHandler(
+                    executor,
+                    context,
+                    targetResolver,
+                    editor,
+                    output),
                 new NewCommandHandler(
                     executor,
                     context,
@@ -474,6 +482,7 @@ public sealed class CliCommandContractTests
 
         public Task<ExternalEditorResult> EditAsync(
             ConfigurationCli configuration,
+            ExternalEditorCommand commandOverride,
             ExternalEditorDocument document,
             CancellationToken cancellationToken)
         {

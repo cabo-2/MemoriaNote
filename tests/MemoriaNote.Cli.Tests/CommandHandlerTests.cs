@@ -108,6 +108,7 @@ public sealed class CommandHandlerTests
 
         public Task<ExternalEditorResult> EditAsync(
             ConfigurationCli configuration,
+            ExternalEditorCommand commandOverride,
             ExternalEditorDocument document,
             CancellationToken cancellationToken)
         {

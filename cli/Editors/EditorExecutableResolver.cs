@@ -25,10 +25,15 @@ namespace MemoriaNote.Cli.Editors
                 throw new ArgumentNullException(nameof(environmentVariables));
         }
 
-        internal string Resolve(ConfigurationCli configuration)
+        internal ExternalEditorCommand Resolve(
+            ConfigurationCli configuration,
+            ExternalEditorCommand commandOverride)
         {
             if (configuration == null)
                 throw new ArgumentNullException(nameof(configuration));
+
+            if (commandOverride != null)
+                return commandOverride;
 
             var settings = configuration.Terminal ??
                 throw new ExternalEditorConfigurationException(
@@ -38,7 +43,7 @@ namespace MemoriaNote.Cli.Editors
                 var environmentEditor = _environmentVariables.Get(
                     ConfigurationCli.TerminalSetting.EditorEnvName);
                 if (!string.IsNullOrWhiteSpace(environmentEditor))
-                    return environmentEditor;
+                    return new ExternalEditorCommand(environmentEditor);
             }
 
             if (string.IsNullOrWhiteSpace(settings.EditorPath))
@@ -47,7 +52,7 @@ namespace MemoriaNote.Cli.Editors
                     "External editor path is not configured.");
             }
 
-            return settings.EditorPath;
+            return new ExternalEditorCommand(settings.EditorPath);
         }
     }
 }

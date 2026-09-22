@@ -107,6 +107,7 @@ namespace MemoriaNote.Cli
                     var document = NotebookMetadataEditDocument.Create(notebook.Metadata);
                     var editResult = await _externalEditor.EditAsync(
                         configuration,
+                        null,
                         new ExternalEditorDocument(
                             notebook.ToString(),
                             JsonConvert.SerializeObject(

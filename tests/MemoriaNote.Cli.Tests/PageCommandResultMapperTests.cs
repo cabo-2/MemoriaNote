@@ -74,4 +74,19 @@ public sealed class PageCommandResultMapperTests
 
         Assert.That(result.ExitCode, Is.EqualTo(CliExitCode.Conflict));
     }
+
+    /// <summary>Verifies that a concurrent edit is reported as a conflict.</summary>
+    [Test]
+    public void ToCliResult_ConcurrentEdit_ReturnsConflict()
+    {
+        var operation = PageOperationResult.Failed(
+            PageOperationStatus.Conflict,
+            PageErrorCode.ConcurrentEdit);
+
+        var result = PageCommandResultMapper.ToCliResult(
+            PageOperationKind.Edit,
+            operation);
+
+        Assert.That(result.ExitCode, Is.EqualTo(CliExitCode.Conflict));
+    }
 }

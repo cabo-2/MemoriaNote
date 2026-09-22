@@ -16,7 +16,7 @@ public sealed class EditorFileExchangeTests
         string? exchangePath = null;
 
         var result = await exchange.EditAsync(
-            new ExternalEditorDocument("Page name.txt", "before"),
+            new ExternalEditorDocument("Page name", "before"),
             async (path, token) =>
             {
                 exchangePath = path;
@@ -29,6 +29,9 @@ public sealed class EditorFileExchangeTests
             Assert.That(result.IsChanged, Is.True);
             Assert.That(result.Text, Is.EqualTo("after"));
             Assert.That(exchangePath, Is.Not.Null);
+            Assert.That(
+                Path.GetFileName(exchangePath),
+                Does.Match(@"^Page name_[0-9a-f]{16}\.txt$"));
             Assert.That(File.Exists(exchangePath), Is.False);
         }
     }
@@ -59,15 +62,15 @@ public sealed class EditorFileExchangeTests
         }
     }
 
-    /// <summary>Verifies that deleting the exchange file is treated as no change.</summary>
+    /// <summary>Verifies that deleting the exchange file is treated as an editor error.</summary>
     [Test]
-    public async Task EditAsync_DeletedFile_ReturnsUnchanged()
+    public void EditAsync_DeletedFile_ThrowsAndCleansDirectory()
     {
         using var directory = new TemporaryEditorDirectory();
         using var store = new TemporaryFileStore(directory.Path);
         var exchange = new EditorFileExchange(store);
 
-        var result = await exchange.EditAsync(
+        Func<Task> edit = () => exchange.EditAsync(
             new ExternalEditorDocument("Page name.txt", "same"),
             (path, _) =>
             {
@@ -76,12 +79,12 @@ public sealed class EditorFileExchangeTests
             },
             CancellationToken.None);
 
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result.IsChanged, Is.False);
-            Assert.That(result.Text, Is.EqualTo("same"));
-            Assert.That(Directory.EnumerateFiles(directory.Path), Is.Empty);
-        }
+        var exception = Assert.ThrowsAsync<ExternalEditorExchangeException>(edit);
+
+        Assert.That(
+            exception!.Message,
+            Is.EqualTo("The external editor removed the temporary document."));
+        Assert.That(Directory.EnumerateFiles(directory.Path), Is.Empty);
     }
 
     /// <summary>Verifies that process failures still remove the exchange file.</summary>
@@ -103,6 +106,25 @@ public sealed class EditorFileExchangeTests
             Assert.That(exception!.Message, Is.EqualTo("process failed"));
             Assert.That(Directory.EnumerateFiles(directory.Path), Is.Empty);
         }
+    }
+
+    /// <summary>Verifies invalid UTF-8 is rejected and the exchange file is removed.</summary>
+    [Test]
+    public void EditAsync_InvalidUtf8_ThrowsAndCleansFile()
+    {
+        using var directory = new TemporaryEditorDirectory();
+        using var store = new TemporaryFileStore(directory.Path);
+        var exchange = new EditorFileExchange(store);
+
+        Func<Task> edit = () => exchange.EditAsync(
+            new ExternalEditorDocument("Page name", "same"),
+            (path, _) => File.WriteAllBytesAsync(path, new byte[] { 0xff }),
+            CancellationToken.None);
+
+        var exception = Assert.ThrowsAsync<ExternalEditorExchangeException>(edit);
+
+        Assert.That(exception!.Message, Does.Contain("not valid UTF-8"));
+        Assert.That(Directory.EnumerateFiles(directory.Path), Is.Empty);
     }
 
     /// <summary>Verifies that cancellation still removes the exchange file.</summary>

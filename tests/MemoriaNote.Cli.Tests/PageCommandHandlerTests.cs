@@ -190,15 +190,15 @@ public sealed class PageCommandHandlerTests
     public async Task Edit_WhenTargetIsMissing_DoesNotReadOrEditPage()
     {
         var fixture = CommandFixture.Create();
-        fixture.Application.SearchAsyncHandler = (request, _) => Task.FromResult(
-            new SearchPage(Array.Empty<PageSummary>(), 0, request.Offset, request.Limit));
+        fixture.Application.ResolvePageAsyncHandler = (_, _) => Task.FromResult(
+            PageTargetResolution.Failed(PageTargetResolutionStatus.PageNotFound));
 
         var result = await fixture.Edit.ExecuteAsync("Missing page", CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.NotFound));
-            Assert.That(fixture.Application.SearchAsyncCallCount, Is.EqualTo(1));
+            Assert.That(fixture.Application.ResolvePageAsyncCallCount, Is.EqualTo(1));
             Assert.That(fixture.Application.ReadAsyncCallCount, Is.Zero);
             Assert.That(fixture.Editor.Documents, Is.Empty);
             Assert.That(fixture.Application.EditAsyncCallCount, Is.Zero);
@@ -210,10 +210,8 @@ public sealed class PageCommandHandlerTests
     public async Task Edit_WhenTargetIsAmbiguous_DoesNotReadOrEditPage()
     {
         var fixture = CommandFixture.Create();
-        var first = CreateSummary(fixture.NotebookId, "Daily");
-        var second = CreateSummary(fixture.NotebookId, "Daily");
-        fixture.Application.SearchAsyncHandler = (request, _) => Task.FromResult(
-            new SearchPage(new[] { first, second }, 2, request.Offset, request.Limit));
+        fixture.Application.ResolvePageAsyncHandler = (_, _) => Task.FromResult(
+            PageTargetResolution.Failed(PageTargetResolutionStatus.Conflict));
 
         var result = await fixture.Edit.ExecuteAsync("Daily", CancellationToken.None);
 
@@ -226,7 +224,7 @@ public sealed class PageCommandHandlerTests
         }
     }
 
-    /// <summary>Verifies that edit uses the owner-qualified search result and current body.</summary>
+    /// <summary>Verifies that edit uses the owner-qualified target and current body.</summary>
     [Test]
     public async Task Edit_WhenEditorChangesText_UsesOwnerQualifiedTargetAndUpdatesOnce()
     {
@@ -234,15 +232,11 @@ public sealed class PageCommandHandlerTests
         var summary = CreateSummary(fixture.NotebookId, "Daily");
         var page = Page.Create(summary.Name, "Current body");
         page.Guid = summary.PageId.Value;
-        SearchRequest? searchRequest = null;
         PageReference? readTarget = null;
         EditPageCommand? editCommand = null;
-        fixture.Application.SearchAsyncHandler = (request, _) =>
-        {
-            searchRequest = request;
-            return Task.FromResult(
-                new SearchPage(new[] { summary }, 1, request.Offset, request.Limit));
-        };
+        fixture.Application.ResolvePageAsyncHandler = (_, _) => Task.FromResult(
+            PageTargetResolution.Succeeded(
+                new PageReference(summary.NotebookId, summary.PageId)));
         fixture.Application.ReadAsyncHandler = (target, _) =>
         {
             readTarget = target;
@@ -260,12 +254,8 @@ public sealed class PageCommandHandlerTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.Zero);
-            Assert.That(searchRequest, Is.Not.Null);
-            Assert.That(searchRequest!.Query, Is.EqualTo("Daily"));
-            Assert.That(searchRequest.Scope, Is.EqualTo(SearchRangeType.Notebook));
-            Assert.That(searchRequest.Method, Is.EqualTo(SearchMethodType.Heading));
-            Assert.That(searchRequest.Offset, Is.Zero);
-            Assert.That(searchRequest.Limit, Is.EqualTo(2));
+            Assert.That(fixture.Application.ResolvePageAsyncCallCount, Is.EqualTo(1));
+            Assert.That(fixture.Application.SearchAsyncCallCount, Is.Zero);
             Assert.That(readTarget, Is.Not.Null);
             Assert.That(readTarget!.NotebookId, Is.EqualTo(summary.NotebookId));
             Assert.That(readTarget.PageId, Is.EqualTo(summary.PageId));
@@ -278,14 +268,69 @@ public sealed class PageCommandHandlerTests
             Assert.That(editCommand!.NotebookId, Is.EqualTo(summary.NotebookId));
             Assert.That(editCommand.PageId, Is.EqualTo(summary.PageId));
             Assert.That(editCommand.Text, Is.EqualTo("Edited body"));
-            Assert.That(fixture.Context.SaveCount, Is.EqualTo(1));
+            Assert.That(editCommand.HasExpectedText, Is.True);
+            Assert.That(editCommand.ExpectedText, Is.EqualTo("Current body"));
+            Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardOutput,
                 Does.Contain("The text updated successfully."));
         }
     }
 
-    /// <summary>Verifies that an unchanged edit reports a no-op and saves configuration.</summary>
+    /// <summary>Verifies invocation editor options override legacy selection as one command.</summary>
+    [Test]
+    public async Task Edit_WithEditorOptions_PassesExecutableAndArguments()
+    {
+        var fixture = CreateEditFixture("Current body");
+        fixture.Editor.Results.Enqueue(ExternalEditorResult.Unchanged("Current body"));
+
+        var result = await fixture.Edit.ExecuteAsync(
+            "workspace",
+            "work.mnote",
+            "Daily",
+            null,
+            "code",
+            new[] { "--wait", "{file}" },
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.Zero);
+            Assert.That(fixture.TargetResolver.WorkspaceOption, Is.EqualTo("workspace"));
+            Assert.That(fixture.TargetResolver.NotebookOption, Is.EqualTo("work.mnote"));
+            Assert.That(fixture.Editor.Commands, Has.Count.EqualTo(1));
+            Assert.That(fixture.Editor.Commands[0]?.ExecutablePath, Is.EqualTo("code"));
+            Assert.That(
+                fixture.Editor.Commands[0]?.Arguments,
+                Is.EqualTo(new[] { "--wait", "{file}" }));
+        }
+    }
+
+    /// <summary>Verifies editor arguments without an explicit executable fail before resolution.</summary>
+    [Test]
+    public async Task Edit_WithEditorArgumentsOnly_ReturnsValidationBeforeResolution()
+    {
+        var fixture = CommandFixture.Create();
+
+        var result = await fixture.Edit.ExecuteAsync(
+            null,
+            null,
+            "Daily",
+            null,
+            null,
+            new[] { "--wait" },
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(fixture.TargetResolver.ResolveCount, Is.Zero);
+            Assert.That(fixture.Context.LoadCount, Is.Zero);
+            Assert.That(fixture.Editor.Documents, Is.Empty);
+        }
+    }
+
+    /// <summary>Verifies that an unchanged edit reports a no-op without saving configuration.</summary>
     [Test]
     public async Task Edit_WhenEditorIsUnchanged_DoesNotUpdatePage()
     {
@@ -299,7 +344,7 @@ public sealed class PageCommandHandlerTests
             Assert.That(result, Is.Zero);
             Assert.That(fixture.Application.ValidateEditAsyncCallCount, Is.EqualTo(1));
             Assert.That(fixture.Application.EditAsyncCallCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.EqualTo(1));
+            Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardOutput,
                 Is.EqualTo("No changes." + Environment.NewLine));
@@ -405,8 +450,9 @@ public sealed class PageCommandHandlerTests
         var summary = CreateSummary(fixture.NotebookId, "Daily");
         var page = Page.Create(summary.Name, currentText);
         page.Guid = summary.PageId.Value;
-        fixture.Application.SearchAsyncHandler = (request, _) => Task.FromResult(
-            new SearchPage(new[] { summary }, 1, request.Offset, request.Limit));
+        fixture.Application.ResolvePageAsyncHandler = (_, _) => Task.FromResult(
+            PageTargetResolution.Succeeded(
+                new PageReference(summary.NotebookId, summary.PageId)));
         fixture.Application.ReadAsyncHandler = (_, _) => Task.FromResult(
             PageOperationResult.Succeeded(page));
         return fixture;
@@ -435,6 +481,7 @@ public sealed class PageCommandHandlerTests
             Notebook notebook,
             StubApplicationService application,
             RecordingContextFactory context,
+            StubNotebookTargetSessionResolver targetResolver,
             RecordingExternalEditor editor,
             RecordingCommandOutput output,
             NewCommandHandler @new,
@@ -445,6 +492,7 @@ public sealed class PageCommandHandlerTests
             Notebook = notebook;
             Application = application;
             Context = context;
+            TargetResolver = targetResolver;
             Editor = editor;
             Output = output;
             New = @new;
@@ -462,6 +510,8 @@ public sealed class PageCommandHandlerTests
         internal StubApplicationService Application { get; }
 
         internal RecordingContextFactory Context { get; }
+
+        internal StubNotebookTargetSessionResolver TargetResolver { get; }
 
         internal RecordingExternalEditor Editor { get; }
 
@@ -488,6 +538,7 @@ public sealed class PageCommandHandlerTests
             var application = new StubApplicationService();
             var session = new ApplicationSession(workspace, application);
             var context = new RecordingContextFactory(configuration, session);
+            var targetResolver = new StubNotebookTargetSessionResolver(session);
             var editor = new RecordingExternalEditor();
             var output = new RecordingCommandOutput();
             var executor = new CliCommandExecutor(
@@ -501,15 +552,21 @@ public sealed class PageCommandHandlerTests
                 notebook,
                 application,
                 context,
+                targetResolver,
                 editor,
                 output,
                 new NewCommandHandler(
                     executor,
                     context,
-                    new StubNotebookTargetSessionResolver(session),
+                    targetResolver,
                     editor,
                     output),
-                new EditCommandHandler(executor, context, editor, output));
+                new EditCommandHandler(
+                    executor,
+                    context,
+                    targetResolver,
+                    editor,
+                    output));
         }
     }
 
@@ -558,6 +615,8 @@ public sealed class PageCommandHandlerTests
 
         internal List<ExternalEditorDocument> Documents { get; } = new();
 
+        internal List<ExternalEditorCommand?> Commands { get; } = new();
+
         internal Func<
             ConfigurationCli,
             ExternalEditorDocument,
@@ -566,10 +625,12 @@ public sealed class PageCommandHandlerTests
 
         public Task<ExternalEditorResult> EditAsync(
             ConfigurationCli configuration,
+            ExternalEditorCommand commandOverride,
             ExternalEditorDocument document,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            Commands.Add(commandOverride);
             Documents.Add(document);
             if (EditAsyncHandler != null)
                 return EditAsyncHandler(configuration, document, cancellationToken);

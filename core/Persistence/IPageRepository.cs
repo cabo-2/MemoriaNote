@@ -211,6 +211,23 @@ namespace MemoriaNote.Persistence
         }
 
         /// <summary>
+        /// Atomically replaces a page body only when its persisted body still matches
+        /// the caller's expected value.
+        /// </summary>
+        /// <param name="notebookId">The identifier of the owning notebook.</param>
+        /// <param name="pageId">The identifier of the page.</param>
+        /// <param name="expectedText">The body originally read by the caller.</param>
+        /// <param name="replacementText">The replacement body.</param>
+        /// <param name="token">The cancellation token for the database operation.</param>
+        /// <returns>The classified compare-and-update result.</returns>
+        Task<PageTextUpdateResult> TryUpdatePageTextAsync(
+            NotebookId notebookId,
+            PageId pageId,
+            string expectedText,
+            string replacementText,
+            CancellationToken token);
+
+        /// <summary>
         /// Deletes a page by its stable identifier and compacts its exact-heading group.
         /// </summary>
         /// <param name="databasePath">The path of the notebook database.</param>

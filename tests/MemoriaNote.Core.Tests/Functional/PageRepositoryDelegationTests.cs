@@ -86,6 +86,16 @@ public sealed class PageRepositoryDelegationTests
             throw new NotSupportedException();
         }
 
+        public Task<PageTextUpdateResult> TryUpdatePageTextAsync(
+            NotebookId notebookId,
+            PageId pageId,
+            string expectedText,
+            string replacementText,
+            CancellationToken token)
+        {
+            throw new NotSupportedException();
+        }
+
         public Task DeletePageAsync(
             string dataSource,
             Guid pageId,

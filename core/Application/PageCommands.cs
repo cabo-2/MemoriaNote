@@ -93,6 +93,24 @@ namespace MemoriaNote.Application
         }
 
         /// <summary>
+        /// Initializes a page edit command that rejects a concurrently changed body.
+        /// </summary>
+        /// <param name="notebookId">The identifier of the owning note.</param>
+        /// <param name="pageId">The identifier of the page.</param>
+        /// <param name="text">The replacement page text.</param>
+        /// <param name="expectedText">The page text originally read by the caller.</param>
+        public EditPageCommand(
+            NotebookId notebookId,
+            PageId pageId,
+            string text,
+            string expectedText)
+            : this(notebookId, pageId, text)
+        {
+            ExpectedText = expectedText;
+            HasExpectedText = true;
+        }
+
+        /// <summary>
         /// Gets the owner-qualified page reference.
         /// </summary>
         public PageReference Target { get; }
@@ -111,6 +129,12 @@ namespace MemoriaNote.Application
         /// Gets the replacement page text.
         /// </summary>
         public string Text { get; }
+
+        /// <summary>Gets whether a concurrent-body check was requested.</summary>
+        public bool HasExpectedText { get; }
+
+        /// <summary>Gets the body that must still be persisted before the update.</summary>
+        public string ExpectedText { get; }
     }
 
     /// <summary>

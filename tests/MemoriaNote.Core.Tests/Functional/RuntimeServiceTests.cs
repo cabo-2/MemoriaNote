@@ -99,6 +99,24 @@ public sealed class RuntimeServiceTests
         }
     }
 
+    /// <summary>Verifies that source names remain recognizable without creating paths.</summary>
+    [Test]
+    public void TemporaryFileStore_SourceName_IsSanitizedAndUsesRandomSuffix()
+    {
+        using var directory = new TemporaryDirectory();
+        using var store = new TemporaryFileStore(directory.Path);
+        using var lease = store.CreateFile("Meeting/Project?.txt");
+
+        var fileName = Path.GetFileName(lease.Path);
+
+        Assert.That(
+            fileName,
+            Does.Match(@"^Meeting_Project__[a-f0-9]{16}\.txt$"));
+        Assert.That(
+            Path.GetDirectoryName(lease.Path),
+            Is.EqualTo(Path.GetFullPath(directory.Path)));
+    }
+
     /// <summary>Verifies that store disposal cleans every outstanding reservation.</summary>
     [Test]
     public void TemporaryFileStore_StoreDisposal_CleansOutstandingFiles()

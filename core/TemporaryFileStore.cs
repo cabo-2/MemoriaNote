@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace MemoriaNote
 {
@@ -52,6 +53,7 @@ namespace MemoriaNote
             {
                 ThrowIfDisposed();
                 Directory.CreateDirectory(WorkingDirectory);
+                RestrictDirectoryAccess(WorkingDirectory);
 
                 while (true)
                 {
@@ -65,6 +67,7 @@ namespace MemoriaNote
                             FileShare.None))
                         {
                         }
+                        RestrictFileAccess(path);
 
                         var lease = new TemporaryFileLease(path, Release);
                         _leases.Add(lease);
@@ -97,16 +100,62 @@ namespace MemoriaNote
 
         string CreateCandidatePath(string fileName)
         {
-            var randomName = System.IO.Path.GetRandomFileName().Replace(".", string.Empty);
+            var randomName = Guid.NewGuid().ToString("N").Substring(0, 16);
             if (string.IsNullOrWhiteSpace(fileName))
                 return System.IO.Path.Combine(WorkingDirectory, randomName + ".txt");
 
-            var safeFileName = System.IO.Path.GetFileName(fileName);
+            var safeFileName = SanitizeFileName(fileName);
             var stem = System.IO.Path.GetFileNameWithoutExtension(safeFileName);
             var extension = System.IO.Path.GetExtension(safeFileName);
+            if (stem.Length > 80)
+                stem = stem.Substring(0, 80);
             return System.IO.Path.Combine(
                 WorkingDirectory,
                 stem + "_" + randomName + extension);
+        }
+
+        static string SanitizeFileName(string fileName)
+        {
+            var invalidCharacters = System.IO.Path
+                .GetInvalidFileNameChars()
+                .ToHashSet();
+            foreach (var character in "<>:\"/\\|?*")
+                invalidCharacters.Add(character);
+            var characters = fileName
+                .Select(character =>
+                    invalidCharacters.Contains(character) ||
+                    character == '/' ||
+                    character == '\\' ||
+                    char.IsControl(character)
+                        ? '_'
+                        : character)
+                .ToArray();
+            var sanitized = new string(characters).TrimEnd(' ', '.');
+            return string.IsNullOrWhiteSpace(sanitized)
+                ? "page.txt"
+                : sanitized;
+        }
+
+        static void RestrictDirectoryAccess(string path)
+        {
+            if (OperatingSystem.IsWindows())
+                return;
+
+            File.SetUnixFileMode(
+                path,
+                UnixFileMode.UserRead |
+                UnixFileMode.UserWrite |
+                UnixFileMode.UserExecute);
+        }
+
+        static void RestrictFileAccess(string path)
+        {
+            if (OperatingSystem.IsWindows())
+                return;
+
+            File.SetUnixFileMode(
+                path,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
 
         void Release(TemporaryFileLease lease)

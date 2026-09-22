@@ -134,7 +134,12 @@ namespace MemoriaNote.Cli
                     createNotebook,
                     output),
                 new FindCommandHandler(executor),
-                new EditCommandHandler(executor, contextFactory, externalEditor, output),
+                new EditCommandHandler(
+                    executor,
+                    contextFactory,
+                    notebookTargetResolver,
+                    externalEditor,
+                    output),
                 new NewCommandHandler(
                     executor,
                     contextFactory,

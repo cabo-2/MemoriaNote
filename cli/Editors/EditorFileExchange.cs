@@ -16,6 +16,10 @@ namespace MemoriaNote.Cli.Editors
 
     internal sealed class EditorFileExchange : IEditorFileExchange
     {
+        static readonly Encoding StrictUtf8 = new UTF8Encoding(
+            encoderShouldEmitUTF8Identifier: false,
+            throwOnInvalidBytes: true);
+
         readonly ITemporaryFileStore _temporaryFileStore;
 
         internal EditorFileExchange(ITemporaryFileStore temporaryFileStore)
@@ -34,20 +38,44 @@ namespace MemoriaNote.Cli.Editors
             if (editFile == null)
                 throw new ArgumentNullException(nameof(editFile));
 
-            using var temporaryFile = _temporaryFileStore.CreateFile(document.FileName);
-            await File.WriteAllTextAsync(
-                temporaryFile.Path,
-                document.Text,
-                cancellationToken);
+            using var temporaryFile = _temporaryFileStore.CreateFile(
+                document.FileName + ".txt");
+            try
+            {
+                await File.WriteAllTextAsync(
+                    temporaryFile.Path,
+                    document.Text,
+                    StrictUtf8,
+                    cancellationToken);
+            }
+            catch (EncoderFallbackException exception)
+            {
+                throw new ExternalEditorExchangeException(
+                    "The stored document cannot be encoded as valid UTF-8.",
+                    exception);
+            }
             await editFile(temporaryFile.Path, cancellationToken);
 
             if (!File.Exists(temporaryFile.Path))
-                return ExternalEditorResult.Unchanged(document.Text);
+            {
+                throw new ExternalEditorExchangeException(
+                    "The external editor removed the temporary document.");
+            }
 
-            var editedText = await File.ReadAllTextAsync(
-                temporaryFile.Path,
-                Encoding.UTF8,
-                cancellationToken);
+            string editedText;
+            try
+            {
+                editedText = await File.ReadAllTextAsync(
+                    temporaryFile.Path,
+                    StrictUtf8,
+                    cancellationToken);
+            }
+            catch (DecoderFallbackException exception)
+            {
+                throw new ExternalEditorExchangeException(
+                    "The external editor produced a document that is not valid UTF-8.",
+                    exception);
+            }
             return document.Text == editedText
                 ? ExternalEditorResult.Unchanged(document.Text)
                 : ExternalEditorResult.Changed(editedText);

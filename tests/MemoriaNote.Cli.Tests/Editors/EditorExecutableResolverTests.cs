@@ -14,9 +14,9 @@ public sealed class EditorExecutableResolverTests
         var resolver = new EditorExecutableResolver(
             new StubEnvironmentVariableSource("environment-editor"));
 
-        var result = resolver.Resolve(configuration);
+        var result = resolver.Resolve(configuration, null);
 
-        Assert.That(result, Is.EqualTo("environment-editor"));
+        Assert.That(result.ExecutablePath, Is.EqualTo("environment-editor"));
     }
 
     /// <summary>Verifies that disabling environment lookup uses the configured path.</summary>
@@ -27,9 +27,9 @@ public sealed class EditorExecutableResolverTests
         var resolver = new EditorExecutableResolver(
             new StubEnvironmentVariableSource("environment-editor"));
 
-        var result = resolver.Resolve(configuration);
+        var result = resolver.Resolve(configuration, null);
 
-        Assert.That(result, Is.EqualTo("configured-editor"));
+        Assert.That(result.ExecutablePath, Is.EqualTo("configured-editor"));
     }
 
     /// <summary>Verifies that an empty environment value falls back to configuration.</summary>
@@ -42,9 +42,9 @@ public sealed class EditorExecutableResolverTests
         var resolver = new EditorExecutableResolver(
             new StubEnvironmentVariableSource(environmentValue));
 
-        var result = resolver.Resolve(configuration);
+        var result = resolver.Resolve(configuration, null);
 
-        Assert.That(result, Is.EqualTo("configured-editor"));
+        Assert.That(result.ExecutablePath, Is.EqualTo("configured-editor"));
     }
 
     /// <summary>Verifies that an unresolved editor produces a clear failure.</summary>
@@ -55,12 +55,28 @@ public sealed class EditorExecutableResolverTests
         var resolver = new EditorExecutableResolver(
             new StubEnvironmentVariableSource(null));
 
-        Action resolve = () => resolver.Resolve(configuration);
+        Action resolve = () => resolver.Resolve(configuration, null);
 
         Assert.That(
             resolve,
             Throws.TypeOf<ExternalEditorConfigurationException>()
                 .With.Message.EqualTo("External editor path is not configured."));
+    }
+
+    /// <summary>Verifies an invocation override bypasses environment and configuration.</summary>
+    [Test]
+    public void Resolve_CommandOverride_HasHighestPriority()
+    {
+        var configuration = CreateConfiguration("configured-editor", useEnvironment: true);
+        var resolver = new EditorExecutableResolver(
+            new StubEnvironmentVariableSource("environment-editor"));
+        var commandOverride = new ExternalEditorCommand(
+            "explicit-editor",
+            new[] { "--wait" });
+
+        var result = resolver.Resolve(configuration, commandOverride);
+
+        Assert.That(result, Is.SameAs(commandOverride));
     }
 
     static ConfigurationCli CreateConfiguration(

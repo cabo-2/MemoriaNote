@@ -312,6 +312,32 @@ public sealed class PageUseCaseTests
         Assert.That(result.Status, Is.EqualTo(PageOperationStatus.PageNotFound));
     }
 
+    /// <summary>Verifies an expected body prevents overwriting a concurrent edit.</summary>
+    [Test]
+    public async Task EditAsync_ExpectedBodyChanged_ReturnsConflict()
+    {
+        var notebookId = CreateNotebookId("concurrent-edit");
+        var pageId = PageId.FromGuid(Guid.NewGuid());
+        var repository = new FakeNoteRepository(
+            CreatePage(pageId, "Existing", "Concurrent body"));
+        var useCase = CreateUseCase((notebookId, false, repository));
+
+        var result = await useCase.EditAsync(
+            new EditPageCommand(
+                notebookId,
+                pageId,
+                "My body",
+                expectedText: "Original body"),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Status, Is.EqualTo(PageOperationStatus.Conflict));
+            Assert.That(result.Errors, Is.EqualTo(new[] { PageErrorCode.ConcurrentEdit }));
+            Assert.That(repository.Pages.Single().Text, Is.EqualTo("Concurrent body"));
+        }
+    }
+
     /// <summary>
     /// Verifies cancellation reaches repository-backed validation.
     /// </summary>
@@ -497,6 +523,31 @@ public sealed class PageUseCaseTests
                 throw new KeyNotFoundException();
 
             return Task.FromResult(page);
+        }
+
+        public Task<PageTextUpdateResult> TryUpdatePageTextAsync(
+            NotebookId notebookId,
+            PageId pageId,
+            string expectedText,
+            string replacementText,
+            CancellationToken token)
+        {
+            MutationCount++;
+            token.ThrowIfCancellationRequested();
+            var page = _pages.SingleOrDefault(candidate => candidate.Guid == pageId.Value);
+            if (page == null)
+            {
+                return Task.FromResult(PageTextUpdateResult.Failed(
+                    PageTextUpdateStatus.PageNotFound));
+            }
+            if (!string.Equals(page.Text, expectedText, StringComparison.Ordinal))
+            {
+                return Task.FromResult(PageTextUpdateResult.Failed(
+                    PageTextUpdateStatus.Conflict));
+            }
+
+            page.Text = replacementText;
+            return Task.FromResult(PageTextUpdateResult.Succeeded(page));
         }
 
         public Task DeletePageAsync(

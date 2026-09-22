@@ -52,6 +52,7 @@ namespace MemoriaNote.Cli
                     retry = false;
                     var editResult = await _externalEditor.EditAsync(
                         configuration,
+                        null,
                         new ExternalEditorDocument(
                             Path.GetFileName(_applicationPaths.ConfigurationPath),
                             _serializer.Serialize(configuration)),

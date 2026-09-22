@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Domain;
 using MemoriaNote.Models;
+using MemoriaNote.Persistence;
 
 namespace MemoriaNote.Application
 {
@@ -178,6 +179,29 @@ namespace MemoriaNote.Application
             var validation = await ValidateEditCoreAsync(command, token).ConfigureAwait(false);
             if (!validation.Result.IsSuccess)
                 return validation.Result;
+
+            if (command.HasExpectedText)
+            {
+                var conditionalResult = await validation.Context.PageRepository
+                    .TryUpdatePageTextAsync(
+                        command.NotebookId,
+                        command.PageId,
+                        command.ExpectedText,
+                        command.Text,
+                        token)
+                    .ConfigureAwait(false);
+                return conditionalResult.Status switch
+                {
+                    PageTextUpdateStatus.Success => PageOperationResult.Succeeded(
+                        conditionalResult.Page),
+                    PageTextUpdateStatus.PageNotFound => PageNotFound(),
+                    PageTextUpdateStatus.Conflict => PageOperationResult.Failed(
+                        PageOperationStatus.Conflict,
+                        PageErrorCode.ConcurrentEdit),
+                    _ => throw new ArgumentOutOfRangeException(
+                        nameof(conditionalResult.Status))
+                };
+            }
 
             validation.Page.Text = command.Text;
             try

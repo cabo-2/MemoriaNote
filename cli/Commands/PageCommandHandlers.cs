@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Application;
@@ -37,18 +38,22 @@ namespace MemoriaNote.Cli
     {
         readonly CliCommandExecutor _executor;
         readonly ICliCommandContextFactory _contextFactory;
+        readonly INotebookTargetSessionResolver _targetResolver;
         readonly IExternalEditor _externalEditor;
         readonly ICommandOutput _output;
 
         internal EditCommandHandler(
             CliCommandExecutor executor,
             ICliCommandContextFactory contextFactory,
+            INotebookTargetSessionResolver targetResolver,
             IExternalEditor externalEditor,
             ICommandOutput output)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
             _contextFactory = contextFactory ??
                 throw new ArgumentNullException(nameof(contextFactory));
+            _targetResolver = targetResolver ??
+                throw new ArgumentNullException(nameof(targetResolver));
             _externalEditor = externalEditor ??
                 throw new ArgumentNullException(nameof(externalEditor));
             _output = output ?? throw new ArgumentNullException(nameof(output));
@@ -58,18 +63,47 @@ namespace MemoriaNote.Cli
             string name,
             CancellationToken cancellationToken)
         {
+            return ExecuteAsync(
+                null,
+                null,
+                name,
+                null,
+                null,
+                null,
+                cancellationToken);
+        }
+
+        internal Task<int> ExecuteAsync(
+            string workspaceOption,
+            string notebookOption,
+            string pageName,
+            string pageId,
+            string editorPath,
+            IEnumerable<string> editorArguments,
+            CancellationToken cancellationToken)
+        {
             return _executor.ExecuteAsync(async token =>
             {
-                if (string.IsNullOrWhiteSpace(name))
+                if (!PageTargetCommandParser.TryCreateSelector(
+                    pageName,
+                    pageId,
+                    out var selector,
+                    out var selectorFailure))
+                    return selectorFailure;
+                if (!EditorCommandOptionParser.TryCreate(
+                    editorPath,
+                    editorArguments,
+                    out var commandOverride,
+                    out var editorFailure))
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.Validation,
-                        "No name");
+                        editorFailure);
                 }
 
-                var configuration = _contextFactory.LoadConfiguration();
-                var session = await _contextFactory.CreateSessionAsync(
-                    configuration,
+                var session = await _targetResolver.ResolveAsync(
+                    workspaceOption,
+                    notebookOption,
                     token);
                 var selectedNotebook = session.Workspace.SelectedNotebook;
                 if (selectedNotebook == null)
@@ -79,29 +113,19 @@ namespace MemoriaNote.Cli
                         "No selected notebook");
                 }
 
-                var notebookId = NotebookId.FromDatabasePath(selectedNotebook.DatabasePath);
-                var searchResult = await session.ApplicationService.SearchAsync(
-                    SearchRequest.ForNotebook(
-                        name,
-                        SearchMethodType.Heading,
-                        notebookId,
-                        offset: 0,
-                        limit: 2),
+                var resolution = await session.ApplicationService.ResolvePageAsync(
+                    new PageTargetRequest(
+                        NotebookId.FromDatabasePath(selectedNotebook.DatabasePath),
+                        selector),
                     token);
-                if (searchResult.TotalCount == 0 || searchResult.Items.Count == 0)
+                if (!resolution.IsSuccess)
                 {
-                    return PageCommandResultMapper.NotFound(PageOperationKind.Edit);
+                    return PageTargetCommandParser.ToResolutionFailure(
+                        resolution.Status,
+                        selector);
                 }
 
-                if (searchResult.TotalCount >= 2 || searchResult.Items.Count >= 2)
-                {
-                    return CliCommandResult.Failure(
-                        CliErrorKind.Conflict,
-                        "More than one text matched the supplied name.");
-                }
-
-                var summary = searchResult.Items[0];
-                var target = new PageReference(summary.NotebookId, summary.PageId);
+                var target = resolution.Target;
                 var readResult = await session.ApplicationService.ReadAsync(target, token);
                 if (!readResult.IsSuccess)
                 {
@@ -112,10 +136,11 @@ namespace MemoriaNote.Cli
 
                 var page = readResult.Page ??
                     throw new InvalidOperationException("A successful page read returned no page.");
+                var initialText = page.Text ?? string.Empty;
                 var initialCommand = new EditPageCommand(
                     target.NotebookId,
                     target.PageId,
-                    page.Text);
+                    initialText);
                 var initialValidation = await session.ApplicationService.ValidateEditAsync(
                     initialCommand,
                     token);
@@ -126,13 +151,14 @@ namespace MemoriaNote.Cli
                         initialValidation);
                 }
 
+                var configuration = _contextFactory.LoadConfiguration();
                 var editorResult = await _externalEditor.EditAsync(
                     configuration,
-                    new ExternalEditorDocument(page.Name, page.Text),
+                    commandOverride,
+                    new ExternalEditorDocument(page.Name, initialText),
                     token);
                 if (!editorResult.IsChanged)
                 {
-                    _contextFactory.SaveConfiguration(configuration);
                     _output.WriteLine("No changes.");
                     return CliCommandResult.Success();
                 }
@@ -140,7 +166,8 @@ namespace MemoriaNote.Cli
                 var editedCommand = new EditPageCommand(
                     target.NotebookId,
                     target.PageId,
-                    editorResult.Text);
+                    editorResult.Text,
+                    page.Text);
                 var editedValidation = await session.ApplicationService.ValidateEditAsync(
                     editedCommand,
                     token);
@@ -161,7 +188,6 @@ namespace MemoriaNote.Cli
                         editResult);
                 }
 
-                _contextFactory.SaveConfiguration(configuration);
                 _output.WriteLine(
                     PageOperationMessageMapper.ToSuccessNotification(PageOperationKind.Edit));
                 return CliCommandResult.Success();
@@ -207,6 +233,23 @@ namespace MemoriaNote.Cli
             string name,
             CancellationToken cancellationToken)
         {
+            return ExecuteAsync(
+                workspaceOption,
+                notebookOption,
+                name,
+                null,
+                null,
+                cancellationToken);
+        }
+
+        internal Task<int> ExecuteAsync(
+            string workspaceOption,
+            string notebookOption,
+            string name,
+            string editorPath,
+            IEnumerable<string> editorArguments,
+            CancellationToken cancellationToken)
+        {
             return _executor.ExecuteAsync(async token =>
             {
                 if (name == null)
@@ -214,6 +257,16 @@ namespace MemoriaNote.Cli
                     return CliCommandResult.Failure(
                         CliErrorKind.Validation,
                         "No name");
+                }
+                if (!EditorCommandOptionParser.TryCreate(
+                    editorPath,
+                    editorArguments,
+                    out var commandOverride,
+                    out var editorFailure))
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Validation,
+                        editorFailure);
                 }
 
                 var session = await _targetResolver.ResolveAsync(
@@ -246,6 +299,7 @@ namespace MemoriaNote.Cli
 
                 var editorResult = await _externalEditor.EditAsync(
                     configuration,
+                    commandOverride,
                     new ExternalEditorDocument(name, string.Empty),
                     token);
                 if (!editorResult.IsChanged)
@@ -377,39 +431,12 @@ namespace MemoriaNote.Cli
         {
             return _executor.ExecuteAsync(async token =>
             {
-                var hasName = pageName != null;
-                var hasPageId = pageId != null;
-                if (!hasName && !hasPageId)
-                {
-                    return CliCommandResult.Failure(
-                        CliErrorKind.Validation,
-                        "Specify a page name or --id.");
-                }
-                if (hasName && hasPageId)
-                {
-                    return CliCommandResult.Failure(
-                        CliErrorKind.Validation,
-                        "A page name and --id cannot be used together.");
-                }
-
-                PageSelector selector;
-                if (hasName)
-                {
-                    if (string.IsNullOrWhiteSpace(pageName))
-                    {
-                        return CliCommandResult.Failure(
-                            CliErrorKind.Validation,
-                            "The page name cannot be empty or whitespace.");
-                    }
-                    selector = PageSelector.FromName(pageName);
-                }
-                else if (!PageSelector.TryFromPageId(pageId, out selector))
-                {
-                    return CliCommandResult.Failure(
-                        CliErrorKind.Validation,
-                        "Page ID must be a complete UUID or a prefix of 4 to 32 " +
-                        "hexadecimal characters.");
-                }
+                if (!PageTargetCommandParser.TryCreateSelector(
+                    pageName,
+                    pageId,
+                    out var selector,
+                    out var selectorFailure))
+                    return selectorFailure;
 
                 var session = await _targetResolver.ResolveAsync(
                     workspaceOption,
@@ -429,7 +456,11 @@ namespace MemoriaNote.Cli
                         selector),
                     token);
                 if (!resolution.IsSuccess)
-                    return ToResolutionFailure(resolution.Status, selector);
+                {
+                    return PageTargetCommandParser.ToResolutionFailure(
+                        resolution.Status,
+                        selector);
+                }
 
                 var readResult = await session.ApplicationService.ReadAsync(
                     resolution.Target,
@@ -448,29 +479,5 @@ namespace MemoriaNote.Cli
             }, cancellationToken);
         }
 
-        static CliCommandResult ToResolutionFailure(
-            PageTargetResolutionStatus status,
-            PageSelector selector)
-        {
-            return status switch
-            {
-                PageTargetResolutionStatus.OwnerNotFound => CliCommandResult.Failure(
-                    CliErrorKind.NotFound,
-                    "The target notebook was not found."),
-                PageTargetResolutionStatus.PageNotFound => CliCommandResult.Failure(
-                    CliErrorKind.NotFound,
-                    selector.IsName
-                        ? "No page matched the supplied name."
-                        : "No page matched the supplied Page ID."),
-                PageTargetResolutionStatus.Conflict => CliCommandResult.Failure(
-                    CliErrorKind.Conflict,
-                    selector.IsName
-                        ? "More than one page matched the supplied name. " +
-                            "Use --id to select one."
-                        : "The Page ID prefix matched more than one page. " +
-                            "Specify more characters."),
-                _ => throw new ArgumentOutOfRangeException(nameof(status))
-            };
-        }
     }
 }
