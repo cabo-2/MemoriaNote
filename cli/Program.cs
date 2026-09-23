@@ -17,6 +17,7 @@ namespace MemoriaNote.Cli
         typeof(WorkCommand),
         typeof(ListCommand),
         typeof(CatCommand),
+        typeof(PageCommand),
         typeof(ImportCommand),
         typeof(ExportCommand))]
     [HelpOption("--help")]
@@ -463,6 +464,59 @@ namespace MemoriaNote.Cli
                     PageId,
                     cancellationToken);
             }
+        }
+
+        [Command("page", Description = "Manage pages")]
+        [Subcommand(typeof(RenamePageCommand))]
+        [HelpOption("--help")]
+        class PageCommand
+        {
+            protected Task<int> OnExecuteAsync(CommandLineApplication app)
+            {
+                app.ShowHint();
+                return Task.FromResult((int)CliExitCode.Success);
+            }
+
+            [Command("rename", Description = "Rename one page without changing its Page ID")]
+            [HelpOption("--help")]
+            class RenamePageCommand
+            {
+                public PageCommand Parent { get; set; }
+
+                [Argument(0, Name = "page-name", Description = "exact current page name")]
+                public (bool hasValue, string value) PageName { get; set; }
+
+                [Argument(1, Name = "new-name", Description = "replacement page name")]
+                public (bool hasValue, string value) NewName { get; set; }
+
+                [Option(
+                    "--id <uuid-or-prefix>",
+                    Description = "Select by a complete Page ID or a hexadecimal prefix")]
+                public string PageId { get; set; }
+
+                [Option(
+                    "--notebook <path>",
+                    Description = "Use this workspace-relative .mnote file")]
+                public string Notebook { get; set; }
+
+                protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+                {
+                    var selectingById = PageId != null;
+                    return CommandHandlers.RenamePage.ExecuteAsync(
+                        Parent?.Parent?.Workspace,
+                        Notebook,
+                        selectingById && !NewName.hasValue
+                            ? null
+                            : PageName.hasValue ? PageName.value : null,
+                        PageId,
+                        selectingById && !NewName.hasValue
+                            ? PageName.hasValue ? PageName.value : null
+                            : NewName.hasValue ? NewName.value : null,
+                        cancellationToken);
+                }
+            }
+
+            public Program Parent { get; set; }
         }
 
         [Command(

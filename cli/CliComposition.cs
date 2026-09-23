@@ -168,6 +168,10 @@ namespace MemoriaNote.Cli
                     executor,
                     notebookTargetResolver,
                     output),
+                new RenamePageCommandHandler(
+                    executor,
+                    notebookTargetResolver,
+                    output),
                 new WorkSelectCommandHandler(executor, contextFactory),
                 new WorkListCommandHandler(executor, contextFactory, output),
                 new WorkCreateCommandHandler(

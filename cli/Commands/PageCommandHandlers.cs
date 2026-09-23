@@ -480,4 +480,90 @@ namespace MemoriaNote.Cli
         }
 
     }
+
+    internal sealed class RenamePageCommandHandler
+    {
+        readonly CliCommandExecutor _executor;
+        readonly INotebookTargetSessionResolver _targetResolver;
+        readonly ICommandOutput _output;
+
+        internal RenamePageCommandHandler(
+            CliCommandExecutor executor,
+            INotebookTargetSessionResolver targetResolver,
+            ICommandOutput output)
+        {
+            _executor = executor ?? throw new ArgumentNullException(nameof(executor));
+            _targetResolver = targetResolver ??
+                throw new ArgumentNullException(nameof(targetResolver));
+            _output = output ?? throw new ArgumentNullException(nameof(output));
+        }
+
+        internal Task<int> ExecuteAsync(
+            string workspaceOption,
+            string notebookOption,
+            string pageName,
+            string pageId,
+            string newName,
+            CancellationToken cancellationToken)
+        {
+            return _executor.ExecuteAsync(async token =>
+            {
+                if (!PageTargetCommandParser.TryCreateSelector(
+                    pageName,
+                    pageId,
+                    out var selector,
+                    out var selectorFailure))
+                    return selectorFailure;
+                if (newName == null)
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Validation,
+                        "Specify a new page name.");
+                }
+
+                var session = await _targetResolver.ResolveAsync(
+                    workspaceOption,
+                    notebookOption,
+                    token);
+                var selectedNotebook = session.Workspace.SelectedNotebook;
+                if (selectedNotebook == null)
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.NotFound,
+                        "No selected notebook");
+                }
+
+                var resolution = await session.ApplicationService.ResolvePageAsync(
+                    new PageTargetRequest(
+                        NotebookId.FromDatabasePath(selectedNotebook.DatabasePath),
+                        selector),
+                    token);
+                if (!resolution.IsSuccess)
+                {
+                    return PageTargetCommandParser.ToResolutionFailure(
+                        resolution.Status,
+                        selector);
+                }
+
+                var target = resolution.Target;
+                var renameResult = await session.ApplicationService.RenameAsync(
+                    new MemoriaNote.Application.RenamePageCommand(
+                        target.NotebookId,
+                        target.PageId,
+                        newName),
+                    token);
+                if (!renameResult.IsSuccess)
+                {
+                    return PageCommandResultMapper.ToCliResult(
+                        PageOperationKind.Rename,
+                        renameResult);
+                }
+
+                _output.WriteLine(
+                    PageOperationMessageMapper.ToSuccessNotification(
+                        PageOperationKind.Rename));
+                return CliCommandResult.Success();
+            }, cancellationToken);
+        }
+    }
 }

@@ -82,6 +82,8 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
     internal Func<RenamePageCommand, CancellationToken, Task<PageOperationResult>> RenameAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(PageOperationResult.Succeeded());
 
+    internal int RenameAsyncCallCount { get; private set; }
+
     internal Func<DeletePageCommand, CancellationToken, Task<PageOperationResult>> DeleteAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(PageOperationResult.Succeeded());
 
@@ -179,6 +181,7 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
         RenamePageCommand command,
         CancellationToken token)
     {
+        RenameAsyncCallCount++;
         return RenameAsyncHandler(command, token);
     }
 
