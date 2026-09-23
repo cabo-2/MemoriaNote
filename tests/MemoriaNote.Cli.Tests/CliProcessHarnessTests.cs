@@ -39,7 +39,8 @@ public sealed class CliProcessHarnessTests
             "create",
             "edit",
             "ls",
-            "new"
+            "new",
+            "rename"
         };
         foreach (var command in visibleCommands)
         {
@@ -55,6 +56,7 @@ public sealed class CliProcessHarnessTests
             "export",
             "find",
             "import",
+            "page",
             "work"
         };
         foreach (var command in hiddenCommands)

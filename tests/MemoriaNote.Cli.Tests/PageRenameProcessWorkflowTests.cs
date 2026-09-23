@@ -24,7 +24,6 @@ public sealed class PageRenameProcessWorkflowTests
             CancellationToken.None);
 
         var result = await harness.RunAsync(
-            "page",
             "rename",
             "Meeting - Project A",
             "Meeting - Project B");
@@ -77,12 +76,10 @@ public sealed class PageRenameProcessWorkflowTests
             CancellationToken.None);
 
         var ambiguous = await harness.RunAsync(
-            "page",
             "rename",
             "Daily",
             "Archive");
         var explicitResult = await harness.RunAsync(
-            "page",
             "rename",
             "--id",
             first.Guid.ToString("D"),
@@ -131,12 +128,10 @@ public sealed class PageRenameProcessWorkflowTests
             CancellationToken.None);
 
         var result = await harness.RunAsync(
-            "page",
             "rename",
             "Source",
             "Destination");
         var unchangedName = await harness.RunAsync(
-            "page",
             "rename",
             "Source",
             "Source");
@@ -181,12 +176,10 @@ public sealed class PageRenameProcessWorkflowTests
             CancellationToken.None);
 
         var ambiguous = await harness.RunAsync(
-            "page",
             "rename",
             "Second page",
             "Renamed page");
         var explicitResult = await harness.RunAsync(
-            "page",
             "rename",
             "--notebook",
             "second.mnote",
@@ -214,29 +207,35 @@ public sealed class PageRenameProcessWorkflowTests
     {
         using var harness = new CliProcessHarness();
 
-        var help = await harness.RunAsync("page", "rename", "--help");
-        var missingTarget = await harness.RunAsync("page", "rename");
-        var missingNewName = await harness.RunAsync("page", "rename", "Before");
+        var help = await harness.RunAsync("rename", "--help");
+        var missingTarget = await harness.RunAsync("rename");
+        var missingNewName = await harness.RunAsync("rename", "Before");
         var bothSelectors = await harness.RunAsync(
-            "page",
             "rename",
             "Before",
             "After",
             "--id",
             "abcd");
+        var removedPageCommand = await harness.RunAsync(
+            "page",
+            "rename",
+            "Before",
+            "After");
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(help.ExitCode, Is.Zero);
-            Assert.That(help.StandardOutput, Does.Contain("Usage: mn page rename"));
+            Assert.That(help.StandardOutput, Does.Contain("Usage: mn rename"));
             Assert.That(help.StandardOutput, Does.Contain("--id <uuid-or-prefix>"));
             Assert.That(help.StandardOutput, Does.Contain("--notebook <path>"));
             Assert.That(missingTarget.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(missingNewName.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(bothSelectors.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(removedPageCommand.ExitCode, Is.Not.Zero);
             Assert.That(missingTarget.StandardOutput, Is.Empty);
             Assert.That(missingNewName.StandardOutput, Is.Empty);
             Assert.That(bothSelectors.StandardOutput, Is.Empty);
+            Assert.That(removedPageCommand.StandardError, Does.Contain("Unrecognized"));
         }
     }
 
