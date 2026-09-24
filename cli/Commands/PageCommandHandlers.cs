@@ -566,4 +566,122 @@ namespace MemoriaNote.Cli
             }, cancellationToken);
         }
     }
+
+    internal sealed class DeletePageCommandHandler
+    {
+        readonly CliCommandExecutor _executor;
+        readonly INotebookTargetSessionResolver _targetResolver;
+        readonly CommandPrompt _prompt;
+        readonly ICommandOutput _output;
+
+        internal DeletePageCommandHandler(
+            CliCommandExecutor executor,
+            INotebookTargetSessionResolver targetResolver,
+            CommandPrompt prompt,
+            ICommandOutput output)
+        {
+            _executor = executor ?? throw new ArgumentNullException(nameof(executor));
+            _targetResolver = targetResolver ??
+                throw new ArgumentNullException(nameof(targetResolver));
+            _prompt = prompt ?? throw new ArgumentNullException(nameof(prompt));
+            _output = output ?? throw new ArgumentNullException(nameof(output));
+        }
+
+        internal Task<int> ExecuteAsync(
+            string workspaceOption,
+            string notebookOption,
+            string pageName,
+            string pageId,
+            bool force,
+            bool dryRun,
+            CancellationToken cancellationToken)
+        {
+            return _executor.ExecuteAsync(async token =>
+            {
+                if (!PageTargetCommandParser.TryCreateSelector(
+                    pageName,
+                    pageId,
+                    out var selector,
+                    out var selectorFailure))
+                    return selectorFailure;
+
+                var session = await _targetResolver.ResolveAsync(
+                    workspaceOption,
+                    notebookOption,
+                    token);
+                var selectedNotebook = session.Workspace.SelectedNotebook;
+                if (selectedNotebook == null)
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.NotFound,
+                        "No selected notebook");
+                }
+
+                var resolution = await session.ApplicationService.ResolvePageAsync(
+                    new PageTargetRequest(
+                        NotebookId.FromDatabasePath(selectedNotebook.DatabasePath),
+                        selector),
+                    token);
+                if (!resolution.IsSuccess)
+                {
+                    return PageTargetCommandParser.ToResolutionFailure(
+                        resolution.Status,
+                        selector);
+                }
+
+                var target = resolution.Target;
+                var command = new MemoriaNote.Application.DeletePageCommand(
+                    target.NotebookId,
+                    target.PageId);
+                var validation = await session.ApplicationService.ValidateDeleteAsync(
+                    command,
+                    token);
+                if (!validation.IsSuccess)
+                {
+                    return PageCommandResultMapper.ToCliResult(
+                        PageOperationKind.Delete,
+                        validation);
+                }
+
+                var page = validation.Page ??
+                    throw new InvalidOperationException(
+                        "A successful page deletion validation returned no page.");
+                var targetDescription = $"page '{page.Name}' ({target.PageId.Value:D})";
+                if (dryRun)
+                {
+                    _output.WriteLine($"Would delete {targetDescription}.");
+                    return CliCommandResult.Success();
+                }
+
+                if (!force)
+                {
+                    if (!_prompt.IsInteractive)
+                    {
+                        return CliCommandResult.Failure(
+                            CliErrorKind.Validation,
+                            "Interactive confirmation is unavailable. Use --force to delete " +
+                            "the resolved page.");
+                    }
+
+                    if (!_prompt.ConfirmPageDeletion(page.Name, target.PageId.Value.ToString("D")))
+                    {
+                        _output.WriteLine("Deletion canceled.");
+                        return CliCommandResult.Success();
+                    }
+                }
+
+                var deleteResult = await session.ApplicationService.DeleteAsync(command, token);
+                if (!deleteResult.IsSuccess)
+                {
+                    return PageCommandResultMapper.ToCliResult(
+                        PageOperationKind.Delete,
+                        deleteResult);
+                }
+
+                _output.WriteLine(
+                    PageOperationMessageMapper.ToSuccessNotification(PageOperationKind.Delete));
+                return CliCommandResult.Success();
+            }, cancellationToken);
+        }
+    }
 }

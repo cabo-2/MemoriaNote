@@ -100,7 +100,7 @@ namespace MemoriaNote.Cli
                 editorFileExchange,
                 editorProcessRunner);
             var output = new ConsoleCommandOutput(Console.Out, Console.Error);
-            var input = new ConsoleCommandInput(Console.In);
+            var input = new ConsoleCommandInput(Console.In, !Console.IsInputRedirected);
             var prompt = new CommandPrompt(input, output);
             var errorMapper = new CliErrorMapper();
             var executor = new CliCommandExecutor(
@@ -171,6 +171,11 @@ namespace MemoriaNote.Cli
                 new RenamePageCommandHandler(
                     executor,
                     notebookTargetResolver,
+                    output),
+                new DeletePageCommandHandler(
+                    executor,
+                    notebookTargetResolver,
+                    prompt,
                     output),
                 new WorkSelectCommandHandler(executor, contextFactory),
                 new WorkListCommandHandler(executor, contextFactory, output),

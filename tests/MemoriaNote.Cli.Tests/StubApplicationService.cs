@@ -69,6 +69,8 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
     internal Func<DeletePageCommand, CancellationToken, Task<PageOperationResult>> ValidateDeleteAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(PageOperationResult.Succeeded());
 
+    internal int ValidateDeleteAsyncCallCount { get; private set; }
+
     internal Func<CreatePageCommand, CancellationToken, Task<PageOperationResult>> CreateAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(PageOperationResult.Succeeded());
 
@@ -86,6 +88,8 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
 
     internal Func<DeletePageCommand, CancellationToken, Task<PageOperationResult>> DeleteAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(PageOperationResult.Succeeded());
+
+    internal int DeleteAsyncCallCount { get; private set; }
 
     public Task<IReadOnlyList<PageSummary>> ListPagesAsync(
         PageListRequest request,
@@ -158,6 +162,7 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
         DeletePageCommand command,
         CancellationToken token)
     {
+        ValidateDeleteAsyncCallCount++;
         return ValidateDeleteAsyncHandler(command, token);
     }
 
@@ -189,6 +194,7 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
         DeletePageCommand command,
         CancellationToken token)
     {
+        DeleteAsyncCallCount++;
         return DeleteAsyncHandler(command, token);
     }
 }

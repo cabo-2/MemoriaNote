@@ -7,11 +7,14 @@ namespace MemoriaNote.Cli
     {
         readonly TextReader _standardInput;
 
-        internal ConsoleCommandInput(TextReader standardInput)
+        internal ConsoleCommandInput(TextReader standardInput, bool isInteractive)
         {
             _standardInput = standardInput ??
                 throw new ArgumentNullException(nameof(standardInput));
+            IsInteractive = isInteractive;
         }
+
+        public bool IsInteractive { get; }
 
         public string ReadLine()
         {
