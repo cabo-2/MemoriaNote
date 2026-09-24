@@ -13,6 +13,16 @@ namespace MemoriaNote.Cli
             _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
+        internal bool IsInteractive => _input.IsInteractive;
+
+        internal bool ConfirmPageDeletion(string pageName, string pageId)
+        {
+            _output.Write($"Delete page '{pageName}' ({pageId})? [y/N] ");
+            var response = _input.ReadLine();
+            return string.Equals(response?.Trim(), "y", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(response?.Trim(), "yes", StringComparison.OrdinalIgnoreCase);
+        }
+
         internal bool ReadTryAgain()
         {
             _output.Write("Try again?(y/n)_");

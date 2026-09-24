@@ -14,6 +14,7 @@ namespace MemoriaNote.Cli
             ListCommandHandler list,
             CatCommandHandler cat,
             RenamePageCommandHandler renamePage,
+            DeletePageCommandHandler deletePage,
             WorkSelectCommandHandler workSelect,
             WorkListCommandHandler workList,
             WorkCreateCommandHandler workCreate,
@@ -39,6 +40,8 @@ namespace MemoriaNote.Cli
             Cat = cat ?? throw new ArgumentNullException(nameof(cat));
             RenamePage = renamePage ??
                 throw new ArgumentNullException(nameof(renamePage));
+            DeletePage = deletePage ??
+                throw new ArgumentNullException(nameof(deletePage));
             WorkSelect = workSelect ??
                 throw new ArgumentNullException(nameof(workSelect));
             WorkList = workList ?? throw new ArgumentNullException(nameof(workList));
@@ -73,6 +76,8 @@ namespace MemoriaNote.Cli
         internal CatCommandHandler Cat { get; }
 
         internal RenamePageCommandHandler RenamePage { get; }
+
+        internal DeletePageCommandHandler DeletePage { get; }
 
         internal WorkSelectCommandHandler WorkSelect { get; }
 

@@ -18,6 +18,7 @@ namespace MemoriaNote.Cli
         typeof(ListCommand),
         typeof(CatCommand),
         typeof(RenameCommand),
+        typeof(DeleteCommand),
         typeof(ImportCommand),
         typeof(ExportCommand))]
     [HelpOption("--help")]
@@ -501,6 +502,44 @@ namespace MemoriaNote.Cli
                     selectingById && !NewName.hasValue
                         ? PageName.hasValue ? PageName.value : null
                         : NewName.hasValue ? NewName.value : null,
+                    cancellationToken);
+            }
+        }
+
+        [Command("delete", Description = "Delete one page after confirmation")]
+        [HelpOption("--help")]
+        class DeleteCommand
+        {
+            public Program Parent { get; set; }
+
+            [Argument(0, Name = "page-name", Description = "exact page name")]
+            public (bool hasValue, string value) PageName { get; set; }
+
+            [Option(
+                "--id <uuid-or-prefix>",
+                Description = "Select by a complete Page ID or a hexadecimal prefix")]
+            public string PageId { get; set; }
+
+            [Option(
+                "--notebook <path>",
+                Description = "Use this workspace-relative .mnote file")]
+            public string Notebook { get; set; }
+
+            [Option("--force", Description = "Delete without an interactive confirmation")]
+            public bool Force { get; set; }
+
+            [Option("--dry-run", Description = "Validate and show the target without deleting")]
+            public bool DryRun { get; set; }
+
+            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+            {
+                return CommandHandlers.DeletePage.ExecuteAsync(
+                    Parent?.Workspace,
+                    Notebook,
+                    PageName.hasValue ? PageName.value : null,
+                    PageId,
+                    Force,
+                    DryRun,
                     cancellationToken);
             }
         }
