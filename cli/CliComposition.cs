@@ -77,12 +77,17 @@ namespace MemoriaNote.Cli
             var notebookFormatValidator = new SqliteNotebookFormatValidator(
                 databaseFactory,
                 metadataRepository);
+            var workspaceConfigurationStore = new WorkspaceConfigurationStore();
             var notebookTargetResolver = new NotebookTargetSessionResolver(
                 notebookFormatValidator,
+                workspaceConfigurationStore,
                 pageRepository,
                 pageSearchRepository,
                 metadataRepository);
             var createNotebook = new CreateNotebookUseCase(notebookMigrator);
+            var workspaceSelection = new WorkspaceSelectionUseCase(
+                notebookFormatValidator,
+                workspaceConfigurationStore);
             var filePathFactory = new NotebookFilePathFactory(clock);
             var serializer = new JsonConfigurationSerializer<ConfigurationCli>();
             var configurationStore = new FileConfigurationStore<ConfigurationCli>(
@@ -132,6 +137,10 @@ namespace MemoriaNote.Cli
                 new CreateNotebookCommandHandler(
                     executor,
                     createNotebook,
+                    output),
+                new UseNotebookCommandHandler(
+                    executor,
+                    workspaceSelection,
                     output),
                 new FindCommandHandler(executor),
                 new EditCommandHandler(

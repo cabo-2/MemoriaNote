@@ -25,7 +25,7 @@ public sealed class CliProcessHarnessTests
             Assert.That(
                 result.StandardOutput,
                 Does.Contain(
-                    "A lightweight, cross-platform CLI for creating, organizing, and editing workspace-based notes"));
+                    "A lightweight, cross-platform CLI for workspace notebooks"));
             Assert.That(result.StandardOutput, Does.Not.Contain("Terminal.Gui"));
             Assert.That(result.StandardOutput, Does.Not.Contain("Temporarily unavailable"));
             Assert.That(result.StandardOutput, Does.Contain("Usage: mn"));
@@ -40,7 +40,8 @@ public sealed class CliProcessHarnessTests
             "edit",
             "ls",
             "new",
-            "rename"
+            "rename",
+            "use"
         };
         foreach (var command in visibleCommands)
         {
@@ -77,7 +78,7 @@ public sealed class CliProcessHarnessTests
         using var harness = new CliProcessHarness();
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
 
-        var result = await harness.RunAsync("create", "work.mnote");
+        var result = await harness.RunAsync("create", "work");
 
         var factory = new SqliteNotebookDbContextFactory(
             Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
@@ -147,7 +148,7 @@ public sealed class CliProcessHarnessTests
         {
             Assert.That(result.ExitCode, Is.Zero);
             Assert.That(result.StandardOutput, Does.Contain("Usage: mn create"));
-            Assert.That(result.StandardOutput, Does.Contain("<notebook-file>"));
+            Assert.That(result.StandardOutput, Does.Contain("<notebook>"));
             Assert.That(result.StandardOutput, Does.Contain("--workspace <directory>"));
             Assert.That(result.StandardOutput, Does.Contain(".mnote"));
             Assert.That(result.StandardError, Is.Empty);
@@ -167,7 +168,7 @@ public sealed class CliProcessHarnessTests
         {
             Assert.That(result.ExitCode, Is.EqualTo(2));
             Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.Contain("notebook file is required"));
+            Assert.That(result.StandardError, Does.Contain("notebook is required"));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
         }
     }
@@ -231,7 +232,7 @@ public sealed class CliProcessHarnessTests
         {
             Assert.That(result.ExitCode, Is.EqualTo(2));
             Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.Contain("inside the workspace"));
+            Assert.That(result.StandardError, Does.Contain("without path separators"));
             Assert.That(
                 File.Exists(Path.Combine(harness.WorkingDirectory, "outside.mnote")),
                 Is.False);
@@ -426,10 +427,10 @@ public sealed class CliProcessHarnessTests
     }
 
     /// <summary>
-    /// Verifies ls reports a missing notebook without creating configuration.
+    /// Verifies ls reports a missing selection without creating configuration.
     /// </summary>
     [Test]
-    public async Task Ls_WithoutNotebook_ReturnsNotFound()
+    public async Task Ls_WithoutSelection_ReturnsConflict()
     {
         using var harness = new CliProcessHarness();
 
@@ -437,10 +438,15 @@ public sealed class CliProcessHarnessTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.NotFound));
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
             Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.StartWith("Error: "));
+            Assert.That(result.StandardError, Does.Contain("mn use"));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
+            Assert.That(
+                File.Exists(Path.Combine(
+                    harness.WorkingDirectory,
+                    WorkspaceConfigurationStore.FileName)),
+                Is.False);
         }
     }
 

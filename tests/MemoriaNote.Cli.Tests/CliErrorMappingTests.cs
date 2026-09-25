@@ -195,6 +195,11 @@ public sealed class CliErrorMappingTests
             new ConfigurationFormatException("invalid configuration"),
             (int)CliExitCode.Validation
         };
+        yield return new object[]
+        {
+            new WorkspaceConfigurationFormatException("invalid workspace configuration"),
+            (int)CliExitCode.Validation
+        };
     }
 
     private sealed class StubDbException : DbException

@@ -14,6 +14,7 @@ public sealed class PageRenameProcessWorkflowTests
     {
         using var harness = new CliProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
+        Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
         var repository = CreateRepository();
         var page = await repository.CreatePageAsync(
@@ -60,6 +61,7 @@ public sealed class PageRenameProcessWorkflowTests
     {
         using var harness = new CliProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
+        Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
         var repository = CreateRepository();
         var first = await repository.CreatePageAsync(
@@ -112,6 +114,7 @@ public sealed class PageRenameProcessWorkflowTests
     {
         using var harness = new CliProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
+        Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
         var repository = CreateRepository();
         var source = await repository.CreatePageAsync(
@@ -227,7 +230,7 @@ public sealed class PageRenameProcessWorkflowTests
             Assert.That(help.ExitCode, Is.Zero);
             Assert.That(help.StandardOutput, Does.Contain("Usage: mn rename"));
             Assert.That(help.StandardOutput, Does.Contain("--id <uuid-or-prefix>"));
-            Assert.That(help.StandardOutput, Does.Contain("--notebook <path>"));
+            Assert.That(help.StandardOutput, Does.Contain("--notebook <notebook>"));
             Assert.That(missingTarget.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(missingNewName.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(bothSelectors.ExitCode, Is.EqualTo((int)CliExitCode.Validation));

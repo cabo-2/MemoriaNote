@@ -3,6 +3,7 @@ using System.Data.Common;
 using System.IO;
 using System.Linq;
 using MemoriaNote.Cli.Editors;
+using MemoriaNote.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace MemoriaNote.Cli
@@ -34,7 +35,8 @@ namespace MemoriaNote.Cli
             }
 
             if (exception is InvalidDataException ||
-                exception is ConfigurationFormatException)
+                exception is ConfigurationFormatException ||
+                exception is WorkspaceConfigurationFormatException)
             {
                 return CliCommandResult.Failure(
                     CliErrorKind.Validation,

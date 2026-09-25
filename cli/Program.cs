@@ -7,9 +7,10 @@ using McMaster.Extensions.CommandLineUtils;
 namespace MemoriaNote.Cli
 {
     [Command("mn",
-     Description = "A lightweight, cross-platform CLI for creating, organizing, and editing workspace-based notes")]
+     Description = "A lightweight, cross-platform CLI for workspace notebooks")]
     [Subcommand(
         typeof(CreateCommand),
+        typeof(UseCommand),
         typeof(FindCommand),
         typeof(EditCommand),
         typeof(NewCommand),
@@ -80,8 +81,8 @@ namespace MemoriaNote.Cli
 
             [Argument(
                 0,
-                Name = "notebook-file",
-                Description = "workspace-relative .mnote file to create")]
+                Name = "notebook",
+                Description = "workspace-root notebook leaf name; .mnote is optional")]
             public (bool hasValue, string value) NotebookFile { get; set; }
 
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
@@ -89,6 +90,33 @@ namespace MemoriaNote.Cli
                 return CommandHandlers.CreateNotebook.ExecuteAsync(
                     Parent?.Workspace,
                     NotebookFile.hasValue ? NotebookFile.value : null,
+                    cancellationToken);
+            }
+        }
+
+        [Command(
+            "use",
+            Description = "Select a notebook or return to the workspace root")]
+        [HelpOption("--help")]
+        class UseCommand
+        {
+            public Program Parent { get; set; }
+
+            [Argument(
+                0,
+                Name = "notebook",
+                Description = "workspace-root notebook leaf name; .mnote is optional")]
+            public (bool hasValue, string value) Notebook { get; set; }
+
+            [Option("--root", Description = "Select the virtual workspace root")]
+            public bool Root { get; set; }
+
+            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+            {
+                return CommandHandlers.UseNotebook.ExecuteAsync(
+                    Parent?.Workspace,
+                    Notebook.hasValue ? Notebook.value : null,
+                    Root,
                     cancellationToken);
             }
         }
@@ -109,14 +137,17 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("edit", Description = "Edit text with an external editor")]
+        [Command("edit", Description = "Edit one page with an external editor")]
         [HelpOption("--help")]
         class EditCommand
         {
             public Program Parent { get; set; }
 
-            [Argument(0, Name = "page-name", Description = "exact page name")]
-            public (bool hasValue, string value) PageName { get; set; }
+            [Argument(
+                0,
+                Name = "page-name",
+                Description = "exact page name; omit when using --id")]
+            public string PageName { get; set; }
 
             [Option(
                 "--id <uuid-or-prefix>",
@@ -124,8 +155,8 @@ namespace MemoriaNote.Cli
             public string PageId { get; set; }
 
             [Option(
-                "--notebook <path>",
-                Description = "Use this workspace-relative .mnote file")]
+                "--notebook <notebook>",
+                Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
             public string Notebook { get; set; }
 
             [Option(
@@ -144,7 +175,7 @@ namespace MemoriaNote.Cli
                 return CommandHandlers.Edit.ExecuteAsync(
                     Parent?.Workspace,
                     Notebook,
-                    PageName.hasValue ? PageName.value : null,
+                    PageName,
                     PageId,
                     Editor,
                     EditorArguments,
@@ -152,18 +183,18 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("new", Description = "Create text command")]
+        [Command("new", Description = "Create one page with an external editor")]
         [HelpOption("--help")]
         class NewCommand
         {
             public Program Parent { get; set; }
 
-            [Argument(0, Name = "name", Description = "text name")]
+            [Argument(0, Name = "page-name", Description = "new page name")]
             public (bool hasValue, string value) Name { get; set; }
 
             [Option(
-                "--notebook <path>",
-                Description = "Use this workspace-relative .mnote file for this invocation")]
+                "--notebook <notebook>",
+                Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
             public string Notebook { get; set; }
 
             [Option(
@@ -416,8 +447,8 @@ namespace MemoriaNote.Cli
             public Program Parent { get; set; }
 
             [Option(
-                "--notebook <path>",
-                Description = "Use this workspace-relative .mnote file")]
+                "--notebook <notebook>",
+                Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
             public string Notebook { get; set; }
 
             [Option("--limit <count>", Description = "Return at most this many pages")]
@@ -443,8 +474,11 @@ namespace MemoriaNote.Cli
         {
             public Program Parent { get; set; }
 
-            [Argument(0, Name = "page-name", Description = "exact page name")]
-            public (bool hasValue, string value) PageName { get; set; }
+            [Argument(
+                0,
+                Name = "page-name",
+                Description = "exact page name; omit when using --id")]
+            public string PageName { get; set; }
 
             [Option(
                 "--id <uuid-or-prefix>",
@@ -452,8 +486,8 @@ namespace MemoriaNote.Cli
             public string PageId { get; set; }
 
             [Option(
-                "--notebook <path>",
-                Description = "Use this workspace-relative .mnote file")]
+                "--notebook <notebook>",
+                Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
             public string Notebook { get; set; }
 
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
@@ -461,7 +495,7 @@ namespace MemoriaNote.Cli
                 return CommandHandlers.Cat.ExecuteAsync(
                     Parent?.Workspace,
                     Notebook,
-                    PageName.hasValue ? PageName.value : null,
+                    PageName,
                     PageId,
                     cancellationToken);
             }
@@ -473,11 +507,17 @@ namespace MemoriaNote.Cli
         {
             public Program Parent { get; set; }
 
-            [Argument(0, Name = "page-name", Description = "exact current page name")]
-            public (bool hasValue, string value) PageName { get; set; }
+            [Argument(
+                0,
+                Name = "page-name",
+                Description = "exact current page name; with --id, the replacement name")]
+            public string PageName { get; set; }
 
-            [Argument(1, Name = "new-name", Description = "replacement page name")]
-            public (bool hasValue, string value) NewName { get; set; }
+            [Argument(
+                1,
+                Name = "new-name",
+                Description = "replacement page name; omit when using --id")]
+            public string NewName { get; set; }
 
             [Option(
                 "--id <uuid-or-prefix>",
@@ -485,8 +525,8 @@ namespace MemoriaNote.Cli
             public string PageId { get; set; }
 
             [Option(
-                "--notebook <path>",
-                Description = "Use this workspace-relative .mnote file")]
+                "--notebook <notebook>",
+                Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
             public string Notebook { get; set; }
 
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
@@ -495,13 +535,13 @@ namespace MemoriaNote.Cli
                 return CommandHandlers.RenamePage.ExecuteAsync(
                     Parent?.Workspace,
                     Notebook,
-                    selectingById && !NewName.hasValue
+                    selectingById && NewName == null
                         ? null
-                        : PageName.hasValue ? PageName.value : null,
+                        : PageName,
                     PageId,
-                    selectingById && !NewName.hasValue
-                        ? PageName.hasValue ? PageName.value : null
-                        : NewName.hasValue ? NewName.value : null,
+                    selectingById && NewName == null
+                        ? PageName
+                        : NewName,
                     cancellationToken);
             }
         }
@@ -512,8 +552,11 @@ namespace MemoriaNote.Cli
         {
             public Program Parent { get; set; }
 
-            [Argument(0, Name = "page-name", Description = "exact page name")]
-            public (bool hasValue, string value) PageName { get; set; }
+            [Argument(
+                0,
+                Name = "page-name",
+                Description = "exact page name; omit when using --id")]
+            public string PageName { get; set; }
 
             [Option(
                 "--id <uuid-or-prefix>",
@@ -521,8 +564,8 @@ namespace MemoriaNote.Cli
             public string PageId { get; set; }
 
             [Option(
-                "--notebook <path>",
-                Description = "Use this workspace-relative .mnote file")]
+                "--notebook <notebook>",
+                Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
             public string Notebook { get; set; }
 
             [Option("--force", Description = "Delete without an interactive confirmation")]
@@ -536,7 +579,7 @@ namespace MemoriaNote.Cli
                 return CommandHandlers.DeletePage.ExecuteAsync(
                     Parent?.Workspace,
                     Notebook,
-                    PageName.hasValue ? PageName.value : null,
+                    PageName,
                     PageId,
                     Force,
                     DryRun,
