@@ -91,6 +91,30 @@ namespace MemoriaNote.Domain
             return new NotebookFileName(normalized);
         }
 
+        /// <summary>
+        /// Creates a notebook file name from an already normalized persisted value.
+        /// </summary>
+        /// <param name="value">The persisted notebook leaf file name.</param>
+        /// <returns>The validated notebook file name.</returns>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown when <paramref name="value"/> is null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// Thrown when the value is not a normalized notebook leaf file name.
+        /// </exception>
+        public static NotebookFileName FromStoredValue(string value)
+        {
+            var fileName = FromInput(value);
+            if (!string.Equals(fileName.Value, value, StringComparison.Ordinal))
+            {
+                throw new ArgumentException(
+                    $"The stored notebook file name must include the lowercase '{Extension}' extension.",
+                    nameof(value));
+            }
+
+            return fileName;
+        }
+
         /// <inheritdoc/>
         public bool Equals(NotebookFileName other)
         {

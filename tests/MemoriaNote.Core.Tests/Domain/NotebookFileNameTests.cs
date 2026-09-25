@@ -66,4 +66,25 @@ public sealed class NotebookFileNameTests
             () => NotebookFileName.FromInput(null!),
             Throws.TypeOf<ArgumentNullException>());
     }
+
+    /// <summary>Verifies persisted names must already use the canonical suffix.</summary>
+    [Test]
+    public void FromStoredValue_NormalizedName_ReturnsName()
+    {
+        var fileName = NotebookFileName.FromStoredValue("work.mnote");
+
+        Assert.That(fileName.Value, Is.EqualTo("work.mnote"));
+    }
+
+    /// <summary>Verifies persisted names are validated without suffix completion.</summary>
+    [TestCase("work")]
+    [TestCase("work.MNOTE")]
+    [TestCase("nested/work.mnote")]
+    [TestCase("--root.mnote")]
+    public void FromStoredValue_NonCanonicalName_Throws(string input)
+    {
+        Assert.That(
+            () => NotebookFileName.FromStoredValue(input),
+            Throws.TypeOf<ArgumentException>());
+    }
 }
