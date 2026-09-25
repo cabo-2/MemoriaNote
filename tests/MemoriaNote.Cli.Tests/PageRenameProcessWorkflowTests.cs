@@ -14,6 +14,7 @@ public sealed class PageRenameProcessWorkflowTests
     {
         using var harness = new CliProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
+        Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
         var repository = CreateRepository();
         var page = await repository.CreatePageAsync(
@@ -60,6 +61,7 @@ public sealed class PageRenameProcessWorkflowTests
     {
         using var harness = new CliProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
+        Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
         var repository = CreateRepository();
         var first = await repository.CreatePageAsync(
@@ -112,6 +114,7 @@ public sealed class PageRenameProcessWorkflowTests
     {
         using var harness = new CliProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
+        Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
         var repository = CreateRepository();
         var source = await repository.CreatePageAsync(

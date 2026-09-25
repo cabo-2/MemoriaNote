@@ -40,7 +40,8 @@ public sealed class CliProcessHarnessTests
             "edit",
             "ls",
             "new",
-            "rename"
+            "rename",
+            "use"
         };
         foreach (var command in visibleCommands)
         {
@@ -426,10 +427,10 @@ public sealed class CliProcessHarnessTests
     }
 
     /// <summary>
-    /// Verifies ls reports a missing notebook without creating configuration.
+    /// Verifies ls reports a missing selection without creating configuration.
     /// </summary>
     [Test]
-    public async Task Ls_WithoutNotebook_ReturnsNotFound()
+    public async Task Ls_WithoutSelection_ReturnsConflict()
     {
         using var harness = new CliProcessHarness();
 
@@ -437,10 +438,15 @@ public sealed class CliProcessHarnessTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.NotFound));
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
             Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.StartWith("Error: "));
+            Assert.That(result.StandardError, Does.Contain("mn use"));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
+            Assert.That(
+                File.Exists(Path.Combine(
+                    harness.WorkingDirectory,
+                    WorkspaceConfigurationStore.FileName)),
+                Is.False);
         }
     }
 

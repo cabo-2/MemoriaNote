@@ -11,7 +11,7 @@ public sealed class PageCommandProcessWorkflowTests
     const string EditedTextEnvironmentVariable = "MEMORIA_NOTE_TEST_EDITOR_TEXT";
 
     /// <summary>
-    /// Verifies new resolves the only root notebook and rejects the same exact name later.
+    /// Verifies new uses the selected notebook and rejects the same exact name later.
     /// </summary>
     [Test]
     public async Task New_WithSingleNotebook_PersistsPageAndRejectsDuplicateName()
@@ -23,6 +23,7 @@ public sealed class PageCommandProcessWorkflowTests
 
         var notebookResult = await harness.RunAsync("create", "work.mnote");
         AssertSucceeded(notebookResult);
+        AssertSucceeded(await harness.RunAsync("use", "work"));
 
         var createResult = await harness.RunAsync("new", "Roadmap");
 
@@ -78,6 +79,7 @@ public sealed class PageCommandProcessWorkflowTests
         harness.SetEnvironmentVariable("EDITOR", missingEditor);
         var notebookResult = await harness.RunAsync("create", "work.mnote");
         AssertSucceeded(notebookResult);
+        AssertSucceeded(await harness.RunAsync("use", "work"));
 
         var result = await harness.RunAsync("new", "Roadmap");
 
@@ -111,6 +113,7 @@ public sealed class PageCommandProcessWorkflowTests
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
 
         AssertSucceeded(await harness.RunAsync("create", "work.mnote"));
+        AssertSucceeded(await harness.RunAsync("use", "work"));
         AssertSucceeded(await harness.RunAsync("new", "Roadmap"));
 
         var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);

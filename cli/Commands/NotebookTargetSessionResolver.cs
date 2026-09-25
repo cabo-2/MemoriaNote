@@ -1,10 +1,8 @@
 using System;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Application;
-using MemoriaNote.Domain;
 using MemoriaNote.Models;
 using MemoriaNote.Persistence;
 
@@ -29,18 +27,22 @@ namespace MemoriaNote.Cli
     internal sealed class NotebookTargetSessionResolver : INotebookTargetSessionResolver
     {
         readonly INotebookFormatValidator _formatValidator;
+        readonly IWorkspaceConfigurationStore _workspaceConfigurationStore;
         readonly IPageRepository _pageRepository;
         readonly IPageSearchRepository _pageSearchRepository;
         readonly INotebookMetadataRepository _metadataRepository;
 
         internal NotebookTargetSessionResolver(
             INotebookFormatValidator formatValidator,
+            IWorkspaceConfigurationStore workspaceConfigurationStore,
             IPageRepository pageRepository,
             IPageSearchRepository pageSearchRepository,
             INotebookMetadataRepository metadataRepository)
         {
             _formatValidator = formatValidator ??
                 throw new ArgumentNullException(nameof(formatValidator));
+            _workspaceConfigurationStore = workspaceConfigurationStore ??
+                throw new ArgumentNullException(nameof(workspaceConfigurationStore));
             _pageRepository = pageRepository ??
                 throw new ArgumentNullException(nameof(pageRepository));
             _pageSearchRepository = pageSearchRepository ??
@@ -57,7 +59,7 @@ namespace MemoriaNote.Cli
             cancellationToken.ThrowIfCancellationRequested();
             var workspacePath = WorkspacePathResolver.Resolve(workspaceOption);
             var notebookPath = notebookOption == null
-                ? ResolveSingleNotebookPath(workspacePath)
+                ? ResolveSelectedNotebookPath(workspacePath)
                 : ResolveExplicitNotebookPath(workspacePath, notebookOption);
             await _formatValidator
                 .ValidateCurrentAsync(notebookPath, cancellationToken)
@@ -91,30 +93,30 @@ namespace MemoriaNote.Cli
             return notebookPath;
         }
 
-        static string ResolveSingleNotebookPath(string workspacePath)
+        string ResolveSelectedNotebookPath(string workspacePath)
         {
-            var candidates = Directory
-                .EnumerateFiles(workspacePath, "*", SearchOption.TopDirectoryOnly)
-                .Where(path => string.Equals(
-                    Path.GetExtension(path),
-                    NotebookFileName.Extension,
-                    StringComparison.Ordinal))
-                .OrderBy(path => path, StringComparer.Ordinal)
-                .ToArray();
-            if (candidates.Length == 0)
-            {
-                throw new FileNotFoundException(
-                    $"No notebook was found in workspace '{workspacePath}'. " +
-                    "Create one with 'mn create <notebook>'.");
-            }
-            if (candidates.Length > 1)
+            var configuration = _workspaceConfigurationStore
+                .Load(workspacePath)
+                .Configuration;
+            if (configuration.CurrentNotebook == null)
             {
                 throw new NotebookTargetConflictException(
-                    $"More than one notebook exists in workspace '{workspacePath}'. " +
-                    "Specify one with '--notebook <notebook>'.");
+                    $"No notebook is selected in workspace '{workspacePath}'. " +
+                    "Select one with 'mn use <notebook>' or specify " +
+                    "'--notebook <notebook>' for this invocation.");
             }
 
-            return candidates[0];
+            var notebookPath = Path.Combine(
+                workspacePath,
+                configuration.CurrentNotebook.Value);
+            if (!File.Exists(notebookPath))
+            {
+                throw new FileNotFoundException(
+                    $"The selected notebook file does not exist: {notebookPath}",
+                    notebookPath);
+            }
+
+            return notebookPath;
         }
     }
 

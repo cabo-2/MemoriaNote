@@ -14,6 +14,7 @@ public sealed class PageCatProcessWorkflowTests
     {
         using var harness = new CliProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
+        Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
         var page = await CreateRepository().CreatePageAsync(
             notebookPath,
@@ -55,6 +56,7 @@ public sealed class PageCatProcessWorkflowTests
     {
         using var harness = new CliProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
+        Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
         var repository = CreateRepository();
         var first = await repository.CreatePageAsync(
@@ -93,6 +95,7 @@ public sealed class PageCatProcessWorkflowTests
     {
         using var harness = new CliProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
+        Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
         var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
         using (var context = factory.CreateDbContext(notebookPath))
@@ -153,6 +156,7 @@ public sealed class PageCatProcessWorkflowTests
     {
         using var harness = new CliProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
+        Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
 
         var result = await harness.RunAsync("cat", "Missing page");
 

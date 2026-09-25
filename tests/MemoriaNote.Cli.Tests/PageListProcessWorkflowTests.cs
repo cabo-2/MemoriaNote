@@ -17,6 +17,7 @@ public sealed class PageListProcessWorkflowTests
         using var harness = new CliProcessHarness();
         var create = await harness.RunAsync("create", "work.mnote");
         Assert.That(create.ExitCode, Is.Zero);
+        Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
         var repository = CreateRepository();
         await repository.CreatePageAsync(
@@ -38,6 +39,11 @@ public sealed class PageListProcessWorkflowTests
             null!,
             CancellationToken.None);
         var before = await File.ReadAllBytesAsync(notebookPath);
+        var workspaceConfigurationPath = Path.Combine(
+            harness.WorkingDirectory,
+            WorkspaceConfigurationStore.FileName);
+        var configurationBefore = await File.ReadAllBytesAsync(
+            workspaceConfigurationPath);
 
         var limited = await harness.RunAsync("ls", "--limit", "2");
         var alias = await harness.RunAsync("list");
@@ -56,6 +62,9 @@ public sealed class PageListProcessWorkflowTests
                 Is.EqualTo(new[] { "Alpha", "Roadmap", "alpha" }));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
             Assert.That(await File.ReadAllBytesAsync(notebookPath), Is.EqualTo(before));
+            Assert.That(
+                await File.ReadAllBytesAsync(workspaceConfigurationPath),
+                Is.EqualTo(configurationBefore));
         }
     }
 
@@ -65,6 +74,7 @@ public sealed class PageListProcessWorkflowTests
     {
         using var harness = new CliProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
+        Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
         var page = await CreateRepository().CreatePageAsync(
             notebookPath,

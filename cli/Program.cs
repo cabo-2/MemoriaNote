@@ -10,6 +10,7 @@ namespace MemoriaNote.Cli
      Description = "A lightweight, cross-platform CLI for creating, organizing, and editing workspace-based notes")]
     [Subcommand(
         typeof(CreateCommand),
+        typeof(UseCommand),
         typeof(FindCommand),
         typeof(EditCommand),
         typeof(NewCommand),
@@ -89,6 +90,33 @@ namespace MemoriaNote.Cli
                 return CommandHandlers.CreateNotebook.ExecuteAsync(
                     Parent?.Workspace,
                     NotebookFile.hasValue ? NotebookFile.value : null,
+                    cancellationToken);
+            }
+        }
+
+        [Command(
+            "use",
+            Description = "Select a notebook or return to the workspace root")]
+        [HelpOption("--help")]
+        class UseCommand
+        {
+            public Program Parent { get; set; }
+
+            [Argument(
+                0,
+                Name = "notebook",
+                Description = "workspace-root notebook leaf name; .mnote is optional")]
+            public (bool hasValue, string value) Notebook { get; set; }
+
+            [Option("--root", Description = "Select the virtual workspace root")]
+            public bool Root { get; set; }
+
+            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+            {
+                return CommandHandlers.UseNotebook.ExecuteAsync(
+                    Parent?.Workspace,
+                    Notebook.hasValue ? Notebook.value : null,
+                    Root,
                     cancellationToken);
             }
         }
