@@ -21,7 +21,11 @@ public sealed class NotebookTargetProcessTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(
+                result.StandardOutput,
+                Does.Contain("Create one page with an external editor"));
             Assert.That(result.StandardOutput, Does.Contain("Usage: mn new"));
+            Assert.That(result.StandardOutput, Does.Contain("<page-name>"));
             Assert.That(result.StandardOutput, Does.Contain("--notebook <notebook>"));
             Assert.That(result.StandardOutput, Does.Contain("--workspace <directory>"));
             Assert.That(result.StandardError, Is.Empty);

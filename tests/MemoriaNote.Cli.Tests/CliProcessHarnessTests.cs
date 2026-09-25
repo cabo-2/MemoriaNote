@@ -25,7 +25,7 @@ public sealed class CliProcessHarnessTests
             Assert.That(
                 result.StandardOutput,
                 Does.Contain(
-                    "A lightweight, cross-platform CLI for creating, organizing, and editing workspace-based notes"));
+                    "A lightweight, cross-platform CLI for workspace notebooks"));
             Assert.That(result.StandardOutput, Does.Not.Contain("Terminal.Gui"));
             Assert.That(result.StandardOutput, Does.Not.Contain("Temporarily unavailable"));
             Assert.That(result.StandardOutput, Does.Contain("Usage: mn"));
