@@ -80,8 +80,8 @@ namespace MemoriaNote.Cli
 
             [Argument(
                 0,
-                Name = "notebook-file",
-                Description = "workspace-relative .mnote file to create")]
+                Name = "notebook",
+                Description = "workspace-root notebook leaf name; .mnote is optional")]
             public (bool hasValue, string value) NotebookFile { get; set; }
 
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
@@ -124,8 +124,8 @@ namespace MemoriaNote.Cli
             public string PageId { get; set; }
 
             [Option(
-                "--notebook <path>",
-                Description = "Use this workspace-relative .mnote file")]
+                "--notebook <notebook>",
+                Description = "Use this workspace-root notebook leaf name; .mnote is optional")]
             public string Notebook { get; set; }
 
             [Option(
@@ -162,8 +162,8 @@ namespace MemoriaNote.Cli
             public (bool hasValue, string value) Name { get; set; }
 
             [Option(
-                "--notebook <path>",
-                Description = "Use this workspace-relative .mnote file for this invocation")]
+                "--notebook <notebook>",
+                Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
             public string Notebook { get; set; }
 
             [Option(
@@ -416,8 +416,8 @@ namespace MemoriaNote.Cli
             public Program Parent { get; set; }
 
             [Option(
-                "--notebook <path>",
-                Description = "Use this workspace-relative .mnote file")]
+                "--notebook <notebook>",
+                Description = "Use this workspace-root notebook leaf name; .mnote is optional")]
             public string Notebook { get; set; }
 
             [Option("--limit <count>", Description = "Return at most this many pages")]
@@ -452,8 +452,8 @@ namespace MemoriaNote.Cli
             public string PageId { get; set; }
 
             [Option(
-                "--notebook <path>",
-                Description = "Use this workspace-relative .mnote file")]
+                "--notebook <notebook>",
+                Description = "Use this workspace-root notebook leaf name; .mnote is optional")]
             public string Notebook { get; set; }
 
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
@@ -485,8 +485,8 @@ namespace MemoriaNote.Cli
             public string PageId { get; set; }
 
             [Option(
-                "--notebook <path>",
-                Description = "Use this workspace-relative .mnote file")]
+                "--notebook <notebook>",
+                Description = "Use this workspace-root notebook leaf name; .mnote is optional")]
             public string Notebook { get; set; }
 
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
@@ -521,8 +521,8 @@ namespace MemoriaNote.Cli
             public string PageId { get; set; }
 
             [Option(
-                "--notebook <path>",
-                Description = "Use this workspace-relative .mnote file")]
+                "--notebook <notebook>",
+                Description = "Use this workspace-root notebook leaf name; .mnote is optional")]
             public string Notebook { get; set; }
 
             [Option("--force", Description = "Delete without an interactive confirmation")]

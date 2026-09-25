@@ -8,8 +8,6 @@ namespace MemoriaNote.Cli
 {
     internal sealed class CreateNotebookCommandHandler
     {
-        internal const string NotebookExtension = ".mnote";
-
         readonly CliCommandExecutor _executor;
         readonly CreateNotebookUseCase _createNotebook;
         readonly ICommandOutput _output;
@@ -86,21 +84,8 @@ namespace MemoriaNote.Cli
 
         static string ResolveNotebookPath(string workspacePath, string notebookFile)
         {
-            if (string.IsNullOrWhiteSpace(notebookFile))
-                throw new ArgumentException("A notebook file is required.", nameof(notebookFile));
-            if (!string.Equals(
-                Path.GetExtension(notebookFile),
-                NotebookExtension,
-                StringComparison.Ordinal))
-            {
-                throw new ArgumentException(
-                    $"The notebook file must use the '{NotebookExtension}' extension.",
-                    nameof(notebookFile));
-            }
-
-            var notebookPath = WorkspacePathResolver.ResolveInside(
-                workspacePath,
-                notebookFile);
+            var fileName = NotebookInputParser.Parse(notebookFile);
+            var notebookPath = Path.Combine(workspacePath, fileName.Value);
 
             var name = Path.GetFileNameWithoutExtension(notebookPath);
             if (string.IsNullOrWhiteSpace(name))
@@ -108,13 +93,6 @@ namespace MemoriaNote.Cli
                 throw new ArgumentException(
                     "The notebook file name must include a name before the extension.",
                     nameof(notebookFile));
-            }
-
-            var parentDirectory = Path.GetDirectoryName(notebookPath);
-            if (string.IsNullOrEmpty(parentDirectory) || !Directory.Exists(parentDirectory))
-            {
-                throw new DirectoryNotFoundException(
-                    $"The notebook directory does not exist: {parentDirectory}");
             }
 
             return notebookPath;

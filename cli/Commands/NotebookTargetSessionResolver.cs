@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Application;
+using MemoriaNote.Domain;
 using MemoriaNote.Models;
 using MemoriaNote.Persistence;
 
@@ -27,8 +28,6 @@ namespace MemoriaNote.Cli
 
     internal sealed class NotebookTargetSessionResolver : INotebookTargetSessionResolver
     {
-        const string NotebookExtension = ".mnote";
-
         readonly INotebookFormatValidator _formatValidator;
         readonly IPageRepository _pageRepository;
         readonly IPageSearchRepository _pageSearchRepository;
@@ -80,10 +79,8 @@ namespace MemoriaNote.Cli
             string workspacePath,
             string notebookOption)
         {
-            var notebookPath = WorkspacePathResolver.ResolveInside(
-                workspacePath,
-                notebookOption);
-            ValidateExtension(notebookPath);
+            var fileName = NotebookInputParser.Parse(notebookOption);
+            var notebookPath = Path.Combine(workspacePath, fileName.Value);
             if (!File.Exists(notebookPath))
             {
                 throw new FileNotFoundException(
@@ -100,7 +97,7 @@ namespace MemoriaNote.Cli
                 .EnumerateFiles(workspacePath, "*", SearchOption.TopDirectoryOnly)
                 .Where(path => string.Equals(
                     Path.GetExtension(path),
-                    NotebookExtension,
+                    NotebookFileName.Extension,
                     StringComparison.Ordinal))
                 .OrderBy(path => path, StringComparer.Ordinal)
                 .ToArray();
@@ -108,28 +105,16 @@ namespace MemoriaNote.Cli
             {
                 throw new FileNotFoundException(
                     $"No notebook was found in workspace '{workspacePath}'. " +
-                    "Create one with 'mn create <notebook-file>'.");
+                    "Create one with 'mn create <notebook>'.");
             }
             if (candidates.Length > 1)
             {
                 throw new NotebookTargetConflictException(
                     $"More than one notebook exists in workspace '{workspacePath}'. " +
-                    "Specify one with '--notebook <path>'.");
+                    "Specify one with '--notebook <notebook>'.");
             }
 
             return candidates[0];
-        }
-
-        static void ValidateExtension(string notebookPath)
-        {
-            if (!string.Equals(
-                Path.GetExtension(notebookPath),
-                NotebookExtension,
-                StringComparison.Ordinal))
-            {
-                throw new InvalidDataException(
-                    $"The notebook file must use the '{NotebookExtension}' extension.");
-            }
         }
     }
 

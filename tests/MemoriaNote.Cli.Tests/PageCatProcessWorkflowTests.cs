@@ -181,7 +181,7 @@ public sealed class PageCatProcessWorkflowTests
             Assert.That(help.ExitCode, Is.Zero);
             Assert.That(help.StandardOutput, Does.Contain("Usage: mn cat"));
             Assert.That(help.StandardOutput, Does.Contain("--id <uuid-or-prefix>"));
-            Assert.That(help.StandardOutput, Does.Contain("--notebook <path>"));
+            Assert.That(help.StandardOutput, Does.Contain("--notebook <notebook>"));
             Assert.That(missing.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(both.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(shortId.ExitCode, Is.EqualTo((int)CliExitCode.Validation));

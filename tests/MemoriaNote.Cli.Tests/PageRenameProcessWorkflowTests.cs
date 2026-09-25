@@ -227,7 +227,7 @@ public sealed class PageRenameProcessWorkflowTests
             Assert.That(help.ExitCode, Is.Zero);
             Assert.That(help.StandardOutput, Does.Contain("Usage: mn rename"));
             Assert.That(help.StandardOutput, Does.Contain("--id <uuid-or-prefix>"));
-            Assert.That(help.StandardOutput, Does.Contain("--notebook <path>"));
+            Assert.That(help.StandardOutput, Does.Contain("--notebook <notebook>"));
             Assert.That(missingTarget.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(missingNewName.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(bothSelectors.ExitCode, Is.EqualTo((int)CliExitCode.Validation));

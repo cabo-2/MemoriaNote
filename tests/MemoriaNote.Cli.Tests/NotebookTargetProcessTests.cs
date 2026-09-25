@@ -22,7 +22,7 @@ public sealed class NotebookTargetProcessTests
         {
             Assert.That(result.ExitCode, Is.Zero);
             Assert.That(result.StandardOutput, Does.Contain("Usage: mn new"));
-            Assert.That(result.StandardOutput, Does.Contain("--notebook <path>"));
+            Assert.That(result.StandardOutput, Does.Contain("--notebook <notebook>"));
             Assert.That(result.StandardOutput, Does.Contain("--workspace <directory>"));
             Assert.That(result.StandardError, Is.Empty);
         }
@@ -74,7 +74,7 @@ public sealed class NotebookTargetProcessTests
         var result = await harness.RunAsync(
             "new",
             "--notebook",
-            "second.mnote",
+            "second",
             "Page");
 
         var repository = CreatePageRepository();
@@ -96,18 +96,20 @@ public sealed class NotebookTargetProcessTests
         }
     }
 
-    /// <summary>
-    /// Verifies an explicitly named subdirectory notebook works without recursive discovery.
-    /// </summary>
+    /// <summary>Verifies an explicitly named subdirectory notebook is rejected.</summary>
     [Test]
-    public async Task New_WithExplicitSubdirectoryNotebook_CreatesPage()
+    public async Task New_WithExplicitSubdirectoryNotebook_ReturnsValidationFailure()
     {
         using var harness = CreateEditorHarness();
         var directoryPath = Path.Combine(harness.WorkingDirectory, "nested");
         Directory.CreateDirectory(directoryPath);
-        var notebookPath = await CreateNotebookAsync(harness, "nested/work.mnote");
+        var createResult = await harness.RunAsync(
+            "--workspace",
+            directoryPath,
+            "create",
+            "work.mnote");
+        Assert.That(createResult.ExitCode, Is.Zero, createResult.StandardError);
 
-        var automaticResult = await harness.RunAsync("new", "Automatic");
         var explicitResult = await harness.RunAsync(
             "new",
             "--notebook",
@@ -117,15 +119,10 @@ public sealed class NotebookTargetProcessTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(
-                automaticResult.ExitCode,
-                Is.EqualTo((int)CliExitCode.NotFound));
-            Assert.That(explicitResult.ExitCode, Is.Zero);
-            Assert.That(
-                await CreatePageRepository().ListPagesByHeadingAsync(
-                    notebookPath,
-                    "Explicit",
-                    CancellationToken.None),
-                Has.Count.EqualTo(1));
+                explicitResult.ExitCode,
+                Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(explicitResult.StandardOutput, Is.Empty);
+            Assert.That(explicitResult.StandardError, Does.Contain("path separators"));
         }
     }
 

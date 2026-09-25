@@ -77,7 +77,7 @@ public sealed class CliProcessHarnessTests
         using var harness = new CliProcessHarness();
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
 
-        var result = await harness.RunAsync("create", "work.mnote");
+        var result = await harness.RunAsync("create", "work");
 
         var factory = new SqliteNotebookDbContextFactory(
             Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
@@ -147,7 +147,7 @@ public sealed class CliProcessHarnessTests
         {
             Assert.That(result.ExitCode, Is.Zero);
             Assert.That(result.StandardOutput, Does.Contain("Usage: mn create"));
-            Assert.That(result.StandardOutput, Does.Contain("<notebook-file>"));
+            Assert.That(result.StandardOutput, Does.Contain("<notebook>"));
             Assert.That(result.StandardOutput, Does.Contain("--workspace <directory>"));
             Assert.That(result.StandardOutput, Does.Contain(".mnote"));
             Assert.That(result.StandardError, Is.Empty);
@@ -167,7 +167,7 @@ public sealed class CliProcessHarnessTests
         {
             Assert.That(result.ExitCode, Is.EqualTo(2));
             Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.Contain("notebook file is required"));
+            Assert.That(result.StandardError, Does.Contain("notebook is required"));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
         }
     }
@@ -231,7 +231,7 @@ public sealed class CliProcessHarnessTests
         {
             Assert.That(result.ExitCode, Is.EqualTo(2));
             Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.Contain("inside the workspace"));
+            Assert.That(result.StandardError, Does.Contain("without path separators"));
             Assert.That(
                 File.Exists(Path.Combine(harness.WorkingDirectory, "outside.mnote")),
                 Is.False);
