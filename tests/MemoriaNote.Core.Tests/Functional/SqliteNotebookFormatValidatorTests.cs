@@ -32,19 +32,20 @@ public sealed class SqliteNotebookFormatValidatorTests
         }
     }
 
-    /// <summary>Verifies an unsupported version is rejected without changing metadata.</summary>
+    /// <summary>Verifies a newer version is classified without changing metadata.</summary>
     [Test]
-    public async Task ValidateCurrentAsync_UnsupportedVersion_DoesNotMigrateOrUpdateFile()
+    public async Task ValidateCurrentAsync_NewerVersion_ReportsUnsupportedWithoutChanges()
     {
         using var database = new TemporaryNotebookDatabase();
         database.CreateNotebook("work", "Work");
         var validator = CreateValidator(out var metadataRepository);
         await metadataRepository.UpdateAsync(
             database.DatabasePath,
-            new NotebookMetadataPatch().SetVersion("unsupported"),
+            new NotebookMetadataPatch().SetVersion("2"),
             CancellationToken.None);
 
-        Assert.ThrowsAsync<InvalidDataException>(new Func<Task>(async () =>
+        var exception = Assert.ThrowsAsync<UnsupportedNotebookFormatVersionException>(
+            new Func<Task>(async () =>
             await validator.ValidateCurrentAsync(
                 database.DatabasePath,
                 CancellationToken.None)));
@@ -52,7 +53,31 @@ public sealed class SqliteNotebookFormatValidatorTests
         var metadata = await metadataRepository.LoadAsync(
             database.DatabasePath,
             CancellationToken.None);
-        Assert.That(metadata.Metadata.Version, Is.EqualTo("unsupported"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(exception!.FormatVersion, Is.EqualTo("2"));
+            Assert.That(metadata.Metadata.Version, Is.EqualTo("2"));
+        }
+    }
+
+    /// <summary>Verifies an older or unrecognized version remains invalid.</summary>
+    [TestCase("0")]
+    [TestCase("old-version")]
+    public async Task ValidateCurrentAsync_OldOrUnrecognizedVersion_IsInvalid(
+        string version)
+    {
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("work", "Work");
+        var validator = CreateValidator(out var metadataRepository);
+        await metadataRepository.UpdateAsync(
+            database.DatabasePath,
+            new NotebookMetadataPatch().SetVersion(version),
+            CancellationToken.None);
+
+        Assert.ThrowsAsync<InvalidDataException>(new Func<Task>(async () =>
+            await validator.ValidateCurrentAsync(
+                database.DatabasePath,
+                CancellationToken.None)));
     }
 
     /// <summary>Verifies validating a missing path never creates a SQLite file.</summary>

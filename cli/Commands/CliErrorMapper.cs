@@ -36,7 +36,8 @@ namespace MemoriaNote.Cli
 
             if (exception is InvalidDataException ||
                 exception is ConfigurationFormatException ||
-                exception is WorkspaceConfigurationFormatException)
+                exception is WorkspaceConfigurationFormatException ||
+                exception is UnsupportedNotebookFormatVersionException)
             {
                 return CliCommandResult.Failure(
                     CliErrorKind.Validation,

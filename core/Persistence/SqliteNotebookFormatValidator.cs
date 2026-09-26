@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -53,8 +54,14 @@ namespace MemoriaNote.Persistence
                         .GetAppliedMigrationsAsync(token)
                         .ConfigureAwait(false))
                     .ToArray();
-                if (metadata.HasIssues ||
-                    metadata.Metadata.Version != NotebookDbContext.CurrentVersion ||
+                if (metadata.HasIssues)
+                    throw InvalidFormat(normalizedPath);
+                if (IsNewerFormatVersion(metadata.Metadata.Version))
+                {
+                    throw new UnsupportedNotebookFormatVersionException(
+                        metadata.Metadata.Version);
+                }
+                if (metadata.Metadata.Version != NotebookDbContext.CurrentVersion ||
                     !appliedMigrations.SequenceEqual(expectedMigrations))
                 {
                     throw InvalidFormat(normalizedPath);
@@ -69,6 +76,21 @@ namespace MemoriaNote.Persistence
             {
                 throw InvalidFormat(normalizedPath, exception);
             }
+        }
+
+        static bool IsNewerFormatVersion(string formatVersion)
+        {
+            return long.TryParse(
+                    formatVersion,
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out var parsedVersion) &&
+                long.TryParse(
+                    NotebookDbContext.CurrentVersion,
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out var currentVersion) &&
+                parsedVersion > currentVersion;
         }
 
         static InvalidDataException InvalidFormat(
