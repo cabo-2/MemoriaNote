@@ -11,6 +11,7 @@ namespace MemoriaNote.Cli
     [Subcommand(
         typeof(CreateCommand),
         typeof(UseCommand),
+        typeof(StatusCommand),
         typeof(FindCommand),
         typeof(EditCommand),
         typeof(NewCommand),
@@ -65,10 +66,11 @@ namespace MemoriaNote.Cli
             Inherited = true)]
         public string Workspace { get; set; }
 
-        protected Task<int> OnExecuteAsync(CommandLineApplication app)
+        protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
         {
-            app.ShowHint();
-            return Task.FromResult((int)CliExitCode.Success);
+            return CommandHandlers.Status.ExecuteAsync(
+                Workspace,
+                cancellationToken);
         }
 
         [Command(
@@ -117,6 +119,22 @@ namespace MemoriaNote.Cli
                     Parent?.Workspace,
                     Notebook.hasValue ? Notebook.value : null,
                     Root,
+                    cancellationToken);
+            }
+        }
+
+        [Command(
+            "status",
+            Description = "Show the workspace location and selected notebook state")]
+        [HelpOption("--help")]
+        class StatusCommand
+        {
+            public Program Parent { get; set; }
+
+            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+            {
+                return CommandHandlers.Status.ExecuteAsync(
+                    Parent?.Workspace,
                     cancellationToken);
             }
         }
