@@ -12,6 +12,7 @@ namespace MemoriaNote.Cli
         typeof(CreateCommand),
         typeof(UseCommand),
         typeof(StatusCommand),
+        typeof(NotebooksCommand),
         typeof(FindCommand),
         typeof(EditCommand),
         typeof(NewCommand),
@@ -136,6 +137,42 @@ namespace MemoriaNote.Cli
                 return CommandHandlers.Status.ExecuteAsync(
                     Parent?.Workspace,
                     cancellationToken);
+            }
+        }
+
+        [Command(
+            "notebooks",
+            Description = "Inspect workspace-root notebooks")]
+        [Subcommand(typeof(NotebooksListCommand))]
+        [HelpOption("--help")]
+        class NotebooksCommand
+        {
+            public Program Parent { get; set; }
+
+            protected Task<int> OnExecuteAsync(CommandLineApplication app)
+            {
+                app.ShowHelp();
+                return Task.FromResult((int)CliExitCode.Success);
+            }
+
+            [Command(
+                "list",
+                Description = "List notebooks in stable file-name order")]
+            [HelpOption("--help")]
+            class NotebooksListCommand
+            {
+                public NotebooksCommand Parent { get; set; }
+
+                [Option("-l|--long", Description = "Show validation and file details")]
+                public bool Long { get; set; }
+
+                protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+                {
+                    return CommandHandlers.NotebookList.ExecuteAsync(
+                        Parent?.Parent?.Workspace,
+                        Long,
+                        cancellationToken);
+                }
             }
         }
 

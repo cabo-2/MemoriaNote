@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using MemoriaNote.Application;
 using MemoriaNote.Domain;
 using MemoriaNote.Models;
 
@@ -48,6 +49,19 @@ namespace MemoriaNote.Cli
                 WriteNamePageList(pages);
         }
 
+        public void WriteWorkspaceNotebookList(
+            IReadOnlyList<WorkspaceNotebookListEntry> entries,
+            bool longFormat)
+        {
+            if (entries == null)
+                throw new ArgumentNullException(nameof(entries));
+
+            if (longFormat)
+                WriteLongWorkspaceNotebookList(entries);
+            else
+                WriteShortWorkspaceNotebookList(entries);
+        }
+
         public void WriteNotebookList(
             IEnumerable<Notebook> notebooks,
             Notebook selectedNotebook)
@@ -75,6 +89,44 @@ namespace MemoriaNote.Cli
         {
             foreach (var page in pages)
                 WriteLine(EscapeCell(page.Name));
+        }
+
+        void WriteShortWorkspaceNotebookList(
+            IReadOnlyList<WorkspaceNotebookListEntry> entries)
+        {
+            foreach (var entry in entries)
+            {
+                var current = entry.IsCurrent ? "*" : " ";
+                var status = entry.Status == WorkspaceNotebookStatusKind.Ready
+                    ? string.Empty
+                    : $" [{FormatNotebookStatus(entry.Status)}]";
+                WriteLine($"{current} {EscapeCell(entry.FileName)}{status}");
+            }
+        }
+
+        void WriteLongWorkspaceNotebookList(
+            IReadOnlyList<WorkspaceNotebookListEntry> entries)
+        {
+            if (entries.Count == 0)
+                return;
+
+            var rows = new List<string[]>
+            {
+                new[] { "CURRENT", "STATUS", "TYPE", "FORMAT", "NOTEBOOK" }
+            };
+            foreach (var entry in entries)
+            {
+                rows.Add(new[]
+                {
+                    entry.IsCurrent ? "*" : string.Empty,
+                    FormatNotebookStatus(entry.Status),
+                    FormatNotebookEntryKind(entry.EntryKind),
+                    entry.FormatVersion ?? "-",
+                    EscapeCell(entry.FileName)
+                });
+            }
+
+            WriteRows(rows);
         }
 
         void WriteLongPageList(IReadOnlyList<PageSummary> pages)
@@ -111,6 +163,11 @@ namespace MemoriaNote.Cli
                 });
             }
 
+            WriteRows(rows);
+        }
+
+        void WriteRows(IReadOnlyList<string[]> rows)
+        {
             var widths = new int[rows[0].Length - 1];
             foreach (var row in rows)
             {
@@ -129,6 +186,30 @@ namespace MemoriaNote.Cli
                 buffer.Append(row[^1]);
                 WriteLine(buffer.ToString());
             }
+        }
+
+        static string FormatNotebookStatus(WorkspaceNotebookStatusKind status)
+        {
+            return status switch
+            {
+                WorkspaceNotebookStatusKind.Ready => "ready",
+                WorkspaceNotebookStatusKind.ReadOnly => "read-only",
+                WorkspaceNotebookStatusKind.Missing => "missing",
+                WorkspaceNotebookStatusKind.Invalid => "invalid",
+                WorkspaceNotebookStatusKind.Unsupported => "unsupported",
+                _ => throw new ArgumentOutOfRangeException(nameof(status))
+            };
+        }
+
+        static string FormatNotebookEntryKind(WorkspaceNotebookEntryKind? entryKind)
+        {
+            return entryKind switch
+            {
+                WorkspaceNotebookEntryKind.File => "file",
+                WorkspaceNotebookEntryKind.SymbolicLink => "symlink",
+                null => "-",
+                _ => throw new ArgumentOutOfRangeException(nameof(entryKind))
+            };
         }
 
         static string FormatUtc(DateTime value)

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MemoriaNote.Application;
 using MemoriaNote.Domain;
 using MemoriaNote.Models;
 
@@ -13,6 +14,10 @@ namespace MemoriaNote.Cli
         void WriteErrorLine(string value);
 
         void WritePageList(IReadOnlyList<PageSummary> pages, bool longFormat);
+
+        void WriteWorkspaceNotebookList(
+            IReadOnlyList<WorkspaceNotebookListEntry> entries,
+            bool longFormat);
 
         void WriteNotebookList(IEnumerable<Notebook> notebooks, Notebook selectedNotebook);
 
