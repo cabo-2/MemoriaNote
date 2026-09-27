@@ -10,6 +10,8 @@ editing page content.
   beneath it. Subdirectories are not searched or registered.
 - **Explicit notebook selection:** `mn use` stores the current notebook in the versioned,
   atomically updated `mn-workspace.toml`. Notebook count never changes the selection implicitly.
+- **Workspace visibility:** `mn status` explains the current virtual location, while
+  `mn notebooks list` validates and lists workspace-root notebooks without changing them.
 - **SQLite storage:** Each notebook is a self-contained SQLite database with validated schema and
   format metadata.
 - **Page-oriented commands:** Create, list, read, edit, rename, and delete pages from the command
@@ -90,7 +92,10 @@ Commands:
   edit                     Edit one page with an external editor
   ls                       List pages in stable page-name order
   new                      Create one page with an external editor
+  notebooks                Inspect workspace-root notebooks
   rename                   Rename one page without changing its Page ID
+  status                   Show the workspace location and selected notebook
+                           state
   use                      Select a notebook or return to the workspace root
 
 Run 'mn [command] --help' for more information about a command.
@@ -121,6 +126,59 @@ falling back to another notebook.
 Notebook file symbolic links are supported and the workspace alias is saved as the selection.
 Local filesystems are recommended because SQLite locking behavior on network or synchronized
 storage depends on that filesystem. `mn-workspace.toml` itself must not be a symbolic link.
+
+### Inspect workspace status
+
+Run `mn status` to inspect the resolved physical workspace, virtual location, saved notebook, and
+its validation state:
+
+```console
+$ mn status
+Workspace: /path/to/notes
+Location:  /work
+Notebook:  work.mnote
+Status:    ready
+```
+
+Running `mn` without a command is an exact alias for `mn status`; both use the same output and exit
+code. At the virtual root, `Location` is `/`, `Notebook` is `(not selected)`, and the output suggests
+`mn use <notebook>`. A selected notebook is classified as `ready`, `read-only`, `missing`, `invalid`,
+or `unsupported`. Missing and invalid selections are reported without selecting another notebook.
+
+`status` returns success for `root`, `ready`, and `read-only`; `missing` returns exit code 3, while
+`invalid` and `unsupported` return exit code 2. The complete diagnostic is written to standard
+output even when the exit code is nonzero.
+
+### List workspace notebooks
+
+`mn notebooks list` lists only validly named lowercase `.mnote` file entries directly beneath the
+workspace. Results use ordinal file-name order. The saved current notebook is marked with `*`, and
+exceptional states are appended to the name:
+
+```console
+$ mn notebooks list
+  archive.mnote
+  broken.mnote [invalid]
+  shared.mnote [read-only]
+* work.mnote
+```
+
+Use `-l` or `--long` to include validation and filesystem details:
+
+```console
+$ mn notebooks list --long
+CURRENT STATUS    TYPE    FORMAT NOTEBOOK
+        ready     file    1      archive.mnote
+        invalid   file    -      broken.mnote
+        read-only symlink 1      shared.mnote
+*       ready     file    1      work.mnote
+```
+
+Valid file symbolic links are listed by their workspace alias. A dangling link or missing saved
+selection is shown as `missing`; invalid and newer-format files remain visible as `invalid` and
+`unsupported`. These entry states do not make a completed listing fail. An empty workspace produces
+no standard output. Listing does not create or update workspace configuration, notebooks, user
+configuration, or migration state.
 
 ## Examples
 
@@ -176,6 +234,14 @@ Create and select another notebook:
 mn create personal
 mn use personal
 mn new shopping-list
+```
+
+Inspect both notebooks and confirm the current selection:
+
+```bash
+mn status
+mn notebooks list
+mn notebooks list --long
 ```
 
 Temporarily target `work.mnote` without changing the saved `personal.mnote` selection:

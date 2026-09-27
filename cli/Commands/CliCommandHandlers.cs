@@ -8,6 +8,7 @@ namespace MemoriaNote.Cli
             CreateNotebookCommandHandler createNotebook,
             UseNotebookCommandHandler useNotebook,
             StatusCommandHandler status,
+            NotebookListCommandHandler notebookList,
             FindCommandHandler find,
             EditCommandHandler edit,
             NewCommandHandler createPage,
@@ -33,6 +34,8 @@ namespace MemoriaNote.Cli
             UseNotebook = useNotebook ??
                 throw new ArgumentNullException(nameof(useNotebook));
             Status = status ?? throw new ArgumentNullException(nameof(status));
+            NotebookList = notebookList ??
+                throw new ArgumentNullException(nameof(notebookList));
             Find = find ?? throw new ArgumentNullException(nameof(find));
             Edit = edit ?? throw new ArgumentNullException(nameof(edit));
             CreatePage = createPage ??
@@ -69,6 +72,8 @@ namespace MemoriaNote.Cli
         internal UseNotebookCommandHandler UseNotebook { get; }
 
         internal StatusCommandHandler Status { get; }
+
+        internal NotebookListCommandHandler NotebookList { get; }
 
         internal FindCommandHandler Find { get; }
 

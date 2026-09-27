@@ -336,6 +336,12 @@ public sealed class PageDeleteCommandHandlerTests
         {
         }
 
+        public void WriteWorkspaceNotebookList(
+            IReadOnlyList<WorkspaceNotebookListEntry> entries,
+            bool longFormat)
+        {
+        }
+
         public void WriteNotebookList(
             IEnumerable<Notebook> notebooks,
             Notebook selectedNotebook)

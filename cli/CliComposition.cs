@@ -91,6 +91,9 @@ namespace MemoriaNote.Cli
             var workspaceStatus = new WorkspaceStatusUseCase(
                 workspaceConfigurationStore,
                 notebookFormatValidator);
+            var workspaceNotebookList = new WorkspaceNotebookListUseCase(
+                workspaceConfigurationStore,
+                notebookFormatValidator);
             var filePathFactory = new NotebookFilePathFactory(clock);
             var serializer = new JsonConfigurationSerializer<ConfigurationCli>();
             var configurationStore = new FileConfigurationStore<ConfigurationCli>(
@@ -148,6 +151,10 @@ namespace MemoriaNote.Cli
                 new StatusCommandHandler(
                     executor,
                     workspaceStatus,
+                    output),
+                new NotebookListCommandHandler(
+                    executor,
+                    workspaceNotebookList,
                     output),
                 new FindCommandHandler(executor),
                 new EditCommandHandler(
