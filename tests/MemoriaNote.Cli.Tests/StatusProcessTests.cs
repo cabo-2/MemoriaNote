@@ -8,6 +8,7 @@ namespace MemoriaNote.Cli.Tests;
 
 /// <summary>Verifies workspace status diagnostics through the CLI boundary.</summary>
 [TestFixture]
+[Category("Process")]
 public sealed class StatusProcessTests
 {
     /// <summary>Verifies status is discoverable as a top-level command.</summary>

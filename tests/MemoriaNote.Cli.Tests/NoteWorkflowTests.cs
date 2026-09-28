@@ -8,6 +8,7 @@ namespace MemoriaNote.Cli.Tests;
 /// Verifies representative note workflows through the CLI process boundary.
 /// </summary>
 [TestFixture]
+[Category("Process")]
 public sealed class NoteWorkflowTests
 {
     /// <summary>Verifies notebook completion remains available while page completion is paused.</summary>

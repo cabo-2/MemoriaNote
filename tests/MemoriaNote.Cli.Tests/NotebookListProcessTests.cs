@@ -8,6 +8,7 @@ namespace MemoriaNote.Cli.Tests;
 
 /// <summary>Verifies workspace notebook listing through the CLI process boundary.</summary>
 [TestFixture]
+[Category("Process")]
 public sealed class NotebookListProcessTests
 {
     /// <summary>Verifies the nested command and long option are discoverable.</summary>

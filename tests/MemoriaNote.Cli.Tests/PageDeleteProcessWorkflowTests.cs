@@ -6,6 +6,7 @@ namespace MemoriaNote.Cli.Tests;
 
 /// <summary>Verifies page deletion workflows through the CLI process boundary.</summary>
 [TestFixture]
+[Category("Process")]
 public sealed class PageDeleteProcessWorkflowTests
 {
     /// <summary>Verifies force deletes exactly the named page in a non-interactive process.</summary>

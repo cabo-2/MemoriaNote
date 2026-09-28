@@ -7,6 +7,7 @@ namespace MemoriaNote.Cli.Tests;
 /// Verifies text transfer workflows through the CLI process boundary.
 /// </summary>
 [TestFixture]
+[Category("Process")]
 public sealed class TextTransferWorkflowTests
 {
     /// <summary>

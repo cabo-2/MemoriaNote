@@ -6,6 +6,7 @@ namespace MemoriaNote.Cli.Tests;
 
 /// <summary>Verifies the read-only page cat workflow through the process boundary.</summary>
 [TestFixture]
+[Category("Process")]
 public sealed class PageCatProcessWorkflowTests
 {
     /// <summary>Verifies name, complete ID, and short ID selectors write only the exact body.</summary>

@@ -6,6 +6,7 @@ namespace MemoriaNote.Cli.Tests;
 
 /// <summary>Verifies notebook target resolution through the CLI process boundary.</summary>
 [TestFixture]
+[Category("Process")]
 public sealed class NotebookTargetProcessTests
 {
     const string EditedTextEnvironmentVariable = "MEMORIA_NOTE_TEST_EDITOR_TEXT";

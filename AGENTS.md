@@ -18,11 +18,25 @@ This project uses C# targeting **.NET 10**. The repository currently hosts two p
 
 ## Build Verification
 
-Before committing code changes or marking a pull request ready, run the following commands from the repository root:
+Before committing code changes or marking a pull request ready, run the following fast verification commands from the repository root:
 
 ```bash
 dotnet build MemoriaNote.sln
+dotnet test MemoriaNote.sln --no-build --filter "TestCategory!=Process"
+```
+
+The fast test run includes one out-of-process CLI smoke test but excludes the remaining CLI process tests. GitHub Actions runs the full test suite without this filter.
+
+Run the full test suite locally when the change warrants broader verification:
+
+```bash
 dotnet test MemoriaNote.sln --no-build
+```
+
+To run only the excluded CLI process tests, use:
+
+```bash
+dotnet test MemoriaNote.sln --no-build --filter "TestCategory=Process"
 ```
 
 ## Spelling

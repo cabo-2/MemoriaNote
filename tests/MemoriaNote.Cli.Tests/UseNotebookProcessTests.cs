@@ -5,6 +5,7 @@ namespace MemoriaNote.Cli.Tests;
 
 /// <summary>Verifies persistent notebook selection through the CLI boundary.</summary>
 [TestFixture]
+[Category("Process")]
 public sealed class UseNotebookProcessTests
 {
     /// <summary>Verifies use exposes its mutually exclusive inputs.</summary>
