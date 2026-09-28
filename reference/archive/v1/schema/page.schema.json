@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:memoria-note:archive:v1:page",
+  "title": "MemoriaNote archive v1 page record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rowid",
+    "uuid",
+    "name",
+    "index",
+    "tags",
+    "contentType",
+    "createTime",
+    "updateTime",
+    "isErased",
+    "text"
+  ],
+  "properties": {
+    "rowid": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$"
+    },
+    "name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "index": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "tags": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "contentType": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "createTime": {
+      "$ref": "#/$defs/storedDateTime"
+    },
+    "updateTime": {
+      "$ref": "#/$defs/storedDateTime"
+    },
+    "isErased": {
+      "type": "integer",
+      "enum": [
+        0,
+        1
+      ]
+    },
+    "text": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "$defs": {
+    "storedDateTime": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]{1,7})?$"
+    }
+  }
+}
