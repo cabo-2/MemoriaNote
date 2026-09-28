@@ -1,9 +1,14 @@
 # Development Guidance for Memoria Note
 
-This project uses C# targeting **.NET 10**. The repository currently hosts two production projects:
+This project uses C# targeting **.NET 10**.
 
-- `core/` – library providing the data model, database access and services
-- `cli/` – console application depending on `core`
+## Project Structure
+
+- `core/` – production library providing the data model, database access, and services
+- `cli/` – production console application depending on `core`
+- `tests/` – automated test projects for `core` and `cli`
+- `docs/` – local design explorations and work notes; excluded from Git and not a home for canonical documentation
+- `reference/` – version-controlled specifications and external-facing documentation
 
 ## Development Workflow
 
