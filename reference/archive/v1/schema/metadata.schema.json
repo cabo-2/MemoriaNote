@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:memoria-note:archive:v1:metadata",
+  "title": "MemoriaNote archive v1 metadata data set",
+  "type": "array",
+  "maxItems": 65536,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "key",
+      "value"
+    ],
+    "properties": {
+      "key": {
+        "type": "string",
+        "maxLength": 1024
+      },
+      "value": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    }
+  }
+}

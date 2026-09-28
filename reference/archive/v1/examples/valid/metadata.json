@@ -1,0 +1,42 @@
+[
+  {
+    "key": "Author",
+    "value": "Example Author"
+  },
+  {
+    "key": "CreateTime",
+    "value": "20260928090000"
+  },
+  {
+    "key": "Description",
+    "value": "Archive v1 example"
+  },
+  {
+    "key": "Name",
+    "value": "example"
+  },
+  {
+    "key": "NullableValue",
+    "value": null
+  },
+  {
+    "key": "ReadOnly",
+    "value": "False"
+  },
+  {
+    "key": "Tag",
+    "value": "fixture"
+  },
+  {
+    "key": "Title",
+    "value": "Archive v1 例"
+  },
+  {
+    "key": "Version",
+    "value": "1"
+  },
+  {
+    "key": "X-Unknown",
+    "value": "preserved"
+  }
+]

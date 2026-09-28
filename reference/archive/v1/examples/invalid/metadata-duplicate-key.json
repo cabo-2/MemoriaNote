@@ -1,0 +1,18 @@
+[
+  {
+    "key": "Name",
+    "value": "first"
+  },
+  {
+    "key": "Name",
+    "value": "second"
+  },
+  {
+    "key": "Title",
+    "value": "Duplicate metadata key"
+  },
+  {
+    "key": "Version",
+    "value": "1"
+  }
+]

@@ -1,0 +1,3 @@
+{"rowid":1,"uuid":"11111111-1111-4111-8111-111111111111","name":"日記","index":1,"tags":"{\"Dir\":\"journal/2026\"}","contentType":"T","createTime":"2026-09-28 09:00:00","updateTime":"2026-09-28 09:01:02.1234567","isErased":0,"text":"1 行目\n2 行目"}
+{"rowid":2,"uuid":"22222222-2222-4222-8222-222222222222","name":"Empty","index":1,"tags":"{}","contentType":"","createTime":"2026-09-28 10:00:00","updateTime":"2026-09-28 10:00:00","isErased":0,"text":""}
+{"rowid":3,"uuid":"33333333-3333-4333-8333-333333333333","name":null,"index":1,"tags":null,"contentType":null,"createTime":"2026-09-28 11:00:00","updateTime":"2026-09-28 11:00:00.1","isErased":1,"text":null}
