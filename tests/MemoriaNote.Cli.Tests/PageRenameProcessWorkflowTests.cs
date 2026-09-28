@@ -6,6 +6,7 @@ namespace MemoriaNote.Cli.Tests;
 
 /// <summary>Verifies page rename workflows through the CLI process boundary.</summary>
 [TestFixture]
+[Category("Process")]
 public sealed class PageRenameProcessWorkflowTests
 {
     /// <summary>Verifies rename preserves identity and content while replacing the exact name.</summary>

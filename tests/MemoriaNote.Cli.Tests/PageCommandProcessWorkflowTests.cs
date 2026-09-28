@@ -6,6 +6,7 @@ namespace MemoriaNote.Cli.Tests;
 
 /// <summary>Verifies stateless page commands through the CLI process boundary.</summary>
 [TestFixture]
+[Category("Process")]
 public sealed class PageCommandProcessWorkflowTests
 {
     const string EditedTextEnvironmentVariable = "MEMORIA_NOTE_TEST_EDITOR_TEXT";

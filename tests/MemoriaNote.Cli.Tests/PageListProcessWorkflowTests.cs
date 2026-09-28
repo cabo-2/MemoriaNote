@@ -6,6 +6,7 @@ namespace MemoriaNote.Cli.Tests;
 
 /// <summary>Verifies the read-only page-list workflow through the CLI process boundary.</summary>
 [TestFixture]
+[Category("Process")]
 public sealed class PageListProcessWorkflowTests
 {
     /// <summary>

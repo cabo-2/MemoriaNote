@@ -7,6 +7,7 @@ namespace MemoriaNote.Cli.Tests;
 /// Verifies backup and restore wiring through the CLI process boundary.
 /// </summary>
 [TestFixture]
+[Category("Process")]
 public sealed class BackupRestoreWorkflowTests
 {
     /// <summary>
