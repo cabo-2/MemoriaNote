@@ -48,7 +48,20 @@ namespace MemoriaNote.Archive
             if (!preflight.IsValid)
                 return preflight;
 
-            return await ProcessAsync(input, sink, cancellationToken).ConfigureAwait(false);
+            return await ReadPrevalidatedAsync(input, sink, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        internal Task<ArchiveV1ValidationReport> ReadPrevalidatedAsync(
+            Stream input,
+            IArchiveV1RecordSink sink,
+            CancellationToken cancellationToken)
+        {
+            ValidateInputStream(input);
+            if (sink == null)
+                throw new ArgumentNullException(nameof(sink));
+
+            return ProcessAsync(input, sink, cancellationToken);
         }
 
         static void ValidateInputStream(Stream input)
