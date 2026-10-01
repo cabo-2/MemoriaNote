@@ -1,0 +1,3 @@
+{"rowid":1,"uuid":"AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE","name":"同名","index":1,"tags":" \t","contentType":"","createTime":"2026-10-01 01:02:03","updateTime":"2026-10-01 01:02:03.100","isErased":0,"text":""}
+{"rowid":9,"uuid":"11111111-2222-4333-8444-555555555555","name":"同名","index":2,"tags":" { \"Dir\" : \"日本/雪\", \"Optional\" : null } ","contentType":null,"createTime":"2026-10-02 02:03:04.1","updateTime":"2026-10-02 02:03:04.1234567","isErased":1,"text":"一行目\nsecond line\né"}
+{"rowid":2147483647,"uuid":"99999999-8888-4777-8666-555555555555","name":null,"index":2147483647,"tags":null,"contentType":"T","createTime":"2026-10-03 03:04:05","updateTime":"2026-10-03 03:04:05","isErased":0,"text":null}

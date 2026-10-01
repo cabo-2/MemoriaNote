@@ -1,0 +1,25 @@
+{
+  "format": "memoria-note-archive",
+  "archiveFormatVersion": 1,
+  "contentModelVersion": 1,
+  "sourceNotebookFormatVersion": "1",
+  "createdBy": {
+    "application": "MemoriaNote.Tests",
+    "version": "ncli-410"
+  },
+  "createdAtUtc": "2026-10-01T00:00:00.0000000Z",
+  "dataSets": {
+    "metadata": {
+      "entry": "metadata.json",
+      "recordCount": 8,
+      "uncompressedByteLength": 449,
+      "sha256": "cc9ec9bcb258420686af3cad1e9ceb71c839f34a2ca22d4ef6cb5efa65a494a1"
+    },
+    "pages": {
+      "entry": "pages.ndjson",
+      "recordCount": 3,
+      "uncompressedByteLength": 728,
+      "sha256": "7fce7323c67bba7b9849a1d5b6463caae6b8973e4db3d070c9920cfd4821056e"
+    }
+  }
+}
