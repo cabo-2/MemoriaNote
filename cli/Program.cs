@@ -483,7 +483,9 @@ namespace MemoriaNote.Cli
                 }
             }
 
-            [Command("backup", Description = "Create a backup of the selected note")]
+            [Command(
+                "backup",
+                Description = "Moved to 'mn notebooks backup'")]
             private class WorkBackupCommand
             {
                 [Argument(0, "name")]

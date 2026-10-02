@@ -238,12 +238,7 @@ namespace MemoriaNote.Cli
                     loggerFactory.CreateLogger<WorkEditCommandHandler>()),
                 workAdd,
                 new WorkRemoveCommandHandler(executor, contextFactory),
-                new WorkBackupCommandHandler(
-                    executor,
-                    contextFactory,
-                    backupService,
-                    filePathFactory,
-                    output),
+                new WorkBackupCommandHandler(executor),
                 new WorkRestoreCommandHandler(
                     executor,
                     contextFactory,

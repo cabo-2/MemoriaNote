@@ -1,4 +1,5 @@
 using MemoriaNote.Cli.Tests.Infrastructure;
+using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
@@ -11,10 +12,10 @@ namespace MemoriaNote.Cli.Tests;
 public sealed class BackupRestoreWorkflowTests
 {
     /// <summary>
-    /// Verifies that explicit backup and restore paths produce the expected artifacts.
+    /// Verifies the legacy restore remains available until its dedicated replacement ships.
     /// </summary>
     [Test]
-    public async Task BackupAndRestore_WithExplicitPaths_CreatesExpectedArtifacts()
+    public async Task LegacyRestore_WithPreparedArchive_CreatesExpectedArtifact()
     {
         using var harness = new CliProcessHarness();
         const string noteName = "archive";
@@ -38,17 +39,9 @@ public sealed class BackupRestoreWorkflowTests
 
         AssertSucceeded(createResult);
 
-        var backupResult = await harness.RunAsync(
-            "work",
-            "backup",
-            noteName,
-            "--output",
+        await CreateLegacyBackupAsync(
+            Path.Combine(harness.ApplicationDataDirectory, noteName + ".db"),
             backupPath);
-
-        AssertSucceeded(backupResult);
-        Assert.That(backupResult.StandardOutput, Does.Contain("Backup completed"));
-        Assert.That(File.Exists(backupPath), Is.True);
-        Assert.That(new FileInfo(backupPath).Length, Is.GreaterThan(0));
 
         var restoreResult = await harness.RunAsync(
             "work",
@@ -64,6 +57,50 @@ public sealed class BackupRestoreWorkflowTests
         Assert.That(
             Directory.EnumerateFileSystemEntries(harness.WorkingDirectory),
             Is.Empty);
+    }
+
+    /// <summary>
+    /// Verifies the legacy backup command only reports migration guidance and changes nothing.
+    /// </summary>
+    [Test]
+    public async Task LegacyBackup_ReturnsGuidanceWithoutCreatingStateOrOutput()
+    {
+        using var harness = new CliProcessHarness();
+        var outputPath = Path.Combine(harness.TemporaryDirectory, "legacy.zip");
+
+        var result = await harness.RunAsync(
+            "work",
+            "backup",
+            "anything",
+            "--output",
+            outputPath);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.StandardError, Does.Contain("mn notebooks backup"));
+            Assert.That(File.Exists(outputPath), Is.False);
+            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
+            Assert.That(
+                Directory.EnumerateFileSystemEntries(harness.WorkingDirectory),
+                Is.Empty);
+        }
+    }
+
+    static async Task CreateLegacyBackupAsync(string notebookPath, string backupPath)
+    {
+        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        var metadataRepository = new SqliteNotebookMetadataRepository(factory);
+        var service = new NotebookBackupService(
+            new SqliteNotebookTransferRepository(factory),
+            metadataRepository,
+            new SqliteNotebookMigrator(factory, metadataRepository),
+            new NotebookFilePathFactory());
+        await service.CreateBackupAsync(
+            NotebookId.FromDatabasePath(notebookPath),
+            backupPath,
+            CancellationToken.None);
     }
 
     static void AssertSucceeded(CliProcessResult result)
