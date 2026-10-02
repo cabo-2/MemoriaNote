@@ -143,7 +143,8 @@ namespace MemoriaNote.Cli
         [Command(
             "notebooks",
             Description = "Inspect workspace-root notebooks")]
-        [Subcommand(typeof(NotebooksListCommand))]
+        [Subcommand(typeof(NotebooksListCommand),
+                    typeof(NotebooksBackupCommand))]
         [HelpOption("--help")]
         class NotebooksCommand
         {
@@ -171,6 +172,39 @@ namespace MemoriaNote.Cli
                     return CommandHandlers.NotebookList.ExecuteAsync(
                         Parent?.Parent?.Workspace,
                         Long,
+                        cancellationToken);
+                }
+            }
+
+            [Command(
+                "backup",
+                Description = "Create a validated archive v1 backup",
+                ExtendedHelpText =
+                    "Syntax: mn notebooks backup [<archive>] [--notebook <notebook>]" +
+                    "\nOmit <archive> or use - to write the archive to redirected " +
+                    "standard output.")]
+            [HelpOption("--help")]
+            class NotebooksBackupCommand
+            {
+                public NotebooksCommand Parent { get; set; }
+
+                [Argument(
+                    0,
+                    Name = "archive",
+                    Description = "new archive file; omit or use - for standard output")]
+                public (bool hasValue, string value) Archive { get; set; }
+
+                [Option(
+                    "--notebook <notebook>",
+                    Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
+                public string Notebook { get; set; }
+
+                protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+                {
+                    return CommandHandlers.NotebookBackup.ExecuteAsync(
+                        Parent?.Parent?.Workspace,
+                        Notebook,
+                        Archive.hasValue ? Archive.value : null,
                         cancellationToken);
                 }
             }
