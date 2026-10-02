@@ -144,7 +144,8 @@ namespace MemoriaNote.Cli
             "notebooks",
             Description = "Inspect workspace-root notebooks")]
         [Subcommand(typeof(NotebooksListCommand),
-                    typeof(NotebooksBackupCommand))]
+                    typeof(NotebooksBackupCommand),
+                    typeof(NotebooksRestoreCommand))]
         [HelpOption("--help")]
         class NotebooksCommand
         {
@@ -205,6 +206,45 @@ namespace MemoriaNote.Cli
                         Parent?.Parent?.Workspace,
                         Notebook,
                         Archive.hasValue ? Archive.value : null,
+                        cancellationToken);
+                }
+            }
+
+            [Command(
+                "restore",
+                Description = "Restore a validated archive v1 to a new notebook",
+                ExtendedHelpText =
+                    "Syntax: mn notebooks restore [<archive>] --target <notebook> [--dry-run]" +
+                    "\nOmit <archive> or use - to read the archive from redirected " +
+                    "standard input.")]
+            [HelpOption("--help")]
+            class NotebooksRestoreCommand
+            {
+                public NotebooksCommand Parent { get; set; }
+
+                [Argument(
+                    0,
+                    Name = "archive",
+                    Description = "archive file; omit or use - for standard input")]
+                public (bool hasValue, string value) Archive { get; set; }
+
+                [Option(
+                    "--target <notebook>",
+                    Description = "new workspace-root notebook leaf name; .mnote is optional")]
+                public string Target { get; set; }
+
+                [Option(
+                    "--dry-run",
+                    Description = "fully validate the restore without creating a notebook")]
+                public bool DryRun { get; set; }
+
+                protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+                {
+                    return CommandHandlers.NotebookRestore.ExecuteAsync(
+                        Parent?.Parent?.Workspace,
+                        Target,
+                        Archive.hasValue ? Archive.value : null,
+                        DryRun,
                         cancellationToken);
                 }
             }

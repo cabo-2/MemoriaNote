@@ -61,11 +61,37 @@ internal sealed class CliProcessHarness : IDisposable
         return RunAsync(arguments, null, DefaultTimeout, CancellationToken.None);
     }
 
-    internal async Task<CliProcessResult> RunAsync(
+    internal Task<CliProcessResult> RunAsync(
         IEnumerable<string> arguments,
         string? standardInput,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
+    {
+        return RunCoreAsync(
+            arguments,
+            standardInput == null ? null : Encoding.UTF8.GetBytes(standardInput),
+            timeout,
+            cancellationToken);
+    }
+
+    internal Task<CliProcessResult> RunWithStandardInputAsync(
+        IEnumerable<string> arguments,
+        byte[] standardInput,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        return RunCoreAsync(
+            arguments,
+            standardInput ?? throw new ArgumentNullException(nameof(standardInput)),
+            timeout,
+            cancellationToken);
+    }
+
+    async Task<CliProcessResult> RunCoreAsync(
+        IEnumerable<string> arguments,
+        byte[]? standardInput,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
     {
         if (arguments == null)
             throw new ArgumentNullException(nameof(arguments));
@@ -86,7 +112,7 @@ internal sealed class CliProcessHarness : IDisposable
         {
             if (standardInput != null)
             {
-                await process.StandardInput.WriteAsync(
+                await process.StandardInput.BaseStream.WriteAsync(
                     standardInput.AsMemory(),
                     linkedCancellation.Token);
             }
