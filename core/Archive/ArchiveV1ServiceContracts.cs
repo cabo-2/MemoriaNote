@@ -183,12 +183,16 @@ namespace MemoriaNote.Archive
     public sealed class ArchiveV1FileRestoreRequest
     {
         /// <summary>Initializes a file restore request.</summary>
-        public ArchiveV1FileRestoreRequest(string sourceArchivePath, string destinationDatabasePath)
+        public ArchiveV1FileRestoreRequest(
+            string sourceArchivePath,
+            string destinationDatabasePath,
+            bool dryRun = false)
         {
             SourceArchivePath = RequirePath(sourceArchivePath, nameof(sourceArchivePath));
             DestinationDatabasePath = RequirePath(
                 destinationDatabasePath,
                 nameof(destinationDatabasePath));
+            DryRun = dryRun;
         }
 
         /// <summary>Gets the source archive path.</summary>
@@ -196,6 +200,9 @@ namespace MemoriaNote.Archive
 
         /// <summary>Gets the new notebook path to create without replacement.</summary>
         public string DestinationDatabasePath { get; }
+
+        /// <summary>Gets whether the restore must be verified without publishing a notebook.</summary>
+        public bool DryRun { get; }
 
         static string RequirePath(string value, string parameterName)
         {
@@ -211,7 +218,10 @@ namespace MemoriaNote.Archive
     public sealed class ArchiveV1StreamRestoreRequest
     {
         /// <summary>Initializes a stream restore request.</summary>
-        public ArchiveV1StreamRestoreRequest(Stream source, string destinationDatabasePath)
+        public ArchiveV1StreamRestoreRequest(
+            Stream source,
+            string destinationDatabasePath,
+            bool dryRun = false)
         {
             Source = source ?? throw new ArgumentNullException(nameof(source));
             if (destinationDatabasePath == null)
@@ -224,6 +234,7 @@ namespace MemoriaNote.Archive
             }
 
             DestinationDatabasePath = destinationDatabasePath;
+            DryRun = dryRun;
         }
 
         /// <summary>Gets the caller-owned readable source stream.</summary>
@@ -231,5 +242,8 @@ namespace MemoriaNote.Archive
 
         /// <summary>Gets the new notebook path to create without replacement.</summary>
         public string DestinationDatabasePath { get; }
+
+        /// <summary>Gets whether the restore must be verified without publishing a notebook.</summary>
+        public bool DryRun { get; }
     }
 }

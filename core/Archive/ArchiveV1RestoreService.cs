@@ -34,7 +34,7 @@ namespace MemoriaNote.Archive
             cancellationToken.ThrowIfCancellationRequested();
 
             var destinationPath = Path.GetFullPath(request.DestinationDatabasePath);
-            if (File.Exists(destinationPath))
+            if (DestinationExists(destinationPath))
             {
                 return ArchiveV1RestoreResult.Failed(
                     ArchiveV1OperationErrorCode.DestinationConflict);
@@ -59,6 +59,7 @@ namespace MemoriaNote.Archive
                 return await RestoreSeekableAsync(
                         input,
                         destinationPath,
+                        request.DryRun,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -97,7 +98,7 @@ namespace MemoriaNote.Archive
             cancellationToken.ThrowIfCancellationRequested();
 
             var destinationPath = Path.GetFullPath(request.DestinationDatabasePath);
-            if (File.Exists(destinationPath))
+            if (DestinationExists(destinationPath))
             {
                 return ArchiveV1RestoreResult.Failed(
                     ArchiveV1OperationErrorCode.DestinationConflict);
@@ -128,6 +129,7 @@ namespace MemoriaNote.Archive
                 return await RestoreSeekableAsync(
                         input,
                         destinationPath,
+                        request.DryRun,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -146,10 +148,11 @@ namespace MemoriaNote.Archive
         async Task<ArchiveV1RestoreResult> RestoreSeekableAsync(
             Stream archive,
             string destinationDatabasePath,
+            bool dryRun,
             CancellationToken cancellationToken)
         {
             var destinationPath = Path.GetFullPath(destinationDatabasePath);
-            if (File.Exists(destinationPath))
+            if (DestinationExists(destinationPath))
             {
                 return ArchiveV1RestoreResult.Failed(
                     ArchiveV1OperationErrorCode.DestinationConflict);
@@ -196,13 +199,20 @@ namespace MemoriaNote.Archive
                         ArchiveV1OperationErrorCode.IntegrityFailure);
                 }
 
+                if (dryRun)
+                {
+                    return ArchiveV1RestoreResult.Succeeded(
+                        written.Summary.MetadataCount,
+                        written.Summary.PageCount);
+                }
+
                 SqliteArchiveV1PersistenceAdapter.FlushToDisk(temporary.Path);
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
                     File.Move(temporary.Path, destinationPath, overwrite: false);
                 }
-                catch (IOException) when (File.Exists(destinationPath))
+                catch (IOException) when (DestinationExists(destinationPath))
                 {
                     return ArchiveV1RestoreResult.Failed(
                         ArchiveV1OperationErrorCode.DestinationConflict);
@@ -289,6 +299,11 @@ namespace MemoriaNote.Archive
                 exception.SqliteErrorCode == 10 ||
                 exception.SqliteErrorCode == 13 ||
                 exception.SqliteErrorCode == 14;
+        }
+
+        static bool DestinationExists(string path)
+        {
+            return File.Exists(path) || Directory.Exists(path);
         }
     }
 }

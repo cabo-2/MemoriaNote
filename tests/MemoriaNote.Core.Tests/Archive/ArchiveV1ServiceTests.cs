@@ -83,6 +83,56 @@ public sealed class ArchiveV1ServiceTests
         }
     }
 
+    /// <summary>
+    /// Verifies dry-run performs a full restore verification without publishing a database.
+    /// </summary>
+    [Test]
+    public async Task DryRun_FileAndStream_ValidateWithoutPublishingDatabase()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("dry-run", "Dry run");
+        SeedRawRows(database.DatabasePath);
+        var archivePath = Path.Combine(database.DirectoryPath, "dry-run.mnarchive");
+        var fileDestination = Path.Combine(database.DirectoryPath, "file-dry-run.mnote");
+        var streamDestination = Path.Combine(database.DirectoryPath, "stream-dry-run.mnote");
+        using var services = CreateServices(database.DirectoryPath);
+
+        var backup = await services.Backup.BackupAsync(
+            new ArchiveV1FileBackupRequest(database.DatabasePath, archivePath),
+            CancellationToken.None);
+        var fileDryRun = await services.Restore.RestoreAsync(
+            new ArchiveV1FileRestoreRequest(
+                archivePath,
+                fileDestination,
+                dryRun: true),
+            CancellationToken.None);
+        await using var input = new FileStream(
+            archivePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read);
+        var streamDryRun = await services.Restore.RestoreAsync(
+            new ArchiveV1StreamRestoreRequest(
+                input,
+                streamDestination,
+                dryRun: true),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(backup.IsSuccess, Is.True);
+            Assert.That(fileDryRun.IsSuccess, Is.True);
+            Assert.That(streamDryRun.IsSuccess, Is.True);
+            Assert.That(fileDryRun.MetadataCount, Is.EqualTo(backup.MetadataCount));
+            Assert.That(fileDryRun.PageCount, Is.EqualTo(backup.PageCount));
+            Assert.That(streamDryRun.MetadataCount, Is.EqualTo(backup.MetadataCount));
+            Assert.That(streamDryRun.PageCount, Is.EqualTo(backup.PageCount));
+            Assert.That(File.Exists(fileDestination), Is.False);
+            Assert.That(File.Exists(streamDestination), Is.False);
+            Assert.That(ListTemporaryOutputs(database.DirectoryPath), Is.Empty);
+        }
+    }
+
     /// <summary>Verifies metadata and pages are read from one SQLite snapshot.</summary>
     [Test]
     public async Task Backup_ConcurrentSourceChange_UsesOneDatabaseSnapshot()
@@ -186,6 +236,33 @@ public sealed class ArchiveV1ServiceTests
             Assert.That(input.ReadAttempted, Is.False);
             Assert.That(input.WasDisposed, Is.False);
             Assert.That(await File.ReadAllTextAsync(destinationPath), Is.EqualTo("keep"));
+        }
+    }
+
+    /// <summary>Verifies dry-run treats an existing directory as a pre-input conflict.</summary>
+    [Test]
+    public async Task StreamDryRun_WhenDestinationIsDirectory_DoesNotReadInput()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        var destinationPath = Path.Combine(database.DirectoryPath, "directory.mnote");
+        Directory.CreateDirectory(destinationPath);
+        using var services = CreateServices(database.DirectoryPath);
+        using var input = new ThrowingReadStream();
+
+        var result = await services.Restore.RestoreAsync(
+            new ArchiveV1StreamRestoreRequest(
+                input,
+                destinationPath,
+                dryRun: true),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Error?.Code, Is.EqualTo(
+                ArchiveV1OperationErrorCode.DestinationConflict));
+            Assert.That(input.ReadAttempted, Is.False);
+            Assert.That(Directory.Exists(destinationPath), Is.True);
+            Assert.That(ListTemporaryOutputs(database.DirectoryPath), Is.Empty);
         }
     }
 

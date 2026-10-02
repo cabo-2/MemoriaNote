@@ -20,10 +20,9 @@ namespace MemoriaNote.Cli
                     "The source notebook is not a valid current-format notebook."),
                 ArchiveV1OperationErrorCode.DestinationConflict => Failure(
                     CliErrorKind.Conflict,
-                    "The archive destination already exists."),
-                ArchiveV1OperationErrorCode.ArchiveValidationFailed => Failure(
-                    CliErrorKind.Validation,
-                    "The input is not a valid supported archive."),
+                    "The destination already exists."),
+                ArchiveV1OperationErrorCode.ArchiveValidationFailed =>
+                    MapValidationFailure(error),
                 ArchiveV1OperationErrorCode.IoFailure => Failure(
                     CliErrorKind.Storage,
                     "The archive operation failed due to an I/O error."),
@@ -37,6 +36,23 @@ namespace MemoriaNote.Cli
         static CliCommandResult Failure(CliErrorKind kind, string message)
         {
             return CliCommandResult.Failure(kind, message);
+        }
+
+        static CliCommandResult MapValidationFailure(ArchiveV1OperationError error)
+        {
+            if (error.ValidationReport?.Classification ==
+                ArchiveV1Classification.LegacyArchiveCandidate)
+            {
+                return Failure(
+                    CliErrorKind.Validation,
+                    "Legacy archives are not supported by this command. " +
+                    "Use a compatible older Memoria Note CLI release for manual recovery; " +
+                    "migration guidance will be provided by NCLI-660.");
+            }
+
+            return Failure(
+                CliErrorKind.Validation,
+                "The input is not a valid supported archive.");
         }
     }
 }

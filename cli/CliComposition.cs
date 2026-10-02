@@ -115,6 +115,9 @@ namespace MemoriaNote.Cli
             var binaryStandardOutput = new ConsoleBinaryStandardOutput(
                 Console.OpenStandardOutput(),
                 !Console.IsOutputRedirected);
+            var binaryStandardInput = new ConsoleBinaryStandardInput(
+                Console.OpenStandardInput(),
+                !Console.IsInputRedirected);
             var input = new ConsoleCommandInput(Console.In, !Console.IsInputRedirected);
             var prompt = new CommandPrompt(input, output);
             var errorMapper = new CliErrorMapper();
@@ -133,11 +136,6 @@ namespace MemoriaNote.Cli
                 loggerFactory);
             var textPageImporter = new TextPageImporter(pageRepository);
             var textPageExporter = new TextPageExporter(transferRepository);
-            var backupService = new NotebookBackupService(
-                transferRepository,
-                metadataRepository,
-                notebookMigrator,
-                filePathFactory);
             var archiveV1BackupService = new ArchiveV1BackupService(
                 databaseFactory,
                 temporaryFileStore,
@@ -146,6 +144,9 @@ namespace MemoriaNote.Cli
                     ApplicationPaths.ApplicationName,
                     typeof(CliComposition).Assembly.GetName().Version?.ToString() ??
                         "unknown"));
+            var archiveV1RestoreService = new ArchiveV1RestoreService(
+                databaseFactory,
+                temporaryFileStore);
 
             var workAdd = new WorkAddCommandHandler(
                 executor,
@@ -173,6 +174,11 @@ namespace MemoriaNote.Cli
                     notebookTargetResolver,
                     archiveV1BackupService,
                     binaryStandardOutput,
+                    output),
+                new NotebookRestoreCommandHandler(
+                    executor,
+                    archiveV1RestoreService,
+                    binaryStandardInput,
                     output),
                 new FindCommandHandler(executor),
                 new EditCommandHandler(
@@ -239,11 +245,7 @@ namespace MemoriaNote.Cli
                 workAdd,
                 new WorkRemoveCommandHandler(executor, contextFactory),
                 new WorkBackupCommandHandler(executor),
-                new WorkRestoreCommandHandler(
-                    executor,
-                    contextFactory,
-                    backupService,
-                    output),
+                new WorkRestoreCommandHandler(executor),
                 new ImportCommandHandler(
                     executor,
                     contextFactory,
