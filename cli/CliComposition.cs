@@ -136,11 +136,6 @@ namespace MemoriaNote.Cli
                 loggerFactory);
             var textPageImporter = new TextPageImporter(pageRepository);
             var textPageExporter = new TextPageExporter(transferRepository);
-            var backupService = new NotebookBackupService(
-                transferRepository,
-                metadataRepository,
-                notebookMigrator,
-                filePathFactory);
             var archiveV1BackupService = new ArchiveV1BackupService(
                 databaseFactory,
                 temporaryFileStore,
@@ -250,11 +245,7 @@ namespace MemoriaNote.Cli
                 workAdd,
                 new WorkRemoveCommandHandler(executor, contextFactory),
                 new WorkBackupCommandHandler(executor),
-                new WorkRestoreCommandHandler(
-                    executor,
-                    contextFactory,
-                    backupService,
-                    output),
+                new WorkRestoreCommandHandler(executor),
                 new ImportCommandHandler(
                     executor,
                     contextFactory,

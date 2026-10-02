@@ -544,7 +544,9 @@ namespace MemoriaNote.Cli
                 }
             }
 
-            [Command("restore", Description = "Restore a previously backed up note")]
+            [Command(
+                "restore",
+                Description = "Moved to 'mn notebooks restore'")]
             private class WorkRestoreCommand
             {
                 [Argument(0, "zip-file")]
@@ -554,15 +556,8 @@ namespace MemoriaNote.Cli
                 public string OutputDir { get; set; }
 
                 protected Task<int> OnExecuteAsync(
-                    CommandLineApplication app,
                     CancellationToken cancellationToken)
                 {
-                    if (!InputPath.hasValue)
-                    {
-                        app.Error.WriteLine("Error: No input file");
-                        return Task.FromResult((int)CliExitCode.Validation);
-                    }
-
                     return CommandHandlers.WorkRestore.ExecuteAsync(
                         InputPath.value,
                         OutputDir,

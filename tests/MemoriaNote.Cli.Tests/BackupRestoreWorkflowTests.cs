@@ -1,5 +1,4 @@
 using MemoriaNote.Cli.Tests.Infrastructure;
-using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
@@ -12,51 +11,58 @@ namespace MemoriaNote.Cli.Tests;
 public sealed class BackupRestoreWorkflowTests
 {
     /// <summary>
-    /// Verifies the legacy restore remains available until its dedicated replacement ships.
+    /// Verifies legacy restore only reports migration guidance and changes nothing.
     /// </summary>
     [Test]
-    public async Task LegacyRestore_WithPreparedArchive_CreatesExpectedArtifact()
+    public async Task LegacyRestore_ReturnsGuidanceWithoutCreatingStateOrOutput()
     {
         using var harness = new CliProcessHarness();
-        const string noteName = "archive";
-        const string noteTitle = "Archive Note";
-        var backupPath = Path.Combine(
-            harness.TemporaryDirectory,
-            noteName + ".json.zip");
-        var restoreDirectory = Path.Combine(
-            harness.TemporaryDirectory,
-            "restored");
-        var restoredDatabasePath = Path.Combine(
-            restoreDirectory,
-            noteName + ".db");
-        Directory.CreateDirectory(restoreDirectory);
-
-        var createResult = await harness.RunAsync(
-            "work",
-            "create",
-            noteName,
-            noteTitle);
-
-        AssertSucceeded(createResult);
-
-        await CreateLegacyBackupAsync(
-            Path.Combine(harness.ApplicationDataDirectory, noteName + ".db"),
-            backupPath);
+        var inputPath = Path.Combine(harness.TemporaryDirectory, "legacy.zip");
+        var input = "keep legacy archive"u8.ToArray();
+        await File.WriteAllBytesAsync(inputPath, input);
+        var outputDirectory = Path.Combine(harness.TemporaryDirectory, "restored");
 
         var restoreResult = await harness.RunAsync(
             "work",
             "restore",
-            backupPath,
+            inputPath,
             "--output-dir",
-            restoreDirectory);
+            outputDirectory);
 
-        AssertSucceeded(restoreResult);
-        Assert.That(restoreResult.StandardOutput, Does.Contain("Restore completed"));
-        Assert.That(File.Exists(restoredDatabasePath), Is.True);
-        Assert.That(new FileInfo(restoredDatabasePath).Length, Is.GreaterThan(0));
-        Assert.That(
-            Directory.EnumerateFileSystemEntries(harness.WorkingDirectory),
-            Is.Empty);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                restoreResult.ExitCode,
+                Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(restoreResult.StandardOutput, Is.Empty);
+            Assert.That(restoreResult.StandardError, Does.Contain("mn notebooks restore"));
+            Assert.That(await File.ReadAllBytesAsync(inputPath), Is.EqualTo(input));
+            Assert.That(Directory.Exists(outputDirectory), Is.False);
+            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
+            Assert.That(
+                Directory.EnumerateFileSystemEntries(harness.WorkingDirectory),
+                Is.Empty);
+        }
+    }
+
+    /// <summary>Verifies omitted legacy arguments still reach the migration stub.</summary>
+    [Test]
+    public async Task LegacyRestore_WithoutArguments_ReturnsNewCommandGuidance()
+    {
+        using var harness = new CliProcessHarness();
+
+        var result = await harness.RunAsync("work", "restore");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.StandardError, Does.Contain("mn notebooks restore"));
+            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
+            Assert.That(
+                Directory.EnumerateFileSystemEntries(harness.WorkingDirectory),
+                Is.Empty);
+        }
     }
 
     /// <summary>
@@ -85,30 +91,6 @@ public sealed class BackupRestoreWorkflowTests
             Assert.That(
                 Directory.EnumerateFileSystemEntries(harness.WorkingDirectory),
                 Is.Empty);
-        }
-    }
-
-    static async Task CreateLegacyBackupAsync(string notebookPath, string backupPath)
-    {
-        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        var metadataRepository = new SqliteNotebookMetadataRepository(factory);
-        var service = new NotebookBackupService(
-            new SqliteNotebookTransferRepository(factory),
-            metadataRepository,
-            new SqliteNotebookMigrator(factory, metadataRepository),
-            new NotebookFilePathFactory());
-        await service.CreateBackupAsync(
-            NotebookId.FromDatabasePath(notebookPath),
-            backupPath,
-            CancellationToken.None);
-    }
-
-    static void AssertSucceeded(CliProcessResult result)
-    {
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result.ExitCode, Is.Zero);
-            Assert.That(result.StandardError, Is.Empty);
         }
     }
 }

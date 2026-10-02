@@ -489,22 +489,10 @@ namespace MemoriaNote.Cli
     internal sealed class WorkRestoreCommandHandler
     {
         readonly CliCommandExecutor _executor;
-        readonly ICliCommandContextFactory _contextFactory;
-        readonly NotebookBackupService _backupService;
-        readonly ICommandOutput _output;
 
-        internal WorkRestoreCommandHandler(
-            CliCommandExecutor executor,
-            ICliCommandContextFactory contextFactory,
-            NotebookBackupService backupService,
-            ICommandOutput output)
+        internal WorkRestoreCommandHandler(CliCommandExecutor executor)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
-            _contextFactory = contextFactory ??
-                throw new ArgumentNullException(nameof(contextFactory));
-            _backupService = backupService ??
-                throw new ArgumentNullException(nameof(backupService));
-            _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
         internal Task<int> ExecuteAsync(
@@ -512,43 +500,13 @@ namespace MemoriaNote.Cli
             string outputDirectory,
             CancellationToken cancellationToken)
         {
-            return _executor.ExecuteAsync(async token =>
-            {
-                if (inputPath == null)
-                {
-                    return CliCommandResult.Failure(
-                        CliErrorKind.Validation,
-                        "No input file");
-                }
-                if (!File.Exists(inputPath))
-                {
-                    return CliCommandResult.Failure(
-                        CliErrorKind.NotFound,
-                        "No such input file");
-                }
-
-                _contextFactory.LoadConfiguration();
-                if (outputDirectory != null)
-                {
-                    if (!Directory.Exists(outputDirectory))
-                    {
-                        return CliCommandResult.Failure(
-                            CliErrorKind.NotFound,
-                            "No such directory");
-                    }
-                }
-                else
-                {
-                    outputDirectory = Environment.CurrentDirectory;
-                }
-
-                await _backupService.RestoreBackupAsync(
-                    inputPath,
-                    outputDirectory,
-                    token);
-                _output.WriteLine("Restore completed");
-                return CliCommandResult.Success();
-            }, cancellationToken);
+            return _executor.ExecuteAsync(
+                _ => CliCommandResult.Failure(
+                    CliErrorKind.Validation,
+                    "The 'mn work restore' command is no longer supported. " +
+                    "Use 'mn notebooks restore [<archive>] --target <notebook> " +
+                    "[--dry-run]' instead."),
+                cancellationToken);
         }
     }
 }
