@@ -465,26 +465,10 @@ namespace MemoriaNote.Cli
     internal sealed class WorkBackupCommandHandler
     {
         readonly CliCommandExecutor _executor;
-        readonly ICliCommandContextFactory _contextFactory;
-        readonly NotebookBackupService _backupService;
-        readonly NotebookFilePathFactory _notebookFilePathFactory;
-        readonly ICommandOutput _output;
 
-        internal WorkBackupCommandHandler(
-            CliCommandExecutor executor,
-            ICliCommandContextFactory contextFactory,
-            NotebookBackupService backupService,
-            NotebookFilePathFactory notebookFilePathFactory,
-            ICommandOutput output)
+        internal WorkBackupCommandHandler(CliCommandExecutor executor)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
-            _contextFactory = contextFactory ??
-                throw new ArgumentNullException(nameof(contextFactory));
-            _backupService = backupService ??
-                throw new ArgumentNullException(nameof(backupService));
-            _notebookFilePathFactory = notebookFilePathFactory ??
-                throw new ArgumentNullException(nameof(notebookFilePathFactory));
-            _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
         internal Task<int> ExecuteAsync(
@@ -492,55 +476,13 @@ namespace MemoriaNote.Cli
             string outputPath,
             CancellationToken cancellationToken)
         {
-            return _executor.ExecuteAsync(async token =>
-            {
-                var configuration = _contextFactory.LoadConfiguration();
-                var session = await _contextFactory.CreateSessionAsync(
-                    configuration,
-                    token);
-                var current = name switch
-                {
-                    null => session.Workspace.SelectedNotebook,
-                    _ => session.Workspace.Notebooks.FirstOrDefault(
-                        notebook => notebook.Metadata.Name == name)
-                };
-                if (current == null)
-                {
-                    return CliCommandResult.Failure(
-                        CliErrorKind.NotFound,
-                        "No such name");
-                }
-
-                if (outputPath != null)
-                {
-                    var directory = Path.GetDirectoryName(outputPath);
-                    if (!Directory.Exists(directory))
-                    {
-                        return CliCommandResult.Failure(
-                            CliErrorKind.NotFound,
-                            "No such output directory");
-                    }
-                    if (File.Exists(outputPath))
-                    {
-                        return CliCommandResult.Failure(
-                            CliErrorKind.Conflict,
-                            "Output file exists");
-                    }
-                }
-                else
-                {
-                    outputPath = _notebookFilePathFactory.CreateBackupPath(
-                        Environment.CurrentDirectory,
-                        current.Metadata.Name);
-                }
-
-                await _backupService.CreateBackupAsync(
-                    NotebookId.FromDatabasePath(current.DatabasePath),
-                    outputPath,
-                    token);
-                _output.WriteLine("Backup completed");
-                return CliCommandResult.Success();
-            }, cancellationToken);
+            return _executor.ExecuteAsync(
+                _ => CliCommandResult.Failure(
+                    CliErrorKind.Validation,
+                    "The 'mn work backup' command is no longer supported. " +
+                    "Use 'mn notebooks backup [<archive>] " +
+                    "[--notebook <notebook>]' instead."),
+                cancellationToken);
         }
     }
 

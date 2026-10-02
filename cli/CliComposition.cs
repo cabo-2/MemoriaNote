@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Globalization;
+using MemoriaNote.Archive;
 using MemoriaNote.Application;
 using MemoriaNote.Persistence;
 using MemoriaNote.Transfer;
@@ -111,6 +112,9 @@ namespace MemoriaNote.Cli
                 editorFileExchange,
                 editorProcessRunner);
             var output = new ConsoleCommandOutput(Console.Out, Console.Error);
+            var binaryStandardOutput = new ConsoleBinaryStandardOutput(
+                Console.OpenStandardOutput(),
+                !Console.IsOutputRedirected);
             var input = new ConsoleCommandInput(Console.In, !Console.IsInputRedirected);
             var prompt = new CommandPrompt(input, output);
             var errorMapper = new CliErrorMapper();
@@ -134,6 +138,14 @@ namespace MemoriaNote.Cli
                 metadataRepository,
                 notebookMigrator,
                 filePathFactory);
+            var archiveV1BackupService = new ArchiveV1BackupService(
+                databaseFactory,
+                temporaryFileStore,
+                clock,
+                new ArchiveV1Creator(
+                    ApplicationPaths.ApplicationName,
+                    typeof(CliComposition).Assembly.GetName().Version?.ToString() ??
+                        "unknown"));
 
             var workAdd = new WorkAddCommandHandler(
                 executor,
@@ -155,6 +167,12 @@ namespace MemoriaNote.Cli
                 new NotebookListCommandHandler(
                     executor,
                     workspaceNotebookList,
+                    output),
+                new NotebookBackupCommandHandler(
+                    executor,
+                    notebookTargetResolver,
+                    archiveV1BackupService,
+                    binaryStandardOutput,
                     output),
                 new FindCommandHandler(executor),
                 new EditCommandHandler(
@@ -220,12 +238,7 @@ namespace MemoriaNote.Cli
                     loggerFactory.CreateLogger<WorkEditCommandHandler>()),
                 workAdd,
                 new WorkRemoveCommandHandler(executor, contextFactory),
-                new WorkBackupCommandHandler(
-                    executor,
-                    contextFactory,
-                    backupService,
-                    filePathFactory,
-                    output),
+                new WorkBackupCommandHandler(executor),
                 new WorkRestoreCommandHandler(
                     executor,
                     contextFactory,

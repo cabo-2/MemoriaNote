@@ -76,7 +76,7 @@ internal sealed class CliProcessHarness : IDisposable
         var startInfo = CreateStartInfo(arguments);
         using var process = Process.Start(startInfo) ??
             throw new InvalidOperationException("The CLI process could not be started.");
-        var standardOutput = process.StandardOutput.ReadToEndAsync();
+        var standardOutput = ReadAllBytesAsync(process.StandardOutput.BaseStream);
         var standardError = process.StandardError.ReadToEndAsync();
         using var timeoutCancellation = new CancellationTokenSource(timeout);
         using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
@@ -114,7 +114,7 @@ internal sealed class CliProcessHarness : IDisposable
             }
 
             await process.WaitForExitAsync(CancellationToken.None);
-            var output = await standardOutput;
+            var output = Encoding.UTF8.GetString(await standardOutput);
             var error = await standardError;
 
             if (cancellationToken.IsCancellationRequested)
@@ -169,6 +169,13 @@ internal sealed class CliProcessHarness : IDisposable
         }
 
         return startInfo;
+    }
+
+    static async Task<byte[]> ReadAllBytesAsync(Stream stream)
+    {
+        using var buffer = new MemoryStream();
+        await stream.CopyToAsync(buffer);
+        return buffer.ToArray();
     }
 
     static string GetCliAssemblyPath()
