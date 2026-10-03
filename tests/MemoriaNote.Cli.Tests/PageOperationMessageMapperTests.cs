@@ -16,6 +16,10 @@ public sealed class PageOperationMessageMapperTests
     /// <param name="expected">The expected legacy wording.</param>
     [TestCase(PageOperationKind.Edit, PageErrorCode.PageNotSelected, "The text not yet opened.")]
     [TestCase(PageOperationKind.Create, PageErrorCode.NameRequired, "The text name have not been entered.")]
+    [TestCase(
+        PageOperationKind.Create,
+        PageErrorCode.NameContainsControlCharacter,
+        "The text name cannot contain control characters.")]
     [TestCase(PageOperationKind.Rename, PageErrorCode.DuplicateName, "The text name is already in use.")]
     [TestCase(PageOperationKind.Delete, PageErrorCode.OwnerNotFound, "The text owner note was not found.")]
     [TestCase(PageOperationKind.Edit, PageErrorCode.PageNotFound, "The text was not found in its owner note.")]

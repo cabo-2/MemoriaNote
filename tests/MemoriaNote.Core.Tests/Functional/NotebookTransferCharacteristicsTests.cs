@@ -130,10 +130,10 @@ public sealed class NotebookTransferCharacteristicsTests
     }
 
     /// <summary>
-    /// Verifies that unique root and nested text files survive an export and recursive import.
+    /// Verifies that flat import reads only root text files from an export tree.
     /// </summary>
     [Test]
-    public async Task TextExportImport_RoundTripPreservesUniqueNamesTextAndDirectories()
+    public async Task TextExportImport_FlatImportReadsOnlyRootTextFiles()
     {
         using var database = new TemporaryNotebookDatabase();
         var source = database.CreateNotebook("source", "Source Note");
@@ -160,23 +160,23 @@ public sealed class NotebookTransferCharacteristicsTests
             "imported",
             "Imported Note",
             Path.Combine(database.DirectoryPath, "imported.db"));
-        await services.Importer.ImportAsync(
-            GetNotebookId(imported),
-            exportDirectory,
-            recursive: true,
+        var result = await services.Importer.ImportAsync(
+            new TextPageImportRequest(
+                GetNotebookId(imported),
+                exportDirectory,
+                TextPageImportConflictPolicy.Fail),
             CancellationToken.None);
         var importedOverview = imported.ReadPage("Overview", 1);
-        var importedMeeting = imported.ReadPage("Meeting", 1);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(imported.Count, Is.EqualTo(2));
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.CreatedCount, Is.EqualTo(1));
+            Assert.That(imported.Count, Is.EqualTo(1));
             Assert.That(importedOverview.Text, Is.EqualTo("Root text"));
             Assert.That(importedOverview.TagDict, Does.Not.ContainKey(PageTag.Dir));
             Assert.That(importedOverview.Guid, Is.Not.EqualTo(overview.Guid));
-            Assert.That(importedMeeting.Text, Is.EqualTo("Nested text"));
-            Assert.That(importedMeeting.TagDict[PageTag.Dir], Is.EqualTo("work/2026"));
-            Assert.That(importedMeeting.Guid, Is.Not.EqualTo(meeting.Guid));
+            Assert.That(imported.ReadPage("Meeting", 1), Is.Null);
         }
     }
 
@@ -188,7 +188,7 @@ public sealed class NotebookTransferCharacteristicsTests
     {
         using var database = new TemporaryNotebookDatabase();
         var source = database.CreateNotebook("source", "Source Note");
-        source.CreatePage("CON", "Reserved name", "AUX/design:2026");
+        source.CreatePage("CON", "Reserved name");
         source.CreatePage("Plan/2026", "Slash name");
         source.CreatePage("Literal／Slash", "Full-width slash name");
         var exportDirectory = Path.Combine(database.DirectoryPath, "portable-export");
@@ -205,12 +205,10 @@ public sealed class NotebookTransferCharacteristicsTests
             Assert.That(
                 File.Exists(Path.Combine(
                     exportDirectory,
-                    "~mn~1~AUX",
-                    "~mn~1~design%3A2026",
-                    "~mn~1~CON.txt")),
+                    "CON~mn~2~.txt")),
                 Is.True);
             Assert.That(
-                File.Exists(Path.Combine(exportDirectory, "~mn~1~Plan%2F2026.txt")),
+                File.Exists(Path.Combine(exportDirectory, "Plan%2F2026~mn~2~.txt")),
                 Is.True);
             Assert.That(
                 File.Exists(Path.Combine(exportDirectory, "Literal／Slash.txt")),
@@ -221,18 +219,17 @@ public sealed class NotebookTransferCharacteristicsTests
             "imported-portable",
             "Imported Portable Note",
             Path.Combine(database.DirectoryPath, "imported-portable.db"));
-        await services.Importer.ImportAsync(
-            GetNotebookId(imported),
-            exportDirectory,
-            recursive: true,
+        var result = await services.Importer.ImportAsync(
+            new TextPageImportRequest(
+                GetNotebookId(imported),
+                exportDirectory,
+                TextPageImportConflictPolicy.Fail),
             CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
+            Assert.That(result.IsSuccess, Is.True);
             Assert.That(imported.ReadPage("CON", 1).Text, Is.EqualTo("Reserved name"));
-            Assert.That(
-                imported.ReadPage("CON", 1).TagDict[PageTag.Dir],
-                Is.EqualTo("AUX/design:2026"));
             Assert.That(imported.ReadPage("Plan/2026", 1).Text, Is.EqualTo("Slash name"));
             Assert.That(
                 imported.ReadPage("Literal／Slash", 1).Text,
@@ -241,10 +238,10 @@ public sealed class NotebookTransferCharacteristicsTests
     }
 
     /// <summary>
-    /// Verifies that importing an existing page name creates another indexed page.
+    /// Verifies that the default policy rejects an existing exact page name atomically.
     /// </summary>
     [Test]
-    public async Task TextImport_WhenNameAlreadyExists_CreatesAnotherIndex()
+    public async Task TextImport_WhenNameAlreadyExists_RejectsCompleteImport()
     {
         using var database = new TemporaryNotebookDatabase();
         var note = database.CreateNotebook("target", "Target Note");
@@ -254,20 +251,23 @@ public sealed class NotebookTransferCharacteristicsTests
         await File.WriteAllTextAsync(Path.Combine(importDirectory, "Daily.txt"), "Imported text");
 
         var services = CreateServices();
-        await services.Importer.ImportAsync(
-            GetNotebookId(note),
-            importDirectory,
-            recursive: false,
+        var result = await services.Importer.ImportAsync(
+            new TextPageImportRequest(
+                GetNotebookId(note),
+                importDirectory,
+                TextPageImportConflictPolicy.Fail),
             CancellationToken.None);
         var pages = note.ReadPage("Daily").OrderBy(page => page.Index).ToList();
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(pages, Has.Count.EqualTo(2));
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(
+                result.ErrorCode,
+                Is.EqualTo(TextPageImportErrorCode.ExistingPageConflict));
+            Assert.That(pages, Has.Count.EqualTo(1));
             Assert.That(pages[0].Guid, Is.EqualTo(existing.Guid));
             Assert.That(pages[0].Text, Is.EqualTo("Existing text"));
-            Assert.That(pages[1].Guid, Is.Not.EqualTo(existing.Guid));
-            Assert.That(pages[1].Text, Is.EqualTo("Imported text"));
         }
     }
 
@@ -319,12 +319,11 @@ public sealed class NotebookTransferCharacteristicsTests
     private static TransferServices CreateServices()
     {
         var databaseFactory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        var pageRepository = new SqlitePageRepository(databaseFactory);
         var metadataRepository = new SqliteNotebookMetadataRepository(databaseFactory);
         var transferRepository = new SqliteNotebookTransferRepository(databaseFactory);
         var migrator = new SqliteNotebookMigrator(databaseFactory, metadataRepository);
         return new TransferServices(
-            new TextPageImporter(pageRepository),
+            new TextPageImporter(transferRepository),
             new TextPageExporter(transferRepository),
             new NotebookBackupService(
                 transferRepository,

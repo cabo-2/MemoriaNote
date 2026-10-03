@@ -27,8 +27,8 @@ public sealed class TextTransferPathCodecTests
             Assert.That(
                 systemPath,
                 Is.EqualTo(Path.Combine(
-                    "~mn~1~CON",
-                    "~mn~1~design%3A2026",
+                    "CON~mn~2~",
+                    "design%3A2026~mn~2~",
                     "Literal／Slash")));
             Assert.That(result, Is.EqualTo(portablePath));
         }
@@ -49,7 +49,7 @@ public sealed class TextTransferPathCodecTests
         {
             Assert.That(
                 systemPath,
-                Is.EqualTo(Path.Combine("~mn~1~C%3AX", "archive")));
+                Is.EqualTo(Path.Combine("C%3AX~mn~2~", "archive")));
             Assert.That(result, Is.EqualTo(portablePath));
         }
     }

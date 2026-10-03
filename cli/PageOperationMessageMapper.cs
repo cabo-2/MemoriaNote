@@ -24,6 +24,8 @@ namespace MemoriaNote.Cli
                 PageErrorCode.NameRequired => "The text name have not been entered.",
                 PageErrorCode.NameHasSurroundingWhitespace =>
                     "The text name cannot start or end with whitespace.",
+                PageErrorCode.NameContainsControlCharacter =>
+                    "The text name cannot contain control characters.",
                 PageErrorCode.DuplicateName => "The text name is already in use.",
                 PageErrorCode.OwnerNotFound => "The text owner note was not found.",
                 PageErrorCode.PageNotFound => "The text was not found in its owner note.",

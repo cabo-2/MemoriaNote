@@ -1,4 +1,5 @@
 using MemoriaNote.Cli.Tests.Infrastructure;
+using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
@@ -11,58 +12,57 @@ namespace MemoriaNote.Cli.Tests;
 public sealed class TextTransferWorkflowTests
 {
     /// <summary>
-    /// Verifies that root and nested files survive import and export.
+    /// Verifies that flat files survive import across CLI process boundaries.
     /// </summary>
     [Test]
-    public async Task ImportAndExport_RoundTripsFilesAcrossProcesses()
+    public async Task NotebookImport_PersistsFlatFilesAcrossProcesses()
     {
         using var harness = new CliProcessHarness();
         var importDirectory = Path.Combine(harness.TemporaryDirectory, "import");
-        var nestedImportDirectory = Path.Combine(importDirectory, "archive");
-        var exportDirectory = Path.Combine(harness.TemporaryDirectory, "export");
-        Directory.CreateDirectory(nestedImportDirectory);
-        Directory.CreateDirectory(exportDirectory);
+        Directory.CreateDirectory(importDirectory);
+        var createResult = await harness.RunAsync("create", "transfer");
+        AssertSucceeded(createResult);
+        var useResult = await harness.RunAsync("use", "transfer");
+        AssertSucceeded(useResult);
 
         const string rootName = "Meeting Notes";
         const string rootText = "Agenda and decisions";
-        const string nestedName = "Release Checklist";
-        const string nestedText = "Build, test, and publish";
+        const string secondName = "Release Checklist";
+        const string secondText = "Build, test, and publish";
         await File.WriteAllTextAsync(
             Path.Combine(importDirectory, rootName + ".txt"),
             rootText);
         await File.WriteAllTextAsync(
-            Path.Combine(nestedImportDirectory, nestedName + ".txt"),
-            nestedText);
+            Path.Combine(importDirectory, secondName + ".txt"),
+            secondText);
 
         var importResult = await harness.RunAsync(
+            "notebooks",
             "import",
-            importDirectory,
-            "--recursive");
+            importDirectory);
 
         AssertSucceeded(importResult);
-        Assert.That(importResult.StandardOutput, Does.Contain("Import completed"));
+        Assert.That(importResult.StandardOutput, Does.Contain("Import completed:"));
+        Assert.That(importResult.StandardOutput, Does.Contain("created=2"));
 
-        var exportResult = await harness.RunAsync("export", exportDirectory);
-
-        AssertSucceeded(exportResult);
-        Assert.That(exportResult.StandardOutput, Does.Contain("Export completed"));
-
-        var rootExportPath = Path.Combine(exportDirectory, rootName + ".txt");
-        var nestedExportPath = Path.Combine(
-            exportDirectory,
-            "archive",
-            nestedName + ".txt");
+        var repository = new SqlitePageRepository(
+            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
+        var notebookPath = Path.Combine(harness.WorkingDirectory, "transfer.mnote");
+        var importedRoot = await repository.FindPageAsync(
+            notebookPath,
+            rootName,
+            1,
+            CancellationToken.None);
+        var importedSecond = await repository.FindPageAsync(
+            notebookPath,
+            secondName,
+            1,
+            CancellationToken.None);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(
-                await File.ReadAllTextAsync(rootExportPath),
-                Is.EqualTo(rootText));
-            Assert.That(
-                await File.ReadAllTextAsync(nestedExportPath),
-                Is.EqualTo(nestedText));
-            Assert.That(
-                Directory.EnumerateFileSystemEntries(harness.WorkingDirectory),
-                Is.Empty);
+            Assert.That(importedRoot?.Text, Is.EqualTo(rootText));
+            Assert.That(importedSecond?.Text, Is.EqualTo(secondText));
+            Assert.That(File.Exists(notebookPath), Is.True);
         }
     }
 

@@ -31,14 +31,14 @@ public sealed class PageFileNameCodecTests
     /// </summary>
     /// <param name="pageName">The unsafe page name.</param>
     /// <param name="expected">The expected portable component.</param>
-    [TestCase("A/B", "~mn~1~A%2FB")]
-    [TestCase("A\\B", "~mn~1~A%5CB")]
-    [TestCase("A:B", "~mn~1~A%3AB")]
-    [TestCase("A*B?", "~mn~1~A%2AB%3F")]
-    [TestCase("A\"B", "~mn~1~A%22B")]
-    [TestCase("A<B>|", "~mn~1~A%3CB%3E%7C")]
-    [TestCase("Line\nBreak", "~mn~1~Line%0ABreak")]
-    [TestCase("Trailing. ", "~mn~1~Trailing%2E%20")]
+    [TestCase("A/B", "A%2FB~mn~2~")]
+    [TestCase("A\\B", "A%5CB~mn~2~")]
+    [TestCase("A:B", "A%3AB~mn~2~")]
+    [TestCase("A*B?", "A%2AB%3F~mn~2~")]
+    [TestCase("A\"B", "A%22B~mn~2~")]
+    [TestCase("A<B>|", "A%3CB%3E%7C~mn~2~")]
+    [TestCase("Line\nBreak", "Line%0ABreak~mn~2~")]
+    [TestCase("Trailing. ", "Trailing%2E%20~mn~2~")]
     public void Encode_UnsafeName_UsesCanonicalEscape(
         string pageName,
         string expected)
@@ -72,7 +72,7 @@ public sealed class PageFileNameCodecTests
     {
         var result = new PageFileNameCodec().Encode(pageName);
 
-        Assert.That(result, Is.EqualTo("~mn~1~" + pageName));
+        Assert.That(result, Is.EqualTo(pageName + "~mn~2~"));
     }
 
     /// <summary>
@@ -85,6 +85,7 @@ public sealed class PageFileNameCodecTests
     [TestCase("Trailing. ")]
     [TestCase("100%/complete")]
     [TestCase("~mn~1~literal")]
+    [TestCase("literal~mn~2~")]
     [TestCase("Literal／Slash")]
     public void EncodeDecode_PageName_RoundTrips(string pageName)
     {
@@ -118,5 +119,27 @@ public sealed class PageFileNameCodecTests
         var result = new PageFileNameCodec().Decode(fileName);
 
         Assert.That(result, Is.EqualTo(fileName));
+    }
+
+    /// <summary>Verifies canonical legacy prefix names remain import-compatible.</summary>
+    [TestCase("~mn~1~A%2FB", "A/B")]
+    [TestCase("~mn~1~CON", "CON")]
+    [TestCase("~mn~1~Trailing%2E%20", "Trailing. ")]
+    public void Decode_CanonicalLegacyName_ReturnsPageName(
+        string fileName,
+        string expected)
+    {
+        var result = new PageFileNameCodec().Decode(fileName);
+
+        Assert.That(result, Is.EqualTo(expected));
+    }
+
+    /// <summary>Verifies a literal v2 marker is escaped before the real suffix marker.</summary>
+    [Test]
+    public void Encode_LiteralV2Suffix_EscapesMarkerTildes()
+    {
+        var result = new PageFileNameCodec().Encode("literal~mn~2~");
+
+        Assert.That(result, Is.EqualTo("literal%7Emn%7E2%7E~mn~2~"));
     }
 }

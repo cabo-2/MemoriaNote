@@ -22,6 +22,14 @@ namespace MemoriaNote.Application
                 return Array.AsReadOnly(
                     new[] { PageErrorCode.NameHasSurroundingWhitespace });
             }
+            foreach (var character in name)
+            {
+                if (char.IsControl(character))
+                {
+                    return Array.AsReadOnly(
+                        new[] { PageErrorCode.NameContainsControlCharacter });
+                }
+            }
 
             return Array.Empty<PageErrorCode>();
         }
