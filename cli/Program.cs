@@ -768,7 +768,7 @@ namespace MemoriaNote.Cli
 
         [Command(
             "import",
-            Description = "Import text files",
+            Description = "Moved to 'mn notebooks import'",
             ShowInHelpText = false)]
         [HelpOption("--help")]
         class ImportCommand
