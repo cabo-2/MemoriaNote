@@ -43,6 +43,9 @@ namespace MemoriaNote.Application
         /// <summary>The page name starts or ends with whitespace.</summary>
         NameHasSurroundingWhitespace,
 
+        /// <summary>The page name contains a Unicode control character.</summary>
+        NameContainsControlCharacter,
+
         /// <summary>The requested page name is already in use.</summary>
         DuplicateName,
 

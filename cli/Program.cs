@@ -145,7 +145,8 @@ namespace MemoriaNote.Cli
             Description = "Inspect workspace-root notebooks")]
         [Subcommand(typeof(NotebooksListCommand),
                     typeof(NotebooksBackupCommand),
-                    typeof(NotebooksRestoreCommand))]
+                    typeof(NotebooksRestoreCommand),
+                    typeof(NotebooksImportCommand))]
         [HelpOption("--help")]
         class NotebooksCommand
         {
@@ -244,6 +245,58 @@ namespace MemoriaNote.Cli
                         Parent?.Parent?.Workspace,
                         Target,
                         Archive.hasValue ? Archive.value : null,
+                        DryRun,
+                        cancellationToken);
+                }
+            }
+
+            [Command(
+                "import",
+                Description = "Import flat strict-UTF-8 text files into a notebook",
+                ExtendedHelpText =
+                    "Syntax: mn notebooks import <directory> [--notebook <notebook>] " +
+                    "[--on-conflict fail|skip|replace] [--dry-run]")]
+            [HelpOption("--help")]
+            class NotebooksImportCommand
+            {
+                public NotebooksCommand Parent { get; set; }
+
+                [Argument(
+                    0,
+                    Name = "directory",
+                    Description = "existing directory containing flat lowercase .txt files")]
+                public (bool hasValue, string value) Directory { get; set; }
+
+                [Option(
+                    "--notebook <notebook>",
+                    Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
+                public string Notebook { get; set; }
+
+                [Option(
+                    "--on-conflict <policy>",
+                    Description = "Existing-name policy: fail (default), skip, or replace")]
+                public string ConflictPolicy { get; set; }
+
+                [Option(
+                    "--dry-run",
+                    Description = "validate and summarize without changing the notebook")]
+                public bool DryRun { get; set; }
+
+                protected Task<int> OnExecuteAsync(
+                    CommandLineApplication app,
+                    CancellationToken cancellationToken)
+                {
+                    if (!Directory.hasValue)
+                    {
+                        app.ShowHelp();
+                        return Task.FromResult((int)CliExitCode.Validation);
+                    }
+
+                    return CommandHandlers.NotebookImport.ExecuteAsync(
+                        Parent?.Parent?.Workspace,
+                        Notebook,
+                        Directory.value,
+                        ConflictPolicy,
                         DryRun,
                         cancellationToken);
                 }

@@ -36,6 +36,19 @@ public sealed class PageValidationPolicyTests
             Is.EqualTo(new[] { PageErrorCode.NameHasSurroundingWhitespace }));
     }
 
+    /// <summary>Verifies embedded terminal control characters are rejected.</summary>
+    [TestCase("Line\nBreak")]
+    [TestCase("Escape\u001bSequence")]
+    [TestCase("Delete\u007fCharacter")]
+    public void ValidateName_ControlCharacter_ReturnsValidationError(string name)
+    {
+        var result = new PageValidationPolicy().ValidateName(name);
+
+        Assert.That(
+            result,
+            Is.EqualTo(new[] { PageErrorCode.NameContainsControlCharacter }));
+    }
+
     /// <summary>Verifies page names are preserved without case or Unicode normalization.</summary>
     [TestCase("Meeting")]
     [TestCase("meeting")]

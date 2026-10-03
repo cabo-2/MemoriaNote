@@ -10,7 +10,8 @@ namespace MemoriaNote.Transfer
     /// </summary>
     public sealed class PageFileNameCodec
     {
-        const string EncodingMarker = "~mn~1~";
+        const string LegacyEncodingMarker = "~mn~1~";
+        const string EncodingMarker = "~mn~2~";
         const string InvalidFileNameCharacters = "<>:\"/\\|?*";
 
         static readonly HashSet<string> ReservedDeviceNames = CreateReservedDeviceNames();
@@ -25,15 +26,17 @@ namespace MemoriaNote.Transfer
             if (pageName == null)
                 throw new ArgumentNullException(nameof(pageName));
 
-            if (!RequiresEncoding(pageName))
+            if (!RequiresEncodingV2(pageName))
                 return pageName;
 
-            var encoded = new StringBuilder(EncodingMarker);
+            var encoded = new StringBuilder();
             var trailingStart = FindTrailingSpaceOrPeriodStart(pageName);
             for (var index = 0; index < pageName.Length; index++)
             {
                 var character = pageName[index];
-                if (RequiresCharacterEscape(character) || index >= trailingStart)
+                if (RequiresCharacterEscape(character) ||
+                    character == '~' ||
+                    index >= trailingStart)
                 {
                     encoded.Append('%');
                     encoded.Append(((int)character).ToString("X2", CultureInfo.InvariantCulture));
@@ -44,6 +47,7 @@ namespace MemoriaNote.Transfer
                 }
             }
 
+            encoded.Append(EncodingMarker);
             return encoded.ToString();
         }
 
@@ -57,10 +61,32 @@ namespace MemoriaNote.Transfer
             if (fileName == null)
                 throw new ArgumentNullException(nameof(fileName));
 
-            if (!fileName.StartsWith(EncodingMarker, StringComparison.Ordinal))
+            if (fileName.EndsWith(EncodingMarker, StringComparison.Ordinal))
+            {
+                var payload = fileName.Substring(
+                    0,
+                    fileName.Length - EncodingMarker.Length);
+                var decoded = DecodePayload(payload);
+                if (decoded != null &&
+                    string.Equals(Encode(decoded), fileName, StringComparison.Ordinal))
+                {
+                    return decoded;
+                }
+            }
+
+            if (!fileName.StartsWith(LegacyEncodingMarker, StringComparison.Ordinal))
                 return fileName;
 
-            var payload = fileName.Substring(EncodingMarker.Length);
+            var legacyPayload = fileName.Substring(LegacyEncodingMarker.Length);
+            var legacyDecoded = DecodePayload(legacyPayload);
+            return legacyDecoded != null &&
+                string.Equals(EncodeLegacy(legacyDecoded), fileName, StringComparison.Ordinal)
+                ? legacyDecoded
+                : fileName;
+        }
+
+        static string DecodePayload(string payload)
+        {
             var decoded = new StringBuilder(payload.Length);
             for (var index = 0; index < payload.Length; index++)
             {
@@ -73,23 +99,26 @@ namespace MemoriaNote.Transfer
                 if (index + 2 >= payload.Length ||
                     !TryParseHex(payload[index + 1], payload[index + 2], out var value))
                 {
-                    return fileName;
+                    return null;
                 }
 
                 decoded.Append((char)value);
                 index += 2;
             }
 
-            var pageName = decoded.ToString();
-            return string.Equals(Encode(pageName), fileName, StringComparison.Ordinal)
-                ? pageName
-                : fileName;
+            return decoded.ToString();
         }
 
-        static bool RequiresEncoding(string pageName)
+        static bool RequiresEncodingV2(string pageName)
         {
-            if (pageName.StartsWith(EncodingMarker, StringComparison.Ordinal) ||
-                pageName == "." ||
+            return pageName.StartsWith(LegacyEncodingMarker, StringComparison.Ordinal) ||
+                pageName.EndsWith(EncodingMarker, StringComparison.Ordinal) ||
+                RequiresPortableEncoding(pageName);
+        }
+
+        static bool RequiresPortableEncoding(string pageName)
+        {
+            if (pageName == "." ||
                 pageName == ".." ||
                 IsReservedDeviceName(pageName))
             {
@@ -106,6 +135,33 @@ namespace MemoriaNote.Transfer
             }
 
             return false;
+        }
+
+        static string EncodeLegacy(string pageName)
+        {
+            if (!pageName.StartsWith(LegacyEncodingMarker, StringComparison.Ordinal) &&
+                !RequiresPortableEncoding(pageName))
+            {
+                return pageName;
+            }
+
+            var encoded = new StringBuilder(LegacyEncodingMarker);
+            var trailingStart = FindTrailingSpaceOrPeriodStart(pageName);
+            for (var index = 0; index < pageName.Length; index++)
+            {
+                var character = pageName[index];
+                if (RequiresCharacterEscape(character) || index >= trailingStart)
+                {
+                    encoded.Append('%');
+                    encoded.Append(((int)character).ToString("X2", CultureInfo.InvariantCulture));
+                }
+                else
+                {
+                    encoded.Append(character);
+                }
+            }
+
+            return encoded.ToString();
         }
 
         static bool RequiresCharacterEscape(char character)

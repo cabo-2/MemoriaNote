@@ -326,17 +326,20 @@ public sealed class CliProcessHarnessTests
     }
 
     /// <summary>
-    /// Verifies that a missing import directory uses the not-found exit code.
+    /// Verifies that a missing notebook import directory uses the not-found exit code.
     /// </summary>
     [Test]
-    public async Task ImportMissingDirectory_ReturnsNotFound()
+    public async Task NotebookImportMissingDirectory_ReturnsNotFound()
     {
         using var harness = new CliProcessHarness();
         var missingDirectory = Path.Combine(
             harness.WorkingDirectory,
             "missing-import-directory");
 
-        var result = await harness.RunAsync("import", missingDirectory);
+        var result = await harness.RunAsync(
+            "notebooks",
+            "import",
+            missingDirectory);
 
         using (Assert.EnterMultipleScope())
         {
@@ -344,24 +347,24 @@ public sealed class CliProcessHarnessTests
             Assert.That(result.StandardOutput, Is.Empty);
             Assert.That(
                 result.StandardError,
-                Is.EqualTo("Error: No such directory" + Environment.NewLine));
+                Does.Contain("import directory does not exist"));
         }
     }
 
     /// <summary>
-    /// Verifies that usage help accompanies a missing import directory.
+    /// Verifies that usage help accompanies a missing notebook import directory.
     /// </summary>
     [Test]
-    public async Task ImportWithoutDirectory_WritesHelpAndReturnsFailure()
+    public async Task NotebookImportWithoutDirectory_WritesHelpAndReturnsFailure()
     {
         using var harness = new CliProcessHarness();
 
-        var result = await harness.RunAsync("import");
+        var result = await harness.RunAsync("notebooks", "import");
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.ExitCode, Is.EqualTo(2));
-            Assert.That(result.StandardOutput, Does.Contain("Usage: mn import"));
+            Assert.That(result.StandardOutput, Does.Contain("Usage: mn notebooks import"));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
         }

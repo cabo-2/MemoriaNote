@@ -10,22 +10,10 @@ namespace MemoriaNote.Cli
     internal sealed class ImportCommandHandler
     {
         readonly CliCommandExecutor _executor;
-        readonly ICliCommandContextFactory _contextFactory;
-        readonly TextPageImporter _textPageImporter;
-        readonly ICommandOutput _output;
 
-        internal ImportCommandHandler(
-            CliCommandExecutor executor,
-            ICliCommandContextFactory contextFactory,
-            TextPageImporter textPageImporter,
-            ICommandOutput output)
+        internal ImportCommandHandler(CliCommandExecutor executor)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
-            _contextFactory = contextFactory ??
-                throw new ArgumentNullException(nameof(contextFactory));
-            _textPageImporter = textPageImporter ??
-                throw new ArgumentNullException(nameof(textPageImporter));
-            _output = output ?? throw new ArgumentNullException(nameof(output));
         }
 
         internal Task<int> ExecuteAsync(
@@ -33,34 +21,14 @@ namespace MemoriaNote.Cli
             bool recursive,
             CancellationToken cancellationToken)
         {
-            return _executor.ExecuteAsync(async token =>
-            {
-                if (importDirectory == null)
-                {
-                    return CliCommandResult.Failure(
-                        CliErrorKind.Validation,
-                        "No import directory");
-                }
-                if (!Directory.Exists(importDirectory))
-                {
-                    return CliCommandResult.Failure(
-                        CliErrorKind.NotFound,
-                        "No such directory");
-                }
-
-                var configuration = _contextFactory.LoadConfiguration();
-                var session = await _contextFactory.CreateSessionAsync(
-                    configuration,
-                    token);
-                await _textPageImporter.ImportAsync(
-                    NotebookId.FromDatabasePath(
-                        session.Workspace.SelectedNotebook.DatabasePath),
-                    importDirectory,
-                    recursive,
-                    token);
-                _output.WriteLine("Import completed");
-                return CliCommandResult.Success();
-            }, cancellationToken);
+            return _executor.ExecuteAsync(
+                _ => CliCommandResult.Failure(
+                    CliErrorKind.Validation,
+                    "The 'mn import' command is no longer supported. " +
+                    "Use 'mn notebooks import <directory> " +
+                    "[--notebook <notebook>] [--on-conflict fail|skip|replace] " +
+                    "[--dry-run]' instead."),
+                cancellationToken);
         }
     }
 

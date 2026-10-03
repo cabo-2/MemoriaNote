@@ -38,9 +38,10 @@ public sealed class NotebookTransferFailureTests
 
         Assert.ThrowsAsync<OperationCanceledException>(
             (Func<Task>)(async () => await services.Importer.ImportAsync(
-                GetNotebookId(notebook),
-                importDirectory,
-                recursive: false,
+                new TextPageImportRequest(
+                    GetNotebookId(notebook),
+                    importDirectory,
+                    TextPageImportConflictPolicy.Fail),
                 cancellation.Token)));
         Assert.ThrowsAsync<OperationCanceledException>(
             (Func<Task>)(async () => await services.Exporter.ExportAsync(
@@ -191,12 +192,11 @@ public sealed class NotebookTransferFailureTests
     private static TransferServices CreateServices()
     {
         var databaseFactory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        var pageRepository = new SqlitePageRepository(databaseFactory);
         var metadataRepository = new SqliteNotebookMetadataRepository(databaseFactory);
         var transferRepository = new SqliteNotebookTransferRepository(databaseFactory);
         var migrator = new SqliteNotebookMigrator(databaseFactory, metadataRepository);
         return new TransferServices(
-            new TextPageImporter(pageRepository),
+            new TextPageImporter(transferRepository),
             new TextPageExporter(transferRepository),
             new NotebookBackupService(
                 transferRepository,
