@@ -1,31 +1,20 @@
-using MemoriaNote.Core.Tests.Infrastructure;
 using NUnit.Framework;
 
 namespace MemoriaNote.Core.Tests.Application;
 
-/// <summary>
-/// Verifies notebook metadata validation without presentation-specific messages.
-/// </summary>
+/// <summary>Verifies notebook metadata validation without presentation wording.</summary>
 [TestFixture]
-[NonParallelizable]
 public sealed class NotebookMetadataValidationPolicyTests
 {
-    /// <summary>Verifies empty and whitespace names are rejected first.</summary>
-    /// <param name="name">The invalid notebook name.</param>
+    /// <summary>Verifies empty and whitespace display names are rejected.</summary>
     [TestCase(null)]
     [TestCase("")]
     [TestCase("  ")]
-    public void Validate_EmptyName_ReturnsNameRequired(string? name)
+    public void Validate_EmptyName_ReturnsNameRequired(string? value)
     {
-        using var database = new TemporaryNotebookDatabase();
-        var notebook = database.CreateNotebook("current", "Current Title");
-        var workspace = new Workspace(null, new[] { notebook }, notebook);
-        var update = CreateUpdate(name!, "Updated Title");
-
         var errors = new NotebookMetadataValidationPolicy().Validate(
-            NotebookId.FromDatabasePath(notebook.DatabasePath),
-            update,
-            workspace);
+            NotebookMetadataField.Name,
+            value!);
 
         Assert.That(errors, Is.EqualTo(new[]
         {
@@ -33,22 +22,15 @@ public sealed class NotebookMetadataValidationPolicyTests
         }));
     }
 
-    /// <summary>Verifies an empty title is rejected after a valid name.</summary>
-    /// <param name="title">The invalid notebook title.</param>
+    /// <summary>Verifies empty and whitespace titles are rejected.</summary>
     [TestCase(null)]
     [TestCase("")]
     [TestCase("  ")]
-    public void Validate_EmptyTitle_ReturnsTitleRequired(string? title)
+    public void Validate_EmptyTitle_ReturnsTitleRequired(string? value)
     {
-        using var database = new TemporaryNotebookDatabase();
-        var notebook = database.CreateNotebook("current", "Current Title");
-        var workspace = new Workspace(null, new[] { notebook }, notebook);
-        var update = CreateUpdate("updated", title!);
-
         var errors = new NotebookMetadataValidationPolicy().Validate(
-            NotebookId.FromDatabasePath(notebook.DatabasePath),
-            update,
-            workspace);
+            NotebookMetadataField.Title,
+            value!);
 
         Assert.That(errors, Is.EqualTo(new[]
         {
@@ -56,80 +38,86 @@ public sealed class NotebookMetadataValidationPolicyTests
         }));
     }
 
-    /// <summary>Verifies a name already used by another notebook is rejected.</summary>
+    /// <summary>Verifies display names have no workspace duplicate constraint.</summary>
     [Test]
-    public void Validate_DuplicateName_ReturnsDuplicateName()
+    public void Validate_NonBlankName_HasNoDuplicateConstraint()
     {
-        using var currentDatabase = new TemporaryNotebookDatabase();
-        using var otherDatabase = new TemporaryNotebookDatabase();
-        var current = currentDatabase.CreateNotebook("current", "Current Title");
-        var other = otherDatabase.CreateNotebook("duplicate", "Other Title");
-        var workspace = new Workspace(null, new[] { current, other }, current);
-        var update = CreateUpdate("duplicate", "Updated Title");
-
         var errors = new NotebookMetadataValidationPolicy().Validate(
-            NotebookId.FromDatabasePath(current.DatabasePath),
-            update,
-            workspace);
+            NotebookMetadataField.Name,
+            "shared-name");
+
+        Assert.That(errors, Is.Empty);
+    }
+
+    /// <summary>Verifies single-line fields reject every control character.</summary>
+    [TestCase(NotebookMetadataField.Name)]
+    [TestCase(NotebookMetadataField.Title)]
+    [TestCase(NotebookMetadataField.Author)]
+    [TestCase(NotebookMetadataField.Tag)]
+    public void Validate_SingleLineFieldWithControlCharacter_ReturnsError(
+        NotebookMetadataField field)
+    {
+        var errors = new NotebookMetadataValidationPolicy().Validate(
+            field,
+            "before\tafter");
 
         Assert.That(errors, Is.EqualTo(new[]
         {
-            NotebookMetadataErrorCode.DuplicateName
+            NotebookMetadataErrorCode.ControlCharacter
         }));
     }
 
-    /// <summary>
-    /// Verifies another object for the current notebook is excluded by normalized identity.
-    /// </summary>
+    /// <summary>Verifies descriptions allow line and tab formatting.</summary>
     [Test]
-    public void Validate_SameNotebookIdInDifferentObject_HasNoErrors()
+    public void Validate_DescriptionWithFormattingControls_HasNoErrors()
     {
-        using var database = new TemporaryNotebookDatabase();
-        var notebook = database.CreateNotebook("current", "Current Title");
-        var sameNotebook = new Notebook(database.DatabasePath);
-        var workspace = new Workspace(
-            null,
-            new[] { notebook, sameNotebook },
-            notebook);
-        var update = CreateUpdate("current", "Updated Title");
-
         var errors = new NotebookMetadataValidationPolicy().Validate(
-            NotebookId.FromDatabasePath(notebook.DatabasePath),
-            update,
-            workspace);
+            NotebookMetadataField.Description,
+            "first\r\nsecond\tvalue");
 
         Assert.That(errors, Is.Empty);
     }
 
-    /// <summary>Verifies name comparison remains ordinal and case-sensitive.</summary>
+    /// <summary>Verifies descriptions reject other control characters.</summary>
     [Test]
-    public void Validate_NameWithDifferentCase_HasNoErrors()
+    public void Validate_DescriptionWithUnsupportedControl_ReturnsError()
     {
-        using var currentDatabase = new TemporaryNotebookDatabase();
-        using var otherDatabase = new TemporaryNotebookDatabase();
-        var current = currentDatabase.CreateNotebook("current", "Current Title");
-        var other = otherDatabase.CreateNotebook("Notebook", "Other Title");
-        var workspace = new Workspace(null, new[] { current, other }, current);
-        var update = CreateUpdate("notebook", "Updated Title");
-
         var errors = new NotebookMetadataValidationPolicy().Validate(
-            NotebookId.FromDatabasePath(current.DatabasePath),
-            update,
-            workspace);
+            NotebookMetadataField.Description,
+            "before\0after");
+
+        Assert.That(errors, Is.EqualTo(new[]
+        {
+            NotebookMetadataErrorCode.ControlCharacter
+        }));
+    }
+
+    /// <summary>Verifies read-only accepts only the documented lowercase values.</summary>
+    [TestCase("true")]
+    [TestCase("false")]
+    public void Validate_ReadOnlyDocumentedValue_HasNoErrors(string value)
+    {
+        var errors = new NotebookMetadataValidationPolicy().Validate(
+            NotebookMetadataField.ReadOnly,
+            value);
 
         Assert.That(errors, Is.Empty);
     }
 
-    static NotebookMetadataUpdate CreateUpdate(string name, string title)
+    /// <summary>Verifies other read-only values are rejected.</summary>
+    [TestCase(null)]
+    [TestCase("")]
+    [TestCase("True")]
+    [TestCase("writable")]
+    public void Validate_InvalidReadOnly_ReturnsError(string? value)
     {
-        return new NotebookMetadataUpdate(
-            name,
-            title,
-            "version",
-            null!,
-            null!,
-            false,
-            null!,
-            default);
+        var errors = new NotebookMetadataValidationPolicy().Validate(
+            NotebookMetadataField.ReadOnly,
+            value!);
+
+        Assert.That(errors, Is.EqualTo(new[]
+        {
+            NotebookMetadataErrorCode.InvalidReadOnlyValue
+        }));
     }
 }

@@ -315,6 +315,12 @@ public sealed class PageDeleteCommandHandlerTests
             ReadCount++;
             return _response;
         }
+
+        public Task<string> ReadToEndAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(_response);
+        }
     }
 
     sealed class RecordingOutput : ICommandOutput

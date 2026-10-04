@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MemoriaNote.Cli
 {
@@ -19,6 +21,11 @@ namespace MemoriaNote.Cli
         public string ReadLine()
         {
             return _standardInput.ReadLine();
+        }
+
+        public Task<string> ReadToEndAsync(CancellationToken cancellationToken)
+        {
+            return _standardInput.ReadToEndAsync(cancellationToken);
         }
     }
 }

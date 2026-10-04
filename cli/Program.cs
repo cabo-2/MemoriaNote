@@ -147,7 +147,8 @@ namespace MemoriaNote.Cli
                     typeof(NotebooksBackupCommand),
                     typeof(NotebooksRestoreCommand),
                     typeof(NotebooksImportCommand),
-                    typeof(NotebooksExportCommand))]
+                    typeof(NotebooksExportCommand),
+                    typeof(NotebooksMetadataCommand))]
         [HelpOption("--help")]
         class NotebooksCommand
         {
@@ -345,6 +346,57 @@ namespace MemoriaNote.Cli
                         Notebook,
                         Directory.value,
                         NameConflictPolicy,
+                        cancellationToken);
+                }
+            }
+
+            [Command(
+                "metadata",
+                Description = "Show or update one notebook metadata field",
+                ExtendedHelpText =
+                    "Syntax: mn notebooks metadata [--notebook <notebook>] " +
+                    "[--name <value> | --title <value> | --description <value> | " +
+                    "--author <value> | --tag <value> | --read-only <true|false>]" +
+                    "\nUse - as a text value to read it from redirected standard input.")]
+            [HelpOption("--help")]
+            class NotebooksMetadataCommand
+            {
+                public NotebooksCommand Parent { get; set; }
+
+                [Option(
+                    "--notebook <notebook>",
+                    Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
+                public string Notebook { get; set; }
+
+                [Option("--name <value>", Description = "Set the notebook display name; use - for standard input")]
+                public string Name { get; set; }
+
+                [Option("--title <value>", Description = "Set the notebook display title; use - for standard input")]
+                public string Title { get; set; }
+
+                [Option("--description <value>", Description = "Set the notebook description; use - for standard input")]
+                public string Description { get; set; }
+
+                [Option("--author <value>", Description = "Set the notebook author; use - for standard input")]
+                public string Author { get; set; }
+
+                [Option("--tag <value>", Description = "Set the notebook tag; use - for standard input")]
+                public string Tag { get; set; }
+
+                [Option("--read-only <value>", Description = "Set logical page-write protection: true or false")]
+                public string ReadOnly { get; set; }
+
+                protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+                {
+                    return CommandHandlers.NotebookMetadata.ExecuteAsync(
+                        Parent?.Parent?.Workspace,
+                        Notebook,
+                        Name,
+                        Title,
+                        Description,
+                        Author,
+                        Tag,
+                        ReadOnly,
                         cancellationToken);
                 }
             }
@@ -579,7 +631,7 @@ namespace MemoriaNote.Cli
                 }
             }
 
-            [Command("edit", Description = "Modify the content of the selected note",
+            [Command("edit", Description = "Moved to 'mn notebooks metadata'",
                 UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
             private class WorkEditCommand
             {

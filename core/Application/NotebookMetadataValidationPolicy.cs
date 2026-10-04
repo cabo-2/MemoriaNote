@@ -1,8 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using MemoriaNote;
-using MemoriaNote.Domain;
 
 namespace MemoriaNote.Application
 {
@@ -14,11 +11,14 @@ namespace MemoriaNote.Application
         /// <summary>The notebook name is empty or whitespace.</summary>
         NameRequired,
 
-        /// <summary>The requested notebook name is already used in the workspace.</summary>
-        DuplicateName,
-
         /// <summary>The notebook title is empty or whitespace.</summary>
-        TitleRequired
+        TitleRequired,
+
+        /// <summary>The value contains a control character not supported by its field.</summary>
+        ControlCharacter,
+
+        /// <summary>The read-only value is not exactly true or false.</summary>
+        InvalidReadOnlyValue
     }
 
     /// <summary>
@@ -26,24 +26,18 @@ namespace MemoriaNote.Application
     /// </summary>
     public sealed class NotebookMetadataValidationPolicy
     {
-        /// <summary>Validates a proposed notebook metadata update.</summary>
-        /// <param name="notebookId">The notebook being updated.</param>
-        /// <param name="update">The proposed metadata state.</param>
-        /// <param name="workspace">The workspace used for duplicate-name validation.</param>
-        /// <returns>The first validation error in legacy validation order, or an empty list.</returns>
+        /// <summary>Validates one proposed notebook metadata field value.</summary>
+        /// <param name="field">The field being updated.</param>
+        /// <param name="value">The proposed serialized value.</param>
+        /// <returns>The first validation error, or an empty list.</returns>
         public IReadOnlyList<NotebookMetadataErrorCode> Validate(
-            NotebookId notebookId,
-            NotebookMetadataUpdate update,
-            Workspace workspace)
+            NotebookMetadataField field,
+            string value)
         {
-            if (notebookId == null)
-                throw new ArgumentNullException(nameof(notebookId));
-            if (update == null)
-                throw new ArgumentNullException(nameof(update));
-            if (workspace == null)
-                throw new ArgumentNullException(nameof(workspace));
+            if (!Enum.IsDefined(field))
+                throw new ArgumentOutOfRangeException(nameof(field));
 
-            if (string.IsNullOrWhiteSpace(update.Name))
+            if (field == NotebookMetadataField.Name && string.IsNullOrWhiteSpace(value))
             {
                 return Array.AsReadOnly(new[]
                 {
@@ -51,20 +45,7 @@ namespace MemoriaNote.Application
                 });
             }
 
-            var duplicateName = workspace.Notebooks
-                .Where(notebook =>
-                    NotebookId.FromDatabasePath(notebook.DatabasePath) != notebookId)
-                .Select(notebook => notebook.Metadata?.Name)
-                .Any(name => string.Equals(name, update.Name, StringComparison.Ordinal));
-            if (duplicateName)
-            {
-                return Array.AsReadOnly(new[]
-                {
-                    NotebookMetadataErrorCode.DuplicateName
-                });
-            }
-
-            if (string.IsNullOrWhiteSpace(update.Title))
+            if (field == NotebookMetadataField.Title && string.IsNullOrWhiteSpace(value))
             {
                 return Array.AsReadOnly(new[]
                 {
@@ -72,7 +53,48 @@ namespace MemoriaNote.Application
                 });
             }
 
+            if (field == NotebookMetadataField.ReadOnly &&
+                value != "true" &&
+                value != "false")
+            {
+                return Array.AsReadOnly(new[]
+                {
+                    NotebookMetadataErrorCode.InvalidReadOnlyValue
+                });
+            }
+
+            if (ContainsUnsupportedControlCharacter(field, value))
+            {
+                return Array.AsReadOnly(new[]
+                {
+                    NotebookMetadataErrorCode.ControlCharacter
+                });
+            }
+
             return Array.Empty<NotebookMetadataErrorCode>();
+        }
+
+        static bool ContainsUnsupportedControlCharacter(
+            NotebookMetadataField field,
+            string value)
+        {
+            if (value == null || field == NotebookMetadataField.ReadOnly)
+                return false;
+
+            foreach (var character in value)
+            {
+                if (!char.IsControl(character))
+                    continue;
+                if (field == NotebookMetadataField.Description &&
+                    (character == '\n' || character == '\r' || character == '\t'))
+                {
+                    continue;
+                }
+
+                return true;
+            }
+
+            return false;
         }
     }
 }

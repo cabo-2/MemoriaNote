@@ -13,6 +13,7 @@ namespace MemoriaNote.Cli
             NotebookRestoreCommandHandler notebookRestore,
             NotebookImportCommandHandler notebookImport,
             NotebookExportCommandHandler notebookExport,
+            NotebookMetadataCommandHandler notebookMetadata,
             FindCommandHandler find,
             EditCommandHandler edit,
             NewCommandHandler createPage,
@@ -48,6 +49,8 @@ namespace MemoriaNote.Cli
                 throw new ArgumentNullException(nameof(notebookImport));
             NotebookExport = notebookExport ??
                 throw new ArgumentNullException(nameof(notebookExport));
+            NotebookMetadata = notebookMetadata ??
+                throw new ArgumentNullException(nameof(notebookMetadata));
             Find = find ?? throw new ArgumentNullException(nameof(find));
             Edit = edit ?? throw new ArgumentNullException(nameof(edit));
             CreatePage = createPage ??
@@ -94,6 +97,8 @@ namespace MemoriaNote.Cli
         internal NotebookImportCommandHandler NotebookImport { get; }
 
         internal NotebookExportCommandHandler NotebookExport { get; }
+
+        internal NotebookMetadataCommandHandler NotebookMetadata { get; }
 
         internal FindCommandHandler Find { get; }
 

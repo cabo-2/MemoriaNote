@@ -4,14 +4,11 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MemoriaNote.Cli.Editors;
 using MemoriaNote.Application;
 using MemoriaNote.Domain;
 using MemoriaNote.Models;
 using MemoriaNote.Persistence;
 using MemoriaNote.Transfer;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 
 namespace MemoriaNote.Cli
 {
@@ -65,126 +62,23 @@ namespace MemoriaNote.Cli
     internal sealed class WorkEditCommandHandler
     {
         readonly CliCommandExecutor _executor;
-        readonly ICliCommandContextFactory _contextFactory;
-        readonly IExternalEditor _externalEditor;
-        readonly CommandPrompt _prompt;
-        readonly ICommandOutput _output;
-        readonly ILogger<WorkEditCommandHandler> _logger;
-        readonly NotebookMetadataValidationPolicy _validationPolicy;
 
-        internal WorkEditCommandHandler(
-            CliCommandExecutor executor,
-            ICliCommandContextFactory contextFactory,
-            IExternalEditor externalEditor,
-            CommandPrompt prompt,
-            ICommandOutput output,
-            ILogger<WorkEditCommandHandler> logger)
+        internal WorkEditCommandHandler(CliCommandExecutor executor)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
-            _contextFactory = contextFactory ??
-                throw new ArgumentNullException(nameof(contextFactory));
-            _externalEditor = externalEditor ??
-                throw new ArgumentNullException(nameof(externalEditor));
-            _prompt = prompt ?? throw new ArgumentNullException(nameof(prompt));
-            _output = output ?? throw new ArgumentNullException(nameof(output));
-            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _validationPolicy = new NotebookMetadataValidationPolicy();
         }
 
         internal Task<int> ExecuteAsync(CancellationToken cancellationToken)
         {
-            return _executor.ExecuteAsync(async token =>
-            {
-                var configuration = _contextFactory.LoadConfiguration();
-                var session = await _contextFactory.CreateSessionAsync(
-                    configuration,
-                    token);
-                var notebook = session.Workspace.SelectedNotebook;
-                bool retry;
-                do
-                {
-                    retry = false;
-                    var document = NotebookMetadataEditDocument.Create(notebook.Metadata);
-                    var editResult = await _externalEditor.EditAsync(
-                        configuration,
-                        null,
-                        new ExternalEditorDocument(
-                            notebook.ToString(),
-                            JsonConvert.SerializeObject(
-                                document,
-                                Formatting.Indented)),
-                        token);
-
-                    if (editResult.IsChanged)
-                    {
-                        try
-                        {
-                            document = JsonConvert
-                                .DeserializeObject<NotebookMetadataEditDocument>(
-                                    editResult.Text) ??
-                                throw new JsonException(
-                                    "The metadata editor did not contain an object.");
-                            var update = document.ToUpdate();
-                            var errors = _validationPolicy.Validate(
-                                NotebookId.FromDatabasePath(notebook.DatabasePath),
-                                update,
-                                session.Workspace);
-                            if (errors.Count > 0)
-                            {
-                                foreach (var error in errors)
-                                {
-                                    var message = NotebookMetadataValidationMessageMapper
-                                        .ToErrorMessage(error);
-                                    _logger.LogError(
-                                        "Error: {ValidationError}",
-                                        message);
-                                    _output.WriteErrorLine($"Error: {message}");
-                                }
-
-                                if (_prompt.ReadTryAgain())
-                                {
-                                    retry = true;
-                                    continue;
-                                }
-
-                                return CliCommandResult.Failure(
-                                    CliErrorKind.Validation,
-                                    NotebookMetadataValidationMessageMapper
-                                        .ToErrorMessage(errors[0]),
-                                    alreadyReported: true);
-                            }
-
-                            await notebook.UpdateMetadataAsync(
-                                NotebookMetadataPatch.Create(
-                                    notebook.Metadata,
-                                    update),
-                                token);
-                            _logger.LogInformation("Metadata updated");
-                        }
-                        catch
-                        {
-                            _logger.LogError("Error: Unable to read modified data");
-                            _output.WriteErrorLine("Error: Unable to read modified data");
-                            if (_prompt.ReadTryAgain())
-                                retry = true;
-                            else
-                            {
-                                return CliCommandResult.Failure(
-                                    CliErrorKind.Validation,
-                                    "Unable to read modified data",
-                                    alreadyReported: true);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogInformation("Metadata edit canceled");
-                        _output.WriteLine("Operation was canceled");
-                    }
-                } while (retry);
-
-                return CliCommandResult.Success();
-            }, cancellationToken);
+            return _executor.ExecuteAsync(
+                _ => CliCommandResult.Failure(
+                    CliErrorKind.Validation,
+                    "The 'mn work edit' command is no longer supported. " +
+                    "Use 'mn notebooks metadata [--notebook <notebook>] " +
+                    "[--name <value> | --title <value> | --description <value> | " +
+                    "--author <value> | --tag <value> | " +
+                    "--read-only <true|false>]' instead."),
+                cancellationToken);
         }
     }
 
