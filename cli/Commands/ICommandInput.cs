@@ -1,3 +1,6 @@
+using System.Threading;
+using System.Threading.Tasks;
+
 namespace MemoriaNote.Cli
 {
     internal interface ICommandInput
@@ -5,5 +8,7 @@ namespace MemoriaNote.Cli
         bool IsInteractive { get; }
 
         string ReadLine();
+
+        Task<string> ReadToEndAsync(CancellationToken cancellationToken);
     }
 }

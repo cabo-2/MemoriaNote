@@ -72,6 +72,7 @@ namespace MemoriaNote.Cli
             var pageSearchRepository = new SqlitePageSearchRepository(databaseFactory);
             var transferRepository = new SqliteNotebookTransferRepository(databaseFactory);
             var metadataRepository = new SqliteNotebookMetadataRepository(databaseFactory);
+            var metadataService = new NotebookMetadataService(metadataRepository);
             var notebookMigrator = new SqliteNotebookMigrator(
                 databaseFactory,
                 metadataRepository);
@@ -190,6 +191,12 @@ namespace MemoriaNote.Cli
                     notebookTargetResolver,
                     textPageExporter,
                     output),
+                new NotebookMetadataCommandHandler(
+                    executor,
+                    notebookTargetResolver,
+                    metadataService,
+                    input,
+                    output),
                 new FindCommandHandler(executor),
                 new EditCommandHandler(
                     executor,
@@ -245,13 +252,7 @@ namespace MemoriaNote.Cli
                     workAdd,
                     prompt,
                     output),
-                new WorkEditCommandHandler(
-                    executor,
-                    contextFactory,
-                    externalEditor,
-                    prompt,
-                    output,
-                    loggerFactory.CreateLogger<WorkEditCommandHandler>()),
+                new WorkEditCommandHandler(executor),
                 workAdd,
                 new WorkRemoveCommandHandler(executor, contextFactory),
                 new WorkBackupCommandHandler(executor),
