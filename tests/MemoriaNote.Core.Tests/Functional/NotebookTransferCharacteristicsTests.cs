@@ -130,28 +130,31 @@ public sealed class NotebookTransferCharacteristicsTests
     }
 
     /// <summary>
-    /// Verifies that flat import reads only root text files from an export tree.
+    /// Verifies that text export and import use one flat directory.
     /// </summary>
     [Test]
-    public async Task TextExportImport_FlatImportReadsOnlyRootTextFiles()
+    public async Task TextExportImport_RoundTripsEveryPageThroughOneFlatDirectory()
     {
         using var database = new TemporaryNotebookDatabase();
         var source = database.CreateNotebook("source", "Source Note");
         var overview = source.CreatePage("Overview", "Root text");
         var meeting = source.CreatePage("Meeting", "Nested text", "work/2026");
         var exportDirectory = Path.Combine(database.DirectoryPath, "text-export");
-        Directory.CreateDirectory(exportDirectory);
 
         var services = CreateServices();
-        await services.Exporter.ExportAsync(
-            GetNotebookId(source),
-            exportDirectory,
+        var exportResult = await services.Exporter.ExportAsync(
+            new TextPageExportRequest(
+                GetNotebookId(source),
+                exportDirectory,
+                TextPageExportNameConflictPolicy.Fail),
             CancellationToken.None);
 
         var overviewPath = Path.Combine(exportDirectory, "Overview.txt");
-        var meetingPath = Path.Combine(exportDirectory, "work", "2026", "Meeting.txt");
+        var meetingPath = Path.Combine(exportDirectory, "Meeting.txt");
         using (Assert.EnterMultipleScope())
         {
+            Assert.That(exportResult.IsSuccess, Is.True);
+            Assert.That(exportResult.ExportedCount, Is.EqualTo(2));
             Assert.That(await File.ReadAllTextAsync(overviewPath), Is.EqualTo("Root text"));
             Assert.That(await File.ReadAllTextAsync(meetingPath), Is.EqualTo("Nested text"));
         }
@@ -167,16 +170,19 @@ public sealed class NotebookTransferCharacteristicsTests
                 TextPageImportConflictPolicy.Fail),
             CancellationToken.None);
         var importedOverview = imported.ReadPage("Overview", 1);
+        var importedMeeting = imported.ReadPage("Meeting", 1);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.IsSuccess, Is.True);
-            Assert.That(result.CreatedCount, Is.EqualTo(1));
-            Assert.That(imported.Count, Is.EqualTo(1));
+            Assert.That(result.CreatedCount, Is.EqualTo(2));
+            Assert.That(imported.Count, Is.EqualTo(2));
             Assert.That(importedOverview.Text, Is.EqualTo("Root text"));
             Assert.That(importedOverview.TagDict, Does.Not.ContainKey(PageTag.Dir));
             Assert.That(importedOverview.Guid, Is.Not.EqualTo(overview.Guid));
-            Assert.That(imported.ReadPage("Meeting", 1), Is.Null);
+            Assert.That(importedMeeting.Text, Is.EqualTo("Nested text"));
+            Assert.That(importedMeeting.TagDict, Does.Not.ContainKey(PageTag.Dir));
+            Assert.That(importedMeeting.Guid, Is.Not.EqualTo(meeting.Guid));
         }
     }
 
@@ -192,16 +198,18 @@ public sealed class NotebookTransferCharacteristicsTests
         source.CreatePage("Plan/2026", "Slash name");
         source.CreatePage("Literal／Slash", "Full-width slash name");
         var exportDirectory = Path.Combine(database.DirectoryPath, "portable-export");
-        Directory.CreateDirectory(exportDirectory);
 
         var services = CreateServices();
-        await services.Exporter.ExportAsync(
-            GetNotebookId(source),
-            exportDirectory,
+        var exportResult = await services.Exporter.ExportAsync(
+            new TextPageExportRequest(
+                GetNotebookId(source),
+                exportDirectory,
+                TextPageExportNameConflictPolicy.Fail),
             CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
+            Assert.That(exportResult.IsSuccess, Is.True);
             Assert.That(
                 File.Exists(Path.Combine(
                     exportDirectory,
@@ -272,30 +280,30 @@ public sealed class NotebookTransferCharacteristicsTests
     }
 
     /// <summary>
-    /// Captures that exporting duplicate page names to one directory keeps only the later text.
+    /// Verifies duplicate page names reject the export without publishing a directory.
     /// </summary>
     [Test]
-    public async Task TextExport_WhenNamesShareAPath_CurrentlyOverwritesTheEarlierPage()
+    public async Task TextExport_WhenNamesShareAPath_RejectsWithoutPublishing()
     {
         using var database = new TemporaryNotebookDatabase();
         var note = database.CreateNotebook("source", "Source Note");
         note.CreatePage("Daily", "First text");
         note.CreatePage("Daily", "Second text");
         var exportDirectory = Path.Combine(database.DirectoryPath, "duplicate-export");
-        Directory.CreateDirectory(exportDirectory);
 
         var services = CreateServices();
-        await services.Exporter.ExportAsync(
-            GetNotebookId(note),
-            exportDirectory,
+        var result = await services.Exporter.ExportAsync(
+            new TextPageExportRequest(
+                GetNotebookId(note),
+                exportDirectory,
+                TextPageExportNameConflictPolicy.Fail),
             CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(Directory.GetFiles(exportDirectory, "*.txt"), Has.Length.EqualTo(1));
-            Assert.That(
-                await File.ReadAllTextAsync(Path.Combine(exportDirectory, "Daily.txt")),
-                Is.EqualTo("Second text"));
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.ErrorCode, Is.EqualTo(TextPageExportErrorCode.NameConflict));
+            Assert.That(Directory.Exists(exportDirectory), Is.False);
         }
     }
 

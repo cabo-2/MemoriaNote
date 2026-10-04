@@ -185,6 +185,11 @@ namespace MemoriaNote.Cli
                     notebookTargetResolver,
                     textPageImporter,
                     output),
+                new NotebookExportCommandHandler(
+                    executor,
+                    notebookTargetResolver,
+                    textPageExporter,
+                    output),
                 new FindCommandHandler(executor),
                 new EditCommandHandler(
                     executor,
@@ -252,11 +257,7 @@ namespace MemoriaNote.Cli
                 new WorkBackupCommandHandler(executor),
                 new WorkRestoreCommandHandler(executor),
                 new ImportCommandHandler(executor),
-                new ExportCommandHandler(
-                    executor,
-                    contextFactory,
-                    textPageExporter,
-                    output));
+                new ExportCommandHandler(executor));
 
             return new CliComposition(
                 commandHandlers,
