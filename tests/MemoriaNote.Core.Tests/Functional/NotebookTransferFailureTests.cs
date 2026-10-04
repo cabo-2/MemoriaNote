@@ -26,7 +26,6 @@ public sealed class NotebookTransferFailureTests
         var exportDirectory = Path.Combine(database.DirectoryPath, "export");
         var restoreDirectory = Path.Combine(database.DirectoryPath, "restore");
         Directory.CreateDirectory(importDirectory);
-        Directory.CreateDirectory(exportDirectory);
         Directory.CreateDirectory(restoreDirectory);
         File.WriteAllText(Path.Combine(importDirectory, "Entry.txt"), "not imported");
         var backupPath = Path.Combine(database.DirectoryPath, "cancel.json.zip");
@@ -45,8 +44,10 @@ public sealed class NotebookTransferFailureTests
                 cancellation.Token)));
         Assert.ThrowsAsync<OperationCanceledException>(
             (Func<Task>)(async () => await services.Exporter.ExportAsync(
-                GetNotebookId(notebook),
-                exportDirectory,
+                new TextPageExportRequest(
+                    GetNotebookId(notebook),
+                    exportDirectory,
+                    TextPageExportNameConflictPolicy.Fail),
                 cancellation.Token)));
         Assert.ThrowsAsync<OperationCanceledException>(
             (Func<Task>)(async () => await services.Backup.CreateBackupAsync(
@@ -62,7 +63,7 @@ public sealed class NotebookTransferFailureTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(notebook.Count, Is.Zero);
-            Assert.That(Directory.GetFiles(exportDirectory), Is.Empty);
+            Assert.That(Directory.Exists(exportDirectory), Is.False);
             Assert.That(File.Exists(newBackupPath), Is.False);
             Assert.That(Directory.GetFiles(restoreDirectory), Is.Empty);
         }

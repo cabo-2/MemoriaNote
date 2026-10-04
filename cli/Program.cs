@@ -146,7 +146,8 @@ namespace MemoriaNote.Cli
         [Subcommand(typeof(NotebooksListCommand),
                     typeof(NotebooksBackupCommand),
                     typeof(NotebooksRestoreCommand),
-                    typeof(NotebooksImportCommand))]
+                    typeof(NotebooksImportCommand),
+                    typeof(NotebooksExportCommand))]
         [HelpOption("--help")]
         class NotebooksCommand
         {
@@ -298,6 +299,52 @@ namespace MemoriaNote.Cli
                         Directory.value,
                         ConflictPolicy,
                         DryRun,
+                        cancellationToken);
+                }
+            }
+
+            [Command(
+                "export",
+                Description = "Export notebook pages as flat UTF-8 text files",
+                ExtendedHelpText =
+                    "Syntax: mn notebooks export <directory> [--notebook <notebook>] " +
+                    "[--name-conflict fail|id-suffix]")]
+            [HelpOption("--help")]
+            class NotebooksExportCommand
+            {
+                public NotebooksCommand Parent { get; set; }
+
+                [Argument(
+                    0,
+                    Name = "directory",
+                    Description = "new destination directory for flat lowercase .txt files")]
+                public (bool hasValue, string value) Directory { get; set; }
+
+                [Option(
+                    "--notebook <notebook>",
+                    Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
+                public string Notebook { get; set; }
+
+                [Option(
+                    "--name-conflict <policy>",
+                    Description = "Output-name policy: fail (default) or id-suffix")]
+                public string NameConflictPolicy { get; set; }
+
+                protected Task<int> OnExecuteAsync(
+                    CommandLineApplication app,
+                    CancellationToken cancellationToken)
+                {
+                    if (!Directory.hasValue)
+                    {
+                        app.ShowHelp();
+                        return Task.FromResult((int)CliExitCode.Validation);
+                    }
+
+                    return CommandHandlers.NotebookExport.ExecuteAsync(
+                        Parent?.Parent?.Workspace,
+                        Notebook,
+                        Directory.value,
+                        NameConflictPolicy,
                         cancellationToken);
                 }
             }
@@ -798,7 +845,7 @@ namespace MemoriaNote.Cli
 
         [Command(
             "export",
-            Description = "Export text files",
+            Description = "Moved to 'mn notebooks export'",
             ShowInHelpText = false)]
         [HelpOption("--help")]
         class ExportCommand
