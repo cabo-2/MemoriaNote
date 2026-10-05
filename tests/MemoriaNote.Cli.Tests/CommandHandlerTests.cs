@@ -27,9 +27,7 @@ public sealed class CommandHandlerTests
         var workspace = new Workspace("command-handler", new[] { notebook }, notebook);
         var application = new StubApplicationService();
         var session = new ApplicationSession(workspace, application);
-        var contextFactory = new StubCommandContextFactory(
-            configuration,
-            session);
+        var contextFactory = new StubCommandContextFactory(configuration);
         var externalEditor = new StubExternalEditor(
             ExternalEditorResult.Changed("Roadmap body"));
         var handler = new NewCommandHandler(
@@ -62,14 +60,10 @@ public sealed class CommandHandlerTests
     sealed class StubCommandContextFactory : ICliCommandContextFactory
     {
         readonly ConfigurationCli _configuration;
-        readonly ApplicationSession _session;
 
-        internal StubCommandContextFactory(
-            ConfigurationCli configuration,
-            ApplicationSession session)
+        internal StubCommandContextFactory(ConfigurationCli configuration)
         {
             _configuration = configuration;
-            _session = session;
         }
 
         internal int SaveCount { get; private set; }
@@ -77,15 +71,6 @@ public sealed class CommandHandlerTests
         public ConfigurationCli LoadConfiguration()
         {
             return _configuration;
-        }
-
-        public Task<ApplicationSession> CreateSessionAsync(
-            ConfigurationCli configuration,
-            CancellationToken cancellationToken)
-        {
-            Assert.That(configuration, Is.SameAs(_configuration));
-            cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(_session);
         }
 
         public void SaveConfiguration(ConfigurationCli configuration)

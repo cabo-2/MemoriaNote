@@ -1,6 +1,5 @@
 global using MemoriaNote;
 global using MemoriaNote.Application;
-global using MemoriaNote.Compatibility;
 global using MemoriaNote.Cli;
 global using MemoriaNote.Cli.Editors;
 global using MemoriaNote.Domain;

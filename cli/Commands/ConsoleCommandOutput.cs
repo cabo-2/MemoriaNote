@@ -6,7 +6,6 @@ using System.Text;
 using System.Text.Json;
 using MemoriaNote.Application;
 using MemoriaNote.Domain;
-using MemoriaNote.Models;
 
 namespace MemoriaNote.Cli
 {
@@ -60,29 +59,6 @@ namespace MemoriaNote.Cli
                 WriteLongWorkspaceNotebookList(entries);
             else
                 WriteShortWorkspaceNotebookList(entries);
-        }
-
-        public void WriteNotebookList(
-            IEnumerable<Notebook> notebooks,
-            Notebook selectedNotebook)
-        {
-            if (notebooks == null)
-                throw new ArgumentNullException(nameof(notebooks));
-
-            foreach (var notebook in notebooks)
-            {
-                var mark = notebook == selectedNotebook ? "*" : " ";
-                WriteLine($"{mark} {notebook}");
-            }
-        }
-
-        public void WriteNotebookCompletion(IEnumerable<Notebook> notebooks)
-        {
-            if (notebooks == null)
-                throw new ArgumentNullException(nameof(notebooks));
-
-            foreach (var notebook in notebooks)
-                WriteLine(notebook.Metadata.Name);
         }
 
         void WriteNamePageList(IReadOnlyList<PageSummary> pages)

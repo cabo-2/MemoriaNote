@@ -13,34 +13,6 @@ namespace MemoriaNote.Cli.Tests;
 [TestFixture]
 public sealed class CliCommandContractTests
 {
-    /// <summary>
-    /// Verifies that find reports its intentional pause without starting the application.
-    /// </summary>
-    [Test]
-    public async Task Find_ReportsTemporaryPauseWithoutStartingApplication()
-    {
-        var fixture = CommandFixture.Create();
-
-        var result = await fixture.Find.ExecuteAsync(
-            "Roadmap",
-            CancellationToken.None);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
-            Assert.That(fixture.Context.LoadCount, Is.Zero);
-            Assert.That(fixture.Context.CreateSessionCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
-            Assert.That(fixture.Output.StandardOutput, Is.Empty);
-            Assert.That(
-                fixture.Output.StandardError,
-                Is.EqualTo(
-                    "Error: The find command is temporarily unavailable. Use 'mn ls' to list page names; " +
-                    "full-text search will be redesigned after the initial release." +
-                    Environment.NewLine));
-        }
-    }
-
     /// <summary>Verifies that edit resolves a unique page and uses the external editor.</summary>
     [Test]
     public async Task Edit_ResolvesUniqueTargetAndUsesExternalEditor()
@@ -65,7 +37,6 @@ public sealed class CliCommandContractTests
         {
             Assert.That(result, Is.Zero);
             Assert.That(fixture.Context.LoadCount, Is.EqualTo(1));
-            Assert.That(fixture.Context.CreateSessionCount, Is.Zero);
             Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(fixture.TargetResolver.ResolveCount, Is.EqualTo(1));
             Assert.That(fixture.Application.ReadAsyncCallCount, Is.EqualTo(1));
@@ -91,7 +62,6 @@ public sealed class CliCommandContractTests
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(fixture.Context.LoadCount, Is.Zero);
-            Assert.That(fixture.Context.CreateSessionCount, Is.Zero);
             Assert.That(fixture.Editor.Documents, Is.Empty);
             Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(
@@ -158,7 +128,6 @@ public sealed class CliCommandContractTests
             Assert.That(request.Limit, Is.EqualTo(25));
             Assert.That(applicationToken, Is.EqualTo(cancellation.Token));
             Assert.That(fixture.Context.LoadCount, Is.Zero);
-            Assert.That(fixture.Context.CreateSessionCount, Is.Zero);
             Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(fixture.Output.PageListCallCount, Is.EqualTo(1));
             Assert.That(fixture.Output.PageListLongFormat, Is.True);
@@ -276,34 +245,6 @@ public sealed class CliCommandContractTests
         }
     }
 
-    /// <summary>
-    /// Verifies that find ignores the query and keeps the same paused command contract.
-    /// </summary>
-    [Test]
-    public async Task Find_WithoutQuery_HasTheSamePausedContract()
-    {
-        var fixture = CommandFixture.Create();
-
-        var result = await fixture.Find.ExecuteAsync(
-            null,
-            CancellationToken.None);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
-            Assert.That(fixture.Context.LoadCount, Is.Zero);
-            Assert.That(fixture.Context.CreateSessionCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
-            Assert.That(fixture.Output.StandardOutput, Is.Empty);
-            Assert.That(
-                fixture.Output.StandardError,
-                Is.EqualTo(
-                    "Error: The find command is temporarily unavailable. Use 'mn ls' to list page names; " +
-                    "full-text search will be redesigned after the initial release." +
-                    Environment.NewLine));
-        }
-    }
-
     static PageSummary CreatePageSummary(NotebookId notebookId, string name)
     {
         var now = DateTime.UtcNow;
@@ -330,7 +271,6 @@ public sealed class CliCommandContractTests
             StubNotebookTargetSessionResolver targetResolver,
             RecordingExternalEditor editor,
             RecordingCommandOutput output,
-            FindCommandHandler find,
             EditCommandHandler edit,
             NewCommandHandler @new,
             ListCommandHandler list)
@@ -343,7 +283,6 @@ public sealed class CliCommandContractTests
             TargetResolver = targetResolver;
             Editor = editor;
             Output = output;
-            Find = find;
             Edit = edit;
             New = @new;
             List = list;
@@ -367,8 +306,6 @@ public sealed class CliCommandContractTests
 
         internal RecordingCommandOutput Output { get; }
 
-        internal FindCommandHandler Find { get; }
-
         internal EditCommandHandler Edit { get; }
 
         internal NewCommandHandler New { get; }
@@ -389,7 +326,7 @@ public sealed class CliCommandContractTests
             var application = new StubApplicationService();
             var output = new RecordingCommandOutput();
             var session = new ApplicationSession(workspace, application);
-            var context = new RecordingContextFactory(configuration, session);
+            var context = new RecordingContextFactory(configuration);
             var targetResolver = new StubNotebookTargetSessionResolver(session);
             var editor = new RecordingExternalEditor();
             var executor = new CliCommandExecutor(
@@ -405,7 +342,6 @@ public sealed class CliCommandContractTests
                 targetResolver,
                 editor,
                 output,
-                new FindCommandHandler(executor),
                 new EditCommandHandler(
                     executor,
                     context,
@@ -428,43 +364,20 @@ public sealed class CliCommandContractTests
     sealed class RecordingContextFactory : ICliCommandContextFactory
     {
         readonly ConfigurationCli _configuration;
-        readonly ApplicationSession _session;
 
-        internal RecordingContextFactory(
-            ConfigurationCli configuration,
-            ApplicationSession session)
+        internal RecordingContextFactory(ConfigurationCli configuration)
         {
             _configuration = configuration;
-            _session = session;
         }
 
         internal int LoadCount { get; private set; }
 
-        internal int CreateSessionCount { get; private set; }
-
         internal int SaveCount { get; private set; }
-
-        internal CancellationToken LastSessionCancellationToken { get; private set; }
-
-        internal Exception? CreateSessionException { get; set; }
 
         public ConfigurationCli LoadConfiguration()
         {
             LoadCount++;
             return _configuration;
-        }
-
-        public Task<ApplicationSession> CreateSessionAsync(
-            ConfigurationCli configuration,
-            CancellationToken cancellationToken)
-        {
-            Assert.That(configuration, Is.SameAs(_configuration));
-            CreateSessionCount++;
-            LastSessionCancellationToken = cancellationToken;
-            if (CreateSessionException != null)
-                return Task.FromException<ApplicationSession>(CreateSessionException);
-
-            return Task.FromResult(_session);
         }
 
         public void SaveConfiguration(ConfigurationCli configuration)
@@ -531,16 +444,6 @@ public sealed class CliCommandContractTests
         public void WriteWorkspaceNotebookList(
             IReadOnlyList<WorkspaceNotebookListEntry> entries,
             bool longFormat)
-        {
-        }
-
-        public void WriteNotebookList(
-            IEnumerable<Notebook> notebooks,
-            Notebook selectedNotebook)
-        {
-        }
-
-        public void WriteNotebookCompletion(IEnumerable<Notebook> notebooks)
         {
         }
     }

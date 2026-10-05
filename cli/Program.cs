@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
@@ -13,17 +12,13 @@ namespace MemoriaNote.Cli
         typeof(UseCommand),
         typeof(StatusCommand),
         typeof(NotebooksCommand),
-        typeof(FindCommand),
         typeof(EditCommand),
         typeof(NewCommand),
         typeof(ConfigCommand),
-        typeof(WorkCommand),
         typeof(ListCommand),
         typeof(CatCommand),
         typeof(RenameCommand),
-        typeof(DeleteCommand),
-        typeof(ImportCommand),
-        typeof(ExportCommand))]
+        typeof(DeleteCommand))]
     [HelpOption("--help")]
     class Program
     {
@@ -402,22 +397,6 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command(
-            "find",
-            Description = "Temporarily unavailable; use 'mn ls' for page names",
-            ShowInHelpText = false)]
-        [HelpOption("--help")]
-        class FindCommand
-        {
-            [Argument(0, Name = "query", Description = "search query")]
-            public string Query { get; set; }
-
-            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
-            {
-                return CommandHandlers.Find.ExecuteAsync(Query, cancellationToken);
-            }
-        }
-
         [Command("edit", Description = "Edit one page with an external editor")]
         [HelpOption("--help")]
         class EditCommand
@@ -545,180 +524,7 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("work", Description = "List, select and manage note options",
-                ShowInHelpText = false,
-                AllowArgumentSeparator = true,
-                UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
-        [Subcommand(typeof(WorkSelectCommand),
-                    typeof(WorkListCommand),
-                    typeof(WorkCreateCommand),
-                    typeof(WorkEditCommand),
-                    typeof(WorkAddCommand),
-                    typeof(WorkRemoveCommand),
-                    typeof(WorkBackupCommand),
-                    typeof(WorkRestoreCommand))]
-        [HelpOption("--help")]
-        class WorkCommand
-        {
-            [Argument(0, "name", "note name")]
-            public (bool hasValue, string value) Name { get; set; }
-
-            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
-            {
-                if (Name.hasValue)
-                {
-                    return CommandHandlers.WorkSelect.ExecuteAsync(
-                        Name.value,
-                        cancellationToken);
-                }
-                else
-                {
-                    return CommandHandlers.WorkList.ExecuteAsync(
-                        completion: false,
-                        cancellationToken);
-                }
-            }
-
-            [Command("select", "curr", Description = "Choose and display a specific note",
-                UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
-            private class WorkSelectCommand
-            {
-                [Argument(0, "name")]
-                public (bool hasValue, string value) Name { get; set; }
-
-                protected Task<int> OnExecuteAsync(
-                    CancellationToken cancellationToken)
-                {
-                    return CommandHandlers.WorkSelect.ExecuteAsync(
-                        Name.value,
-                        cancellationToken);
-                }
-            }
-
-            [Command("list", "ls", Description = "Display a list of all notes",
-                UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
-            private class WorkListCommand
-            {
-                [Option("--completion", Description = "Completion option")]
-                public bool Completion { get; set; }
-
-                protected Task<int> OnExecuteAsync(
-                    CancellationToken cancellationToken)
-                {
-                    return CommandHandlers.WorkList.ExecuteAsync(
-                        Completion,
-                        cancellationToken);
-                }
-            }
-
-            [Command("create", Description = "Create a new note",
-                UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
-            private class WorkCreateCommand
-            {
-                [Argument(0, "name")]
-                public (bool hasValue, string value) Name { get; set; }
-
-                [Argument(1, "title")]
-                public (bool hasValue, string value) Title { get; set; }
-
-                protected Task<int> OnExecuteAsync(
-                    CancellationToken cancellationToken)
-                {
-                    return CommandHandlers.WorkCreate.ExecuteAsync(
-                        Name.value,
-                        Title.value,
-                        cancellationToken);
-                }
-            }
-
-            [Command("edit", Description = "Moved to 'mn notebooks metadata'",
-                UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
-            private class WorkEditCommand
-            {
-                [Argument(0, "name")]
-                public (bool hasValue, string value) Name { get; set; }
-
-                protected Task<int> OnExecuteAsync(
-                    CancellationToken cancellationToken)
-                {
-                    return CommandHandlers.WorkEdit.ExecuteAsync(cancellationToken);
-                }
-            }
-            [Command("add", Description = "Add a new note to the work list",
-                UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
-            private class WorkAddCommand
-            {
-                [Argument(0, "path")]
-                public (bool hasValue, string value) Path { get; set; }
-
-                protected Task<int> OnExecuteAsync(
-                    CancellationToken cancellationToken)
-                {
-                    return CommandHandlers.WorkAdd.ExecuteAsync(
-                        Path.value,
-                        cancellationToken);
-                }
-            }
-            [Command("remove", Description = "Delete the selected note",
-                UnrecognizedArgumentHandling = UnrecognizedArgumentHandling.StopParsingAndCollect)]
-            private class WorkRemoveCommand
-            {
-                [Argument(0, "name")]
-                public (bool hasValue, string value) Name { get; set; }
-
-                protected Task<int> OnExecuteAsync(
-                    CancellationToken cancellationToken)
-                {
-                    return CommandHandlers.WorkRemove.ExecuteAsync(
-                        Name.value,
-                        cancellationToken);
-                }
-            }
-
-            [Command(
-                "backup",
-                Description = "Moved to 'mn notebooks backup'")]
-            private class WorkBackupCommand
-            {
-                [Argument(0, "name")]
-                public (bool hasValue, string value) Name { get; set; }
-
-                [Option("--output <path>", Description = "Output file path")]
-                public string OutputPath { get; set; }
-
-                protected Task<int> OnExecuteAsync(
-                    CancellationToken cancellationToken)
-                {
-                    return CommandHandlers.WorkBackup.ExecuteAsync(
-                        Name.value,
-                        OutputPath,
-                        cancellationToken);
-                }
-            }
-
-            [Command(
-                "restore",
-                Description = "Moved to 'mn notebooks restore'")]
-            private class WorkRestoreCommand
-            {
-                [Argument(0, "zip-file")]
-                public (bool hasValue, string value) InputPath { get; set; }
-
-                [Option("--output-dir <dir>", Description = "Output directory")]
-                public string OutputDir { get; set; }
-
-                protected Task<int> OnExecuteAsync(
-                    CancellationToken cancellationToken)
-                {
-                    return CommandHandlers.WorkRestore.ExecuteAsync(
-                        InputPath.value,
-                        OutputDir,
-                        cancellationToken);
-                }
-            }
-        }
-
-        [Command("ls", "list", Description = "List pages in stable page-name order")]
+        [Command("ls", Description = "List pages in stable page-name order")]
         [HelpOption("--help")]
         class ListCommand
         {
@@ -865,60 +671,5 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command(
-            "import",
-            Description = "Moved to 'mn notebooks import'",
-            ShowInHelpText = false)]
-        [HelpOption("--help")]
-        class ImportCommand
-        {
-            [Argument(0, "import-dir")]
-            public (bool hasValue, string value) ImportDir { get; set; }
-
-            [Option("-r, --recursive", Description = "Sub directories recursively")]
-            public bool Recursive { get; set; }
-
-            protected Task<int> OnExecuteAsync(
-                CommandLineApplication app,
-                CancellationToken cancellationToken)
-            {
-                if (!ImportDir.hasValue)
-                {
-                    app.ShowHelp();
-                    return Task.FromResult((int)CliExitCode.Validation);
-                }
-
-                return CommandHandlers.Import.ExecuteAsync(
-                    ImportDir.value,
-                    Recursive,
-                    cancellationToken);
-            }
-        }
-
-        [Command(
-            "export",
-            Description = "Moved to 'mn notebooks export'",
-            ShowInHelpText = false)]
-        [HelpOption("--help")]
-        class ExportCommand
-        {
-            [Argument(0, "export-dir")]
-            public (bool hasValue, string value) ExportDir { get; set; }
-
-            protected Task<int> OnExecuteAsync(
-                CommandLineApplication app,
-                CancellationToken cancellationToken)
-            {
-                if (!ExportDir.hasValue)
-                {
-                    app.ShowHelp();
-                    return Task.FromResult((int)CliExitCode.Validation);
-                }
-
-                return CommandHandlers.Export.ExecuteAsync(
-                    ExportDir.value,
-                    cancellationToken);
-            }
-        }
     }
 }

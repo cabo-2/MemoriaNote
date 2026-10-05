@@ -14,7 +14,6 @@ namespace MemoriaNote.Cli
             NotebookImportCommandHandler notebookImport,
             NotebookExportCommandHandler notebookExport,
             NotebookMetadataCommandHandler notebookMetadata,
-            FindCommandHandler find,
             EditCommandHandler edit,
             NewCommandHandler createPage,
             ConfigEditCommandHandler configEdit,
@@ -22,17 +21,7 @@ namespace MemoriaNote.Cli
             ListCommandHandler list,
             CatCommandHandler cat,
             RenamePageCommandHandler renamePage,
-            DeletePageCommandHandler deletePage,
-            WorkSelectCommandHandler workSelect,
-            WorkListCommandHandler workList,
-            WorkCreateCommandHandler workCreate,
-            WorkEditCommandHandler workEdit,
-            WorkAddCommandHandler workAdd,
-            WorkRemoveCommandHandler workRemove,
-            WorkBackupCommandHandler workBackup,
-            WorkRestoreCommandHandler workRestore,
-            ImportCommandHandler import,
-            ExportCommandHandler export)
+            DeletePageCommandHandler deletePage)
         {
             CreateNotebook = createNotebook ??
                 throw new ArgumentNullException(nameof(createNotebook));
@@ -51,7 +40,6 @@ namespace MemoriaNote.Cli
                 throw new ArgumentNullException(nameof(notebookExport));
             NotebookMetadata = notebookMetadata ??
                 throw new ArgumentNullException(nameof(notebookMetadata));
-            Find = find ?? throw new ArgumentNullException(nameof(find));
             Edit = edit ?? throw new ArgumentNullException(nameof(edit));
             CreatePage = createPage ??
                 throw new ArgumentNullException(nameof(createPage));
@@ -65,21 +53,6 @@ namespace MemoriaNote.Cli
                 throw new ArgumentNullException(nameof(renamePage));
             DeletePage = deletePage ??
                 throw new ArgumentNullException(nameof(deletePage));
-            WorkSelect = workSelect ??
-                throw new ArgumentNullException(nameof(workSelect));
-            WorkList = workList ?? throw new ArgumentNullException(nameof(workList));
-            WorkCreate = workCreate ??
-                throw new ArgumentNullException(nameof(workCreate));
-            WorkEdit = workEdit ?? throw new ArgumentNullException(nameof(workEdit));
-            WorkAdd = workAdd ?? throw new ArgumentNullException(nameof(workAdd));
-            WorkRemove = workRemove ??
-                throw new ArgumentNullException(nameof(workRemove));
-            WorkBackup = workBackup ??
-                throw new ArgumentNullException(nameof(workBackup));
-            WorkRestore = workRestore ??
-                throw new ArgumentNullException(nameof(workRestore));
-            Import = import ?? throw new ArgumentNullException(nameof(import));
-            Export = export ?? throw new ArgumentNullException(nameof(export));
         }
 
         internal CreateNotebookCommandHandler CreateNotebook { get; }
@@ -100,8 +73,6 @@ namespace MemoriaNote.Cli
 
         internal NotebookMetadataCommandHandler NotebookMetadata { get; }
 
-        internal FindCommandHandler Find { get; }
-
         internal EditCommandHandler Edit { get; }
 
         internal NewCommandHandler CreatePage { get; }
@@ -117,25 +88,5 @@ namespace MemoriaNote.Cli
         internal RenamePageCommandHandler RenamePage { get; }
 
         internal DeletePageCommandHandler DeletePage { get; }
-
-        internal WorkSelectCommandHandler WorkSelect { get; }
-
-        internal WorkListCommandHandler WorkList { get; }
-
-        internal WorkCreateCommandHandler WorkCreate { get; }
-
-        internal WorkEditCommandHandler WorkEdit { get; }
-
-        internal WorkAddCommandHandler WorkAdd { get; }
-
-        internal WorkRemoveCommandHandler WorkRemove { get; }
-
-        internal WorkBackupCommandHandler WorkBackup { get; }
-
-        internal WorkRestoreCommandHandler WorkRestore { get; }
-
-        internal ImportCommandHandler Import { get; }
-
-        internal ExportCommandHandler Export { get; }
     }
 }

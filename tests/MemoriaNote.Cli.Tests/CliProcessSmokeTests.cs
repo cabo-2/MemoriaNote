@@ -55,6 +55,7 @@ public sealed class CliProcessSmokeTests
             "export",
             "find",
             "import",
+            "list",
             "page",
             "work"
         };

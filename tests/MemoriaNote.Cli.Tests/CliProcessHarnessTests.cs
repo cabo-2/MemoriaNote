@@ -219,69 +219,30 @@ public sealed class CliProcessHarnessTests
         }
     }
 
-    /// <summary>
-    /// Verifies that find reports its temporary pause without initializing configuration or storage.
-    /// </summary>
-    [Test]
-    public async Task FindWithoutQuery_IsPausedWithoutInitializingApplication()
+    /// <summary>Verifies removed legacy commands are unknown and have no configuration side effects.</summary>
+    [TestCase("work")]
+    [TestCase("import")]
+    [TestCase("export")]
+    [TestCase("list")]
+    [TestCase("find")]
+    public async Task RemovedLegacyCommand_IsUnrecognizedWithoutCreatingConfiguration(
+        string command)
     {
         using var harness = new CliProcessHarness();
 
-        var result = await harness.RunAsync("find");
+        var result = await harness.RunAsync(command);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.ExitCode, Is.EqualTo(2));
-            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.ExitCode, Is.EqualTo(1));
             Assert.That(
                 result.StandardError,
-                Is.EqualTo(
-                    "Error: The find command is temporarily unavailable. Use 'mn ls' to list page names; " +
-                    "full-text search will be redesigned after the initial release." +
-                    Environment.NewLine));
+                Does.Contain($"Unrecognized command or argument '{command}'"));
+            Assert.That(result.StandardOutput, Does.Contain("--help"));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
-        }
-    }
-
-    /// <summary>Verifies that find has the same paused contract when a query is supplied.</summary>
-    [Test]
-    public async Task FindWithQuery_HasTheSamePausedContract()
-    {
-        using var harness = new CliProcessHarness();
-
-        var result = await harness.RunAsync("find", "Roadmap");
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result.ExitCode, Is.EqualTo(2));
-            Assert.That(result.StandardOutput, Is.Empty);
             Assert.That(
-                result.StandardError,
-                Is.EqualTo(
-                    "Error: The find command is temporarily unavailable. Use 'mn ls' to list page names; " +
-                    "full-text search will be redesigned after the initial release." +
-                    Environment.NewLine));
-            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
-        }
-    }
-
-    /// <summary>Verifies that find help explains its pause and the limited list alternative.</summary>
-    [Test]
-    public async Task FindHelp_ExplainsPauseAndScope()
-    {
-        using var harness = new CliProcessHarness();
-
-        var result = await harness.RunAsync("find", "--help");
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result.ExitCode, Is.Zero);
-            Assert.That(result.StandardOutput, Does.Contain("Usage: mn find"));
-            Assert.That(result.StandardOutput, Does.Contain("<query>"));
-            Assert.That(result.StandardOutput, Does.Contain("Temporarily unavailable"));
-            Assert.That(result.StandardOutput, Does.Contain("mn ls"));
-            Assert.That(result.StandardError, Is.Empty);
-            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
+                Directory.EnumerateFileSystemEntries(harness.WorkingDirectory),
+                Is.Empty);
         }
     }
 

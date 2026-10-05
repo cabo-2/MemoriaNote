@@ -8,32 +8,6 @@ using MemoriaNote.Cli.Editors;
 
 namespace MemoriaNote.Cli
 {
-    internal sealed class FindCommandHandler
-    {
-        readonly CliCommandExecutor _executor;
-
-        const string TemporarilyUnavailableMessage =
-            "The find command is temporarily unavailable. Use 'mn ls' to list page names; " +
-            "full-text search will be redesigned after the initial release.";
-
-        internal FindCommandHandler(CliCommandExecutor executor)
-        {
-            _executor = executor ??
-                throw new ArgumentNullException(nameof(executor));
-        }
-
-        internal Task<int> ExecuteAsync(
-            string query,
-            CancellationToken cancellationToken)
-        {
-            return _executor.ExecuteAsync(
-                _ => CliCommandResult.Failure(
-                    CliErrorKind.Validation,
-                    TemporarilyUnavailableMessage),
-                cancellationToken);
-        }
-    }
-
     internal sealed class EditCommandHandler
     {
         readonly CliCommandExecutor _executor;

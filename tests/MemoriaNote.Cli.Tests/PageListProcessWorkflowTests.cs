@@ -10,10 +10,10 @@ namespace MemoriaNote.Cli.Tests;
 public sealed class PageListProcessWorkflowTests
 {
     /// <summary>
-    /// Verifies ls and its list alias share stable name ordering, limit, and read-only behavior.
+    /// Verifies ls provides stable name ordering, limit, and read-only behavior.
     /// </summary>
     [Test]
-    public async Task Ls_ListsStableNamesAndListUsesTheSameReadOnlyCommand()
+    public async Task Ls_ListsStableNamesWithoutChangingState()
     {
         using var harness = new CliProcessHarness();
         var create = await harness.RunAsync("create", "work.mnote");
@@ -47,8 +47,6 @@ public sealed class PageListProcessWorkflowTests
             workspaceConfigurationPath);
 
         var limited = await harness.RunAsync("ls", "--limit", "2");
-        var alias = await harness.RunAsync("list");
-
         using (Assert.EnterMultipleScope())
         {
             Assert.That(limited.ExitCode, Is.Zero);
@@ -56,11 +54,6 @@ public sealed class PageListProcessWorkflowTests
             Assert.That(
                 GetOutputLines(limited.StandardOutput),
                 Is.EqualTo(new[] { "Alpha", "Roadmap" }));
-            Assert.That(alias.ExitCode, Is.Zero);
-            Assert.That(alias.StandardError, Is.Empty);
-            Assert.That(
-                GetOutputLines(alias.StandardOutput),
-                Is.EqualTo(new[] { "Alpha", "Roadmap", "alpha" }));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
             Assert.That(await File.ReadAllBytesAsync(notebookPath), Is.EqualTo(before));
             Assert.That(

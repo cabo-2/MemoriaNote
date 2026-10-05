@@ -189,37 +189,6 @@ public sealed class NotebookExportProcessTests
         }
     }
 
-    /// <summary>Verifies the former top-level command is a non-mutating migration stub.</summary>
-    [Test]
-    public async Task LegacyExport_WithDirectory_ReturnsMigrationGuidanceWithoutWrites()
-    {
-        using var harness = new CliProcessHarness();
-        var notebookPath = await CreateAndSelectNotebookAsync(harness, "legacy");
-        await CreatePageRepository().CreatePageAsync(
-            notebookPath,
-            "Entry",
-            "not exported",
-            null,
-            CancellationToken.None);
-        var destination = Path.Combine(harness.TemporaryDirectory, "legacy-export");
-
-        var result = await harness.RunAsync("export", destination);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
-            Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.Contain("no longer supported"));
-            Assert.That(result.StandardError, Does.Contain("mn notebooks export"));
-            Assert.That(Directory.Exists(destination), Is.False);
-            Assert.That(
-                await CreatePageRepository().CountPagesAsync(
-                    notebookPath,
-                    CancellationToken.None),
-                Is.EqualTo(1));
-        }
-    }
-
     static async Task<string> CreateAndSelectNotebookAsync(
         CliProcessHarness harness,
         string name)

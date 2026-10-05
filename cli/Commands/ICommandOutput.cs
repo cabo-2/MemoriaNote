@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using MemoriaNote.Application;
 using MemoriaNote.Domain;
-using MemoriaNote.Models;
 
 namespace MemoriaNote.Cli
 {
@@ -18,9 +17,5 @@ namespace MemoriaNote.Cli
         void WriteWorkspaceNotebookList(
             IReadOnlyList<WorkspaceNotebookListEntry> entries,
             bool longFormat);
-
-        void WriteNotebookList(IEnumerable<Notebook> notebooks, Notebook selectedNotebook);
-
-        void WriteNotebookCompletion(IEnumerable<Notebook> notebooks);
     }
 }

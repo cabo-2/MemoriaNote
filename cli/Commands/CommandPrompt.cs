@@ -28,17 +28,5 @@ namespace MemoriaNote.Cli
             _output.Write("Try again?(y/n)_");
             return _input.ReadLine().ToLower() == "y";
         }
-
-        internal string ReadNotebookName()
-        {
-            _output.Write("What is the name?_");
-            return _input.ReadLine();
-        }
-
-        internal string ReadNotebookTitle()
-        {
-            _output.Write("What is the title?_");
-            return _input.ReadLine();
-        }
     }
 }

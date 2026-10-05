@@ -96,7 +96,6 @@ namespace MemoriaNote.Cli
             var workspaceNotebookList = new WorkspaceNotebookListUseCase(
                 workspaceConfigurationStore,
                 notebookFormatValidator);
-            var filePathFactory = new NotebookFilePathFactory(clock);
             var serializer = new JsonConfigurationSerializer<ConfigurationCli>();
             var configurationStore = new FileConfigurationStore<ConfigurationCli>(
                 applicationPaths.ConfigurationPath,
@@ -127,14 +126,8 @@ namespace MemoriaNote.Cli
                 errorMapper,
                 loggerFactory.CreateLogger<CliCommandExecutor>());
             var contextFactory = new CliCommandContextFactory(
-                notebookMigrator,
-                pageRepository,
-                pageSearchRepository,
-                metadataRepository,
-                applicationPaths,
                 configurationStore,
-                output,
-                loggerFactory);
+                output);
             var textPageImporter = new TextPageImporter(transferRepository);
             var textPageExporter = new TextPageExporter(transferRepository);
             var archiveV1BackupService = new ArchiveV1BackupService(
@@ -149,10 +142,6 @@ namespace MemoriaNote.Cli
                 databaseFactory,
                 temporaryFileStore);
 
-            var workAdd = new WorkAddCommandHandler(
-                executor,
-                contextFactory,
-                databaseFactory);
             var commandHandlers = new CliCommandHandlers(
                 new CreateNotebookCommandHandler(
                     executor,
@@ -197,7 +186,6 @@ namespace MemoriaNote.Cli
                     metadataService,
                     input,
                     output),
-                new FindCommandHandler(executor),
                 new EditCommandHandler(
                     executor,
                     contextFactory,
@@ -240,25 +228,7 @@ namespace MemoriaNote.Cli
                     executor,
                     notebookTargetResolver,
                     prompt,
-                    output),
-                new WorkSelectCommandHandler(executor, contextFactory),
-                new WorkListCommandHandler(executor, contextFactory, output),
-                new WorkCreateCommandHandler(
-                    executor,
-                    contextFactory,
-                    notebookMigrator,
-                    filePathFactory,
-                    applicationPaths,
-                    workAdd,
-                    prompt,
-                    output),
-                new WorkEditCommandHandler(executor),
-                workAdd,
-                new WorkRemoveCommandHandler(executor, contextFactory),
-                new WorkBackupCommandHandler(executor),
-                new WorkRestoreCommandHandler(executor),
-                new ImportCommandHandler(executor),
-                new ExportCommandHandler(executor));
+                    output));
 
             return new CliComposition(
                 commandHandlers,

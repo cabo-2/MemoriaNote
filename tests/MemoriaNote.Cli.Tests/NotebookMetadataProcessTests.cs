@@ -264,29 +264,6 @@ public sealed class NotebookMetadataProcessTests
         }
     }
 
-    /// <summary>Verifies the legacy editor is a non-mutating migration stub.</summary>
-    [Test]
-    public async Task LegacyWorkEdit_ReturnsGuidanceWithoutWrites()
-    {
-        using var harness = new CliProcessHarness();
-        var notebookPath = await CreateAndSelectNotebookAsync(harness, "legacy");
-
-        var result = await harness.RunAsync("work", "edit");
-        var loaded = await CreateMetadataRepository().LoadAsync(
-            notebookPath,
-            CancellationToken.None);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
-            Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.Contain("no longer supported"));
-            Assert.That(result.StandardError, Does.Contain("mn notebooks metadata"));
-            Assert.That(loaded.Metadata.Name, Is.EqualTo("legacy"));
-            Assert.That(loaded.Metadata.Title, Is.EqualTo("legacy"));
-        }
-    }
-
     static async Task<string> CreateAndSelectNotebookAsync(
         CliProcessHarness harness,
         string name)
