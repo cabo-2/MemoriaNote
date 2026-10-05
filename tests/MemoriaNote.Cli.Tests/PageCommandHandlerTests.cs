@@ -38,7 +38,6 @@ public sealed class PageCommandHandlerTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.NotFound));
-            Assert.That(fixture.Context.CreateSessionCount, Is.Zero);
             Assert.That(fixture.Application.ValidateCreateAsyncCallCount, Is.Zero);
             Assert.That(fixture.Editor.Documents, Is.Empty);
             Assert.That(fixture.Application.CreateAsyncCallCount, Is.Zero);
@@ -180,7 +179,6 @@ public sealed class PageCommandHandlerTests
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(fixture.Context.LoadCount, Is.Zero);
-            Assert.That(fixture.Context.CreateSessionCount, Is.Zero);
             Assert.That(fixture.Editor.Documents, Is.Empty);
         }
     }
@@ -537,7 +535,7 @@ public sealed class PageCommandHandlerTests
 
             var application = new StubApplicationService();
             var session = new ApplicationSession(workspace, application);
-            var context = new RecordingContextFactory(configuration, session);
+            var context = new RecordingContextFactory(configuration);
             var targetResolver = new StubNotebookTargetSessionResolver(session);
             var editor = new RecordingExternalEditor();
             var output = new RecordingCommandOutput();
@@ -573,19 +571,13 @@ public sealed class PageCommandHandlerTests
     sealed class RecordingContextFactory : ICliCommandContextFactory
     {
         readonly ConfigurationCli _configuration;
-        readonly ApplicationSession _session;
 
-        internal RecordingContextFactory(
-            ConfigurationCli configuration,
-            ApplicationSession session)
+        internal RecordingContextFactory(ConfigurationCli configuration)
         {
             _configuration = configuration;
-            _session = session;
         }
 
         internal int LoadCount { get; private set; }
-
-        internal int CreateSessionCount { get; private set; }
 
         internal int SaveCount { get; private set; }
 
@@ -593,14 +585,6 @@ public sealed class PageCommandHandlerTests
         {
             LoadCount++;
             return _configuration;
-        }
-
-        public Task<ApplicationSession> CreateSessionAsync(
-            ConfigurationCli configuration,
-            CancellationToken cancellationToken)
-        {
-            CreateSessionCount++;
-            return Task.FromResult(_session);
         }
 
         public void SaveConfiguration(ConfigurationCli configuration)
@@ -671,16 +655,6 @@ public sealed class PageCommandHandlerTests
         public void WriteWorkspaceNotebookList(
             IReadOnlyList<WorkspaceNotebookListEntry> entries,
             bool longFormat)
-        {
-        }
-
-        public void WriteNotebookList(
-            IEnumerable<Notebook> notebooks,
-            Notebook selectedNotebook)
-        {
-        }
-
-        public void WriteNotebookCompletion(IEnumerable<Notebook> notebooks)
         {
         }
     }

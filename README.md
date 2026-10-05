@@ -101,8 +101,7 @@ Commands:
 Run 'mn [command] --help' for more information about a command.
 ```
 
-`list` remains available as a compatibility alias for `ls`. Run
-`mn <command> --help` for command-specific arguments and options.
+Run `mn <command> --help` for command-specific arguments and options.
 
 ### Workspace and notebook selection
 

@@ -347,15 +347,5 @@ public sealed class PageDeleteCommandHandlerTests
             bool longFormat)
         {
         }
-
-        public void WriteNotebookList(
-            IEnumerable<Notebook> notebooks,
-            Notebook selectedNotebook)
-        {
-        }
-
-        public void WriteNotebookCompletion(IEnumerable<Notebook> notebooks)
-        {
-        }
     }
 }
