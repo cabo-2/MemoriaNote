@@ -10,14 +10,7 @@ public sealed class ExternalEditorTests
     [Test]
     public async Task EditAsync_ConnectsResolverExchangeAndProcessRunner()
     {
-        var configuration = new ConfigurationCli
-        {
-            Terminal = new ConfigurationCli.TerminalSetting
-            {
-                EditorEnv = true,
-                EditorPath = "configured-editor"
-            }
-        };
+        var options = new EditorOptions(true, "EDITOR", "configured-editor");
         var exchange = new StubEditorFileExchange("/tmp/Page Draft \"one\".txt");
         var processRunner = new StubExternalEditorProcessRunner();
         var editor = new ExternalEditor(
@@ -28,7 +21,7 @@ public sealed class ExternalEditorTests
         var document = new ExternalEditorDocument("Page Draft.txt", "before");
 
         var result = await editor.EditAsync(
-            configuration,
+            options,
             null,
             document,
             CancellationToken.None);

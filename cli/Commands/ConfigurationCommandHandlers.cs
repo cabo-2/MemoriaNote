@@ -50,8 +50,11 @@ namespace MemoriaNote.Cli
                 do
                 {
                     retry = false;
+                    var editorOptions =
+                        LegacyConfigurationEditorOptionsProvider.FromConfiguration(
+                            configuration);
                     var editResult = await _externalEditor.EditAsync(
-                        configuration,
+                        editorOptions,
                         null,
                         new ExternalEditorDocument(
                             Path.GetFileName(_applicationPaths.ConfigurationPath),

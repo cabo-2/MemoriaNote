@@ -10,11 +10,11 @@ public sealed class EditorExecutableResolverTests
     [Test]
     public void Resolve_EnabledEnvironmentValue_HasPriority()
     {
-        var configuration = CreateConfiguration("configured-editor", useEnvironment: true);
+        var options = CreateOptions("configured-editor", useEnvironment: true);
         var resolver = new EditorExecutableResolver(
             new StubEnvironmentVariableSource("environment-editor"));
 
-        var result = resolver.Resolve(configuration, null);
+        var result = resolver.Resolve(options, null);
 
         Assert.That(result.ExecutablePath, Is.EqualTo("environment-editor"));
     }
@@ -23,11 +23,11 @@ public sealed class EditorExecutableResolverTests
     [Test]
     public void Resolve_DisabledEnvironmentValue_UsesConfiguredPath()
     {
-        var configuration = CreateConfiguration("configured-editor", useEnvironment: false);
+        var options = CreateOptions("configured-editor", useEnvironment: false);
         var resolver = new EditorExecutableResolver(
             new StubEnvironmentVariableSource("environment-editor"));
 
-        var result = resolver.Resolve(configuration, null);
+        var result = resolver.Resolve(options, null);
 
         Assert.That(result.ExecutablePath, Is.EqualTo("configured-editor"));
     }
@@ -38,11 +38,11 @@ public sealed class EditorExecutableResolverTests
     [TestCase("   ")]
     public void Resolve_EmptyEnvironmentValue_UsesConfiguredPath(string? environmentValue)
     {
-        var configuration = CreateConfiguration("configured-editor", useEnvironment: true);
+        var options = CreateOptions("configured-editor", useEnvironment: true);
         var resolver = new EditorExecutableResolver(
             new StubEnvironmentVariableSource(environmentValue));
 
-        var result = resolver.Resolve(configuration, null);
+        var result = resolver.Resolve(options, null);
 
         Assert.That(result.ExecutablePath, Is.EqualTo("configured-editor"));
     }
@@ -51,11 +51,11 @@ public sealed class EditorExecutableResolverTests
     [Test]
     public void Resolve_NoAvailableEditor_Throws()
     {
-        var configuration = CreateConfiguration(string.Empty, useEnvironment: true);
+        var options = CreateOptions(string.Empty, useEnvironment: true);
         var resolver = new EditorExecutableResolver(
             new StubEnvironmentVariableSource(null));
 
-        Action resolve = () => resolver.Resolve(configuration, null);
+        Action resolve = () => resolver.Resolve(options, null);
 
         Assert.That(
             resolve,
@@ -67,30 +67,38 @@ public sealed class EditorExecutableResolverTests
     [Test]
     public void Resolve_CommandOverride_HasHighestPriority()
     {
-        var configuration = CreateConfiguration("configured-editor", useEnvironment: true);
+        var options = EditorOptions.Missing;
         var resolver = new EditorExecutableResolver(
             new StubEnvironmentVariableSource("environment-editor"));
         var commandOverride = new ExternalEditorCommand(
             "explicit-editor",
             new[] { "--wait" });
 
-        var result = resolver.Resolve(configuration, commandOverride);
+        var result = resolver.Resolve(options, commandOverride);
 
         Assert.That(result, Is.SameAs(commandOverride));
     }
 
-    static ConfigurationCli CreateConfiguration(
+    /// <summary>Verifies that missing editor settings retain their clear failure.</summary>
+    [Test]
+    public void Resolve_MissingSettings_Throws()
+    {
+        var resolver = new EditorExecutableResolver(
+            new StubEnvironmentVariableSource("environment-editor"));
+
+        Action resolve = () => resolver.Resolve(EditorOptions.Missing, null);
+
+        Assert.That(
+            resolve,
+            Throws.TypeOf<ExternalEditorConfigurationException>()
+                .With.Message.EqualTo("External editor settings are missing."));
+    }
+
+    static EditorOptions CreateOptions(
         string editorPath,
         bool useEnvironment)
     {
-        return new ConfigurationCli
-        {
-            Terminal = new ConfigurationCli.TerminalSetting
-            {
-                EditorEnv = useEnvironment,
-                EditorPath = editorPath
-            }
-        };
+        return new EditorOptions(useEnvironment, "EDITOR", editorPath);
     }
 
     sealed class StubEnvironmentVariableSource : IEnvironmentVariableSource
@@ -106,7 +114,7 @@ public sealed class EditorExecutableResolverTests
         {
             Assert.That(
                 name,
-                Is.EqualTo(ConfigurationCli.TerminalSetting.EditorEnvName));
+                Is.EqualTo("EDITOR"));
             return _value;
         }
     }

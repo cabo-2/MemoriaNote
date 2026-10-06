@@ -128,6 +128,8 @@ namespace MemoriaNote.Cli
             var contextFactory = new CliCommandContextFactory(
                 configurationStore,
                 output);
+            var editorOptionsProvider =
+                new LegacyConfigurationEditorOptionsProvider(contextFactory);
             var textPageImporter = new TextPageImporter(transferRepository);
             var textPageExporter = new TextPageExporter(transferRepository);
             var archiveV1BackupService = new ArchiveV1BackupService(
@@ -188,13 +190,13 @@ namespace MemoriaNote.Cli
                     output),
                 new EditCommandHandler(
                     executor,
-                    contextFactory,
+                    editorOptionsProvider,
                     notebookTargetResolver,
                     externalEditor,
                     output),
                 new NewCommandHandler(
                     executor,
-                    contextFactory,
+                    editorOptionsProvider,
                     notebookTargetResolver,
                     externalEditor,
                     output),

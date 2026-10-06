@@ -24,12 +24,12 @@ namespace MemoriaNote.Cli.Editors
         }
 
         public Task<ExternalEditorResult> EditAsync(
-            ConfigurationCli configuration,
+            EditorOptions options,
             ExternalEditorCommand commandOverride,
             ExternalEditorDocument document,
             CancellationToken cancellationToken)
         {
-            var command = _executableResolver.Resolve(configuration, commandOverride);
+            var command = _executableResolver.Resolve(options, commandOverride);
             return _fileExchange.EditAsync(
                 document,
                 (documentPath, token) => _processRunner.RunAsync(
