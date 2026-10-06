@@ -36,8 +36,7 @@ public sealed class CliCommandContractTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.Zero);
-            Assert.That(fixture.Context.LoadCount, Is.EqualTo(1));
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
+            Assert.That(fixture.EditorOptionsProvider.LoadCount, Is.EqualTo(1));
             Assert.That(fixture.TargetResolver.ResolveCount, Is.EqualTo(1));
             Assert.That(fixture.Application.ReadAsyncCallCount, Is.EqualTo(1));
             Assert.That(fixture.Editor.Documents, Has.Count.EqualTo(1));
@@ -61,9 +60,8 @@ public sealed class CliCommandContractTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
-            Assert.That(fixture.Context.LoadCount, Is.Zero);
+            Assert.That(fixture.EditorOptionsProvider.LoadCount, Is.Zero);
             Assert.That(fixture.Editor.Documents, Is.Empty);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardError,
                 Is.EqualTo(
@@ -86,8 +84,7 @@ public sealed class CliCommandContractTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
-            Assert.That(fixture.Context.LoadCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
+            Assert.That(fixture.EditorOptionsProvider.LoadCount, Is.Zero);
             Assert.That(fixture.Output.StandardOutput, Is.Empty);
             Assert.That(
                 fixture.Output.StandardError,
@@ -127,8 +124,7 @@ public sealed class CliCommandContractTests
             Assert.That(request!.NotebookId, Is.EqualTo(fixture.NotebookId));
             Assert.That(request.Limit, Is.EqualTo(25));
             Assert.That(applicationToken, Is.EqualTo(cancellation.Token));
-            Assert.That(fixture.Context.LoadCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
+            Assert.That(fixture.EditorOptionsProvider.LoadCount, Is.Zero);
             Assert.That(fixture.Output.PageListCallCount, Is.EqualTo(1));
             Assert.That(fixture.Output.PageListLongFormat, Is.True);
             Assert.That(fixture.Application.SearchAsyncCallCount, Is.Zero);
@@ -209,7 +205,6 @@ public sealed class CliCommandContractTests
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Storage));
             Assert.That(fixture.Output.PageListCallCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardError,
                 Is.EqualTo("Error: database is unavailable" + Environment.NewLine));
@@ -263,11 +258,10 @@ public sealed class CliCommandContractTests
     sealed class CommandFixture
     {
         CommandFixture(
-            ConfigurationCli configuration,
             Workspace workspace,
             Notebook notebook,
             StubApplicationService application,
-            RecordingContextFactory context,
+            RecordingEditorOptionsProvider editorOptionsProvider,
             StubNotebookTargetSessionResolver targetResolver,
             RecordingExternalEditor editor,
             RecordingCommandOutput output,
@@ -275,11 +269,10 @@ public sealed class CliCommandContractTests
             NewCommandHandler @new,
             ListCommandHandler list)
         {
-            Configuration = configuration;
             Workspace = workspace;
             Notebook = notebook;
             Application = application;
-            Context = context;
+            EditorOptionsProvider = editorOptionsProvider;
             TargetResolver = targetResolver;
             Editor = editor;
             Output = output;
@@ -287,8 +280,6 @@ public sealed class CliCommandContractTests
             New = @new;
             List = list;
         }
-
-        internal ConfigurationCli Configuration { get; }
 
         internal Workspace Workspace { get; }
 
@@ -298,7 +289,7 @@ public sealed class CliCommandContractTests
 
         internal StubApplicationService Application { get; }
 
-        internal RecordingContextFactory Context { get; }
+        internal RecordingEditorOptionsProvider EditorOptionsProvider { get; }
 
         internal StubNotebookTargetSessionResolver TargetResolver { get; }
 
@@ -314,7 +305,7 @@ public sealed class CliCommandContractTests
 
         internal static CommandFixture Create()
         {
-            var configuration = new ConfigurationCli();
+            var editorOptions = new EditorOptions(true, "EDITOR", "configured-editor");
             var notebookPath = Path.Combine(
                 Path.GetTempPath(),
                 $"memoria-characterization-{Guid.NewGuid():N}.db");
@@ -326,7 +317,7 @@ public sealed class CliCommandContractTests
             var application = new StubApplicationService();
             var output = new RecordingCommandOutput();
             var session = new ApplicationSession(workspace, application);
-            var context = new RecordingContextFactory(configuration);
+            var editorOptionsProvider = new RecordingEditorOptionsProvider(editorOptions);
             var targetResolver = new StubNotebookTargetSessionResolver(session);
             var editor = new RecordingExternalEditor();
             var executor = new CliCommandExecutor(
@@ -334,23 +325,22 @@ public sealed class CliCommandContractTests
                 new CliErrorMapper(),
                 NullLogger<CliCommandExecutor>.Instance);
             return new CommandFixture(
-                configuration,
                 workspace,
                 notebook,
                 application,
-                context,
+                editorOptionsProvider,
                 targetResolver,
                 editor,
                 output,
                 new EditCommandHandler(
                     executor,
-                    context,
+                    editorOptionsProvider,
                     targetResolver,
                     editor,
                     output),
                 new NewCommandHandler(
                     executor,
-                    context,
+                    editorOptionsProvider,
                     targetResolver,
                     editor,
                     output),
@@ -361,29 +351,21 @@ public sealed class CliCommandContractTests
         }
     }
 
-    sealed class RecordingContextFactory : ICliCommandContextFactory
+    sealed class RecordingEditorOptionsProvider : IEditorOptionsProvider
     {
-        readonly ConfigurationCli _configuration;
+        readonly EditorOptions _options;
 
-        internal RecordingContextFactory(ConfigurationCli configuration)
+        internal RecordingEditorOptionsProvider(EditorOptions options)
         {
-            _configuration = configuration;
+            _options = options;
         }
 
         internal int LoadCount { get; private set; }
 
-        internal int SaveCount { get; private set; }
-
-        public ConfigurationCli LoadConfiguration()
+        public EditorOptions Load()
         {
             LoadCount++;
-            return _configuration;
-        }
-
-        public void SaveConfiguration(ConfigurationCli configuration)
-        {
-            Assert.That(configuration, Is.SameAs(_configuration));
-            SaveCount++;
+            return _options;
         }
     }
 
@@ -394,7 +376,7 @@ public sealed class CliCommandContractTests
         internal List<ExternalEditorDocument> Documents { get; } = new();
 
         public Task<ExternalEditorResult> EditAsync(
-            ConfigurationCli configuration,
+            EditorOptions options,
             ExternalEditorCommand commandOverride,
             ExternalEditorDocument document,
             CancellationToken cancellationToken)

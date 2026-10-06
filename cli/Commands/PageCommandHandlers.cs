@@ -11,21 +11,21 @@ namespace MemoriaNote.Cli
     internal sealed class EditCommandHandler
     {
         readonly CliCommandExecutor _executor;
-        readonly ICliCommandContextFactory _contextFactory;
+        readonly IEditorOptionsProvider _editorOptionsProvider;
         readonly INotebookTargetSessionResolver _targetResolver;
         readonly IExternalEditor _externalEditor;
         readonly ICommandOutput _output;
 
         internal EditCommandHandler(
             CliCommandExecutor executor,
-            ICliCommandContextFactory contextFactory,
+            IEditorOptionsProvider editorOptionsProvider,
             INotebookTargetSessionResolver targetResolver,
             IExternalEditor externalEditor,
             ICommandOutput output)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
-            _contextFactory = contextFactory ??
-                throw new ArgumentNullException(nameof(contextFactory));
+            _editorOptionsProvider = editorOptionsProvider ??
+                throw new ArgumentNullException(nameof(editorOptionsProvider));
             _targetResolver = targetResolver ??
                 throw new ArgumentNullException(nameof(targetResolver));
             _externalEditor = externalEditor ??
@@ -125,9 +125,9 @@ namespace MemoriaNote.Cli
                         initialValidation);
                 }
 
-                var configuration = _contextFactory.LoadConfiguration();
+                var editorOptions = _editorOptionsProvider.Load();
                 var editorResult = await _externalEditor.EditAsync(
-                    configuration,
+                    editorOptions,
                     commandOverride,
                     new ExternalEditorDocument(page.Name, initialText),
                     token);
@@ -172,21 +172,21 @@ namespace MemoriaNote.Cli
     internal sealed class NewCommandHandler
     {
         readonly CliCommandExecutor _executor;
-        readonly ICliCommandContextFactory _contextFactory;
+        readonly IEditorOptionsProvider _editorOptionsProvider;
         readonly INotebookTargetSessionResolver _targetResolver;
         readonly IExternalEditor _externalEditor;
         readonly ICommandOutput _output;
 
         internal NewCommandHandler(
             CliCommandExecutor executor,
-            ICliCommandContextFactory contextFactory,
+            IEditorOptionsProvider editorOptionsProvider,
             INotebookTargetSessionResolver targetResolver,
             IExternalEditor externalEditor,
             ICommandOutput output)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
-            _contextFactory = contextFactory ??
-                throw new ArgumentNullException(nameof(contextFactory));
+            _editorOptionsProvider = editorOptionsProvider ??
+                throw new ArgumentNullException(nameof(editorOptionsProvider));
             _targetResolver = targetResolver ??
                 throw new ArgumentNullException(nameof(targetResolver));
             _externalEditor = externalEditor ??
@@ -255,7 +255,7 @@ namespace MemoriaNote.Cli
                         "No selected notebook");
                 }
 
-                var configuration = _contextFactory.LoadConfiguration();
+                var editorOptions = _editorOptionsProvider.Load();
                 var notebookId = NotebookId.FromDatabasePath(selectedNotebook.DatabasePath);
                 var initialCommand = new CreatePageCommand(
                     notebookId,
@@ -272,7 +272,7 @@ namespace MemoriaNote.Cli
                 }
 
                 var editorResult = await _externalEditor.EditAsync(
-                    configuration,
+                    editorOptions,
                     commandOverride,
                     new ExternalEditorDocument(name, string.Empty),
                     token);

@@ -21,7 +21,7 @@ public sealed class PageCommandHandlerTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
-            Assert.That(fixture.Context.LoadCount, Is.Zero);
+            Assert.That(fixture.EditorOptionsProvider.LoadCount, Is.Zero);
             Assert.That(fixture.Editor.Documents, Is.Empty);
             Assert.That(fixture.Application.CreateAsyncCallCount, Is.Zero);
         }
@@ -60,7 +60,6 @@ public sealed class PageCommandHandlerTests
             Assert.That(fixture.Application.ValidateCreateAsyncCallCount, Is.EqualTo(1));
             Assert.That(fixture.Editor.Documents, Is.Empty);
             Assert.That(fixture.Application.CreateAsyncCallCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
         }
     }
 
@@ -80,7 +79,6 @@ public sealed class PageCommandHandlerTests
             Assert.That(fixture.Editor.Documents[0].FileName, Is.EqualTo("New page"));
             Assert.That(fixture.Editor.Documents[0].Text, Is.Empty);
             Assert.That(fixture.Application.CreateAsyncCallCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardOutput,
                 Is.EqualTo("No changes." + Environment.NewLine));
@@ -101,7 +99,6 @@ public sealed class PageCommandHandlerTests
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Storage));
             Assert.That(fixture.Application.CreateAsyncCallCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardError,
                 Does.Contain("External editor 'editor' exited with code 17"));
@@ -132,7 +129,6 @@ public sealed class PageCommandHandlerTests
             Assert.That(result, Is.EqualTo((int)CliExitCode.Conflict));
             Assert.That(fixture.Application.ValidateCreateAsyncCallCount, Is.EqualTo(2));
             Assert.That(fixture.Application.CreateAsyncCallCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
         }
     }
 
@@ -160,7 +156,6 @@ public sealed class PageCommandHandlerTests
             Assert.That(createdCommand!.NotebookId, Is.EqualTo(fixture.NotebookId));
             Assert.That(createdCommand.Name, Is.EqualTo("New page"));
             Assert.That(createdCommand.Text, Is.EqualTo("Body"));
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardOutput,
                 Does.Contain("The text created successfully."));
@@ -178,7 +173,7 @@ public sealed class PageCommandHandlerTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
-            Assert.That(fixture.Context.LoadCount, Is.Zero);
+            Assert.That(fixture.EditorOptionsProvider.LoadCount, Is.Zero);
             Assert.That(fixture.Editor.Documents, Is.Empty);
         }
     }
@@ -268,7 +263,6 @@ public sealed class PageCommandHandlerTests
             Assert.That(editCommand.Text, Is.EqualTo("Edited body"));
             Assert.That(editCommand.HasExpectedText, Is.True);
             Assert.That(editCommand.ExpectedText, Is.EqualTo("Current body"));
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardOutput,
                 Does.Contain("The text updated successfully."));
@@ -323,12 +317,12 @@ public sealed class PageCommandHandlerTests
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(fixture.TargetResolver.ResolveCount, Is.Zero);
-            Assert.That(fixture.Context.LoadCount, Is.Zero);
+            Assert.That(fixture.EditorOptionsProvider.LoadCount, Is.Zero);
             Assert.That(fixture.Editor.Documents, Is.Empty);
         }
     }
 
-    /// <summary>Verifies that an unchanged edit reports a no-op without saving configuration.</summary>
+    /// <summary>Verifies that an unchanged edit reports a no-op without updating the page.</summary>
     [Test]
     public async Task Edit_WhenEditorIsUnchanged_DoesNotUpdatePage()
     {
@@ -342,7 +336,6 @@ public sealed class PageCommandHandlerTests
             Assert.That(result, Is.Zero);
             Assert.That(fixture.Application.ValidateEditAsyncCallCount, Is.EqualTo(1));
             Assert.That(fixture.Application.EditAsyncCallCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardOutput,
                 Is.EqualTo("No changes." + Environment.NewLine));
@@ -363,7 +356,6 @@ public sealed class PageCommandHandlerTests
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Storage));
             Assert.That(fixture.Application.EditAsyncCallCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
         }
     }
 
@@ -385,7 +377,6 @@ public sealed class PageCommandHandlerTests
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Canceled));
             Assert.That(fixture.Application.EditAsyncCallCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
         }
     }
 
@@ -414,7 +405,6 @@ public sealed class PageCommandHandlerTests
             Assert.That(result, Is.EqualTo((int)CliExitCode.NotFound));
             Assert.That(fixture.Application.ValidateEditAsyncCallCount, Is.EqualTo(2));
             Assert.That(fixture.Application.EditAsyncCallCount, Is.Zero);
-            Assert.That(fixture.Context.SaveCount, Is.Zero);
         }
     }
 
@@ -474,30 +464,26 @@ public sealed class PageCommandHandlerTests
     sealed class CommandFixture
     {
         CommandFixture(
-            ConfigurationCli configuration,
             Workspace workspace,
             Notebook notebook,
             StubApplicationService application,
-            RecordingContextFactory context,
+            RecordingEditorOptionsProvider editorOptionsProvider,
             StubNotebookTargetSessionResolver targetResolver,
             RecordingExternalEditor editor,
             RecordingCommandOutput output,
             NewCommandHandler @new,
             EditCommandHandler edit)
         {
-            Configuration = configuration;
             Workspace = workspace;
             Notebook = notebook;
             Application = application;
-            Context = context;
+            EditorOptionsProvider = editorOptionsProvider;
             TargetResolver = targetResolver;
             Editor = editor;
             Output = output;
             New = @new;
             Edit = edit;
         }
-
-        internal ConfigurationCli Configuration { get; }
 
         internal Workspace Workspace { get; }
 
@@ -507,7 +493,7 @@ public sealed class PageCommandHandlerTests
 
         internal StubApplicationService Application { get; }
 
-        internal RecordingContextFactory Context { get; }
+        internal RecordingEditorOptionsProvider EditorOptionsProvider { get; }
 
         internal StubNotebookTargetSessionResolver TargetResolver { get; }
 
@@ -521,7 +507,7 @@ public sealed class PageCommandHandlerTests
 
         internal static CommandFixture Create(bool selectedNotebook = true)
         {
-            var configuration = new ConfigurationCli();
+            var editorOptions = new EditorOptions(true, "EDITOR", "configured-editor");
             var notebookPath = Path.Combine(
                 Path.GetTempPath(),
                 $"memoria-page-command-{Guid.NewGuid():N}.db");
@@ -535,7 +521,7 @@ public sealed class PageCommandHandlerTests
 
             var application = new StubApplicationService();
             var session = new ApplicationSession(workspace, application);
-            var context = new RecordingContextFactory(configuration);
+            var editorOptionsProvider = new RecordingEditorOptionsProvider(editorOptions);
             var targetResolver = new StubNotebookTargetSessionResolver(session);
             var editor = new RecordingExternalEditor();
             var output = new RecordingCommandOutput();
@@ -545,51 +531,43 @@ public sealed class PageCommandHandlerTests
                 NullLogger<CliCommandExecutor>.Instance);
 
             return new CommandFixture(
-                configuration,
                 workspace,
                 notebook,
                 application,
-                context,
+                editorOptionsProvider,
                 targetResolver,
                 editor,
                 output,
                 new NewCommandHandler(
                     executor,
-                    context,
+                    editorOptionsProvider,
                     targetResolver,
                     editor,
                     output),
                 new EditCommandHandler(
                     executor,
-                    context,
+                    editorOptionsProvider,
                     targetResolver,
                     editor,
                     output));
         }
     }
 
-    sealed class RecordingContextFactory : ICliCommandContextFactory
+    sealed class RecordingEditorOptionsProvider : IEditorOptionsProvider
     {
-        readonly ConfigurationCli _configuration;
+        readonly EditorOptions _options;
 
-        internal RecordingContextFactory(ConfigurationCli configuration)
+        internal RecordingEditorOptionsProvider(EditorOptions options)
         {
-            _configuration = configuration;
+            _options = options;
         }
 
         internal int LoadCount { get; private set; }
 
-        internal int SaveCount { get; private set; }
-
-        public ConfigurationCli LoadConfiguration()
+        public EditorOptions Load()
         {
             LoadCount++;
-            return _configuration;
-        }
-
-        public void SaveConfiguration(ConfigurationCli configuration)
-        {
-            SaveCount++;
+            return _options;
         }
     }
 
@@ -602,13 +580,13 @@ public sealed class PageCommandHandlerTests
         internal List<ExternalEditorCommand?> Commands { get; } = new();
 
         internal Func<
-            ConfigurationCli,
+            EditorOptions,
             ExternalEditorDocument,
             CancellationToken,
             Task<ExternalEditorResult>>? EditAsyncHandler { get; set; }
 
         public Task<ExternalEditorResult> EditAsync(
-            ConfigurationCli configuration,
+            EditorOptions options,
             ExternalEditorCommand commandOverride,
             ExternalEditorDocument document,
             CancellationToken cancellationToken)
@@ -617,7 +595,7 @@ public sealed class PageCommandHandlerTests
             Commands.Add(commandOverride);
             Documents.Add(document);
             if (EditAsyncHandler != null)
-                return EditAsyncHandler(configuration, document, cancellationToken);
+                return EditAsyncHandler(options, document, cancellationToken);
 
             return Results.Count == 0
                 ? Task.FromResult(ExternalEditorResult.Unchanged(document.Text))

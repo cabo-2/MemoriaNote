@@ -8,9 +8,9 @@ namespace MemoriaNote.Cli.Tests;
 [TestFixture]
 public sealed class CommandHandlerTests
 {
-    /// <summary>Verifies that the new-page handler uses the stateless editor flow.</summary>
+    /// <summary>Verifies that the new-page handler uses separate editor options.</summary>
     [Test]
-    public async Task New_UsesExternalEditorWithoutPersistingLegacyConfiguration()
+    public async Task New_UsesExternalEditorOptionsWithoutLegacyConfiguration()
     {
         using var standardOutput = new StringWriter();
         using var standardError = new StringWriter();
@@ -19,7 +19,7 @@ public sealed class CommandHandlerTests
             output,
             new CliErrorMapper(),
             NullLogger<CliCommandExecutor>.Instance);
-        var configuration = new ConfigurationCli();
+        var editorOptions = new EditorOptions(true, "EDITOR", "configured-editor");
         var notebookPath = Path.Combine(
             Path.GetTempPath(),
             $"command-handler-{Guid.NewGuid():N}.db");
@@ -27,12 +27,12 @@ public sealed class CommandHandlerTests
         var workspace = new Workspace("command-handler", new[] { notebook }, notebook);
         var application = new StubApplicationService();
         var session = new ApplicationSession(workspace, application);
-        var contextFactory = new StubCommandContextFactory(configuration);
+        var editorOptionsProvider = new StubEditorOptionsProvider(editorOptions);
         var externalEditor = new StubExternalEditor(
             ExternalEditorResult.Changed("Roadmap body"));
         var handler = new NewCommandHandler(
             executor,
-            contextFactory,
+            editorOptionsProvider,
             new StubNotebookTargetSessionResolver(session),
             externalEditor,
             output);
@@ -44,7 +44,7 @@ public sealed class CommandHandlerTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result, Is.Zero);
-            Assert.That(contextFactory.SaveCount, Is.Zero);
+            Assert.That(editorOptionsProvider.LoadCount, Is.EqualTo(1));
             Assert.That(application.ValidateCreateAsyncCallCount, Is.EqualTo(2));
             Assert.That(application.CreateAsyncCallCount, Is.EqualTo(1));
             Assert.That(externalEditor.Documents, Has.Count.EqualTo(1));
@@ -57,26 +57,21 @@ public sealed class CommandHandlerTests
         }
     }
 
-    sealed class StubCommandContextFactory : ICliCommandContextFactory
+    sealed class StubEditorOptionsProvider : IEditorOptionsProvider
     {
-        readonly ConfigurationCli _configuration;
+        readonly EditorOptions _options;
 
-        internal StubCommandContextFactory(ConfigurationCli configuration)
+        internal StubEditorOptionsProvider(EditorOptions options)
         {
-            _configuration = configuration;
+            _options = options;
         }
 
-        internal int SaveCount { get; private set; }
+        internal int LoadCount { get; private set; }
 
-        public ConfigurationCli LoadConfiguration()
+        public EditorOptions Load()
         {
-            return _configuration;
-        }
-
-        public void SaveConfiguration(ConfigurationCli configuration)
-        {
-            Assert.That(configuration, Is.SameAs(_configuration));
-            SaveCount++;
+            LoadCount++;
+            return _options;
         }
     }
 
@@ -92,7 +87,7 @@ public sealed class CommandHandlerTests
         internal List<ExternalEditorDocument> Documents { get; } = new();
 
         public Task<ExternalEditorResult> EditAsync(
-            ConfigurationCli configuration,
+            EditorOptions options,
             ExternalEditorCommand commandOverride,
             ExternalEditorDocument document,
             CancellationToken cancellationToken)
