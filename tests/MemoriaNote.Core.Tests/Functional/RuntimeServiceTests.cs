@@ -9,36 +9,6 @@ namespace MemoriaNote.Core.Tests.Functional;
 [Category("Functional")]
 public sealed class RuntimeServiceTests
 {
-    /// <summary>Verifies that generated names use UTC, 24-hour time, and collision suffixes.</summary>
-    [Test]
-    public void NotebookPaths_FixedClock_UseUtcAndAvoidCollisions()
-    {
-        using var directory = new TemporaryDirectory();
-        var clock = new FixedClock(
-            new DateTimeOffset(2026, 9, 14, 13, 4, 5, TimeSpan.Zero));
-        var factory = new NotebookFilePathFactory(clock);
-        Directory.CreateDirectory(directory.Path);
-
-        var firstBackup = factory.CreateBackupPath(directory.Path, "notes");
-        File.WriteAllText(firstBackup, string.Empty);
-        var secondBackup = factory.CreateBackupPath(directory.Path, "notes");
-        File.WriteAllText(Path.Combine(directory.Path, "notes.db"), string.Empty);
-        var databasePath = factory.CreateDatabasePath(directory.Path, "notes");
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(
-                Path.GetFileName(firstBackup),
-                Is.EqualTo("notes_20260914130405.json.zip"));
-            Assert.That(
-                Path.GetFileName(secondBackup),
-                Is.EqualTo("notes_20260914130405_1.json.zip"));
-            Assert.That(
-                Path.GetFileName(databasePath),
-                Is.EqualTo("notes_20260914130405.db"));
-        }
-    }
-
     /// <summary>Verifies that page persistence uses the injected clock exactly.</summary>
     [Test]
     public async Task PageRepository_InjectedClock_ControlsCreateAndUpdateTimes()

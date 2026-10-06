@@ -60,7 +60,7 @@ public sealed class NotebookLifecycleTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(note.ReadPage(page.Guid), Is.Null);
-            Assert.That(note.Count, Is.Zero);
+            Assert.That(note.CountPages(), Is.Zero);
         }
         AssertEmptyResult(await SearchAsync(note, "Renamed", SearchMethodType.Heading));
         AssertEmptyResult(await SearchAsync(note, "nebula", SearchMethodType.FullText));

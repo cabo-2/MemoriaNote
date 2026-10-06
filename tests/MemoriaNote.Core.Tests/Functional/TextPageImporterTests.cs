@@ -40,7 +40,7 @@ public sealed class TextPageImporterTests
             Assert.That(result.CreatedCount, Is.EqualTo(1));
             Assert.That(result.ReplacedCount, Is.Zero);
             Assert.That(result.SkippedCount, Is.Zero);
-            Assert.That(notebook.Count, Is.EqualTo(1));
+            Assert.That(notebook.CountPages(), Is.EqualTo(1));
             Assert.That(notebook.ReadPage("Entry", 1).Text, Is.EqualTo(expected));
             Assert.That(notebook.ReadPage("Ignored", 1), Is.Null);
         }
@@ -66,7 +66,7 @@ public sealed class TextPageImporterTests
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.ErrorCode, Is.EqualTo(TextPageImportErrorCode.InvalidEncoding));
-            Assert.That(notebook.Count, Is.Zero);
+            Assert.That(notebook.CountPages(), Is.Zero);
         }
     }
 
@@ -90,7 +90,7 @@ public sealed class TextPageImporterTests
             Assert.That(
                 result.ErrorCode,
                 Is.EqualTo(TextPageImportErrorCode.DuplicateInputName));
-            Assert.That(notebook.Count, Is.Zero);
+            Assert.That(notebook.CountPages(), Is.Zero);
         }
     }
 
@@ -115,7 +115,7 @@ public sealed class TextPageImporterTests
             Assert.That(
                 result.ErrorCode,
                 Is.EqualTo(TextPageImportErrorCode.ExistingPageConflict));
-            Assert.That(notebook.Count, Is.EqualTo(1));
+            Assert.That(notebook.CountPages(), Is.EqualTo(1));
             Assert.That(notebook.ReadPage("A new", 1), Is.Null);
             Assert.That(notebook.ReadPage(existing.Guid).Text, Is.EqualTo("original"));
         }
@@ -232,7 +232,7 @@ public sealed class TextPageImporterTests
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.CreatedCount, Is.EqualTo(1));
             Assert.That(result.ReplacedCount, Is.EqualTo(1));
-            Assert.That(notebook.Count, Is.EqualTo(1));
+            Assert.That(notebook.CountPages(), Is.EqualTo(1));
             Assert.That(notebook.ReadPage("Existing", 1).Text, Is.EqualTo("original"));
             Assert.That(notebook.ReadPage("New", 1), Is.Null);
         }
@@ -256,7 +256,7 @@ public sealed class TextPageImporterTests
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.ErrorCode, Is.EqualTo(TextPageImportErrorCode.ReadOnly));
-            Assert.That(notebook.Count, Is.Zero);
+            Assert.That(notebook.CountPages(), Is.Zero);
         }
     }
 

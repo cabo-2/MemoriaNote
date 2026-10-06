@@ -33,7 +33,7 @@ public sealed class PageCrudCharacteristicsTests
             Assert.That(created.TagDict[PageTag.Dir], Is.EqualTo("journal/2026"));
             Assert.That(created.CreateTime, Is.EqualTo(created.UpdateTime));
             Assert.That(created.IsErased, Is.False);
-            Assert.That(note.Count, Is.EqualTo(1));
+            Assert.That(note.CountPages(), Is.EqualTo(1));
         }
 
         AssertPage(note.ReadPage("Entry", 1), created, "Initial text");
@@ -139,7 +139,7 @@ public sealed class PageCrudCharacteristicsTests
             Assert.That(note.ReadPage(first.Guid), Is.Null);
             Assert.That(note.ReadPage("Daily", 1)?.Guid, Is.EqualTo(second.Guid));
             Assert.That(note.ReadPage("Daily", 2), Is.Null);
-            Assert.That(note.Count, Is.EqualTo(2));
+            Assert.That(note.CountPages(), Is.EqualTo(2));
             Assert.That(remainingContent.Index, Is.EqualTo(1));
         }
 
@@ -149,7 +149,7 @@ public sealed class PageCrudCharacteristicsTests
         {
             Assert.That(note.ReadPage(separate.Guid), Is.Null);
             Assert.That(note.ReadPage(second.Guid), Is.Not.Null);
-            Assert.That(note.Count, Is.EqualTo(1));
+            Assert.That(note.CountPages(), Is.EqualTo(1));
         }
     }
 

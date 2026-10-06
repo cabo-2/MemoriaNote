@@ -119,99 +119,6 @@ namespace MemoriaNote.Models
             ApplyMetadata(metadata);
         }
 
-        /// <summary>
-        /// Reads a specific Page from the database based on the provided name and index.
-        /// </summary>
-        /// <param name="name">The name of the Page to read.</param>
-        /// <param name="index">The index of the Page to read.</param>
-        /// <returns>The Page object if found, or null if not found.</returns>
-        public Page ReadPage(string name, int index)
-        {
-            return Repository.FindPageAsync(
-                DatabasePath,
-                name,
-                index,
-                CancellationToken.None).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Reads a specific Page from the database based on the provided unique identifier (GUID).
-        /// </summary>
-        /// <param name="guid">The unique identifier (GUID) of the Page to read.</param>
-        /// <returns>The Page object if found, or null if not found.</returns>
-        public Page ReadPage(Guid guid)
-        {
-            return Repository.FindPageAsync(
-                DatabasePath,
-                guid,
-                CancellationToken.None).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Retrieves a collection of pages with the specified name from the database.
-        /// </summary>
-        /// <param name="name">The name of the pages to retrieve.</param>
-        /// <returns>An IEnumerable collection of Page objects.</returns>
-        public IEnumerable<Page> ReadPage(string name)
-        {
-            return Repository.ListPagesByHeadingAsync(
-                    DatabasePath,
-                    name,
-                    CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
-        }
-
-        /// <summary>
-        /// Creates a new Page with the specified name, text content, and optional directory.
-        /// The page is added to the database, its index is set, and the database is saved.
-        /// </summary>
-        /// <param name="name">The name of the page.</param>
-        /// <param name="text">The text content of the page.</param>
-        /// <param name="dir">Optional directory for the page. Default is null.</param>
-        /// <returns>The newly created Page object.</returns>
-        public Page CreatePage(string name, string text, string dir = null)
-        {
-            return Repository.CreatePageAsync(
-                DatabasePath,
-                name,
-                text,
-                dir,
-                CancellationToken.None).GetAwaiter().GetResult();
-        }
-
-        /// <summary>
-        /// Updates an existing Page in the database with the provided new Page object.
-        /// The method retrieves the old Page from the database, updates its last modified timestamp,
-        /// and updates the new Page without changing its dictionary sense index. If the name changes,
-        /// the page is appended to the destination name and the source indexes are compacted.
-        /// </summary>
-        /// <param name="newPage">The new Page object containing the updated information.</param>
-        public void UpdatePage(Page newPage)
-        {
-            var persistedPage = Repository.UpdatePageAsync(
-                DatabasePath,
-                newPage,
-                CancellationToken.None).GetAwaiter().GetResult();
-            newPage.Rowid = persistedPage.Rowid;
-            newPage.Index = persistedPage.Index;
-            newPage.UpdateTime = persistedPage.UpdateTime;
-        }
-
-        /// <summary>
-        /// Deletes a specific page from the database based on its stable identifier.
-        /// The page with the corresponding identifier is removed and the remaining indexes
-        /// for its exact-name group are compacted in the same transaction.
-        /// </summary>
-        /// <param name="guid">The stable identifier of the page to delete.</param>
-        public void DeletePage(Guid guid)
-        {
-            Repository.DeletePageAsync(
-                DatabasePath,
-                guid,
-                CancellationToken.None).GetAwaiter().GetResult();
-        }
-
         internal IPageSearchRepository SearchRepository =>
             _searchRepository ?? DefaultSearchRepository.Instance;
 
@@ -240,17 +147,6 @@ namespace MemoriaNote.Models
             internal static readonly INotebookMetadataRepository Instance =
                 new SqliteNotebookMetadataRepository(
                     new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
-        }
-
-        /// <summary>
-        /// Gets the count of contents in the notebook repository.
-        /// </summary>
-        /// <returns>An integer representing the total count of contents in the database.</returns>
-        public int Count
-        {
-            get => Repository.CountPagesAsync(DatabasePath, CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
         }
 
         /// <summary>
@@ -308,18 +204,6 @@ namespace MemoriaNote.Models
                 .ConfigureAwait(false);
             ApplyMetadata(result);
             return result;
-        }
-
-        /// <summary>
-        /// Persists requested metadata fields atomically through the synchronous compatibility API.
-        /// </summary>
-        /// <param name="patch">The metadata fields to patch together.</param>
-        /// <returns>The saved snapshot and any classifiable value problems.</returns>
-        public NotebookMetadataResult UpdateMetadata(NotebookMetadataPatch patch)
-        {
-            return UpdateMetadataAsync(patch, CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
         }
 
         void InitializeDatabasePath(string databasePath)
