@@ -1,6 +1,5 @@
 using System;
 using MemoriaNote;
-using MemoriaNote.Compatibility;
 
 namespace MemoriaNote.Application
 {
