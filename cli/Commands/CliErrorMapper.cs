@@ -3,6 +3,7 @@ using System.Data.Common;
 using System.IO;
 using System.Linq;
 using MemoriaNote.Cli.Editors;
+using MemoriaNote.Cli.UserConfig;
 using MemoriaNote.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,6 +37,8 @@ namespace MemoriaNote.Cli
 
             if (exception is InvalidDataException ||
                 exception is ConfigurationFormatException ||
+                exception is UserConfigurationFormatException ||
+                exception is UserConfigurationSetupInputException ||
                 exception is WorkspaceConfigurationFormatException ||
                 exception is UnsupportedNotebookFormatVersionException)
             {
@@ -54,6 +57,14 @@ namespace MemoriaNote.Cli
             }
 
             if (exception is ExternalEditorException)
+            {
+                return CliCommandResult.Failure(
+                    CliErrorKind.Storage,
+                    exception.Message,
+                    exception);
+            }
+
+            if (exception is UserConfigurationSaveException)
             {
                 return CliCommandResult.Failure(
                     CliErrorKind.Storage,
