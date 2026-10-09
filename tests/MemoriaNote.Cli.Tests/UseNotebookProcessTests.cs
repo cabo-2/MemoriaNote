@@ -200,6 +200,7 @@ public sealed class UseNotebookProcessTests
         using var harness = new CliProcessHarness();
         harness.SetEnvironmentVariable("EDITOR", harness.TestEditorExecutablePath);
         harness.SetEnvironmentVariable("MEMORIA_NOTE_TEST_EDITOR_TEXT", "Body");
+        harness.ConfigureEnvironmentEditor();
         var externalDirectory = Path.Combine(harness.ApplicationDataRoot, "external");
         Directory.CreateDirectory(externalDirectory);
         var create = await harness.RunAsync(

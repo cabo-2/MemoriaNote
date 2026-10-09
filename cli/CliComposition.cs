@@ -3,6 +3,7 @@ using System.IO;
 using System.Globalization;
 using MemoriaNote.Archive;
 using MemoriaNote.Application;
+using MemoriaNote.Cli.UserConfig;
 using MemoriaNote.Persistence;
 using MemoriaNote.Transfer;
 using Microsoft.Extensions.Logging;
@@ -96,14 +97,10 @@ namespace MemoriaNote.Cli
             var workspaceNotebookList = new WorkspaceNotebookListUseCase(
                 workspaceConfigurationStore,
                 notebookFormatValidator);
-            var serializer = new JsonConfigurationSerializer<ConfigurationCli>();
-            var configurationStore = new FileConfigurationStore<ConfigurationCli>(
-                applicationPaths.ConfigurationPath,
-                serializer,
-                () => ConfigurationCli.CreateDefault(applicationPaths),
-                clock);
+            var environmentVariables =
+                new Editors.ProcessEnvironmentVariableSource();
             var editorExecutableResolver = new Editors.EditorExecutableResolver(
-                new Editors.ProcessEnvironmentVariableSource());
+                environmentVariables);
             var editorFileExchange = new Editors.EditorFileExchange(temporaryFileStore);
             var editorProcessRunner = new Editors.ExternalEditorProcessRunner(
                 loggerFactory.CreateLogger<Editors.ExternalEditorProcessRunner>());
@@ -125,11 +122,13 @@ namespace MemoriaNote.Cli
                 output,
                 errorMapper,
                 loggerFactory.CreateLogger<CliCommandExecutor>());
-            var contextFactory = new CliCommandContextFactory(
-                configurationStore,
-                output);
-            var editorOptionsProvider =
-                new LegacyConfigurationEditorOptionsProvider(contextFactory);
+            var userConfigurationStore = new UserConfigurationStore(applicationPaths);
+            var userConfigurationWorkflow = new UserConfigurationWorkflow(
+                applicationPaths,
+                userConfigurationStore,
+                new UserEditorConfigurationResolver(environmentVariables));
+            var editorOptionsProvider = new UserConfigurationEditorOptionsProvider(
+                userConfigurationWorkflow);
             var textPageImporter = new TextPageImporter(transferRepository);
             var textPageExporter = new TextPageExporter(transferRepository);
             var archiveV1BackupService = new ArchiveV1BackupService(
@@ -200,19 +199,30 @@ namespace MemoriaNote.Cli
                     notebookTargetResolver,
                     externalEditor,
                     output),
-                new ConfigEditCommandHandler(
+                new UserConfigPathCommandHandler(
                     executor,
-                    contextFactory,
-                    serializer,
-                    applicationPaths,
-                    externalEditor,
-                    prompt,
-                    output,
-                    loggerFactory.CreateLogger<ConfigEditCommandHandler>()),
-                new ConfigShowCommandHandler(
+                    userConfigurationWorkflow,
+                    output),
+                new UserConfigShowCommandHandler(
                     executor,
-                    contextFactory,
-                    serializer,
+                    userConfigurationWorkflow,
+                    output),
+                new UserConfigValidateCommandHandler(
+                    executor,
+                    userConfigurationWorkflow,
+                    output),
+                new UserConfigEditorSetupCommandHandler(
+                    executor,
+                    userConfigurationWorkflow,
+                    input,
+                    output),
+                new UserConfigEditorShowCommandHandler(
+                    executor,
+                    userConfigurationWorkflow,
+                    output),
+                new UserConfigEditorUnsetCommandHandler(
+                    executor,
+                    userConfigurationWorkflow,
                     output),
                 new ListCommandHandler(
                     executor,

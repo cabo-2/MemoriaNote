@@ -490,10 +490,11 @@ namespace MemoriaNote.Cli
 
         [Command(
             "config",
-            Description = "Manage configuration options",
-            ShowInHelpText = false)]
-        [Subcommand(typeof(ConfigEditCommand),
-                    typeof(ConfigShowCommand))]
+            Description = "Inspect and configure user settings")]
+        [Subcommand(typeof(ConfigPathCommand),
+                    typeof(ConfigShowCommand),
+                    typeof(ConfigValidateCommand),
+                    typeof(ConfigEditorCommand))]
         [HelpOption("--help")]
         class ConfigCommand
         {
@@ -503,23 +504,87 @@ namespace MemoriaNote.Cli
                 return Task.FromResult((int)CliExitCode.Success);
             }
 
-            [Command("edit", Description = "Edit config")]
-            class ConfigEditCommand
+            [Command("path", Description = "Show the user configuration path")]
+            [HelpOption("--help")]
+            class ConfigPathCommand
             {
                 protected Task<int> OnExecuteAsync(
                     CancellationToken cancellationToken)
                 {
-                    return CommandHandlers.ConfigEdit.ExecuteAsync(cancellationToken);
+                    return CommandHandlers.UserConfigPath.ExecuteAsync(cancellationToken);
                 }
             }
 
-            [Command("show", Description = "Show config")]
+            [Command("show", Description = "Show the user configuration")]
+            [HelpOption("--help")]
             class ConfigShowCommand
             {
                 protected Task<int> OnExecuteAsync(
                     CancellationToken cancellationToken)
                 {
-                    return CommandHandlers.ConfigShow.ExecuteAsync(cancellationToken);
+                    return CommandHandlers.UserConfigShow.ExecuteAsync(cancellationToken);
+                }
+            }
+
+            [Command("validate", Description = "Validate the user configuration")]
+            [HelpOption("--help")]
+            class ConfigValidateCommand
+            {
+                protected Task<int> OnExecuteAsync(
+                    CancellationToken cancellationToken)
+                {
+                    return CommandHandlers.UserConfigValidate.ExecuteAsync(
+                        cancellationToken);
+                }
+            }
+
+            [Command("editor", Description = "Inspect and configure the external editor")]
+            [Subcommand(typeof(ConfigEditorSetupCommand),
+                        typeof(ConfigEditorShowCommand),
+                        typeof(ConfigEditorUnsetCommand))]
+            [HelpOption("--help")]
+            class ConfigEditorCommand
+            {
+                protected Task<int> OnExecuteAsync(CommandLineApplication app)
+                {
+                    app.ShowHelp();
+                    return Task.FromResult((int)CliExitCode.Success);
+                }
+
+                [Command("setup", Description = "Configure the external editor interactively")]
+                [HelpOption("--help")]
+                class ConfigEditorSetupCommand
+                {
+                    protected Task<int> OnExecuteAsync(
+                        CancellationToken cancellationToken)
+                    {
+                        return CommandHandlers.UserConfigEditorSetup.ExecuteAsync(
+                            cancellationToken);
+                    }
+                }
+
+                [Command("show", Description = "Show the external editor configuration")]
+                [HelpOption("--help")]
+                class ConfigEditorShowCommand
+                {
+                    protected Task<int> OnExecuteAsync(
+                        CancellationToken cancellationToken)
+                    {
+                        return CommandHandlers.UserConfigEditorShow.ExecuteAsync(
+                            cancellationToken);
+                    }
+                }
+
+                [Command("unset", Description = "Leave the external editor unconfigured")]
+                [HelpOption("--help")]
+                class ConfigEditorUnsetCommand
+                {
+                    protected Task<int> OnExecuteAsync(
+                        CancellationToken cancellationToken)
+                    {
+                        return CommandHandlers.UserConfigEditorUnset.ExecuteAsync(
+                            cancellationToken);
+                    }
                 }
             }
         }

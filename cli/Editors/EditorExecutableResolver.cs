@@ -41,6 +41,9 @@ namespace MemoriaNote.Cli.Editors
                     "External editor settings are missing.");
             }
 
+            if (options.ResolvedCommand != null)
+                return options.ResolvedCommand;
+
             if (options.UseEnvironmentVariable)
             {
                 var environmentEditor = _environmentVariables.Get(

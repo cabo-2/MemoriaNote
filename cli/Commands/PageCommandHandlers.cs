@@ -74,6 +74,9 @@ namespace MemoriaNote.Cli
                         CliErrorKind.Validation,
                         editorFailure);
                 }
+                var editorOptions = commandOverride == null
+                    ? _editorOptionsProvider.Load()
+                    : EditorOptions.Missing;
 
                 var session = await _targetResolver.ResolveAsync(
                     workspaceOption,
@@ -125,7 +128,6 @@ namespace MemoriaNote.Cli
                         initialValidation);
                 }
 
-                var editorOptions = _editorOptionsProvider.Load();
                 var editorResult = await _externalEditor.EditAsync(
                     editorOptions,
                     commandOverride,
@@ -242,6 +244,9 @@ namespace MemoriaNote.Cli
                         CliErrorKind.Validation,
                         editorFailure);
                 }
+                var editorOptions = commandOverride == null
+                    ? _editorOptionsProvider.Load()
+                    : EditorOptions.Missing;
 
                 var session = await _targetResolver.ResolveAsync(
                     workspaceOption,
@@ -255,7 +260,6 @@ namespace MemoriaNote.Cli
                         "No selected notebook");
                 }
 
-                var editorOptions = _editorOptionsProvider.Load();
                 var notebookId = NotebookId.FromDatabasePath(selectedNotebook.DatabasePath);
                 var initialCommand = new CreatePageCommand(
                     notebookId,

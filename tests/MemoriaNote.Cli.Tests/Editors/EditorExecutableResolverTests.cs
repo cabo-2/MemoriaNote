@@ -79,6 +79,22 @@ public sealed class EditorExecutableResolverTests
         Assert.That(result, Is.SameAs(commandOverride));
     }
 
+    /// <summary>Verifies a command resolved from user configuration keeps its arguments.</summary>
+    [Test]
+    public void Resolve_UserConfigurationCommand_PreservesArguments()
+    {
+        var command = new ExternalEditorCommand(
+            "configured-editor",
+            new[] { "--wait", "{file}" });
+        var options = new EditorOptions(command);
+        var resolver = new EditorExecutableResolver(
+            new StubEnvironmentVariableSource("unused"));
+
+        var result = resolver.Resolve(options, null);
+
+        Assert.That(result, Is.SameAs(command));
+    }
+
     /// <summary>Verifies that missing editor settings retain their clear failure.</summary>
     [Test]
     public void Resolve_MissingSettings_Throws()

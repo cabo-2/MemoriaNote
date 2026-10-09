@@ -16,8 +16,12 @@ namespace MemoriaNote.Cli
             NotebookMetadataCommandHandler notebookMetadata,
             EditCommandHandler edit,
             NewCommandHandler createPage,
-            ConfigEditCommandHandler configEdit,
-            ConfigShowCommandHandler configShow,
+            UserConfigPathCommandHandler userConfigPath,
+            UserConfigShowCommandHandler userConfigShow,
+            UserConfigValidateCommandHandler userConfigValidate,
+            UserConfigEditorSetupCommandHandler userConfigEditorSetup,
+            UserConfigEditorShowCommandHandler userConfigEditorShow,
+            UserConfigEditorUnsetCommandHandler userConfigEditorUnset,
             ListCommandHandler list,
             CatCommandHandler cat,
             RenamePageCommandHandler renamePage,
@@ -43,10 +47,18 @@ namespace MemoriaNote.Cli
             Edit = edit ?? throw new ArgumentNullException(nameof(edit));
             CreatePage = createPage ??
                 throw new ArgumentNullException(nameof(createPage));
-            ConfigEdit = configEdit ??
-                throw new ArgumentNullException(nameof(configEdit));
-            ConfigShow = configShow ??
-                throw new ArgumentNullException(nameof(configShow));
+            UserConfigPath = userConfigPath ??
+                throw new ArgumentNullException(nameof(userConfigPath));
+            UserConfigShow = userConfigShow ??
+                throw new ArgumentNullException(nameof(userConfigShow));
+            UserConfigValidate = userConfigValidate ??
+                throw new ArgumentNullException(nameof(userConfigValidate));
+            UserConfigEditorSetup = userConfigEditorSetup ??
+                throw new ArgumentNullException(nameof(userConfigEditorSetup));
+            UserConfigEditorShow = userConfigEditorShow ??
+                throw new ArgumentNullException(nameof(userConfigEditorShow));
+            UserConfigEditorUnset = userConfigEditorUnset ??
+                throw new ArgumentNullException(nameof(userConfigEditorUnset));
             List = list ?? throw new ArgumentNullException(nameof(list));
             Cat = cat ?? throw new ArgumentNullException(nameof(cat));
             RenamePage = renamePage ??
@@ -77,9 +89,17 @@ namespace MemoriaNote.Cli
 
         internal NewCommandHandler CreatePage { get; }
 
-        internal ConfigEditCommandHandler ConfigEdit { get; }
+        internal UserConfigPathCommandHandler UserConfigPath { get; }
 
-        internal ConfigShowCommandHandler ConfigShow { get; }
+        internal UserConfigShowCommandHandler UserConfigShow { get; }
+
+        internal UserConfigValidateCommandHandler UserConfigValidate { get; }
+
+        internal UserConfigEditorSetupCommandHandler UserConfigEditorSetup { get; }
+
+        internal UserConfigEditorShowCommandHandler UserConfigEditorShow { get; }
+
+        internal UserConfigEditorUnsetCommandHandler UserConfigEditorUnset { get; }
 
         internal ListCommandHandler List { get; }
 

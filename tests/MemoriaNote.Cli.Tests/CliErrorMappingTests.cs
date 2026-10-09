@@ -192,11 +192,6 @@ public sealed class CliErrorMappingTests
         };
         yield return new object[]
         {
-            new ConfigurationFormatException("invalid configuration"),
-            (int)CliExitCode.Validation
-        };
-        yield return new object[]
-        {
             new WorkspaceConfigurationFormatException("invalid workspace configuration"),
             (int)CliExitCode.Validation
         };
