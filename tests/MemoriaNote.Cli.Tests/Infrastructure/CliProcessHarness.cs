@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Text;
+using MemoriaNote.Cli.UserConfig;
+using UserConfigurationModel = MemoriaNote.Cli.UserConfig.UserConfiguration;
 
 namespace MemoriaNote.Cli.Tests.Infrastructure;
 
@@ -43,8 +45,40 @@ internal sealed class CliProcessHarness : IDisposable
         ApplicationDataDirectory,
         "configuration.json");
 
+    internal string LegacyConfigurationPath => ConfigurationPath;
+
+    internal string UserConfigurationPath => Path.Combine(
+        ApplicationDataDirectory,
+        "config.toml");
+
     internal string TestEditorExecutablePath => GetAssemblyMetadataPath(
         "TestEditorExecutablePath");
+
+    internal void ConfigureEnvironmentEditor(
+        string variable = "EDITOR",
+        IEnumerable<string>? arguments = null)
+    {
+        Directory.CreateDirectory(ApplicationDataDirectory);
+        File.WriteAllText(
+            UserConfigurationPath,
+            UserConfigurationCodec.Serialize(
+                new UserConfigurationModel(
+                    UserEditorConfiguration.FromEnvironment(variable, arguments))),
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+    }
+
+    internal void ConfigureProgramEditor(
+        string executable,
+        IEnumerable<string>? arguments = null)
+    {
+        Directory.CreateDirectory(ApplicationDataDirectory);
+        File.WriteAllText(
+            UserConfigurationPath,
+            UserConfigurationCodec.Serialize(
+                new UserConfigurationModel(
+                    UserEditorConfiguration.FromProgram(executable, arguments))),
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+    }
 
     internal void SetEnvironmentVariable(string name, string value)
     {

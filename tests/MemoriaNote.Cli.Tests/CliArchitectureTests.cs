@@ -31,6 +31,22 @@ public sealed class CliArchitectureTests
         "cli/FodyWeavers.xsd"
     };
 
+    static readonly string[] RemovedLegacyConfigurationFiles =
+    {
+        "cli/ConfigurationCli.cs",
+        "cli/Commands/CliCommandContextFactory.cs",
+        "cli/Commands/ConfigurationCommandHandlers.cs",
+        "cli/Commands/ICliCommandContextFactory.cs",
+        "cli/Commands/LegacyConfigurationEditorOptionsProvider.cs",
+        "core/Configuration.cs",
+        "core/ConfigurationDefaults.cs",
+        "core/ConfigurationStore.cs",
+        "core/FileConfigurationStore.cs",
+        "core/JsonConfigurationSerializer.cs",
+        "core/LoggerType.cs",
+        "core/WorkspaceSettings.cs"
+    };
+
     /// <summary>Verifies that production CLI source has no removed framework references.</summary>
     [Test]
     public void ProductionSources_DoNotReferenceRemovedTuiTypes()
@@ -133,6 +149,25 @@ public sealed class CliArchitectureTests
     {
         var repositoryRoot = FindRepositoryRoot();
         var remainingFiles = RemovedFiles
+            .Select(relativePath => Path.Combine(
+                repositoryRoot,
+                relativePath.Replace('/', Path.DirectorySeparatorChar)))
+            .Where(File.Exists)
+            .Select(file => Path.GetRelativePath(repositoryRoot, file))
+            .ToList();
+
+        Assert.That(
+            remainingFiles,
+            Is.Empty,
+            () => string.Join(Environment.NewLine, remainingFiles));
+    }
+
+    /// <summary>Verifies the removed legacy JSON configuration files are absent.</summary>
+    [Test]
+    public void RemovedLegacyConfigurationFiles_AreAbsent()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var remainingFiles = RemovedLegacyConfigurationFiles
             .Select(relativePath => Path.Combine(
                 repositoryRoot,
                 relativePath.Replace('/', Path.DirectorySeparatorChar)))

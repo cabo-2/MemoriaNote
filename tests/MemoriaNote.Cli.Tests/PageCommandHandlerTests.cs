@@ -44,6 +44,27 @@ public sealed class PageCommandHandlerTests
         }
     }
 
+    /// <summary>Verifies missing editor configuration fails before target resolution.</summary>
+    [Test]
+    public async Task New_WithoutEditorConfiguration_FailsBeforeTargetResolution()
+    {
+        var fixture = CommandFixture.Create();
+        fixture.EditorOptionsProvider.Exception =
+            new ExternalEditorConfigurationException("editor is not configured");
+
+        var result = await fixture.New.ExecuteAsync("New page", CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Storage));
+            Assert.That(fixture.EditorOptionsProvider.LoadCount, Is.EqualTo(1));
+            Assert.That(fixture.TargetResolver.ResolveCount, Is.Zero);
+            Assert.That(fixture.Application.ValidateCreateAsyncCallCount, Is.Zero);
+            Assert.That(fixture.Application.CreateAsyncCallCount, Is.Zero);
+            Assert.That(fixture.Editor.Documents, Is.Empty);
+        }
+    }
+
     /// <summary>Verifies that creation validation runs before the external editor.</summary>
     [Test]
     public async Task New_WhenInitialValidationFails_DoesNotStartEditorOrMutation()
@@ -198,6 +219,27 @@ public sealed class PageCommandHandlerTests
         }
     }
 
+    /// <summary>Verifies missing editor configuration fails before target resolution.</summary>
+    [Test]
+    public async Task Edit_WithoutEditorConfiguration_FailsBeforeTargetResolution()
+    {
+        var fixture = CommandFixture.Create();
+        fixture.EditorOptionsProvider.Exception =
+            new ExternalEditorConfigurationException("editor is not configured");
+
+        var result = await fixture.Edit.ExecuteAsync("Daily", CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Storage));
+            Assert.That(fixture.EditorOptionsProvider.LoadCount, Is.EqualTo(1));
+            Assert.That(fixture.TargetResolver.ResolveCount, Is.Zero);
+            Assert.That(fixture.Application.ResolvePageAsyncCallCount, Is.Zero);
+            Assert.That(fixture.Application.EditAsyncCallCount, Is.Zero);
+            Assert.That(fixture.Editor.Documents, Is.Empty);
+        }
+    }
+
     /// <summary>Verifies that edit rejects multiple matching pages instead of choosing one.</summary>
     [Test]
     public async Task Edit_WhenTargetIsAmbiguous_DoesNotReadOrEditPage()
@@ -290,6 +332,7 @@ public sealed class PageCommandHandlerTests
             Assert.That(result, Is.Zero);
             Assert.That(fixture.TargetResolver.WorkspaceOption, Is.EqualTo("workspace"));
             Assert.That(fixture.TargetResolver.NotebookOption, Is.EqualTo("work.mnote"));
+            Assert.That(fixture.EditorOptionsProvider.LoadCount, Is.Zero);
             Assert.That(fixture.Editor.Commands, Has.Count.EqualTo(1));
             Assert.That(fixture.Editor.Commands[0]?.ExecutablePath, Is.EqualTo("code"));
             Assert.That(
@@ -564,9 +607,13 @@ public sealed class PageCommandHandlerTests
 
         internal int LoadCount { get; private set; }
 
+        internal Exception? Exception { get; set; }
+
         public EditorOptions Load()
         {
             LoadCount++;
+            if (Exception != null)
+                throw Exception;
             return _options;
         }
     }

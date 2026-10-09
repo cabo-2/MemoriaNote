@@ -31,21 +31,7 @@ git clone "https://github.com/cabo-2/MemoriaNote.git"
 cd MemoriaNote
 ```
 
-Building Memoria Note requires the .NET 10 SDK. The `new` and `edit` commands also require an
-external editor. With the default settings, defining the `EDITOR` environment variable is the
-simplest configuration:
-
-```bash
-export EDITOR=nano
-```
-
-For PowerShell, for example:
-
-```powershell
-$env:EDITOR = "notepad"
-```
-
-`--editor <executable>` overrides the configured editor for one `new` or `edit` invocation.
+Building Memoria Note requires the .NET 10 SDK.
 
 ### Build and test
 
@@ -70,6 +56,68 @@ dotnet publish cli/mn.csproj -c Release -r linux-x64 --self-contained
 cp -r cli/bin/Release/net10.0/linux-x64/publish /path/to/dir
 ```
 
+## Initial setup
+
+### Configure an external editor
+
+The `new` and `edit` commands require an external editor. Configure one from an interactive
+terminal before using these commands:
+
+```bash
+mn config editor setup
+```
+
+The setup workflow offers three choices:
+
+1. Use an environment variable. Press Enter at the variable prompt to use `EDITOR`, or enter a
+   different variable name. Memoria Note stores the name and reads its current value whenever it
+   starts the editor.
+2. Specify an editor program. Enter the executable and any arguments as separate values; they are
+   not parsed as a shell command.
+3. Leave the editor explicitly unconfigured. `new` and `edit` will continue to direct you to the
+   setup command.
+
+For example, define `EDITOR` before choosing the first option:
+
+```bash
+export EDITOR=nano
+```
+
+For PowerShell:
+
+```powershell
+$env:EDITOR = "notepad"
+```
+
+Editor arguments may contain `{file}`, which is replaced with the temporary document path. If no
+argument contains `{file}`, Memoria Note appends the path as the final argument.
+
+The editor setting is stored in a versioned `config.toml` in the user application data directory.
+Use the config commands to inspect it without editing it directly:
+
+| Command | Purpose |
+| --- | --- |
+| `mn config path` | Show the path and whether the file exists |
+| `mn config show` | Show the stored setting and currently effective editor command |
+| `mn config validate` | Validate the file without changing it |
+| `mn config editor show` | Show only the editor setting and effective command |
+| `mn config editor setup` | Configure or replace the editor setting interactively |
+| `mn config editor unset` | Save an explicit unconfigured editor selection |
+
+Inspection commands do not create a missing configuration or repair an invalid one. A missing file
+and an explicit `unset` selection are displayed differently, although both require setup before
+`new` or `edit` can start an editor.
+
+### Upgrading from `configuration.json`
+
+The move to `config.toml` is a breaking configuration change. Memoria Note does not migrate, read,
+validate, repair, rename, quarantine, or delete the previous `configuration.json`. The old file is
+left byte-for-byte unchanged and is ignored even when it exists beside `config.toml`.
+
+After upgrading, run `mn config editor setup` to configure the editor in the new format. This
+change does not alter workspace selection in `mn-workspace.toml`, notebook databases, or backup
+archives.
+
 ## Usage
 
 Run `mn --help` to see the public command surface:
@@ -86,6 +134,7 @@ Options:
 
 Commands:
   cat                      Write one page body to standard output
+  config                   Inspect and configure user settings
   create                   Create a live notebook without overwriting an
                            existing file
   delete                   Delete one page after confirmation
@@ -282,6 +331,10 @@ editor argument begins with `-`:
 ```bash
 mn edit project-notes --editor code --editor-arg=--wait --editor-arg={file}
 ```
+
+An invocation override takes priority over `config.toml` and does not read, create, or update the
+configuration. It is therefore also available before initial setup or while diagnosing an invalid
+configuration.
 
 The page is updated only when the editor exits with code 0, the temporary file remains available,
 its contents are valid UTF-8, validation succeeds, and the stored page has not changed since editing

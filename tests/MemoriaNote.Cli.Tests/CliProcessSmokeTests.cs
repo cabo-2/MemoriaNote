@@ -34,6 +34,7 @@ public sealed class CliProcessSmokeTests
         var visibleCommands = new[]
         {
             "cat",
+            "config",
             "create",
             "edit",
             "ls",
@@ -51,7 +52,6 @@ public sealed class CliProcessSmokeTests
 
         var hiddenCommands = new[]
         {
-            "config",
             "export",
             "find",
             "import",

@@ -36,7 +36,6 @@ namespace MemoriaNote.Cli
             }
 
             if (exception is InvalidDataException ||
-                exception is ConfigurationFormatException ||
                 exception is UserConfigurationFormatException ||
                 exception is UserConfigurationSetupInputException ||
                 exception is WorkspaceConfigurationFormatException ||

@@ -19,6 +19,7 @@ public sealed class PageCommandProcessWorkflowTests
     {
         using var harness = new CliProcessHarness();
         harness.SetEnvironmentVariable("EDITOR", harness.TestEditorExecutablePath);
+        harness.ConfigureEnvironmentEditor();
         harness.SetEnvironmentVariable(EditedTextEnvironmentVariable, "Created body");
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
 
@@ -78,6 +79,7 @@ public sealed class PageCommandProcessWorkflowTests
             harness.TemporaryDirectory,
             "missing-editor");
         harness.SetEnvironmentVariable("EDITOR", missingEditor);
+        harness.ConfigureEnvironmentEditor();
         var notebookResult = await harness.RunAsync("create", "work.mnote");
         AssertSucceeded(notebookResult);
         AssertSucceeded(await harness.RunAsync("use", "work"));
@@ -110,6 +112,7 @@ public sealed class PageCommandProcessWorkflowTests
     {
         using var harness = new CliProcessHarness();
         harness.SetEnvironmentVariable("EDITOR", harness.TestEditorExecutablePath);
+        harness.ConfigureEnvironmentEditor();
         harness.SetEnvironmentVariable(EditedTextEnvironmentVariable, "Initial body");
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
 

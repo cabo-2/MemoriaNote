@@ -39,7 +39,16 @@ namespace MemoriaNote.Cli.Editors
 
         internal static EditorOptions Missing { get; } = new EditorOptions();
 
+        internal EditorOptions(ExternalEditorCommand resolvedCommand)
+        {
+            ResolvedCommand = resolvedCommand ??
+                throw new ArgumentNullException(nameof(resolvedCommand));
+            HasSettings = true;
+        }
+
         internal bool HasSettings { get; }
+
+        internal ExternalEditorCommand ResolvedCommand { get; }
 
         /// <summary>Gets whether the environment variable should be tried first.</summary>
         public bool UseEnvironmentVariable { get; }

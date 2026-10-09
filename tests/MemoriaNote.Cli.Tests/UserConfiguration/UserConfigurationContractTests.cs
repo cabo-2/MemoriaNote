@@ -8,7 +8,7 @@ namespace MemoriaNote.Cli.Tests.UserConfiguration;
 [TestFixture]
 public sealed class UserConfigurationContractTests
 {
-    /// <summary>Verifies the new TOML resides beside the legacy JSON under a distinct name.</summary>
+    /// <summary>Verifies the TOML resides in the application data directory.</summary>
     [Test]
     public void GetPath_UsesExistingApplicationDataDirectory()
     {
@@ -26,11 +26,7 @@ public sealed class UserConfigurationContractTests
                 Is.EqualTo(Path.Combine(applicationDataDirectory, "config.toml")));
             Assert.That(
                 Path.GetDirectoryName(path),
-                Is.EqualTo(Path.GetDirectoryName(applicationPaths.ConfigurationPath)));
-            Assert.That(path, Is.Not.EqualTo(applicationPaths.ConfigurationPath));
-            Assert.That(
-                Path.GetFileName(applicationPaths.ConfigurationPath),
-                Is.EqualTo("configuration.json"));
+                Is.EqualTo(applicationPaths.ApplicationDataDirectory));
         }
     }
 

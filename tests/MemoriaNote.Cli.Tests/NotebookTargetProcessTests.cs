@@ -298,6 +298,7 @@ public sealed class NotebookTargetProcessTests
         var harness = new CliProcessHarness();
         harness.SetEnvironmentVariable("EDITOR", harness.TestEditorExecutablePath);
         harness.SetEnvironmentVariable(EditedTextEnvironmentVariable, "Body");
+        harness.ConfigureEnvironmentEditor();
         return harness;
     }
 
