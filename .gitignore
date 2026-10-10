@@ -36,6 +36,9 @@ packages/
 
 # Application
 *.db
-scripts/
+/scripts/
+
+# Local test measurements
+/artifacts/test-measurements/
 
 docs/
