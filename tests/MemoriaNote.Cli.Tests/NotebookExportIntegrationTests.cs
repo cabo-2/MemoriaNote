@@ -5,16 +5,17 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
 
-/// <summary>Verifies safe flat text export through the CLI process boundary.</summary>
+/// <summary>Verifies safe flat text export through the production CLI entry point.</summary>
 [TestFixture]
-[Category("Process")]
-public sealed class NotebookExportProcessTests
+[Category("CliIntegration")]
+[NonParallelizable]
+public sealed class NotebookExportIntegrationTests
 {
     /// <summary>Verifies help documents the destination, target, and conflict policy.</summary>
     [Test]
     public async Task Help_DescribesExportContract()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
 
         var result = await harness.RunAsync("notebooks", "export", "--help");
 
@@ -34,7 +35,7 @@ public sealed class NotebookExportProcessTests
     [Test]
     public async Task Export_SelectedNotebook_CreatesFlatUtf8FilesAndSummary()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "selected");
         var repository = CreatePageRepository();
         const string expected = "Café\r\n日本語\n";
@@ -68,7 +69,7 @@ public sealed class NotebookExportProcessTests
     [Test]
     public async Task Export_ExplicitNotebook_UsesSharedResolverWithoutChangingCurrent()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         await CreateAndSelectNotebookAsync(harness, "current");
         var explicitCreate = await harness.RunAsync("create", "explicit");
         Assert.That(explicitCreate.ExitCode, Is.Zero, explicitCreate.StandardError);
@@ -104,7 +105,7 @@ public sealed class NotebookExportProcessTests
     [Test]
     public async Task Export_IdSuffixPolicy_ExportsEveryDuplicatePage()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "duplicates");
         var repository = CreatePageRepository();
         var first = await repository.CreatePageAsync(
@@ -147,7 +148,7 @@ public sealed class NotebookExportProcessTests
     [Test]
     public async Task Export_ExistingDestination_ReturnsConflictWithoutResolvingNotebook()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var destination = Path.Combine(harness.TemporaryDirectory, "existing");
         Directory.CreateDirectory(destination);
         var existingPath = Path.Combine(destination, "keep.txt");
@@ -169,7 +170,7 @@ public sealed class NotebookExportProcessTests
     [Test]
     public async Task Export_InvalidNameConflictPolicy_ReturnsValidationBeforeTargetResolution()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var destination = Path.Combine(harness.TemporaryDirectory, "invalid-policy");
 
         var result = await harness.RunAsync(
@@ -190,7 +191,7 @@ public sealed class NotebookExportProcessTests
     }
 
     static async Task<string> CreateAndSelectNotebookAsync(
-        CliProcessHarness harness,
+        CliInProcessHarness harness,
         string name)
     {
         var create = await harness.RunAsync("create", name);
