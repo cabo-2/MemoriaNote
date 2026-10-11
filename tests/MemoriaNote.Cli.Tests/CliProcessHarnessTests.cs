@@ -287,51 +287,6 @@ public sealed class CliProcessHarnessTests
     }
 
     /// <summary>
-    /// Verifies that a missing notebook import directory uses the not-found exit code.
-    /// </summary>
-    [Test]
-    public async Task NotebookImportMissingDirectory_ReturnsNotFound()
-    {
-        using var harness = new CliProcessHarness();
-        var missingDirectory = Path.Combine(
-            harness.WorkingDirectory,
-            "missing-import-directory");
-
-        var result = await harness.RunAsync(
-            "notebooks",
-            "import",
-            missingDirectory);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result.ExitCode, Is.EqualTo(3));
-            Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(
-                result.StandardError,
-                Does.Contain("import directory does not exist"));
-        }
-    }
-
-    /// <summary>
-    /// Verifies that usage help accompanies a missing notebook import directory.
-    /// </summary>
-    [Test]
-    public async Task NotebookImportWithoutDirectory_WritesHelpAndReturnsFailure()
-    {
-        using var harness = new CliProcessHarness();
-
-        var result = await harness.RunAsync("notebooks", "import");
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result.ExitCode, Is.EqualTo(2));
-            Assert.That(result.StandardOutput, Does.Contain("Usage: mn notebooks import"));
-            Assert.That(result.StandardError, Is.Empty);
-            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
-        }
-    }
-
-    /// <summary>
     /// Verifies ls reports a missing selection without creating configuration.
     /// </summary>
     [Test]

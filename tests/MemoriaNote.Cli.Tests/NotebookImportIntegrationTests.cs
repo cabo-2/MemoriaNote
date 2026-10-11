@@ -5,16 +5,17 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
 
-/// <summary>Verifies flat text import through the CLI process boundary.</summary>
+/// <summary>Verifies flat text import through the production CLI entry point.</summary>
 [TestFixture]
-[Category("Process")]
-public sealed class NotebookImportProcessTests
+[Category("CliIntegration")]
+[NonParallelizable]
+public sealed class NotebookImportIntegrationTests
 {
     /// <summary>Verifies help documents the source, target, conflict, and dry-run options.</summary>
     [Test]
     public async Task Help_DescribesImportContract()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
 
         var result = await harness.RunAsync("notebooks", "import", "--help");
 
@@ -35,7 +36,7 @@ public sealed class NotebookImportProcessTests
     [Test]
     public async Task Import_SelectedNotebook_CreatesRootLowercaseFilesAndSummary()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "selected");
         var source = CreateSourceDirectory(harness, "selected-import");
         const string expected = "Café\r\n日本語\n";
@@ -81,7 +82,7 @@ public sealed class NotebookImportProcessTests
     [Test]
     public async Task Import_ConflictPolicies_ApplyExplicitBehavior()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "policies");
         var repository = CreatePageRepository();
         var existing = await repository.CreatePageAsync(
@@ -152,7 +153,7 @@ public sealed class NotebookImportProcessTests
     [Test]
     public async Task Import_InvalidUtf8_ReturnsValidationWithoutPartialWrites()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "encoding");
         var source = CreateSourceDirectory(harness, "encoding-import");
         await File.WriteAllTextAsync(Path.Combine(source, "Before.txt"), "valid");
@@ -179,7 +180,7 @@ public sealed class NotebookImportProcessTests
     [Test]
     public async Task Import_DuplicateDecodedName_ReturnsConflictWithoutWrites()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "duplicate");
         var source = CreateSourceDirectory(harness, "duplicate-import");
         await File.WriteAllTextAsync(Path.Combine(source, "~mn~1~A%2FB.txt"), "legacy");
@@ -204,7 +205,7 @@ public sealed class NotebookImportProcessTests
     [Test]
     public async Task Import_ReadOnlyNotebook_ReturnsConflictWithoutWrites()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "read-only");
         var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
         await new SqliteNotebookMetadataRepository(factory).UpdateAsync(
@@ -233,7 +234,7 @@ public sealed class NotebookImportProcessTests
     [Test]
     public async Task Import_InvalidConflictPolicy_ReturnsValidationBeforeTargetResolution()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var source = CreateSourceDirectory(harness, "invalid-policy-import");
 
         var result = await harness.RunAsync(
@@ -256,8 +257,49 @@ public sealed class NotebookImportProcessTests
         }
     }
 
+    /// <summary>Verifies a missing import directory maps to not-found.</summary>
+    [Test]
+    public async Task Import_MissingDirectory_ReturnsNotFound()
+    {
+        using var harness = new CliInProcessHarness();
+        var missingDirectory = Path.Combine(
+            harness.WorkingDirectory,
+            "missing-import-directory");
+
+        var result = await harness.RunAsync(
+            "notebooks",
+            "import",
+            missingDirectory);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.NotFound));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(
+                result.StandardError,
+                Does.Contain("import directory does not exist"));
+        }
+    }
+
+    /// <summary>Verifies usage help accompanies a missing import directory.</summary>
+    [Test]
+    public async Task Import_WithoutDirectory_WritesHelpAndReturnsFailure()
+    {
+        using var harness = new CliInProcessHarness();
+
+        var result = await harness.RunAsync("notebooks", "import");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result.StandardOutput, Does.Contain("Usage: mn notebooks import"));
+            Assert.That(result.StandardError, Is.Empty);
+            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
+        }
+    }
+
     static async Task<string> CreateAndSelectNotebookAsync(
-        CliProcessHarness harness,
+        CliInProcessHarness harness,
         string name)
     {
         var create = await harness.RunAsync("create", name);
@@ -267,7 +309,7 @@ public sealed class NotebookImportProcessTests
         return Path.Combine(harness.WorkingDirectory, name + ".mnote");
     }
 
-    static string CreateSourceDirectory(CliProcessHarness harness, string name)
+    static string CreateSourceDirectory(CliInProcessHarness harness, string name)
     {
         var path = Path.Combine(harness.TemporaryDirectory, name);
         Directory.CreateDirectory(path);

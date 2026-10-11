@@ -5,17 +5,17 @@ using NUnit.Framework;
 namespace MemoriaNote.Cli.Tests;
 
 /// <summary>
-/// Verifies text transfer workflows through the CLI process boundary.
+/// Verifies text transfer persistence across clean CLI processes.
 /// </summary>
 [TestFixture]
 [Category("Process")]
-public sealed class TextTransferWorkflowTests
+public sealed class TextTransferProcessTests
 {
     /// <summary>
     /// Verifies that flat files survive import across CLI process boundaries.
     /// </summary>
     [Test]
-    public async Task NotebookImport_PersistsFlatFilesAcrossProcesses()
+    public async Task NotebookImport_PersistsFlatFilesAcrossCleanProcesses()
     {
         using var harness = new CliProcessHarness();
         var importDirectory = Path.Combine(harness.TemporaryDirectory, "import");
@@ -74,5 +74,4 @@ public sealed class TextTransferWorkflowTests
             Assert.That(result.StandardError, Is.Empty);
         }
     }
-
 }
