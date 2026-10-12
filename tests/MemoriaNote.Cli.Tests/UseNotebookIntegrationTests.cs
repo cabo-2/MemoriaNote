@@ -5,14 +5,15 @@ namespace MemoriaNote.Cli.Tests;
 
 /// <summary>Verifies persistent notebook selection through the CLI boundary.</summary>
 [TestFixture]
-[Category("Process")]
-public sealed class UseNotebookProcessTests
+[Category("CliIntegration")]
+[NonParallelizable]
+public sealed class UseNotebookIntegrationTests
 {
     /// <summary>Verifies use exposes its mutually exclusive inputs.</summary>
     [Test]
     public async Task Help_DescribesNotebookAndRootInputs()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
 
         var result = await harness.RunAsync("use", "--help");
 
@@ -30,7 +31,7 @@ public sealed class UseNotebookProcessTests
     [Test]
     public async Task Execute_WithNeitherOrBothTargets_ReturnsValidationFailure()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
 
         var neither = await harness.RunAsync("use");
         var both = await harness.RunAsync("use", "work", "--root");
@@ -48,7 +49,7 @@ public sealed class UseNotebookProcessTests
     [Test]
     public async Task Execute_WithNotebook_SelectsCanonicalLeafName()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "work")).ExitCode, Is.Zero);
 
         var result = await harness.RunAsync("use", "work");
@@ -69,7 +70,7 @@ public sealed class UseNotebookProcessTests
     [Test]
     public async Task Execute_RootWithoutConfiguration_DoesNotCreateFile()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
 
         var result = await harness.RunAsync("use", "--root");
 
@@ -85,7 +86,7 @@ public sealed class UseNotebookProcessTests
     [Test]
     public async Task Execute_RootWithSelection_ClearsCurrentNotebook()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "work")).ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
 
@@ -104,7 +105,7 @@ public sealed class UseNotebookProcessTests
     [Test]
     public async Task Execute_MissingOrInvalidNotebook_PreservesSelection()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "current")).ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("use", "current")).ExitCode, Is.Zero);
         var configurationPath = ConfigurationPath(harness);
@@ -130,7 +131,7 @@ public sealed class UseNotebookProcessTests
     [Test]
     public async Task Execute_FromMissingSelection_TransitionsSafely()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "available")).ExitCode, Is.Zero);
         var configurationPath = ConfigurationPath(harness);
         await File.WriteAllTextAsync(
@@ -157,7 +158,7 @@ public sealed class UseNotebookProcessTests
     [Test]
     public async Task Execute_ConfigurationWithUnknownFields_UpdatesKnownState()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "work")).ExitCode, Is.Zero);
         await File.WriteAllTextAsync(
             ConfigurationPath(harness),
@@ -180,7 +181,7 @@ public sealed class UseNotebookProcessTests
     [TestCase("format_version = 2\n")]
     public async Task Execute_InvalidConfiguration_PreservesSource(string content)
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "work")).ExitCode, Is.Zero);
         await File.WriteAllTextAsync(ConfigurationPath(harness), content);
 
@@ -197,7 +198,7 @@ public sealed class UseNotebookProcessTests
     [Test]
     public async Task Execute_NotebookSymbolicLink_SelectsAlias()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         harness.SetEnvironmentVariable("EDITOR", harness.TestEditorExecutablePath);
         harness.SetEnvironmentVariable("MEMORIA_NOTE_TEST_EDITOR_TEXT", "Body");
         harness.ConfigureEnvironmentEditor();
@@ -235,7 +236,7 @@ public sealed class UseNotebookProcessTests
         }
     }
 
-    static string ConfigurationPath(CliProcessHarness harness)
+    static string ConfigurationPath(CliInProcessHarness harness)
     {
         return Path.Combine(
             harness.WorkingDirectory,

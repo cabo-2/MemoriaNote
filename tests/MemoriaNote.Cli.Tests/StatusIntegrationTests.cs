@@ -8,14 +8,15 @@ namespace MemoriaNote.Cli.Tests;
 
 /// <summary>Verifies workspace status diagnostics through the CLI boundary.</summary>
 [TestFixture]
-[Category("Process")]
-public sealed class StatusProcessTests
+[Category("CliIntegration")]
+[NonParallelizable]
+public sealed class StatusIntegrationTests
 {
     /// <summary>Verifies status is discoverable as a top-level command.</summary>
     [Test]
     public async Task Help_DescribesWorkspaceStatus()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
 
         var result = await harness.RunAsync("status", "--help");
 
@@ -34,7 +35,7 @@ public sealed class StatusProcessTests
     [Test]
     public async Task Execute_UnconfiguredRoot_MatchesParameterlessCommandWithoutChanges()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
 
         var status = await harness.RunAsync("status");
         var parameterless = await harness.RunAsync();
@@ -60,7 +61,7 @@ public sealed class StatusProcessTests
     [Test]
     public async Task Execute_SelectedNotebook_ReportsReadyState()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         AssertSucceeded(await harness.RunAsync("create", "project notes"));
         AssertSucceeded(await harness.RunAsync("use", "project notes"));
         var configurationPath = WorkspaceConfigurationPath(harness);
@@ -84,7 +85,7 @@ public sealed class StatusProcessTests
     [Test]
     public async Task Execute_ReadOnlyNotebook_ReportsReadOnlyState()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         AssertSucceeded(await harness.RunAsync("create", "archive"));
         AssertSucceeded(await harness.RunAsync("use", "archive"));
         await UpdateMetadataAsync(
@@ -106,7 +107,7 @@ public sealed class StatusProcessTests
     [Test]
     public async Task Execute_MissingNotebook_ReportsSavedVirtualLocation()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         await File.WriteAllTextAsync(
             WorkspaceConfigurationPath(harness),
             "format_version = 1\ncurrent_notebook = \"missing.mnote\"\n");
@@ -129,7 +130,7 @@ public sealed class StatusProcessTests
     [TestCase("0")]
     public async Task Execute_InvalidNotebook_ReportsValidationFailure(string? version)
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         if (version == null)
         {
             await File.WriteAllTextAsync(
@@ -162,7 +163,7 @@ public sealed class StatusProcessTests
     [Test]
     public async Task Execute_NewerNotebook_ReportsUnsupportedVersion()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         AssertSucceeded(await harness.RunAsync("create", "future"));
         AssertSucceeded(await harness.RunAsync("use", "future"));
         await UpdateMetadataAsync(
@@ -189,7 +190,7 @@ public sealed class StatusProcessTests
         string content,
         string expectedStatus)
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var configurationPath = WorkspaceConfigurationPath(harness);
         await File.WriteAllTextAsync(configurationPath, content);
 
@@ -208,7 +209,7 @@ public sealed class StatusProcessTests
     }
 
     static async Task UpdateMetadataAsync(
-        CliProcessHarness harness,
+        CliInProcessHarness harness,
         string notebookFileName,
         NotebookMetadataPatch patch)
     {
@@ -220,14 +221,14 @@ public sealed class StatusProcessTests
             CancellationToken.None);
     }
 
-    static string WorkspaceConfigurationPath(CliProcessHarness harness)
+    static string WorkspaceConfigurationPath(CliInProcessHarness harness)
     {
         return Path.Combine(
             harness.WorkingDirectory,
             WorkspaceConfigurationStore.FileName);
     }
 
-    static void AssertSucceeded(CliProcessResult result)
+    static void AssertSucceeded(CliInProcessResult result)
     {
         Assert.That(result.ExitCode, Is.Zero, result.StandardError);
     }

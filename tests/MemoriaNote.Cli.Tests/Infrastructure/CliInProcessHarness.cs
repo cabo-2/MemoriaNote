@@ -1,6 +1,10 @@
 using System.Globalization;
+using System.Reflection;
 using System.Runtime.ExceptionServices;
+using System.Text;
 using MemoriaNote.Cli;
+using MemoriaNote.Cli.UserConfig;
+using UserConfigurationModel = MemoriaNote.Cli.UserConfig.UserConfiguration;
 
 namespace MemoriaNote.Cli.Tests.Infrastructure;
 
@@ -59,6 +63,22 @@ internal sealed class CliInProcessHarness : IDisposable
     internal string UserConfigurationPath => Path.Combine(
         ApplicationDataDirectory,
         "config.toml");
+
+    internal string TestEditorExecutablePath => GetAssemblyMetadataPath(
+        "TestEditorExecutablePath");
+
+    internal void ConfigureEnvironmentEditor(
+        string variable = "EDITOR",
+        IEnumerable<string>? arguments = null)
+    {
+        Directory.CreateDirectory(ApplicationDataDirectory);
+        File.WriteAllText(
+            UserConfigurationPath,
+            UserConfigurationCodec.Serialize(
+                new UserConfigurationModel(
+                    UserEditorConfiguration.FromEnvironment(variable, arguments))),
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+    }
 
     internal void SetEnvironmentVariable(string name, string? value)
     {
@@ -211,6 +231,22 @@ internal sealed class CliInProcessHarness : IDisposable
         {
             exceptions.Add(exception);
         }
+    }
+
+    static string GetAssemblyMetadataPath(string key)
+    {
+        var path = Assembly.GetExecutingAssembly()
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .Single(attribute => attribute.Key == key)
+            .Value;
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            throw new FileNotFoundException(
+                $"The '{key}' test artifact was not built before the test run.",
+                path);
+        }
+
+        return path;
     }
 
     public void Dispose()
