@@ -4,10 +4,11 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
 
-/// <summary>Verifies the read-only page-list workflow through the CLI process boundary.</summary>
+/// <summary>Verifies page listing workflows through the production CLI entry point.</summary>
 [TestFixture]
-[Category("Process")]
-public sealed class PageListProcessWorkflowTests
+[Category("CliIntegration")]
+[NonParallelizable]
+public sealed class PageListIntegrationTests
 {
     /// <summary>
     /// Verifies ls provides stable name ordering, limit, and read-only behavior.
@@ -15,7 +16,7 @@ public sealed class PageListProcessWorkflowTests
     [Test]
     public async Task Ls_ListsStableNamesWithoutChangingState()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var create = await harness.RunAsync("create", "work.mnote");
         Assert.That(create.ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
@@ -66,7 +67,7 @@ public sealed class PageListProcessWorkflowTests
     [Test]
     public async Task Ls_LongFormat_WritesAllSummaryColumns()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
@@ -98,7 +99,7 @@ public sealed class PageListProcessWorkflowTests
     [Test]
     public async Task Ls_WithMultipleNotebooks_RequiresExplicitTarget()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "first.mnote")).ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("create", "second.mnote")).ExitCode, Is.Zero);
         await CreateRepository().CreatePageAsync(
@@ -132,7 +133,7 @@ public sealed class PageListProcessWorkflowTests
     [Test]
     public async Task Ls_CompletionOption_IsUnavailable()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
 
         var help = await harness.RunAsync("ls", "--help");
         var completion = await harness.RunAsync("ls", "--completion");
@@ -159,5 +160,28 @@ public sealed class PageListProcessWorkflowTests
         return output.Split(
             new[] { '\r', '\n' },
             StringSplitOptions.RemoveEmptyEntries);
+    }
+    /// <summary>
+    /// Verifies ls reports a missing selection without creating configuration.
+    /// </summary>
+    [Test]
+    public async Task Ls_WithoutSelection_ReturnsConflict()
+    {
+        using var harness = new CliInProcessHarness();
+
+        var result = await harness.RunAsync("ls");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.StandardError, Does.Contain("mn use"));
+            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
+            Assert.That(
+                File.Exists(Path.Combine(
+                    harness.WorkingDirectory,
+                    WorkspaceConfigurationStore.FileName)),
+                Is.False);
+        }
     }
 }

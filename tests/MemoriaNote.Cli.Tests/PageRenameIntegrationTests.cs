@@ -4,16 +4,17 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
 
-/// <summary>Verifies page rename workflows through the CLI process boundary.</summary>
+/// <summary>Verifies page rename workflows through the production CLI entry point.</summary>
 [TestFixture]
-[Category("Process")]
-public sealed class PageRenameProcessWorkflowTests
+[Category("CliIntegration")]
+[NonParallelizable]
+public sealed class PageRenameIntegrationTests
 {
     /// <summary>Verifies rename preserves identity and content while replacing the exact name.</summary>
     [Test]
     public async Task Rename_ByName_PreservesPageIdentityAndContent()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
@@ -60,7 +61,7 @@ public sealed class PageRenameProcessWorkflowTests
     [Test]
     public async Task Rename_ByPageId_DisambiguatesDuplicateSourceNames()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
@@ -113,7 +114,7 @@ public sealed class PageRenameProcessWorkflowTests
     [Test]
     public async Task Rename_ToExistingName_ReturnsConflictWithoutChanges()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
@@ -167,7 +168,7 @@ public sealed class PageRenameProcessWorkflowTests
     [Test]
     public async Task Rename_WithMultipleNotebooks_RequiresExplicitTarget()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "first.mnote")).ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("create", "second.mnote")).ExitCode, Is.Zero);
         var secondPath = Path.Combine(harness.WorkingDirectory, "second.mnote");
@@ -209,7 +210,7 @@ public sealed class PageRenameProcessWorkflowTests
     [Test]
     public async Task Rename_HelpAndInvalidArguments_ExposePublicContract()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
 
         var help = await harness.RunAsync("rename", "--help");
         var missingTarget = await harness.RunAsync("rename");

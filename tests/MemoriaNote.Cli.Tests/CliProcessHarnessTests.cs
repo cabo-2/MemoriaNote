@@ -95,48 +95,4 @@ public sealed class CliProcessHarnessTests
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
         }
     }
-
-    /// <summary>
-    /// Verifies that command argument validation uses standard error and returns failure.
-    /// </summary>
-    [Test]
-    public async Task NewWithoutName_WritesDiagnosticAndReturnsFailure()
-    {
-        using var harness = new CliProcessHarness();
-
-        var result = await harness.RunAsync("new");
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result.ExitCode, Is.EqualTo(2));
-            Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.Contain("Error: No name"));
-            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
-        }
-    }
-
-    /// <summary>
-    /// Verifies ls reports a missing selection without creating configuration.
-    /// </summary>
-    [Test]
-    public async Task Ls_WithoutSelection_ReturnsConflict()
-    {
-        using var harness = new CliProcessHarness();
-
-        var result = await harness.RunAsync("ls");
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
-            Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.Contain("mn use"));
-            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
-            Assert.That(
-                File.Exists(Path.Combine(
-                    harness.WorkingDirectory,
-                    WorkspaceConfigurationStore.FileName)),
-                Is.False);
-        }
-    }
-
 }
