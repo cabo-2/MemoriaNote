@@ -4,10 +4,11 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
 
-/// <summary>Verifies notebook target resolution through the CLI process boundary.</summary>
+/// <summary>Verifies notebook target resolution through the production CLI entry point.</summary>
 [TestFixture]
-[Category("Process")]
-public sealed class NotebookTargetProcessTests
+[Category("CliIntegration")]
+[NonParallelizable]
+public sealed class NotebookTargetIntegrationTests
 {
     const string EditedTextEnvironmentVariable = "MEMORIA_NOTE_TEST_EDITOR_TEXT";
 
@@ -15,7 +16,7 @@ public sealed class NotebookTargetProcessTests
     [Test]
     public async Task NewHelp_DescribesNotebookOption()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
 
         var result = await harness.RunAsync("new", "--help");
 
@@ -293,9 +294,9 @@ public sealed class NotebookTargetProcessTests
             Has.Count.EqualTo(1));
     }
 
-    static CliProcessHarness CreateEditorHarness()
+    static CliInProcessHarness CreateEditorHarness()
     {
-        var harness = new CliProcessHarness();
+        var harness = new CliInProcessHarness();
         harness.SetEnvironmentVariable("EDITOR", harness.TestEditorExecutablePath);
         harness.SetEnvironmentVariable(EditedTextEnvironmentVariable, "Body");
         harness.ConfigureEnvironmentEditor();
@@ -303,7 +304,7 @@ public sealed class NotebookTargetProcessTests
     }
 
     static async Task<string> CreateNotebookAsync(
-        CliProcessHarness harness,
+        CliInProcessHarness harness,
         string relativePath)
     {
         var result = await harness.RunAsync("create", relativePath);

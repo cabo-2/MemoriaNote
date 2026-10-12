@@ -6,16 +6,17 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
 
-/// <summary>Verifies workspace notebook listing through the CLI process boundary.</summary>
+/// <summary>Verifies workspace notebook listing through the production CLI entry point.</summary>
 [TestFixture]
-[Category("Process")]
-public sealed class NotebookListProcessTests
+[Category("CliIntegration")]
+[NonParallelizable]
+public sealed class NotebookListIntegrationTests
 {
     /// <summary>Verifies the nested command and long option are discoverable.</summary>
     [Test]
     public async Task Help_DescribesNotebookListing()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
 
         var rootHelp = await harness.RunAsync("--help");
         var groupHelp = await harness.RunAsync("notebooks", "--help");
@@ -43,7 +44,7 @@ public sealed class NotebookListProcessTests
     [Test]
     public async Task Execute_ShortFormat_ListsCurrentAndStatusesWithoutChanges()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         AssertSucceeded(await harness.RunAsync("create", "project"));
         AssertSucceeded(await harness.RunAsync("create", "Zulu"));
         AssertSucceeded(await harness.RunAsync("create", "alpha"));
@@ -88,7 +89,7 @@ public sealed class NotebookListProcessTests
     [Test]
     public async Task Execute_LongFormat_WritesNotebookDetails()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         AssertSucceeded(await harness.RunAsync("create", "current"));
         AssertSucceeded(await harness.RunAsync("create", "future"));
         AssertSucceeded(await harness.RunAsync("use", "current"));
@@ -123,7 +124,7 @@ public sealed class NotebookListProcessTests
     [Test]
     public async Task Execute_MissingCurrent_AddsSortedDiagnosticEntry()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         AssertSucceeded(await harness.RunAsync("create", "available"));
         var configurationPath = WorkspaceConfigurationPath(harness);
         const string configuration =
@@ -150,7 +151,7 @@ public sealed class NotebookListProcessTests
     [Test]
     public async Task Execute_IgnoresSubdirectoriesUppercaseSuffixesAndDirectories()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var nestedDirectory = Path.Combine(harness.WorkingDirectory, "nested");
         Directory.CreateDirectory(nestedDirectory);
         AssertSucceeded(await harness.RunAsync(
@@ -190,7 +191,7 @@ public sealed class NotebookListProcessTests
     [Test]
     public async Task Execute_SymbolicLinks_ReportsReadyAndDanglingAliases()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var externalDirectory = Path.Combine(harness.ApplicationDataRoot, "external");
         Directory.CreateDirectory(externalDirectory);
         AssertSucceeded(await harness.RunAsync(
@@ -253,7 +254,7 @@ public sealed class NotebookListProcessTests
     [Test]
     public async Task Execute_InvalidConfiguration_FailsWithoutChangingSource()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         AssertSucceeded(await harness.RunAsync("create", "work"));
         var configurationPath = WorkspaceConfigurationPath(harness);
         const string configuration = "not toml =";
@@ -271,7 +272,7 @@ public sealed class NotebookListProcessTests
     }
 
     static async Task UpdateMetadataAsync(
-        CliProcessHarness harness,
+        CliInProcessHarness harness,
         string notebookFileName,
         NotebookMetadataPatch patch)
     {
@@ -284,7 +285,7 @@ public sealed class NotebookListProcessTests
     }
 
     static async Task<Dictionary<string, byte[]>> ReadNotebookBytesAsync(
-        CliProcessHarness harness)
+        CliInProcessHarness harness)
     {
         var result = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         foreach (var path in Directory.EnumerateFiles(
@@ -304,14 +305,14 @@ public sealed class NotebookListProcessTests
             StringSplitOptions.RemoveEmptyEntries);
     }
 
-    static string WorkspaceConfigurationPath(CliProcessHarness harness)
+    static string WorkspaceConfigurationPath(CliInProcessHarness harness)
     {
         return Path.Combine(
             harness.WorkingDirectory,
             WorkspaceConfigurationStore.FileName);
     }
 
-    static void AssertSucceeded(CliProcessResult result)
+    static void AssertSucceeded(CliInProcessResult result)
     {
         Assert.That(result.ExitCode, Is.Zero, result.StandardError);
     }

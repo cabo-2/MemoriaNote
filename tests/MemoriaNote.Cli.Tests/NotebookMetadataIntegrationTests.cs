@@ -4,18 +4,17 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
 
-/// <summary>Verifies notebook metadata workflows through the CLI process boundary.</summary>
+/// <summary>Verifies notebook metadata workflows through the production CLI entry point.</summary>
 [TestFixture]
-[Category("Process")]
-public sealed class NotebookMetadataProcessTests
+[Category("CliIntegration")]
+[NonParallelizable]
+public sealed class NotebookMetadataIntegrationTests
 {
-    static readonly TimeSpan ProcessTimeout = TimeSpan.FromSeconds(10);
-
     /// <summary>Verifies help documents every editable field and standard input.</summary>
     [Test]
     public async Task Help_DescribesMetadataContract()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
 
         var result = await harness.RunAsync("notebooks", "metadata", "--help");
 
@@ -39,7 +38,7 @@ public sealed class NotebookMetadataProcessTests
     [Test]
     public async Task Metadata_SelectedNotebook_DisplaysKnownFields()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "selected");
         var repository = CreateMetadataRepository();
         await repository.UpdateAsync(
@@ -73,7 +72,7 @@ public sealed class NotebookMetadataProcessTests
     [Test]
     public async Task Metadata_DuplicateDisplayNames_AreAllowedWithoutChangingCurrent()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var currentPath = await CreateAndSelectNotebookAsync(harness, "current");
         var create = await harness.RunAsync("create", "explicit");
         Assert.That(create.ExitCode, Is.Zero, create.StandardError);
@@ -113,7 +112,7 @@ public sealed class NotebookMetadataProcessTests
     [Test]
     public async Task Metadata_DescriptionFromStandardInput_PreservesMultilineValue()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "stdin");
         const string input = "first\r\nsecond\tvalue\n";
 
@@ -125,8 +124,7 @@ public sealed class NotebookMetadataProcessTests
                 "--description",
                 "-"
             },
-            input,
-            ProcessTimeout);
+            input);
         var loaded = await CreateMetadataRepository().LoadAsync(
             notebookPath,
             CancellationToken.None);
@@ -147,7 +145,7 @@ public sealed class NotebookMetadataProcessTests
     [Test]
     public async Task Metadata_MultipleUpdates_ReturnValidationWithoutWrites()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "multiple");
 
         var result = await harness.RunAsync(
@@ -175,7 +173,7 @@ public sealed class NotebookMetadataProcessTests
     [Test]
     public async Task Metadata_EmptyOptionalValue_IsStoredAsEmptyString()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "empty");
         var repository = CreateMetadataRepository();
         await repository.UpdateAsync(
@@ -202,17 +200,15 @@ public sealed class NotebookMetadataProcessTests
     [Test]
     public async Task Metadata_ControlCharacters_ApplyFieldSpecificRules()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "controls");
 
         var rejected = await harness.RunAsync(
             new[] { "notebooks", "metadata", "--name", "-" },
-            "invalid\nname",
-            ProcessTimeout);
+            "invalid\nname");
         var accepted = await harness.RunAsync(
             new[] { "notebooks", "metadata", "--description", "-" },
-            "valid\ntext",
-            ProcessTimeout);
+            "valid\ntext");
         var loaded = await CreateMetadataRepository().LoadAsync(
             notebookPath,
             CancellationToken.None);
@@ -231,7 +227,7 @@ public sealed class NotebookMetadataProcessTests
     [Test]
     public async Task Metadata_ReadOnly_CanBeToggledAndReportsNoOp()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "access");
 
         var enabled = await harness.RunAsync(
@@ -265,7 +261,7 @@ public sealed class NotebookMetadataProcessTests
     }
 
     static async Task<string> CreateAndSelectNotebookAsync(
-        CliProcessHarness harness,
+        CliInProcessHarness harness,
         string name)
     {
         var create = await harness.RunAsync("create", name);
