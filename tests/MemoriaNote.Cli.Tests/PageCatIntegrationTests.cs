@@ -4,16 +4,17 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
 
-/// <summary>Verifies the read-only page cat workflow through the process boundary.</summary>
+/// <summary>Verifies page display workflows through the production CLI entry point.</summary>
 [TestFixture]
-[Category("Process")]
-public sealed class PageCatProcessWorkflowTests
+[Category("CliIntegration")]
+[NonParallelizable]
+public sealed class PageCatIntegrationTests
 {
     /// <summary>Verifies name, complete ID, and short ID selectors write only the exact body.</summary>
     [Test]
     public async Task Cat_NameAndPageIdSelectors_WriteRawBodyWithoutPersistentChanges()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
@@ -55,7 +56,7 @@ public sealed class PageCatProcessWorkflowTests
     [Test]
     public async Task Cat_DuplicateName_RequiresPageId()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
@@ -94,7 +95,7 @@ public sealed class PageCatProcessWorkflowTests
     [Test]
     public async Task Cat_AmbiguousPageIdPrefix_ReturnsConflict()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
@@ -123,7 +124,7 @@ public sealed class PageCatProcessWorkflowTests
     [Test]
     public async Task Cat_WithMultipleNotebooks_RequiresExplicitTarget()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "first.mnote")).ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("create", "second.mnote")).ExitCode, Is.Zero);
         await CreateRepository().CreatePageAsync(
@@ -155,7 +156,7 @@ public sealed class PageCatProcessWorkflowTests
     [Test]
     public async Task Cat_MissingPage_ReturnsNotFound()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
 
@@ -174,7 +175,7 @@ public sealed class PageCatProcessWorkflowTests
     [Test]
     public async Task Cat_HelpAndInvalidSelectors_ExposeThePublicContract()
     {
-        using var harness = new CliProcessHarness();
+        using var harness = new CliInProcessHarness();
 
         var help = await harness.RunAsync("cat", "--help");
         var missing = await harness.RunAsync("cat");
