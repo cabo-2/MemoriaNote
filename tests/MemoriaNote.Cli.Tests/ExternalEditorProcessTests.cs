@@ -7,7 +7,7 @@ namespace MemoriaNote.Cli.Tests;
 /// <summary>Verifies the CLI-to-editor child-process boundary.</summary>
 [TestFixture]
 [Category("Process")]
-public sealed class PageCommandProcessWorkflowTests
+public sealed class ExternalEditorProcessTests
 {
     const string EditedTextEnvironmentVariable = "MEMORIA_NOTE_TEST_EDITOR_TEXT";
 

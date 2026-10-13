@@ -3,15 +3,18 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
 
-/// <summary>Verifies a basic CLI command through the process boundary.</summary>
+/// <summary>
+/// Verifies CLI startup, exit codes, and separated text streams.
+/// </summary>
 [TestFixture]
-public sealed class CliProcessSmokeTests
+[Category("Process")]
+public sealed class ProcessInvocationTests
 {
     /// <summary>
-    /// Verifies that root help describes the public commands on standard output.
+    /// Verifies that root help is written to standard output by a successful process.
     /// </summary>
     [Test]
-    public async Task Help_DescribesPublicCommandsOnStandardOutput()
+    public async Task Help_WritesPublicCommandsToStandardOutputAndReturnsSuccess()
     {
         using var harness = new CliProcessHarness();
 
@@ -25,7 +28,9 @@ public sealed class CliProcessSmokeTests
                 Does.Contain(
                     "A lightweight, cross-platform CLI for workspace notebooks"));
             Assert.That(result.StandardOutput, Does.Not.Contain("Terminal.Gui"));
-            Assert.That(result.StandardOutput, Does.Not.Contain("Temporarily unavailable"));
+            Assert.That(
+                result.StandardOutput,
+                Does.Not.Contain("Temporarily unavailable"));
             Assert.That(result.StandardOutput, Does.Contain("Usage: mn"));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
@@ -65,6 +70,27 @@ public sealed class CliProcessSmokeTests
                 ContainsCommand(result.StandardOutput, command),
                 Is.False,
                 $"Root help described the hidden '{command}' command.");
+        }
+    }
+
+    /// <summary>
+    /// Verifies that parser errors use standard error and return failure.
+    /// </summary>
+    [Test]
+    public async Task UnknownCommand_WritesDiagnosticAndReturnsFailure()
+    {
+        using var harness = new CliProcessHarness();
+
+        var result = await harness.RunAsync("unknown-command");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo(1));
+            Assert.That(
+                result.StandardError,
+                Does.Contain("Unrecognized command or argument 'unknown-command'"));
+            Assert.That(result.StandardOutput, Does.Contain("--help"));
+            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
         }
     }
 
