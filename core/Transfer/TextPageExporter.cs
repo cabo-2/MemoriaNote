@@ -15,6 +15,7 @@ namespace MemoriaNote.Transfer
     /// </summary>
     public sealed class TextPageExporter
     {
+        const int MaximumPortableFileNameBytes = 255;
         const string PageIdSuffixMarker = "~id~";
 
         static readonly UTF8Encoding Utf8WithoutBom = new UTF8Encoding(
@@ -155,6 +156,12 @@ namespace MemoriaNote.Transfer
                     page,
                     _fileNameCodec.Encode(page.Name) + ".txt"))
                 .ToList();
+            if (items.Any(item =>
+                Encoding.UTF8.GetByteCount(item.FileName) > MaximumPortableFileNameBytes))
+            {
+                return null;
+            }
+
             var collidedItems = new HashSet<ExportPlanItem>();
             var probes = new List<ExportPlanItem>();
             var parkingDirectory = Path.Combine(temporaryDirectory, ".mn-probe-parking");

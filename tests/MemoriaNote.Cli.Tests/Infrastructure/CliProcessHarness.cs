@@ -187,6 +187,7 @@ internal sealed class CliProcessHarness : IDisposable
                 $"{Environment.NewLine}stderr:{Environment.NewLine}{error}");
         }
 
+        SqliteConnection.ClearAllPools();
         return new CliProcessResult(
             process.ExitCode,
             await standardOutput,

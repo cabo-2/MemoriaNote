@@ -147,6 +147,7 @@ internal sealed class CliInProcessHarness : IDisposable
             originalError,
             originalDirectory,
             originalEnvironment);
+        TryRestore(SqliteConnection.ClearAllPools, restorationExceptions);
         InvocationGate.Release();
 
         if (invocationException != null)
