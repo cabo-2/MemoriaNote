@@ -23,26 +23,36 @@ This project uses C# targeting **.NET 10**.
 
 ## Build Verification
 
-Before committing code changes or marking a pull request ready, run the following fast verification commands from the repository root:
+Before committing code changes or marking a pull request ready, run the following verification commands from the
+repository root:
 
 ```bash
 dotnet build MemoriaNote.sln
-dotnet test MemoriaNote.sln --no-build --filter "TestCategory!=Process"
-```
-
-The fast test run includes one out-of-process CLI smoke test but excludes the remaining CLI process tests. GitHub Actions runs the full test suite without this filter.
-
-Run the full test suite locally when the change warrants broader verification:
-
-```bash
 dotnet test MemoriaNote.sln --no-build
 ```
 
-To run only the excluded CLI process tests, use:
+The required test command runs the full suite. GitHub Actions runs the same full suite on native Ubuntu and Windows
+runners.
+
+### Test Categories
+
+Test categories describe test responsibilities, but they do not partition the required verification or select an
+operating system:
+
+- `Process` identifies tests that start `dotnet mn.dll` to verify process-boundary contracts such as raw standard I/O,
+  inherited environment and current directory, external processes, and clean process state.
+- `CliIntegration` identifies tests that invoke the production CLI entry point in the test process to verify the parser,
+  composition, SQLite, file system, and text I/O workflow.
+
+Category filters may be used for focused diagnosis or optional measurement:
 
 ```bash
 dotnet test MemoriaNote.sln --no-build --filter "TestCategory=Process"
+dotnet test MemoriaNote.sln --no-build --filter "TestCategory=CliIntegration"
 ```
+
+Filtered runs do not replace the required full-suite verification. Process tests remain non-parallel, and in-process CLI
+integration fixtures that replace process-global state use `[NonParallelizable]` and the shared invocation gate.
 
 ## Spelling
 
