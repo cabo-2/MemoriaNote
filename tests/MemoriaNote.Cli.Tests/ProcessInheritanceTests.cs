@@ -5,29 +5,52 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 using UserConfigurationModel = MemoriaNote.Cli.UserConfig.UserConfiguration;
 
-namespace MemoriaNote.Cli.Tests.UserConfiguration;
+namespace MemoriaNote.Cli.Tests;
 
-/// <summary>Verifies process-specific user configuration boundaries.</summary>
+/// <summary>Verifies values inherited by the CLI process.</summary>
 [TestFixture]
 [Category("Process")]
-public sealed class UserConfigurationProcessTests
+public sealed class ProcessInheritanceTests
 {
     const string EditedTextEnvironmentVariable = "MEMORIA_NOTE_TEST_EDITOR_TEXT";
 
-    /// <summary>Verifies redirected input cannot enter interactive editor setup.</summary>
+    /// <summary>
+    /// Verifies the inherited directory and a Unicode argument reach the CLI unchanged.
+    /// </summary>
     [Test]
-    public async Task EditorSetup_RedirectedInput_ReturnsValidationFailure()
+    public async Task Create_InheritsCurrentDirectoryAndUnicodeArgument()
     {
         using var harness = new CliProcessHarness();
+        const string notebookName = "共有 ノート";
+        var notebookPath = Path.Combine(
+            harness.WorkingDirectory,
+            notebookName + ".mnote");
 
-        var result = await harness.RunAsync("config", "editor", "setup");
+        var result = await harness.RunAsync("create", notebookName);
 
+        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        var metadataRepository = new SqliteNotebookMetadataRepository(factory);
+        var metadata = await metadataRepository.LoadAsync(
+            notebookPath,
+            CancellationToken.None);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
-            Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.Contain("requires interactive input"));
-            Assert.That(File.Exists(harness.UserConfigurationPath), Is.False);
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(result.StandardOutput, Does.Contain(notebookPath));
+            Assert.That(result.StandardError, Is.Empty);
+            Assert.That(File.Exists(notebookPath), Is.True);
+            Assert.That(metadata.HasIssues, Is.False);
+            Assert.That(metadata.Metadata.Name, Is.EqualTo(notebookName));
+            Assert.That(metadata.Metadata.Title, Is.EqualTo(notebookName));
+            Assert.That(
+                metadata.Metadata.Version,
+                Is.EqualTo(NotebookDbContext.CurrentVersion));
+            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
+            Assert.That(
+                File.Exists(Path.Combine(
+                    harness.WorkingDirectory,
+                    WorkspaceConfigurationStore.FileName)),
+                Is.False);
         }
     }
 

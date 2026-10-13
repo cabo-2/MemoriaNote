@@ -7,7 +7,7 @@ namespace MemoriaNote.Cli.Tests;
 /// <summary>Verifies raw archive restore through the CLI process boundary.</summary>
 [TestFixture]
 [Category("Process")]
-public sealed class NotebookRestoreProcessTests
+public sealed class RawStandardInputProcessTests
 {
     /// <summary>Verifies omitted and explicit dash sources read exact archive bytes from stdin.</summary>
     [TestCase(false)]

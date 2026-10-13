@@ -9,7 +9,7 @@ namespace MemoriaNote.Cli.Tests;
 /// </summary>
 [TestFixture]
 [Category("Process")]
-public sealed class TextTransferProcessTests
+public sealed class CleanProcessPersistenceTests
 {
     /// <summary>
     /// Verifies that flat files survive import across CLI process boundaries.

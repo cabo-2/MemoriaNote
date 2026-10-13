@@ -9,7 +9,7 @@ namespace MemoriaNote.Cli.Tests;
 /// <summary>Verifies raw archive backup through the CLI process boundary.</summary>
 [TestFixture]
 [Category("Process")]
-public sealed class NotebookBackupProcessTests
+public sealed class RawStandardOutputProcessTests
 {
     /// <summary>Verifies omitted and explicit dash destinations emit only archive bytes.</summary>
     [TestCase(false)]
