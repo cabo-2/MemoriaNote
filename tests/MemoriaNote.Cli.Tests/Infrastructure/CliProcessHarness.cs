@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Text;
 using MemoriaNote.Cli.UserConfig;
+using Microsoft.Data.Sqlite;
 using UserConfigurationModel = MemoriaNote.Cli.UserConfig.UserConfiguration;
 
 namespace MemoriaNote.Cli.Tests.Infrastructure;
@@ -186,6 +187,7 @@ internal sealed class CliProcessHarness : IDisposable
                 $"{Environment.NewLine}stderr:{Environment.NewLine}{error}");
         }
 
+        SqliteConnection.ClearAllPools();
         return new CliProcessResult(
             process.ExitCode,
             await standardOutput,
@@ -261,6 +263,7 @@ internal sealed class CliProcessHarness : IDisposable
 
     public void Dispose()
     {
+        SqliteConnection.ClearAllPools();
         if (Directory.Exists(_testRoot))
             Directory.Delete(_testRoot, recursive: true);
     }

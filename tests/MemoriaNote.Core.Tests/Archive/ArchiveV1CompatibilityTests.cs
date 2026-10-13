@@ -143,7 +143,7 @@ public sealed class ArchiveV1CompatibilityTests
             Assert.That(ReadPages(database.DatabasePath), Is.EqualTo(sourcePages));
             Assert.That(ReadMetadata(destinationPath), Is.EqualTo(sourceMetadata));
             Assert.That(ReadPages(destinationPath), Is.EqualTo(sourcePages));
-            Assert.That(File.ReadAllBytes(database.DatabasePath), Is.Not.Empty);
+            Assert.That(ReadDatabaseBytes(database.DatabasePath), Is.Not.Empty);
             Assert.That(File.ReadAllBytes(archivePath), Is.Not.Empty);
         }
 
@@ -316,7 +316,7 @@ public sealed class ArchiveV1CompatibilityTests
     {
         using var database = new TemporaryNotebookDatabase();
         database.CreateNotebook("failure", "Failure");
-        var sourceBefore = SHA256.HashData(File.ReadAllBytes(database.DatabasePath));
+        var sourceBefore = SHA256.HashData(ReadDatabaseBytes(database.DatabasePath));
         using var store = new ThrowingTemporaryFileStore();
         var factory = CreateDatabaseFactory();
         var backup = CreateBackupService(factory, store);
@@ -340,7 +340,7 @@ public sealed class ArchiveV1CompatibilityTests
             Assert.That(backupOutput.Length, Is.Zero);
             Assert.That(File.Exists(destinationPath), Is.False);
             Assert.That(
-                SHA256.HashData(File.ReadAllBytes(database.DatabasePath)),
+                SHA256.HashData(ReadDatabaseBytes(database.DatabasePath)),
                 Is.EqualTo(sourceBefore));
             Assert.That(restoreInput.ToArray(), Is.EqualTo(restoreBytes));
         }
@@ -796,6 +796,12 @@ public sealed class ArchiveV1CompatibilityTests
             "compatibility",
             "full-field",
             fileName));
+    }
+
+    static byte[] ReadDatabaseBytes(string databasePath)
+    {
+        SqliteConnection.ClearAllPools();
+        return File.ReadAllBytes(databasePath);
     }
 
     static byte[] CreateZipBytes(byte[] manifest, byte[] metadata, byte[] pages)

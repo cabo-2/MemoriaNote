@@ -40,7 +40,7 @@ public sealed class PageListIntegrationTests
             "upper",
             null!,
             CancellationToken.None);
-        var before = await File.ReadAllBytesAsync(notebookPath);
+        var before = await harness.ReadDatabaseBytesAsync(notebookPath);
         var workspaceConfigurationPath = Path.Combine(
             harness.WorkingDirectory,
             WorkspaceConfigurationStore.FileName);
@@ -56,7 +56,9 @@ public sealed class PageListIntegrationTests
                 GetOutputLines(limited.StandardOutput),
                 Is.EqualTo(new[] { "Alpha", "Roadmap" }));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
-            Assert.That(await File.ReadAllBytesAsync(notebookPath), Is.EqualTo(before));
+            Assert.That(
+                await harness.ReadDatabaseBytesAsync(notebookPath),
+                Is.EqualTo(before));
             Assert.That(
                 await File.ReadAllBytesAsync(workspaceConfigurationPath),
                 Is.EqualTo(configurationBefore));

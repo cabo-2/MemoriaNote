@@ -24,7 +24,7 @@ public sealed class PageCatIntegrationTests
             "first line\nsecond line",
             null!,
             CancellationToken.None);
-        var before = await File.ReadAllBytesAsync(notebookPath);
+        var before = await harness.ReadDatabaseBytesAsync(notebookPath);
 
         var byName = await harness.RunAsync("cat", "Meeting - Project A");
         var byCompleteId = await harness.RunAsync(
@@ -48,7 +48,9 @@ public sealed class PageCatIntegrationTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
-            Assert.That(await File.ReadAllBytesAsync(notebookPath), Is.EqualTo(before));
+            Assert.That(
+                await harness.ReadDatabaseBytesAsync(notebookPath),
+                Is.EqualTo(before));
         }
     }
 

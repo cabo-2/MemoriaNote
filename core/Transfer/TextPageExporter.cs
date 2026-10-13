@@ -15,6 +15,7 @@ namespace MemoriaNote.Transfer
     /// </summary>
     public sealed class TextPageExporter
     {
+        const int MaximumPortableFileNameBytes = 255;
         const string PageIdSuffixMarker = "~id~";
 
         static readonly UTF8Encoding Utf8WithoutBom = new UTF8Encoding(
@@ -155,6 +156,12 @@ namespace MemoriaNote.Transfer
                     page,
                     _fileNameCodec.Encode(page.Name) + ".txt"))
                 .ToList();
+            if (items.Any(item =>
+                Encoding.UTF8.GetByteCount(item.FileName) > MaximumPortableFileNameBytes))
+            {
+                return null;
+            }
+
             var collidedItems = new HashSet<ExportPlanItem>();
             var probes = new List<ExportPlanItem>();
             var parkingDirectory = Path.Combine(temporaryDirectory, ".mn-probe-parking");
@@ -174,6 +181,10 @@ namespace MemoriaNote.Transfer
                     probes.Add(item);
                 }
                 catch (PathTooLongException)
+                {
+                    return null;
+                }
+                catch (IOException exception) when (IsPathTooLong(exception))
                 {
                     return null;
                 }
@@ -276,6 +287,10 @@ namespace MemoriaNote.Transfer
                     {
                         return false;
                     }
+                    catch (IOException exception) when (IsPathTooLong(exception))
+                    {
+                        return false;
+                    }
                     catch (IOException) when (File.Exists(path))
                     {
                         return false;
@@ -331,6 +346,12 @@ namespace MemoriaNote.Transfer
         static bool PathExists(string path)
         {
             return File.Exists(path) || Directory.Exists(path);
+        }
+
+        static bool IsPathTooLong(IOException exception)
+        {
+            const int WindowsErrorFilenameExceededRange = 206;
+            return (exception.HResult & 0xffff) == WindowsErrorFilenameExceededRange;
         }
 
         static void TryDeleteDirectory(string path)

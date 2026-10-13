@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
@@ -27,6 +28,9 @@ namespace MemoriaNote.Cli
         public static async Task<int> Main(string[] args)
         {
             _composition = new Lazy<CliComposition>(CliComposition.CreateDefault);
+            var originalOutputEncoding = Console.OutputEncoding;
+            Console.OutputEncoding = new UTF8Encoding(
+                encoderShouldEmitUTF8Identifier: false);
             using var cancellation = new CancellationTokenSource();
             ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
             {
@@ -46,6 +50,7 @@ namespace MemoriaNote.Cli
                 if (_composition.IsValueCreated)
                     _composition.Value.Dispose();
                 _composition = null;
+                Console.OutputEncoding = originalOutputEncoding;
             }
         }
 

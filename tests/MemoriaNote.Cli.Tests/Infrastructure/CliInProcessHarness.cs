@@ -4,6 +4,7 @@ using System.Runtime.ExceptionServices;
 using System.Text;
 using MemoriaNote.Cli;
 using MemoriaNote.Cli.UserConfig;
+using Microsoft.Data.Sqlite;
 using UserConfigurationModel = MemoriaNote.Cli.UserConfig.UserConfiguration;
 
 namespace MemoriaNote.Cli.Tests.Infrastructure;
@@ -66,6 +67,15 @@ internal sealed class CliInProcessHarness : IDisposable
 
     internal string TestEditorExecutablePath => GetAssemblyMetadataPath(
         "TestEditorExecutablePath");
+
+    internal Task<byte[]> ReadDatabaseBytesAsync(
+        string databasePath,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        SqliteConnection.ClearAllPools();
+        return File.ReadAllBytesAsync(databasePath, cancellationToken);
+    }
 
     internal void ConfigureEnvironmentEditor(
         string variable = "EDITOR",
@@ -146,6 +156,7 @@ internal sealed class CliInProcessHarness : IDisposable
             originalError,
             originalDirectory,
             originalEnvironment);
+        TryRestore(SqliteConnection.ClearAllPools, restorationExceptions);
         InvocationGate.Release();
 
         if (invocationException != null)
@@ -255,6 +266,7 @@ internal sealed class CliInProcessHarness : IDisposable
             return;
 
         _disposed = true;
+        SqliteConnection.ClearAllPools();
         if (!_preserveTestRoot && Directory.Exists(TestRoot))
             Directory.Delete(TestRoot, recursive: true);
     }
