@@ -66,8 +66,7 @@ namespace MemoriaNote.Transfer
 
         static void EnsureRelativePath(string path)
         {
-            if (Path.IsPathRooted(path) ||
-                path[0] == '/' ||
+            if (path[0] == '/' ||
                 path[0] == '\\' ||
                 IsDriveQualified(path))
             {

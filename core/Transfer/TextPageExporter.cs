@@ -177,6 +177,10 @@ namespace MemoriaNote.Transfer
                 {
                     return null;
                 }
+                catch (IOException exception) when (IsPathTooLong(exception))
+                {
+                    return null;
+                }
                 catch (IOException) when (File.Exists(path))
                 {
                     var partner = FindCollisionPartner(
@@ -276,6 +280,10 @@ namespace MemoriaNote.Transfer
                     {
                         return false;
                     }
+                    catch (IOException exception) when (IsPathTooLong(exception))
+                    {
+                        return false;
+                    }
                     catch (IOException) when (File.Exists(path))
                     {
                         return false;
@@ -331,6 +339,12 @@ namespace MemoriaNote.Transfer
         static bool PathExists(string path)
         {
             return File.Exists(path) || Directory.Exists(path);
+        }
+
+        static bool IsPathTooLong(IOException exception)
+        {
+            const int WindowsErrorFilenameExceededRange = 206;
+            return (exception.HResult & 0xffff) == WindowsErrorFilenameExceededRange;
         }
 
         static void TryDeleteDirectory(string path)
