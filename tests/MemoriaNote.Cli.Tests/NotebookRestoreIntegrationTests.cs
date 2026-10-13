@@ -50,7 +50,7 @@ public sealed class NotebookRestoreIntegrationTests
             WorkspaceConfigurationStore.FileName);
         const string malformedConfiguration = "format_version =";
         await File.WriteAllTextAsync(configurationPath, malformedConfiguration);
-        var sourceBefore = await File.ReadAllBytesAsync(sourcePath);
+        var sourceBefore = await harness.ReadDatabaseBytesAsync(sourcePath);
         var archiveBefore = await File.ReadAllBytesAsync(archivePath);
 
         var result = await harness.RunAsync(
@@ -87,7 +87,9 @@ public sealed class NotebookRestoreIntegrationTests
             Assert.That(
                 restoredPages.Select(page => page.PageId),
                 Is.EqualTo(sourcePages.Select(page => page.PageId)));
-            Assert.That(await File.ReadAllBytesAsync(sourcePath), Is.EqualTo(sourceBefore));
+            Assert.That(
+                await harness.ReadDatabaseBytesAsync(sourcePath),
+                Is.EqualTo(sourceBefore));
             Assert.That(await File.ReadAllBytesAsync(archivePath), Is.EqualTo(archiveBefore));
             Assert.That(
                 await File.ReadAllTextAsync(configurationPath),

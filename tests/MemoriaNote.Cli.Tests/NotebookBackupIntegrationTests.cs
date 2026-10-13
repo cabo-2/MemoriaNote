@@ -44,7 +44,7 @@ public sealed class NotebookBackupIntegrationTests
         await AddPagesAsync(notebookPath, 1);
         var configurationPath = WorkspaceConfigurationPath(harness);
         var configurationBefore = await File.ReadAllBytesAsync(configurationPath);
-        var notebookBefore = await File.ReadAllBytesAsync(notebookPath);
+        var notebookBefore = await harness.ReadDatabaseBytesAsync(notebookPath);
         var archivePath = Path.Combine(harness.WorkingDirectory, "selected.backup.zip");
 
         var result = await harness.RunAsync(
@@ -65,7 +65,9 @@ public sealed class NotebookBackupIntegrationTests
             Assert.That(
                 await File.ReadAllBytesAsync(configurationPath),
                 Is.EqualTo(configurationBefore));
-            Assert.That(await File.ReadAllBytesAsync(notebookPath), Is.EqualTo(notebookBefore));
+            Assert.That(
+                await harness.ReadDatabaseBytesAsync(notebookPath),
+                Is.EqualTo(notebookBefore));
         }
     }
 
@@ -177,7 +179,7 @@ public sealed class NotebookBackupIntegrationTests
             notebookPath,
             new NotebookMetadataPatch().SetReadOnly(true),
             CancellationToken.None);
-        var notebookBefore = await File.ReadAllBytesAsync(notebookPath);
+        var notebookBefore = await harness.ReadDatabaseBytesAsync(notebookPath);
 
         var result = await harness.RunAsync(
             "notebooks",
@@ -191,7 +193,9 @@ public sealed class NotebookBackupIntegrationTests
                 (await ValidateFileAsync(
                     Path.Combine(harness.WorkingDirectory, "read-only.zip"))).IsValid,
                 Is.True);
-            Assert.That(await File.ReadAllBytesAsync(notebookPath), Is.EqualTo(notebookBefore));
+            Assert.That(
+                await harness.ReadDatabaseBytesAsync(notebookPath),
+                Is.EqualTo(notebookBefore));
         }
     }
 

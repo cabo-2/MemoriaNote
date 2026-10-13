@@ -68,6 +68,15 @@ internal sealed class CliInProcessHarness : IDisposable
     internal string TestEditorExecutablePath => GetAssemblyMetadataPath(
         "TestEditorExecutablePath");
 
+    internal Task<byte[]> ReadDatabaseBytesAsync(
+        string databasePath,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        SqliteConnection.ClearAllPools();
+        return File.ReadAllBytesAsync(databasePath, cancellationToken);
+    }
+
     internal void ConfigureEnvironmentEditor(
         string variable = "EDITOR",
         IEnumerable<string>? arguments = null)
