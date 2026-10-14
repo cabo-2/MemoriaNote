@@ -281,9 +281,9 @@ public sealed class NotebookImportIntegrationTests
         }
     }
 
-    /// <summary>Verifies usage help accompanies a missing import directory.</summary>
+    /// <summary>Verifies a missing import directory emits a parser diagnostic.</summary>
     [Test]
-    public async Task Import_WithoutDirectory_WritesHelpAndReturnsFailure()
+    public async Task Import_WithoutDirectory_WritesDiagnosticAndReturnsFailure()
     {
         using var harness = new CliInProcessHarness();
 
@@ -292,8 +292,8 @@ public sealed class NotebookImportIntegrationTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
-            Assert.That(result.StandardOutput, Does.Contain("Usage: mn notebooks import"));
-            Assert.That(result.StandardError, Is.Empty);
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.StandardError, Does.Contain("import directory"));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
         }
     }

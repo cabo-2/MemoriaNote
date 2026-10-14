@@ -9,6 +9,53 @@ namespace MemoriaNote.Cli.Tests;
 [NonParallelizable]
 public sealed class CliParserIntegrationTests
 {
+    /// <summary>Verifies required and mutually exclusive inputs fail before execution.</summary>
+    [TestCase("create", "notebook is required")]
+    [TestCase("use", "exactly one of <notebook> or --root")]
+    [TestCase("notebooks restore", "--target <notebook>")]
+    [TestCase("notebooks import", "import directory")]
+    [TestCase("notebooks export", "export directory")]
+    [TestCase("edit", "exactly one of <page-name> or --id")]
+    [TestCase("new", "No name")]
+    [TestCase("cat", "exactly one of <page-name> or --id")]
+    [TestCase("rename", "either <page-name> <new-name> or --id")]
+    [TestCase("delete --force", "exactly one of <page-name> or --id")]
+    public async Task MissingRequiredInput_ReturnsParserValidation(
+        string arguments,
+        string expectedDiagnostic)
+    {
+        using var harness = new CliInProcessHarness();
+
+        var result = await harness.RunAsync(arguments.Split(' '));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.StandardError, Does.Contain(expectedDiagnostic).IgnoreCase);
+            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
+        }
+    }
+
+    /// <summary>Verifies config does not accept a workspace option it does not use.</summary>
+    [Test]
+    public async Task Config_WithWorkspaceOption_IsUnrecognized()
+    {
+        using var harness = new CliInProcessHarness();
+
+        var result = await harness.RunAsync(
+            "config",
+            "--workspace",
+            harness.WorkingDirectory);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo(1));
+            Assert.That(result.StandardError, Does.Contain("Unrecognized option '--workspace'"));
+            Assert.That(result.StandardOutput, Does.Contain("--help"));
+        }
+    }
+
     /// <summary>Verifies removed legacy commands are unknown and have no side effects.</summary>
     [TestCase("work")]
     [TestCase("import")]

@@ -1,8 +1,11 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations;
+using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
+using McMaster.Extensions.CommandLineUtils.Conventions;
 
 namespace MemoriaNote.Cli
 {
@@ -23,6 +26,11 @@ namespace MemoriaNote.Cli
     [HelpOption("--help")]
     class Program
     {
+        const string NotebookArgumentDescription =
+            "Notebook file name in the workspace root; .mnote is optional";
+        const string NotebookOptionDescription =
+            "Notebook file to use from the workspace root; .mnote is optional";
+
         static Lazy<CliComposition> _composition;
 
         public static async Task<int> Main(string[] args)
@@ -40,9 +48,21 @@ namespace MemoriaNote.Cli
             Console.CancelKeyPress += cancelHandler;
             try
             {
-                return await CommandLineApplication.ExecuteAsync<Program>(
-                    args,
-                    cancellation.Token);
+                var app = new CommandLineApplication<Program>(
+                    new CliHelpTextGenerator(),
+                    PhysicalConsole.Singleton,
+                    Directory.GetCurrentDirectory());
+                app.Conventions.UseDefaultConventions();
+                ConfigureValidationErrors(app);
+                try
+                {
+                    return await app.ExecuteAsync(args, cancellation.Token);
+                }
+                catch (CommandParsingException exception)
+                {
+                    exception.Command.Error.WriteLine(exception.Message);
+                    return 1;
+                }
             }
             finally
             {
@@ -61,10 +81,21 @@ namespace MemoriaNote.Cli
 
         static CliCommandHandlers CommandHandlers => Composition.CommandHandlers;
 
+        static void ConfigureValidationErrors(CommandLineApplication command)
+        {
+            command.ValidationErrorHandler = result =>
+            {
+                command.Error.WriteLine($"Error: {result.ErrorMessage}");
+                return (int)CliExitCode.Validation;
+            };
+
+            foreach (var child in command.Commands)
+                ConfigureValidationErrors(child);
+        }
+
         [Option(
             "--workspace <directory>",
-            Description = "Use this directory as the workspace for this invocation",
-            Inherited = true)]
+            Description = "Use this directory as the workspace for this invocation")]
         public string Workspace { get; set; }
 
         protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
@@ -74,24 +105,42 @@ namespace MemoriaNote.Cli
                 cancellationToken);
         }
 
+        abstract class WorkspaceCommand
+        {
+            public Program Parent { get; set; }
+
+            [Option(
+                "--workspace <directory>",
+                Description = "Use this directory as the workspace for this invocation",
+                Inherited = true)]
+            public string Workspace { get; set; }
+
+            protected string WorkspacePath => Workspace ?? Parent?.Workspace;
+        }
+
         [Command(
             "create",
             Description = "Create a live notebook without overwriting an existing file")]
         [HelpOption("--help")]
-        class CreateCommand
+        class CreateCommand : WorkspaceCommand
         {
-            public Program Parent { get; set; }
-
             [Argument(
                 0,
                 Name = "notebook",
-                Description = "workspace-root notebook leaf name; .mnote is optional")]
+                Description = NotebookArgumentDescription)]
             public (bool hasValue, string value) NotebookFile { get; set; }
+
+            protected ValidationResult OnValidate()
+            {
+                return NotebookFile.hasValue
+                    ? ValidationResult.Success
+                    : new ValidationResult("A notebook is required.");
+            }
 
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
                 return CommandHandlers.CreateNotebook.ExecuteAsync(
-                    Parent?.Workspace,
+                    WorkspacePath,
                     NotebookFile.hasValue ? NotebookFile.value : null,
                     cancellationToken);
             }
@@ -101,23 +150,29 @@ namespace MemoriaNote.Cli
             "use",
             Description = "Select a notebook or return to the workspace root")]
         [HelpOption("--help")]
-        class UseCommand
+        class UseCommand : WorkspaceCommand
         {
-            public Program Parent { get; set; }
-
             [Argument(
                 0,
                 Name = "notebook",
-                Description = "workspace-root notebook leaf name; .mnote is optional")]
+                Description = NotebookArgumentDescription)]
             public (bool hasValue, string value) Notebook { get; set; }
 
             [Option("--root", Description = "Select the virtual workspace root")]
             public bool Root { get; set; }
 
+            protected ValidationResult OnValidate()
+            {
+                return Notebook.hasValue == Root
+                    ? new ValidationResult(
+                        "Specify exactly one of <notebook> or --root.")
+                    : ValidationResult.Success;
+            }
+
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
                 return CommandHandlers.UseNotebook.ExecuteAsync(
-                    Parent?.Workspace,
+                    WorkspacePath,
                     Notebook.hasValue ? Notebook.value : null,
                     Root,
                     cancellationToken);
@@ -128,14 +183,12 @@ namespace MemoriaNote.Cli
             "status",
             Description = "Show the workspace location and selected notebook state")]
         [HelpOption("--help")]
-        class StatusCommand
+        class StatusCommand : WorkspaceCommand
         {
-            public Program Parent { get; set; }
-
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
                 return CommandHandlers.Status.ExecuteAsync(
-                    Parent?.Workspace,
+                    WorkspacePath,
                     cancellationToken);
             }
         }
@@ -150,10 +203,8 @@ namespace MemoriaNote.Cli
                     typeof(NotebooksExportCommand),
                     typeof(NotebooksMetadataCommand))]
         [HelpOption("--help")]
-        class NotebooksCommand
+        class NotebooksCommand : WorkspaceCommand
         {
-            public Program Parent { get; set; }
-
             protected Task<int> OnExecuteAsync(CommandLineApplication app)
             {
                 app.ShowHelp();
@@ -174,7 +225,7 @@ namespace MemoriaNote.Cli
                 protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
                 {
                     return CommandHandlers.NotebookList.ExecuteAsync(
-                        Parent?.Parent?.Workspace,
+                        Parent?.WorkspacePath,
                         Long,
                         cancellationToken);
                 }
@@ -184,8 +235,7 @@ namespace MemoriaNote.Cli
                 "backup",
                 Description = "Create a validated archive v1 backup",
                 ExtendedHelpText =
-                    "Syntax: mn notebooks backup [<archive>] [--notebook <notebook>]" +
-                    "\nOmit <archive> or use - to write the archive to redirected " +
+                    "Omit <archive> or use - to write the archive to redirected " +
                     "standard output.")]
             [HelpOption("--help")]
             class NotebooksBackupCommand
@@ -195,18 +245,18 @@ namespace MemoriaNote.Cli
                 [Argument(
                     0,
                     Name = "archive",
-                    Description = "new archive file; omit or use - for standard output")]
+                    Description = "New archive file; omit or use - for standard output")]
                 public (bool hasValue, string value) Archive { get; set; }
 
                 [Option(
                     "--notebook <notebook>",
-                    Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
+                    Description = NotebookOptionDescription)]
                 public string Notebook { get; set; }
 
                 protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
                 {
                     return CommandHandlers.NotebookBackup.ExecuteAsync(
-                        Parent?.Parent?.Workspace,
+                        Parent?.WorkspacePath,
                         Notebook,
                         Archive.hasValue ? Archive.value : null,
                         cancellationToken);
@@ -217,8 +267,7 @@ namespace MemoriaNote.Cli
                 "restore",
                 Description = "Restore a validated archive v1 to a new notebook",
                 ExtendedHelpText =
-                    "Syntax: mn notebooks restore [<archive>] --target <notebook> [--dry-run]" +
-                    "\nOmit <archive> or use - to read the archive from redirected " +
+                    "Omit <archive> or use - to read the archive from redirected " +
                     "standard input.")]
             [HelpOption("--help")]
             class NotebooksRestoreCommand
@@ -228,23 +277,30 @@ namespace MemoriaNote.Cli
                 [Argument(
                     0,
                     Name = "archive",
-                    Description = "archive file; omit or use - for standard input")]
+                    Description = "Archive file; omit or use - for standard input")]
                 public (bool hasValue, string value) Archive { get; set; }
 
                 [Option(
                     "--target <notebook>",
-                    Description = "new workspace-root notebook leaf name; .mnote is optional")]
+                    Description = "New notebook file name in the workspace root; .mnote is optional")]
                 public string Target { get; set; }
 
                 [Option(
                     "--dry-run",
-                    Description = "fully validate the restore without creating a notebook")]
+                    Description = "Fully validate the restore without creating a notebook")]
                 public bool DryRun { get; set; }
+
+                protected ValidationResult OnValidate()
+                {
+                    return string.IsNullOrWhiteSpace(Target)
+                        ? new ValidationResult("Specify --target <notebook>.")
+                        : ValidationResult.Success;
+                }
 
                 protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
                 {
                     return CommandHandlers.NotebookRestore.ExecuteAsync(
-                        Parent?.Parent?.Workspace,
+                        Parent?.WorkspacePath,
                         Target,
                         Archive.hasValue ? Archive.value : null,
                         DryRun,
@@ -254,10 +310,7 @@ namespace MemoriaNote.Cli
 
             [Command(
                 "import",
-                Description = "Import flat strict-UTF-8 text files into a notebook",
-                ExtendedHelpText =
-                    "Syntax: mn notebooks import <directory> [--notebook <notebook>] " +
-                    "[--on-conflict fail|skip|replace] [--dry-run]")]
+                Description = "Import flat strict-UTF-8 text files into a notebook")]
             [HelpOption("--help")]
             class NotebooksImportCommand
             {
@@ -266,12 +319,12 @@ namespace MemoriaNote.Cli
                 [Argument(
                     0,
                     Name = "directory",
-                    Description = "existing directory containing flat lowercase .txt files")]
+                    Description = "Existing directory containing flat lowercase .txt files")]
                 public (bool hasValue, string value) Directory { get; set; }
 
                 [Option(
                     "--notebook <notebook>",
-                    Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
+                    Description = NotebookOptionDescription)]
                 public string Notebook { get; set; }
 
                 [Option(
@@ -281,21 +334,29 @@ namespace MemoriaNote.Cli
 
                 [Option(
                     "--dry-run",
-                    Description = "validate and summarize without changing the notebook")]
+                    Description = "Validate and summarize without changing the notebook")]
                 public bool DryRun { get; set; }
 
-                protected Task<int> OnExecuteAsync(
-                    CommandLineApplication app,
-                    CancellationToken cancellationToken)
+                protected ValidationResult OnValidate()
                 {
                     if (!Directory.hasValue)
+                        return new ValidationResult("Specify an import directory.");
+                    if (ConflictPolicy != null &&
+                        ConflictPolicy != "fail" &&
+                        ConflictPolicy != "skip" &&
+                        ConflictPolicy != "replace")
                     {
-                        app.ShowHelp();
-                        return Task.FromResult((int)CliExitCode.Validation);
+                        return new ValidationResult(
+                            "The conflict policy must be fail, skip, or replace.");
                     }
 
+                    return ValidationResult.Success;
+                }
+
+                protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+                {
                     return CommandHandlers.NotebookImport.ExecuteAsync(
-                        Parent?.Parent?.Workspace,
+                        Parent?.WorkspacePath,
                         Notebook,
                         Directory.value,
                         ConflictPolicy,
@@ -306,10 +367,7 @@ namespace MemoriaNote.Cli
 
             [Command(
                 "export",
-                Description = "Export notebook pages as flat UTF-8 text files",
-                ExtendedHelpText =
-                    "Syntax: mn notebooks export <directory> [--notebook <notebook>] " +
-                    "[--name-conflict fail|id-suffix]")]
+                Description = "Export notebook pages as flat UTF-8 text files")]
             [HelpOption("--help")]
             class NotebooksExportCommand
             {
@@ -318,12 +376,12 @@ namespace MemoriaNote.Cli
                 [Argument(
                     0,
                     Name = "directory",
-                    Description = "new destination directory for flat lowercase .txt files")]
+                    Description = "New destination directory for flat lowercase .txt files")]
                 public (bool hasValue, string value) Directory { get; set; }
 
                 [Option(
                     "--notebook <notebook>",
-                    Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
+                    Description = NotebookOptionDescription)]
                 public string Notebook { get; set; }
 
                 [Option(
@@ -331,18 +389,25 @@ namespace MemoriaNote.Cli
                     Description = "Output-name policy: fail (default) or id-suffix")]
                 public string NameConflictPolicy { get; set; }
 
-                protected Task<int> OnExecuteAsync(
-                    CommandLineApplication app,
-                    CancellationToken cancellationToken)
+                protected ValidationResult OnValidate()
                 {
                     if (!Directory.hasValue)
+                        return new ValidationResult("Specify an export directory.");
+                    if (NameConflictPolicy != null &&
+                        NameConflictPolicy != "fail" &&
+                        NameConflictPolicy != "id-suffix")
                     {
-                        app.ShowHelp();
-                        return Task.FromResult((int)CliExitCode.Validation);
+                        return new ValidationResult(
+                            "The name conflict policy must be fail or id-suffix.");
                     }
 
+                    return ValidationResult.Success;
+                }
+
+                protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+                {
                     return CommandHandlers.NotebookExport.ExecuteAsync(
-                        Parent?.Parent?.Workspace,
+                        Parent?.WorkspacePath,
                         Notebook,
                         Directory.value,
                         NameConflictPolicy,
@@ -354,10 +419,8 @@ namespace MemoriaNote.Cli
                 "metadata",
                 Description = "Show or update one notebook metadata field",
                 ExtendedHelpText =
-                    "Syntax: mn notebooks metadata [--notebook <notebook>] " +
-                    "[--name <value> | --title <value> | --description <value> | " +
-                    "--author <value> | --tag <value> | --read-only <true|false>]" +
-                    "\nUse - as a text value to read it from redirected standard input.")]
+                    "Specify at most one metadata update option. Use - as a text " +
+                    "value to read it from redirected standard input.")]
             [HelpOption("--help")]
             class NotebooksMetadataCommand
             {
@@ -365,7 +428,7 @@ namespace MemoriaNote.Cli
 
                 [Option(
                     "--notebook <notebook>",
-                    Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
+                    Description = NotebookOptionDescription)]
                 public string Notebook { get; set; }
 
                 [Option("--name <value>", Description = "Set the notebook display name; use - for standard input")]
@@ -386,10 +449,36 @@ namespace MemoriaNote.Cli
                 [Option("--read-only <value>", Description = "Set logical page-write protection: true or false")]
                 public string ReadOnly { get; set; }
 
+                protected ValidationResult OnValidate()
+                {
+                    var updateCount = 0;
+                    if (Name != null) updateCount++;
+                    if (Title != null) updateCount++;
+                    if (Description != null) updateCount++;
+                    if (Author != null) updateCount++;
+                    if (Tag != null) updateCount++;
+                    if (ReadOnly != null) updateCount++;
+
+                    if (updateCount > 1)
+                    {
+                        return new ValidationResult(
+                            "Specify only one metadata update option at a time.");
+                    }
+                    if (ReadOnly != null &&
+                        ReadOnly != "true" &&
+                        ReadOnly != "false")
+                    {
+                        return new ValidationResult(
+                            "Read-only must be true or false.");
+                    }
+
+                    return ValidationResult.Success;
+                }
+
                 protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
                 {
                     return CommandHandlers.NotebookMetadata.ExecuteAsync(
-                        Parent?.Parent?.Workspace,
+                        Parent?.WorkspacePath,
                         Notebook,
                         Name,
                         Title,
@@ -404,14 +493,12 @@ namespace MemoriaNote.Cli
 
         [Command("edit", Description = "Edit one page with an external editor")]
         [HelpOption("--help")]
-        class EditCommand
+        class EditCommand : WorkspaceCommand
         {
-            public Program Parent { get; set; }
-
             [Argument(
                 0,
                 Name = "page-name",
-                Description = "exact page name; omit when using --id")]
+                Description = "Exact page name; omit when using --id")]
             public string PageName { get; set; }
 
             [Option(
@@ -421,7 +508,7 @@ namespace MemoriaNote.Cli
 
             [Option(
                 "--notebook <notebook>",
-                Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
+                Description = NotebookOptionDescription)]
             public string Notebook { get; set; }
 
             [Option(
@@ -435,10 +522,15 @@ namespace MemoriaNote.Cli
                 Description = "Pass an argument to --editor; may be repeated")]
             public string[] EditorArguments { get; set; }
 
+            protected ValidationResult OnValidate()
+            {
+                return ValidatePageTarget(PageName, PageId);
+            }
+
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
                 return CommandHandlers.Edit.ExecuteAsync(
-                    Parent?.Workspace,
+                    WorkspacePath,
                     Notebook,
                     PageName,
                     PageId,
@@ -450,16 +542,14 @@ namespace MemoriaNote.Cli
 
         [Command("new", Description = "Create one page with an external editor")]
         [HelpOption("--help")]
-        class NewCommand
+        class NewCommand : WorkspaceCommand
         {
-            public Program Parent { get; set; }
-
-            [Argument(0, Name = "page-name", Description = "new page name")]
+            [Argument(0, Name = "page-name", Description = "New page name")]
             public (bool hasValue, string value) Name { get; set; }
 
             [Option(
                 "--notebook <notebook>",
-                Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
+                Description = NotebookOptionDescription)]
             public string Notebook { get; set; }
 
             [Option(
@@ -473,18 +563,17 @@ namespace MemoriaNote.Cli
                 Description = "Pass an argument to --editor; may be repeated")]
             public string[] EditorArguments { get; set; }
 
-            protected Task<int> OnExecuteAsync(
-                CommandLineApplication app,
-                CancellationToken cancellationToken)
+            protected ValidationResult OnValidate()
             {
-                if (!Name.hasValue)
-                {
-                    app.Error.WriteLine("Error: No name");
-                    return Task.FromResult((int)CliExitCode.Validation);
-                }
+                return Name.hasValue
+                    ? ValidationResult.Success
+                    : new ValidationResult("No name");
+            }
 
+            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+            {
                 return CommandHandlers.CreatePage.ExecuteAsync(
-                    Parent?.Workspace,
+                    WorkspacePath,
                     Notebook,
                     Name.value,
                     Editor,
@@ -596,25 +685,30 @@ namespace MemoriaNote.Cli
 
         [Command("ls", Description = "List pages in stable page-name order")]
         [HelpOption("--help")]
-        class ListCommand
+        class ListCommand : WorkspaceCommand
         {
-            public Program Parent { get; set; }
-
             [Option(
                 "--notebook <notebook>",
-                Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
+                Description = NotebookOptionDescription)]
             public string Notebook { get; set; }
 
-            [Option("--limit <count>", Description = "Return at most this many pages")]
+            [Option("--limit <count>", Description = "Return at most this many pages; must be positive")]
             public int? Limit { get; set; }
 
             [Option("-l|--long", Description = "Show all page metadata columns")]
             public bool Long { get; set; }
 
+            protected ValidationResult OnValidate()
+            {
+                return Limit <= 0
+                    ? new ValidationResult("Limit must be greater than zero.")
+                    : ValidationResult.Success;
+            }
+
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
                 return CommandHandlers.List.ExecuteAsync(
-                    Parent?.Workspace,
+                    WorkspacePath,
                     Notebook,
                     Limit,
                     Long,
@@ -624,14 +718,12 @@ namespace MemoriaNote.Cli
 
         [Command("cat", Description = "Write one page body to standard output")]
         [HelpOption("--help")]
-        class CatCommand
+        class CatCommand : WorkspaceCommand
         {
-            public Program Parent { get; set; }
-
             [Argument(
                 0,
                 Name = "page-name",
-                Description = "exact page name; omit when using --id")]
+                Description = "Exact page name; omit when using --id")]
             public string PageName { get; set; }
 
             [Option(
@@ -641,13 +733,18 @@ namespace MemoriaNote.Cli
 
             [Option(
                 "--notebook <notebook>",
-                Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
+                Description = NotebookOptionDescription)]
             public string Notebook { get; set; }
+
+            protected ValidationResult OnValidate()
+            {
+                return ValidatePageTarget(PageName, PageId);
+            }
 
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
                 return CommandHandlers.Cat.ExecuteAsync(
-                    Parent?.Workspace,
+                    WorkspacePath,
                     Notebook,
                     PageName,
                     PageId,
@@ -657,20 +754,18 @@ namespace MemoriaNote.Cli
 
         [Command("rename", Description = "Rename one page without changing its Page ID")]
         [HelpOption("--help")]
-        class RenameCommand
+        class RenameCommand : WorkspaceCommand
         {
-            public Program Parent { get; set; }
-
             [Argument(
                 0,
                 Name = "page-name",
-                Description = "exact current page name; with --id, the replacement name")]
+                Description = "Exact current page name; with --id, the replacement name")]
             public string PageName { get; set; }
 
             [Argument(
                 1,
                 Name = "new-name",
-                Description = "replacement page name; omit when using --id")]
+                Description = "Replacement page name; omit when using --id")]
             public string NewName { get; set; }
 
             [Option(
@@ -680,14 +775,26 @@ namespace MemoriaNote.Cli
 
             [Option(
                 "--notebook <notebook>",
-                Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
+                Description = NotebookOptionDescription)]
             public string Notebook { get; set; }
+
+            protected ValidationResult OnValidate()
+            {
+                if (PageId == null && PageName != null && NewName != null)
+                    return ValidationResult.Success;
+                if (PageId != null && PageName != null && NewName == null)
+                    return ValidationResult.Success;
+
+                return new ValidationResult(
+                    "Specify either <page-name> <new-name> or " +
+                    "--id <uuid-or-prefix> <new-name>.");
+            }
 
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
                 var selectingById = PageId != null;
                 return CommandHandlers.RenamePage.ExecuteAsync(
-                    Parent?.Workspace,
+                    WorkspacePath,
                     Notebook,
                     selectingById && NewName == null
                         ? null
@@ -702,14 +809,12 @@ namespace MemoriaNote.Cli
 
         [Command("delete", Description = "Delete one page after confirmation")]
         [HelpOption("--help")]
-        class DeleteCommand
+        class DeleteCommand : WorkspaceCommand
         {
-            public Program Parent { get; set; }
-
             [Argument(
                 0,
                 Name = "page-name",
-                Description = "exact page name; omit when using --id")]
+                Description = "Exact page name; omit when using --id")]
             public string PageName { get; set; }
 
             [Option(
@@ -719,7 +824,7 @@ namespace MemoriaNote.Cli
 
             [Option(
                 "--notebook <notebook>",
-                Description = "Use this workspace-root notebook leaf name for this invocation; .mnote is optional")]
+                Description = NotebookOptionDescription)]
             public string Notebook { get; set; }
 
             [Option("--force", Description = "Delete without an interactive confirmation")]
@@ -728,10 +833,15 @@ namespace MemoriaNote.Cli
             [Option("--dry-run", Description = "Validate and show the target without deleting")]
             public bool DryRun { get; set; }
 
+            protected ValidationResult OnValidate()
+            {
+                return ValidatePageTarget(PageName, PageId);
+            }
+
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
             {
                 return CommandHandlers.DeletePage.ExecuteAsync(
-                    Parent?.Workspace,
+                    WorkspacePath,
                     Notebook,
                     PageName,
                     PageId,
@@ -739,6 +849,16 @@ namespace MemoriaNote.Cli
                     DryRun,
                     cancellationToken);
             }
+        }
+
+        static ValidationResult ValidatePageTarget(
+            string pageName,
+            string pageId)
+        {
+            return (pageName == null) == (pageId == null)
+                ? new ValidationResult(
+                    "Specify exactly one of <page-name> or --id <uuid-or-prefix>.")
+                : ValidationResult.Success;
         }
 
     }
