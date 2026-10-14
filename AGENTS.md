@@ -23,8 +23,9 @@ This project uses C# targeting **.NET 10**.
 
 ## Build Verification
 
-Before committing code changes or marking a pull request ready, run the following verification commands from the
-repository root:
+Before committing code changes or marking a pull request ready, run the following verification commands outside the
+sandbox from the repository root. MSBuild and VSTest use local sockets for interprocess communication, which can be
+blocked by the sandbox and cause verification to fail independently of the source or tests:
 
 ```bash
 dotnet build MemoriaNote.sln
