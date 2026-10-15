@@ -57,7 +57,9 @@ public sealed class PageDeleteCommandHandlerTests
             Assert.That(validatedCommand?.PageId, Is.EqualTo(pageId));
             Assert.That(deletedCommand?.Target, Is.EqualTo(validatedCommand?.Target));
             Assert.That(fixture.Input.ReadCount, Is.Zero);
-            Assert.That(fixture.Output.StandardOutput, Does.Contain("deleted successfully"));
+            Assert.That(
+                fixture.Output.StandardOutput,
+                Does.Contain("Deleted page \"Meeting\""));
             Assert.That(fixture.Output.StandardError, Is.Empty);
         }
     }
@@ -113,7 +115,9 @@ public sealed class PageDeleteCommandHandlerTests
         {
             Assert.That(result, Is.Zero);
             Assert.That(fixture.Application.DeleteAsyncCallCount, Is.Zero);
-            Assert.That(fixture.Output.StandardOutput, Does.EndWith("Deletion canceled." + Environment.NewLine));
+            Assert.That(
+                fixture.Output.StandardOutput,
+                Does.EndWith("Page deletion canceled." + Environment.NewLine));
         }
     }
 

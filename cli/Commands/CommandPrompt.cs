@@ -22,11 +22,5 @@ namespace MemoriaNote.Cli
             return string.Equals(response?.Trim(), "y", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(response?.Trim(), "yes", StringComparison.OrdinalIgnoreCase);
         }
-
-        internal bool ReadTryAgain()
-        {
-            _output.Write("Try again?(y/n)_");
-            return _input.ReadLine().ToLower() == "y";
-        }
     }
 }

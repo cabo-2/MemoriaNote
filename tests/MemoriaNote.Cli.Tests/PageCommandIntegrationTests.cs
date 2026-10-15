@@ -52,7 +52,7 @@ public sealed class PageCommandIntegrationTests
         {
             Assert.That(duplicateResult.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
             Assert.That(duplicateResult.StandardOutput, Is.Empty);
-            Assert.That(duplicateResult.StandardError, Does.Contain("already in use"));
+            Assert.That(duplicateResult.StandardError, Does.Contain("already exists"));
             Assert.That(
                 (await repository.ListPagesByHeadingAsync(
                     notebookPath,
@@ -147,7 +147,7 @@ public sealed class PageCommandIntegrationTests
             CancellationToken.None);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.StandardOutput, Does.Contain("updated successfully"));
+            Assert.That(result.StandardOutput, Does.Contain("Updated page"));
             Assert.That(updated.Text, Is.EqualTo("Edited body"));
             Assert.That(updated.Guid, Is.EqualTo(page.Guid));
         }
@@ -167,7 +167,9 @@ public sealed class PageCommandIntegrationTests
         {
             Assert.That(result.ExitCode, Is.EqualTo(2));
             Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.Contain("Error: No name"));
+            Assert.That(
+                result.StandardError,
+                Does.Contain("Error: A page name is required."));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
         }
     }

@@ -46,8 +46,7 @@ namespace MemoriaNote.Cli
                 return Failure(
                     CliErrorKind.Validation,
                     "Legacy archives are not supported by this command. " +
-                    "Use a compatible older Memoria Note CLI release for manual recovery; " +
-                    "migration guidance will be provided by NCLI-660.");
+                    "Use a compatible older Memoria Note CLI release for manual recovery.");
             }
 
             return Failure(

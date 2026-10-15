@@ -1,7 +1,9 @@
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Application;
+using MemoriaNote.Persistence;
 
 namespace MemoriaNote.Cli
 {
@@ -41,15 +43,44 @@ namespace MemoriaNote.Cli
                 if (root)
                 {
                     _selection.SelectRoot(workspacePath);
-                    _output.WriteLine("Using workspace root: /");
+                    _output.WriteLine("Selected workspace root \"/\".");
                 }
                 else
                 {
                     var notebookFileName = NotebookInputParser.Parse(notebook);
-                    await _selection
-                        .SelectAsync(workspacePath, notebookFileName, token)
-                        .ConfigureAwait(false);
-                    _output.WriteLine($"Using notebook: {notebookFileName.Value}");
+                    try
+                    {
+                        await _selection
+                            .SelectAsync(workspacePath, notebookFileName, token)
+                            .ConfigureAwait(false);
+                    }
+                    catch (FileNotFoundException exception)
+                    {
+                        return CliCommandResult.Failure(
+                            CliErrorKind.NotFound,
+                            "The notebook file does not exist: " +
+                            $"{CliMessage.Quote(notebookFileName.Value)}.",
+                            exception);
+                    }
+                    catch (UnsupportedNotebookFormatVersionException exception)
+                    {
+                        return CliCommandResult.Failure(
+                            CliErrorKind.Validation,
+                            $"Notebook {CliMessage.Quote(notebookFileName.Value)} uses " +
+                            $"unsupported format version " +
+                            $"{CliMessage.Quote(exception.FormatVersion)}.",
+                            exception);
+                    }
+                    catch (InvalidDataException exception)
+                    {
+                        return CliCommandResult.Failure(
+                            CliErrorKind.Validation,
+                            $"Notebook {CliMessage.Quote(notebookFileName.Value)} is not " +
+                            "a valid current-format notebook.",
+                            exception);
+                    }
+                    _output.WriteLine(
+                        $"Selected notebook {CliMessage.Quote(notebookFileName.Value)}.");
                 }
 
                 return CliCommandResult.Success();

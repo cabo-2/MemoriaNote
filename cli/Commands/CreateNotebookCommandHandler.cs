@@ -48,7 +48,7 @@ namespace MemoriaNote.Cli
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.Validation,
-                        exception.Message,
+                        CliMessage.ArgumentReason(exception),
                         exception);
                 }
 
@@ -66,18 +66,20 @@ namespace MemoriaNote.Cli
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.Conflict,
-                        $"The notebook file already exists: {notebookPath}",
+                        $"The notebook file already exists: " +
+                        $"{CliMessage.Quote(notebookPath)}.",
                         exception);
                 }
                 catch (ArgumentException exception)
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.Validation,
-                        exception.Message,
+                        CliMessage.ArgumentReason(exception),
                         exception);
                 }
 
-                _output.WriteLine($"Created notebook: {notebookPath}");
+                _output.WriteLine(
+                    $"Created notebook {CliMessage.Quote(notebookPath)}.");
                 return CliCommandResult.Success();
             }, cancellationToken);
         }

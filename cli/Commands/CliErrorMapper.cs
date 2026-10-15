@@ -22,7 +22,66 @@ namespace MemoriaNote.Cli
             {
                 return CliCommandResult.Failure(
                     CliErrorKind.Canceled,
-                    "Operation was canceled",
+                    "The operation was interrupted.",
+                    exception);
+            }
+
+            if (exception is NotebookTargetNotFoundException)
+            {
+                return CliCommandResult.Failure(
+                    CliErrorKind.NotFound,
+                    exception.Message,
+                    exception);
+            }
+
+            if (exception is NotebookTargetValidationException)
+            {
+                return CliCommandResult.Failure(
+                    CliErrorKind.Validation,
+                    exception.Message,
+                    exception);
+            }
+
+            if (exception is CliValidationException)
+            {
+                return CliCommandResult.Failure(
+                    CliErrorKind.Validation,
+                    exception.Message,
+                    exception);
+            }
+
+            if (exception is UnsupportedUserConfigurationVersionException ||
+                exception is UserConfigurationSetupInputException ||
+                exception is UnsupportedNotebookFormatVersionException)
+            {
+                return CliCommandResult.Failure(
+                    CliErrorKind.Validation,
+                    exception.Message,
+                    exception);
+            }
+
+            if (exception is UserConfigurationFormatException)
+            {
+                return CliCommandResult.Failure(
+                    CliErrorKind.Validation,
+                    exception.Message,
+                    exception);
+            }
+
+            if (exception is UnsupportedWorkspaceConfigurationVersionException)
+            {
+                return CliCommandResult.Failure(
+                    CliErrorKind.Validation,
+                    "The workspace configuration uses an unsupported format version. " +
+                    "Run 'mn status' for details.",
+                    exception);
+            }
+
+            if (exception is WorkspaceConfigurationFormatException)
+            {
+                return CliCommandResult.Failure(
+                    CliErrorKind.Validation,
+                    "The workspace configuration is invalid. Run 'mn status' for details.",
                     exception);
             }
 
@@ -31,19 +90,15 @@ namespace MemoriaNote.Cli
             {
                 return CliCommandResult.Failure(
                     CliErrorKind.NotFound,
-                    exception.Message,
+                    "A required file or directory was not found.",
                     exception);
             }
 
-            if (exception is InvalidDataException ||
-                exception is UserConfigurationFormatException ||
-                exception is UserConfigurationSetupInputException ||
-                exception is WorkspaceConfigurationFormatException ||
-                exception is UnsupportedNotebookFormatVersionException)
+            if (exception is InvalidDataException)
             {
                 return CliCommandResult.Failure(
                     CliErrorKind.Validation,
-                    exception.Message,
+                    "The input data is invalid.",
                     exception);
             }
 
@@ -75,13 +130,13 @@ namespace MemoriaNote.Cli
             {
                 return CliCommandResult.Failure(
                     CliErrorKind.Storage,
-                    exception.Message,
+                    "The command could not complete because of a storage error.",
                     exception);
             }
 
             return CliCommandResult.Failure(
                 CliErrorKind.Unexpected,
-                exception.Message,
+                "An unexpected error occurred.",
                 exception);
         }
 

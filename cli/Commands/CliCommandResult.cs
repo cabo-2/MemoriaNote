@@ -34,7 +34,7 @@ namespace MemoriaNote.Cli
         {
             ExitCode = exitCode;
             ErrorKind = errorKind;
-            Message = message;
+            Message = message == null ? null : CliMessage.AsSentence(message);
             Exception = exception;
             AlreadyReported = alreadyReported;
         }

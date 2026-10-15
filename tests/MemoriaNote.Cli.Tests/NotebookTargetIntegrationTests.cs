@@ -232,7 +232,9 @@ public sealed class NotebookTargetIntegrationTests
         {
             Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.Contain("not a current Memoria Note notebook"));
+            Assert.That(
+                result.StandardError,
+                Does.Contain("not a valid current-format notebook"));
             Assert.That(
                 await File.ReadAllTextAsync(notebookPath),
                 Is.EqualTo(invalidContent));
@@ -256,6 +258,7 @@ public sealed class NotebookTargetIntegrationTests
             Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(result.StandardOutput, Is.Empty);
             Assert.That(result.StandardError, Does.Contain(".mnote"));
+            Assert.That(result.StandardError, Does.Not.Contain("Parameter"));
         }
     }
 

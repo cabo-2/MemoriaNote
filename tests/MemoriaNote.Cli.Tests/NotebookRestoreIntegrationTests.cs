@@ -80,7 +80,7 @@ public sealed class NotebookRestoreIntegrationTests
             Assert.That(
                 result.StandardOutput,
                 Does.Contain($"destination=\"{destinationPath}"));
-            Assert.That(result.StandardOutput, Does.Match(@"metadata=\d+, pages=2\r?\n$"));
+            Assert.That(result.StandardOutput, Does.Match(@"metadata=\d+, pages=2\.\r?\n$"));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(File.Exists(destinationPath), Is.True);
             Assert.That(restoredMetadata.Metadata.Name, Is.EqualTo(sourceMetadata.Metadata.Name));
@@ -260,7 +260,8 @@ public sealed class NotebookRestoreIntegrationTests
             Assert.That(result.StandardOutput, Is.Empty);
             Assert.That(result.StandardError, Does.Contain("Legacy archives"));
             Assert.That(result.StandardError, Does.Contain("older Memoria Note CLI"));
-            Assert.That(result.StandardError, Does.Contain("NCLI-660"));
+            Assert.That(result.StandardError, Does.Contain("manual recovery"));
+            Assert.That(result.StandardError, Does.Not.Contain("NCLI-"));
             Assert.That(
                 File.Exists(Path.Combine(harness.WorkingDirectory, "restored.mnote")),
                 Is.False);

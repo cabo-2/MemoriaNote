@@ -114,7 +114,10 @@ public sealed class CommandOutputAdapterTests
             Assert.That(standardOutput.ToString(), Is.Empty);
             Assert.That(
                 standardError.ToString(),
-                Is.EqualTo("Fatal: unavailable" + Environment.NewLine));
+                Is.EqualTo(
+                    "Fatal: An unexpected error occurred." +
+                    Environment.NewLine));
+            Assert.That(standardError.ToString(), Does.Not.Contain("unavailable"));
         }
     }
 
@@ -147,7 +150,9 @@ public sealed class CommandOutputAdapterTests
             Assert.That(standardOutput.ToString(), Is.Empty);
             Assert.That(
                 standardError.ToString(),
-                Is.EqualTo("Error: Operation was canceled" + Environment.NewLine));
+                Is.EqualTo(
+                    "Canceled: The operation was interrupted." +
+                    Environment.NewLine));
         }
     }
 

@@ -53,15 +53,21 @@ namespace MemoriaNote.Cli
                     PhysicalConsole.Singleton,
                     Directory.GetCurrentDirectory());
                 app.Conventions.UseDefaultConventions();
+                using var parserOutput = new StringWriter();
+                ConfigureParserOutput(app, parserOutput);
                 ConfigureValidationErrors(app);
                 try
                 {
-                    return await app.ExecuteAsync(args, cancellation.Token);
+                    var exitCode = await app.ExecuteAsync(args, cancellation.Token);
+                    Console.Out.Write(parserOutput.ToString());
+                    return exitCode;
                 }
                 catch (CommandParsingException exception)
                 {
-                    exception.Command.Error.WriteLine(exception.Message);
-                    return 1;
+                    exception.Command.Error.WriteLine(
+                        $"Error: {CliMessage.AsSentence(exception.Message)}");
+                    exception.Command.Error.Write(parserOutput.ToString());
+                    return (int)CliExitCode.Validation;
                 }
             }
             finally
@@ -91,6 +97,15 @@ namespace MemoriaNote.Cli
 
             foreach (var child in command.Commands)
                 ConfigureValidationErrors(child);
+        }
+
+        static void ConfigureParserOutput(
+            CommandLineApplication command,
+            TextWriter output)
+        {
+            command.Out = output;
+            foreach (var child in command.Commands)
+                ConfigureParserOutput(child, output);
         }
 
         [Option(
@@ -567,7 +582,7 @@ namespace MemoriaNote.Cli
             {
                 return Name.hasValue
                     ? ValidationResult.Success
-                    : new ValidationResult("No name");
+                    : new ValidationResult("A page name is required.");
             }
 
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)

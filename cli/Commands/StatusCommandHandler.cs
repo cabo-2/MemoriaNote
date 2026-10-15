@@ -46,8 +46,9 @@ namespace MemoriaNote.Cli
             _output.WriteLine(
                 $"Notebook:  {status.CurrentNotebook?.Value ?? NotebookDisplay(status)}");
             _output.WriteLine($"Status:    {StatusDisplay(status.Status)}");
-            if (status.Detail != null)
-                _output.WriteLine($"Detail:    {status.Detail}");
+            var detail = DetailDisplay(status);
+            if (detail != null)
+                _output.WriteLine($"Detail:    {detail}");
 
             var next = NextAction(status);
             if (next != null)
@@ -60,12 +61,12 @@ namespace MemoriaNote.Cli
             {
                 WorkspaceStatusKind.Missing => CliCommandResult.Failure(
                     CliErrorKind.NotFound,
-                    status.Detail,
+                    DetailDisplay(status),
                     alreadyReported: true),
                 WorkspaceStatusKind.Invalid or WorkspaceStatusKind.Unsupported =>
                     CliCommandResult.Failure(
                         CliErrorKind.Validation,
-                        status.Detail,
+                        DetailDisplay(status),
                         alreadyReported: true),
                 _ => CliCommandResult.Success()
             };
@@ -90,6 +91,46 @@ namespace MemoriaNote.Cli
                 WorkspaceStatusKind.ReadOnly => "read-only",
                 _ => throw new ArgumentOutOfRangeException(nameof(status))
             };
+        }
+
+        static string DetailDisplay(WorkspaceStatusResult status)
+        {
+            if (status.Status == WorkspaceStatusKind.ReadOnly)
+            {
+                return "Read operations are available, but changes are not allowed.";
+            }
+            if (status.Subject == WorkspaceStatusSubject.Notebook)
+            {
+                return status.Status switch
+                {
+                    WorkspaceStatusKind.Missing =>
+                        "The selected notebook file does not exist.",
+                    WorkspaceStatusKind.Invalid =>
+                        "The selected notebook is not a valid current-format notebook.",
+                    WorkspaceStatusKind.Unsupported =>
+                        status.UnsupportedFormatVersion == null
+                            ? "The selected notebook uses an unsupported format version."
+                            : "The selected notebook uses unsupported format version " +
+                                $"{CliMessage.Quote(status.UnsupportedFormatVersion)}.",
+                    _ => null
+                };
+            }
+            if (status.Subject == WorkspaceStatusSubject.Workspace)
+            {
+                return status.Status switch
+                {
+                    WorkspaceStatusKind.Invalid =>
+                        "The workspace configuration is invalid.",
+                    WorkspaceStatusKind.Unsupported =>
+                        status.UnsupportedFormatVersion == null
+                            ? "The workspace configuration uses an unsupported format version."
+                            : "The workspace configuration uses unsupported format version " +
+                                $"{CliMessage.Quote(status.UnsupportedFormatVersion)}.",
+                    _ => null
+                };
+            }
+
+            return null;
         }
 
         static string NextAction(WorkspaceStatusResult status)

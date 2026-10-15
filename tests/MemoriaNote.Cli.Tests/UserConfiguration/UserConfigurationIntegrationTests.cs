@@ -38,7 +38,9 @@ public sealed class UserConfigurationIntegrationTests
             Assert.That(ContainsCommand(editor.StandardOutput, "setup"), Is.True);
             Assert.That(ContainsCommand(editor.StandardOutput, "show"), Is.True);
             Assert.That(ContainsCommand(editor.StandardOutput, "unset"), Is.True);
-            Assert.That(removedEdit.ExitCode, Is.EqualTo(1));
+            Assert.That(
+                removedEdit.ExitCode,
+                Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(File.Exists(harness.UserConfigurationPath), Is.False);
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
         }

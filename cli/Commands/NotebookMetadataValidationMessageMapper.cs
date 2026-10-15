@@ -15,8 +15,8 @@ namespace MemoriaNote.Cli
         {
             return error switch
             {
-                NotebookMetadataErrorCode.NameRequired => "Name cannot be blank",
-                NotebookMetadataErrorCode.TitleRequired => "Title cannot be blank",
+                NotebookMetadataErrorCode.NameRequired => "Name cannot be blank.",
+                NotebookMetadataErrorCode.TitleRequired => "Title cannot be blank.",
                 NotebookMetadataErrorCode.ControlCharacter =>
                     "The metadata value contains an unsupported control character.",
                 NotebookMetadataErrorCode.InvalidReadOnlyValue =>

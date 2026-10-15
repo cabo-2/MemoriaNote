@@ -49,7 +49,9 @@ public sealed class PageRenameCommandHandlerTests
             Assert.That(command?.PageId, Is.EqualTo(pageId));
             Assert.That(command?.Name, Is.EqualTo("After"));
             Assert.That(fixture.Application.RenameAsyncCallCount, Is.EqualTo(1));
-            Assert.That(fixture.Output.StandardOutput, Does.Contain("renamed successfully"));
+            Assert.That(
+                fixture.Output.StandardOutput,
+                Does.Contain("Renamed page to \"After\""));
             Assert.That(fixture.Output.StandardError, Is.Empty);
         }
     }

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -48,7 +49,8 @@ namespace MemoriaNote.Application
             NotebookFileName currentNotebook,
             WorkspaceStatusKind status,
             WorkspaceStatusSubject subject,
-            string detail)
+            string detail,
+            string unsupportedFormatVersion = null)
         {
             WorkspacePath = workspacePath ??
                 throw new ArgumentNullException(nameof(workspacePath));
@@ -57,6 +59,7 @@ namespace MemoriaNote.Application
             Status = status;
             Subject = subject;
             Detail = detail;
+            UnsupportedFormatVersion = unsupportedFormatVersion;
         }
 
         /// <summary>Gets the resolved physical workspace path.</summary>
@@ -78,6 +81,9 @@ namespace MemoriaNote.Application
 
         /// <summary>Gets an optional diagnostic explanation.</summary>
         public string Detail { get; }
+
+        /// <summary>Gets an unsupported format version when one was recognized.</summary>
+        public string UnsupportedFormatVersion { get; }
     }
 
     /// <summary>Inspects workspace selection state without changing persisted data.</summary>
@@ -122,7 +128,8 @@ namespace MemoriaNote.Application
                 return ConfigurationFailure(
                     normalizedWorkspacePath,
                     WorkspaceStatusKind.Unsupported,
-                    exception.Message);
+                    exception.Message,
+                    exception.FormatVersion.ToString(CultureInfo.InvariantCulture));
             }
             catch (WorkspaceConfigurationFormatException exception)
             {
@@ -184,7 +191,8 @@ namespace MemoriaNote.Application
                     virtualLocation,
                     currentNotebook,
                     WorkspaceStatusKind.Unsupported,
-                    exception.Message);
+                    exception.Message,
+                    exception.FormatVersion);
             }
             catch (FileNotFoundException)
             {
@@ -209,7 +217,8 @@ namespace MemoriaNote.Application
         static WorkspaceStatusResult ConfigurationFailure(
             string workspacePath,
             WorkspaceStatusKind status,
-            string detail)
+            string detail,
+            string unsupportedFormatVersion = null)
         {
             return new WorkspaceStatusResult(
                 workspacePath,
@@ -217,7 +226,8 @@ namespace MemoriaNote.Application
                 null,
                 status,
                 WorkspaceStatusSubject.Workspace,
-                detail);
+                detail,
+                unsupportedFormatVersion);
         }
 
         static WorkspaceStatusResult NotebookFailure(
@@ -225,7 +235,8 @@ namespace MemoriaNote.Application
             string virtualLocation,
             NotebookFileName currentNotebook,
             WorkspaceStatusKind status,
-            string detail)
+            string detail,
+            string unsupportedFormatVersion = null)
         {
             return new WorkspaceStatusResult(
                 workspacePath,
@@ -233,7 +244,8 @@ namespace MemoriaNote.Application
                 currentNotebook,
                 status,
                 WorkspaceStatusSubject.Notebook,
-                detail);
+                detail,
+                unsupportedFormatVersion);
         }
     }
 }

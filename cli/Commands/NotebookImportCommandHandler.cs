@@ -56,11 +56,12 @@ namespace MemoriaNote.Cli
                 {
                     sourcePath = Path.GetFullPath(sourceDirectory);
                 }
-                catch (ArgumentException exception)
+                catch (Exception exception) when (
+                    CliMessage.IsInvalidPathException(exception))
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.Validation,
-                        exception.Message,
+                        "The import directory path is invalid.",
                         exception);
                 }
 
@@ -68,7 +69,8 @@ namespace MemoriaNote.Cli
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.NotFound,
-                        $"The import directory does not exist: {sourcePath}");
+                        $"The import directory does not exist: " +
+                        $"{CliMessage.Quote(sourcePath)}.");
                 }
 
                 var session = await _targetResolver.ResolveAsync(
@@ -92,7 +94,7 @@ namespace MemoriaNote.Cli
                     $"Import {(dryRun ? "validated" : "completed")}: " +
                     $"source={Quote(sourcePath)}, target={Quote(targetPath)}, " +
                     $"created={result.CreatedCount}, replaced={result.ReplacedCount}, " +
-                    $"skipped={result.SkippedCount}");
+                    $"skipped={result.SkippedCount}.");
                 return CliCommandResult.Success();
             }, cancellationToken);
         }
@@ -157,10 +159,7 @@ namespace MemoriaNote.Cli
 
         static string Quote(string value)
         {
-            return "\"" + value
-                .Replace("\"", "\\\"", StringComparison.Ordinal)
-                .Replace("\r", "\\r", StringComparison.Ordinal)
-                .Replace("\n", "\\n", StringComparison.Ordinal) + "\"";
+            return CliMessage.Quote(value);
         }
     }
 }

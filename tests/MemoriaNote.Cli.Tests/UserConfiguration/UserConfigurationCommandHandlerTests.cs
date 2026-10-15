@@ -266,8 +266,8 @@ public sealed class UserConfigurationCommandHandlerTests
     }
 
     /// <summary>Verifies cancel, declined confirmation, and EOF never save configuration.</summary>
-    [TestCase(new[] { "0" }, 0, "Operation was canceled.")]
-    [TestCase(new[] { "3", "n" }, 0, "Operation was canceled.")]
+    [TestCase(new[] { "0" }, 0, "Editor setup canceled.")]
+    [TestCase(new[] { "3", "n" }, 0, "Editor setup canceled.")]
     [TestCase(new string?[] { null }, (int)CliExitCode.Validation, "Input ended")]
     [TestCase(new string?[] { "2", null }, (int)CliExitCode.Validation, "Input ended")]
     public async Task EditorSetup_IncompleteOrCanceledInput_DoesNotSave(

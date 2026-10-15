@@ -309,7 +309,9 @@ namespace MemoriaNote.Cli
             }
             catch (ArgumentException exception)
             {
-                throw new UserConfigurationSetupInputException(exception.Message, exception);
+                throw new UserConfigurationSetupInputException(
+                    CliMessage.ArgumentReason(exception),
+                    exception);
             }
         }
 
@@ -330,7 +332,9 @@ namespace MemoriaNote.Cli
             }
             catch (ArgumentException exception)
             {
-                throw new UserConfigurationSetupInputException(exception.Message, exception);
+                throw new UserConfigurationSetupInputException(
+                    CliMessage.ArgumentReason(exception),
+                    exception);
             }
         }
 
@@ -382,7 +386,7 @@ namespace MemoriaNote.Cli
 
         CliCommandResult Canceled()
         {
-            _output.WriteLine("Operation was canceled.");
+            _output.WriteLine("Editor setup canceled.");
             return CliCommandResult.Success();
         }
 

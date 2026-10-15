@@ -85,11 +85,13 @@ public sealed class ProcessInvocationTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.ExitCode, Is.EqualTo(1));
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result.StandardError, Does.StartWith("Error:"));
             Assert.That(
                 result.StandardError,
                 Does.Contain("Unrecognized command or argument 'unknown-command'"));
-            Assert.That(result.StandardOutput, Does.Contain("--help"));
+            Assert.That(result.StandardError, Does.Contain("--help"));
+            Assert.That(result.StandardOutput, Is.Empty);
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
         }
     }

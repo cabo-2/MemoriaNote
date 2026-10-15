@@ -57,7 +57,7 @@ public sealed class NotebookExportIntegrationTests
             Assert.That(result.StandardOutput, Does.StartWith("Export completed: "));
             Assert.That(result.StandardOutput, Does.Contain($"source=\"{notebookPath}\""));
             Assert.That(result.StandardOutput, Does.Contain($"destination=\"{destination}\""));
-            Assert.That(result.StandardOutput, Does.Match(@"exported=1\r?\n$"));
+            Assert.That(result.StandardOutput, Does.Match(@"exported=1\.\r?\n$"));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(Directory.GetDirectories(destination), Is.Empty);
             Assert.That(bytes.AsSpan().StartsWith(Encoding.UTF8.Preamble), Is.False);
