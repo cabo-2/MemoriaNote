@@ -73,6 +73,8 @@ public sealed class CliErrorMappingTests
         {
             Assert.That(result.ErrorKind, Is.EqualTo(CliErrorKind.Unexpected));
             Assert.That(result.ExitCode, Is.EqualTo(CliExitCode.Unexpected));
+            Assert.That(result.Message, Is.EqualTo("An unexpected error occurred."));
+            Assert.That(result.Message, Does.Not.Contain("broken"));
         }
     }
 
@@ -100,7 +102,7 @@ public sealed class CliErrorMappingTests
             Assert.That(standardOutput.ToString(), Is.Empty);
             Assert.That(
                 standardError.ToString(),
-                Is.EqualTo("Error: invalid input" + Environment.NewLine));
+                Is.EqualTo("Error: invalid input." + Environment.NewLine));
         }
     }
 
@@ -134,7 +136,9 @@ public sealed class CliErrorMappingTests
             Assert.That(standardOutput.ToString(), Is.Empty);
             Assert.That(
                 standardError.ToString(),
-                Is.EqualTo("Error: Operation was canceled" + Environment.NewLine));
+                Is.EqualTo(
+                    "Canceled: The operation was interrupted." +
+                    Environment.NewLine));
         }
     }
 

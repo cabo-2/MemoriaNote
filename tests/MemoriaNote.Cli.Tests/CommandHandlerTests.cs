@@ -52,7 +52,7 @@ public sealed class CommandHandlerTests
             Assert.That(externalEditor.Documents[0].Text, Is.Empty);
             Assert.That(
                 standardOutput.ToString(),
-                Does.Contain("The text created successfully."));
+                Does.Contain("Created the page."));
             Assert.That(standardError.ToString(), Is.Empty);
         }
     }

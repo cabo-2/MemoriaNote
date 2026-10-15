@@ -37,7 +37,7 @@ public sealed class PageDeleteIntegrationTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.ExitCode, Is.Zero);
-            Assert.That(result.StandardOutput, Does.Contain("deleted successfully"));
+            Assert.That(result.StandardOutput, Does.Contain("Deleted page"));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(
                 await repository.FindPageAsync(notebookPath, target.Guid, CancellationToken.None),

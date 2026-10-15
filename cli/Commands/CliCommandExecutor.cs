@@ -93,9 +93,12 @@ namespace MemoriaNote.Cli
 
         void WriteFailure(CliCommandResult result)
         {
-            var prefix = result.ErrorKind == CliErrorKind.Unexpected
-                ? "Fatal"
-                : "Error";
+            var prefix = result.ErrorKind switch
+            {
+                CliErrorKind.Unexpected => "Fatal",
+                CliErrorKind.Canceled => "Canceled",
+                _ => "Error"
+            };
             _output.WriteErrorLine($"{prefix}: {result.Message}");
         }
     }

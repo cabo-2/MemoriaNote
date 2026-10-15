@@ -127,8 +127,10 @@ namespace MemoriaNote.Cli
                 var fieldName = ToOptionName(option.Field);
                 _output.WriteLine(
                     result.Changed
-                        ? $"Metadata updated: notebook={notebookFileName}, field={fieldName}"
-                        : $"Metadata unchanged: notebook={notebookFileName}");
+                        ? $"Metadata updated: notebook={notebookFileName}, " +
+                            $"field={fieldName}."
+                        : $"Metadata unchanged: notebook={notebookFileName}, " +
+                            $"field={fieldName}.");
                 return CliCommandResult.Success();
             }, cancellationToken);
         }
@@ -141,10 +143,10 @@ namespace MemoriaNote.Cli
             _output.WriteLine($"Description: {Escape(metadata.Description)}");
             _output.WriteLine($"Author: {Escape(metadata.Author)}");
             _output.WriteLine($"Tag: {Escape(metadata.Tag)}");
-            _output.WriteLine($"ReadOnly: {metadata.ReadOnly.ToString().ToLowerInvariant()}");
+            _output.WriteLine($"Read-only: {metadata.ReadOnly.ToString().ToLowerInvariant()}");
             _output.WriteLine($"Version: {Escape(metadata.Version)}");
             _output.WriteLine(
-                "CreateTime: " +
+                "Created: " +
                 (metadata.CreateTime == default
                     ? "(unset)"
                     : metadata.CreateTime.ToString(

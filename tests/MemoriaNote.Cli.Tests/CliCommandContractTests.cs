@@ -42,7 +42,9 @@ public sealed class CliCommandContractTests
             Assert.That(fixture.Editor.Documents, Has.Count.EqualTo(1));
             Assert.That(fixture.Editor.Documents[0].FileName, Is.EqualTo("Existing page"));
             Assert.That(fixture.Editor.Documents[0].Text, Is.EqualTo("Before"));
-            Assert.That(fixture.Output.StandardOutput, Does.Contain("updated successfully"));
+            Assert.That(
+                fixture.Output.StandardOutput,
+                Does.Contain("Updated page \"Existing page\""));
             Assert.That(fixture.Output.StandardError, Is.Empty);
         }
     }
@@ -88,7 +90,7 @@ public sealed class CliCommandContractTests
             Assert.That(fixture.Output.StandardOutput, Is.Empty);
             Assert.That(
                 fixture.Output.StandardError,
-                Is.EqualTo("Error: No name" + Environment.NewLine));
+                Is.EqualTo("Error: A page name is required." + Environment.NewLine));
         }
     }
 
@@ -207,7 +209,12 @@ public sealed class CliCommandContractTests
             Assert.That(fixture.Output.PageListCallCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardError,
-                Is.EqualTo("Error: database is unavailable" + Environment.NewLine));
+                Is.EqualTo(
+                    "Error: The command could not complete because of a storage error." +
+                    Environment.NewLine));
+            Assert.That(
+                fixture.Output.StandardError,
+                Does.Not.Contain("database is unavailable"));
         }
     }
 
@@ -236,7 +243,9 @@ public sealed class CliCommandContractTests
             Assert.That(fixture.Output.PageListCallCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardError,
-                Is.EqualTo("Error: Operation was canceled" + Environment.NewLine));
+                Is.EqualTo(
+                    "Canceled: The operation was interrupted." +
+                    Environment.NewLine));
         }
     }
 

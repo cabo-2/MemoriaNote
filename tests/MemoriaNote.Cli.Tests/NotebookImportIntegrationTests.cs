@@ -64,7 +64,9 @@ public sealed class NotebookImportIntegrationTests
             Assert.That(result.StandardOutput, Does.StartWith("Import completed: "));
             Assert.That(result.StandardOutput, Does.Contain($"source=\"{source}\""));
             Assert.That(result.StandardOutput, Does.Contain($"target=\"{notebookPath}\""));
-            Assert.That(result.StandardOutput, Does.Match(@"created=1, replaced=0, skipped=0\r?\n$"));
+            Assert.That(
+                result.StandardOutput,
+                Does.Match(@"created=1, replaced=0, skipped=0\.\r?\n$"));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(imported, Is.Not.Null);
             Assert.That(imported!.Text, Is.EqualTo(expected));

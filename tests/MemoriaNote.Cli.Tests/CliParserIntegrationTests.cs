@@ -16,7 +16,7 @@ public sealed class CliParserIntegrationTests
     [TestCase("notebooks import", "import directory")]
     [TestCase("notebooks export", "export directory")]
     [TestCase("edit", "exactly one of <page-name> or --id")]
-    [TestCase("new", "No name")]
+    [TestCase("new", "A page name is required")]
     [TestCase("cat", "exactly one of <page-name> or --id")]
     [TestCase("rename", "either <page-name> <new-name> or --id")]
     [TestCase("delete --force", "exactly one of <page-name> or --id")]
@@ -50,9 +50,12 @@ public sealed class CliParserIntegrationTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.ExitCode, Is.EqualTo(1));
-            Assert.That(result.StandardError, Does.Contain("Unrecognized option '--workspace'"));
-            Assert.That(result.StandardOutput, Does.Contain("--help"));
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(
+                result.StandardError,
+                Does.StartWith("Error: Unrecognized option '--workspace'"));
+            Assert.That(result.StandardError, Does.Contain("--help"));
+            Assert.That(result.StandardOutput, Is.Empty);
         }
     }
 
@@ -71,11 +74,13 @@ public sealed class CliParserIntegrationTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.ExitCode, Is.EqualTo(1));
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(
                 result.StandardError,
-                Does.Contain($"Unrecognized command or argument '{command}'"));
-            Assert.That(result.StandardOutput, Does.Contain("--help"));
+                Does.StartWith(
+                    $"Error: Unrecognized command or argument '{command}'"));
+            Assert.That(result.StandardError, Does.Contain("--help"));
+            Assert.That(result.StandardOutput, Is.Empty);
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
             Assert.That(
                 Directory.EnumerateFileSystemEntries(harness.WorkingDirectory),

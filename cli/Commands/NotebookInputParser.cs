@@ -14,7 +14,9 @@ namespace MemoriaNote.Cli
             }
             catch (ArgumentException exception)
             {
-                throw new InvalidDataException(exception.Message, exception);
+                throw new CliValidationException(
+                    CliMessage.ArgumentReason(exception),
+                    exception);
             }
         }
     }

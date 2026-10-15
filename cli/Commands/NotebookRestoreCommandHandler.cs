@@ -43,7 +43,8 @@ namespace MemoriaNote.Cli
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.Conflict,
-                        $"The notebook destination already exists: {destinationPath}");
+                        $"The notebook destination already exists: " +
+                        $"{CliMessage.Quote(destinationPath)}.");
                 }
 
                 var readStandardInput = archive == null || archive == "-";
@@ -69,11 +70,12 @@ namespace MemoriaNote.Cli
                     {
                         archivePath = Path.GetFullPath(archive);
                     }
-                    catch (ArgumentException exception)
+                    catch (Exception exception) when (
+                        CliMessage.IsInvalidPathException(exception))
                     {
                         return CliCommandResult.Failure(
                             CliErrorKind.Validation,
-                            exception.Message,
+                            "The archive path is invalid.",
                             exception);
                     }
                 }
@@ -100,17 +102,14 @@ namespace MemoriaNote.Cli
                 _output.WriteLine(
                     $"Restore {(dryRun ? "validated" : "completed")}: " +
                     $"destination={Quote(destinationPath)}, " +
-                    $"metadata={result.MetadataCount}, pages={result.PageCount}");
+                    $"metadata={result.MetadataCount}, pages={result.PageCount}.");
                 return CliCommandResult.Success();
             }, cancellationToken);
         }
 
         static string Quote(string value)
         {
-            return "\"" + value
-                .Replace("\"", "\\\"", StringComparison.Ordinal)
-                .Replace("\r", "\\r", StringComparison.Ordinal)
-                .Replace("\n", "\\n", StringComparison.Ordinal) + "\"";
+            return CliMessage.Quote(value);
         }
     }
 }

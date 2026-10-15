@@ -57,11 +57,12 @@ namespace MemoriaNote.Cli
                 {
                     destinationPath = Path.GetFullPath(destinationDirectory);
                 }
-                catch (ArgumentException exception)
+                catch (Exception exception) when (
+                    CliMessage.IsInvalidPathException(exception))
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.Validation,
-                        exception.Message,
+                        "The export directory path is invalid.",
                         exception);
                 }
 
@@ -69,7 +70,8 @@ namespace MemoriaNote.Cli
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.Conflict,
-                        $"The export destination already exists: {destinationPath}");
+                        $"The export destination already exists: " +
+                        $"{CliMessage.Quote(destinationPath)}.");
                 }
 
                 var session = await _targetResolver.ResolveAsync(
@@ -91,7 +93,7 @@ namespace MemoriaNote.Cli
                 _output.WriteLine(
                     $"Export completed: source={Quote(sourcePath)}, " +
                     $"destination={Quote(destinationPath)}, " +
-                    $"exported={result.ExportedCount}");
+                    $"exported={result.ExportedCount}.");
                 return CliCommandResult.Success();
             }, cancellationToken);
         }
@@ -122,7 +124,8 @@ namespace MemoriaNote.Cli
             {
                 TextPageExportErrorCode.DestinationConflict => Failure(
                     CliErrorKind.Conflict,
-                    $"The export destination already exists: {destinationPath}"),
+                    $"The export destination already exists: " +
+                    $"{CliMessage.Quote(destinationPath)}."),
                 TextPageExportErrorCode.NameConflict => Failure(
                     CliErrorKind.Conflict,
                     "The notebook contains page names that cannot be exported " +
@@ -141,10 +144,7 @@ namespace MemoriaNote.Cli
 
         static string Quote(string value)
         {
-            return "\"" + value
-                .Replace("\"", "\\\"", StringComparison.Ordinal)
-                .Replace("\r", "\\r", StringComparison.Ordinal)
-                .Replace("\n", "\\n", StringComparison.Ordinal) + "\"";
+            return CliMessage.Quote(value);
         }
     }
 }

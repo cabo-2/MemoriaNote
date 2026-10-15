@@ -55,8 +55,10 @@ public sealed class PageCommandResultMapperTests
             Assert.That(
                 result.Message,
                 Does.StartWith(
-                    "The text name have not been entered." + Environment.NewLine));
-            Assert.That(result.Message, Does.EndWith("The text name is already in use."));
+                    "A page name is required." + Environment.NewLine));
+            Assert.That(
+                result.Message,
+                Does.EndWith("A page with this name already exists in the notebook."));
         }
     }
 

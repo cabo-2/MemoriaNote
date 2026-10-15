@@ -87,7 +87,7 @@ namespace MemoriaNote.Cli
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.NotFound,
-                        "No selected notebook");
+                        CliMessage.NoSelectedNotebook);
                 }
 
                 var resolution = await session.ApplicationService.ResolvePageAsync(
@@ -135,7 +135,9 @@ namespace MemoriaNote.Cli
                     token);
                 if (!editorResult.IsChanged)
                 {
-                    _output.WriteLine("No changes.");
+                    _output.WriteLine(
+                        $"The editor made no changes to page " +
+                        $"{CliMessage.Quote(page.Name)} ({target.PageId.Value:D}).");
                     return CliCommandResult.Success();
                 }
 
@@ -164,8 +166,10 @@ namespace MemoriaNote.Cli
                         editResult);
                 }
 
+                var updatedPage = editResult.Page ?? page;
                 _output.WriteLine(
-                    PageOperationMessageMapper.ToSuccessNotification(PageOperationKind.Edit));
+                    $"Updated page {CliMessage.Quote(updatedPage.Name)} " +
+                    $"({target.PageId.Value:D}).");
                 return CliCommandResult.Success();
             }, cancellationToken);
         }
@@ -232,7 +236,7 @@ namespace MemoriaNote.Cli
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.Validation,
-                        "No name");
+                        "A page name is required.");
                 }
                 if (!EditorCommandOptionParser.TryCreate(
                     editorPath,
@@ -257,7 +261,7 @@ namespace MemoriaNote.Cli
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.NotFound,
-                        "No selected notebook");
+                        CliMessage.NoSelectedNotebook);
                 }
 
                 var notebookId = NotebookId.FromDatabasePath(selectedNotebook.DatabasePath);
@@ -282,7 +286,9 @@ namespace MemoriaNote.Cli
                     token);
                 if (!editorResult.IsChanged)
                 {
-                    _output.WriteLine("No changes.");
+                    _output.WriteLine(
+                        $"Page {CliMessage.Quote(name)} was not created because the " +
+                        "editor made no changes.");
                     return CliCommandResult.Success();
                 }
 
@@ -320,7 +326,8 @@ namespace MemoriaNote.Cli
                 else
                 {
                     _output.WriteLine(
-                        $"Created page \"{createdPage.Name}\" ({createdPage.Guid:D}).");
+                        $"Created page {CliMessage.Quote(createdPage.Name)} " +
+                        $"({createdPage.Guid:D}).");
                 }
                 return CliCommandResult.Success();
             }, cancellationToken);
@@ -369,7 +376,7 @@ namespace MemoriaNote.Cli
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.NotFound,
-                        "No selected notebook");
+                        CliMessage.NoSelectedNotebook);
                 }
 
                 var pages = await session.ApplicationService.ListPagesAsync(
@@ -425,7 +432,7 @@ namespace MemoriaNote.Cli
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.NotFound,
-                        "No selected notebook");
+                        CliMessage.NoSelectedNotebook);
                 }
 
                 var resolution = await session.ApplicationService.ResolvePageAsync(
@@ -508,7 +515,7 @@ namespace MemoriaNote.Cli
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.NotFound,
-                        "No selected notebook");
+                        CliMessage.NoSelectedNotebook);
                 }
 
                 var resolution = await session.ApplicationService.ResolvePageAsync(
@@ -538,8 +545,8 @@ namespace MemoriaNote.Cli
                 }
 
                 _output.WriteLine(
-                    PageOperationMessageMapper.ToSuccessNotification(
-                        PageOperationKind.Rename));
+                    $"Renamed page to {CliMessage.Quote(newName)} " +
+                    $"({target.PageId.Value:D}).");
                 return CliCommandResult.Success();
             }, cancellationToken);
         }
@@ -592,7 +599,7 @@ namespace MemoriaNote.Cli
                 {
                     return CliCommandResult.Failure(
                         CliErrorKind.NotFound,
-                        "No selected notebook");
+                        CliMessage.NoSelectedNotebook);
                 }
 
                 var resolution = await session.ApplicationService.ResolvePageAsync(
@@ -643,7 +650,7 @@ namespace MemoriaNote.Cli
 
                     if (!_prompt.ConfirmPageDeletion(page.Name, target.PageId.Value.ToString("D")))
                     {
-                        _output.WriteLine("Deletion canceled.");
+                        _output.WriteLine("Page deletion canceled.");
                         return CliCommandResult.Success();
                     }
                 }
@@ -657,7 +664,8 @@ namespace MemoriaNote.Cli
                 }
 
                 _output.WriteLine(
-                    PageOperationMessageMapper.ToSuccessNotification(PageOperationKind.Delete));
+                    $"Deleted page {CliMessage.Quote(page.Name)} " +
+                    $"({target.PageId.Value:D}).");
                 return CliCommandResult.Success();
             }, cancellationToken);
         }

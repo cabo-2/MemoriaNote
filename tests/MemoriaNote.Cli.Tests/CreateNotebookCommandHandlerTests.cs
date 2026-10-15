@@ -41,7 +41,9 @@ public sealed class CreateNotebookCommandHandlerTests
             Assert.That(standardOutput.ToString(), Is.Empty);
             Assert.That(
                 standardError.ToString(),
-                Is.EqualTo("Error: Operation was canceled" + Environment.NewLine));
+                Is.EqualTo(
+                    "Canceled: The operation was interrupted." +
+                    Environment.NewLine));
             Assert.That(
                 File.Exists(System.IO.Path.Combine(workspace.Path, "work.mnote")),
                 Is.False);

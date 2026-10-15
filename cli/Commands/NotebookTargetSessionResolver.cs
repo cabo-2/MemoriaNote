@@ -24,6 +24,31 @@ namespace MemoriaNote.Cli
         }
     }
 
+    internal sealed class NotebookTargetNotFoundException : Exception
+    {
+        internal NotebookTargetNotFoundException(string message)
+            : base(message)
+        {
+        }
+
+        internal NotebookTargetNotFoundException(
+            string message,
+            Exception innerException)
+            : base(message, innerException)
+        {
+        }
+    }
+
+    internal sealed class NotebookTargetValidationException : Exception
+    {
+        internal NotebookTargetValidationException(
+            string message,
+            Exception innerException)
+            : base(message, innerException)
+        {
+        }
+    }
+
     internal sealed class NotebookTargetSessionResolver : INotebookTargetSessionResolver
     {
         readonly INotebookFormatValidator _formatValidator;
@@ -61,9 +86,33 @@ namespace MemoriaNote.Cli
             var notebookPath = notebookOption == null
                 ? ResolveSelectedNotebookPath(workspacePath)
                 : ResolveExplicitNotebookPath(workspacePath, notebookOption);
-            await _formatValidator
-                .ValidateCurrentAsync(notebookPath, cancellationToken)
-                .ConfigureAwait(false);
+            try
+            {
+                await _formatValidator
+                    .ValidateCurrentAsync(notebookPath, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (FileNotFoundException exception)
+            {
+                throw new NotebookTargetNotFoundException(
+                    $"The notebook file does not exist: " +
+                    $"{CliMessage.Quote(Path.GetFileName(notebookPath))}.",
+                    exception);
+            }
+            catch (UnsupportedNotebookFormatVersionException exception)
+            {
+                throw new NotebookTargetValidationException(
+                    $"Notebook {CliMessage.Quote(Path.GetFileName(notebookPath))} uses " +
+                    $"unsupported format version {CliMessage.Quote(exception.FormatVersion)}.",
+                    exception);
+            }
+            catch (InvalidDataException exception)
+            {
+                throw new NotebookTargetValidationException(
+                    $"Notebook {CliMessage.Quote(Path.GetFileName(notebookPath))} is not " +
+                    "a valid current-format notebook.",
+                    exception);
+            }
 
             var notebook = new Notebook(
                 notebookPath,
@@ -85,9 +134,8 @@ namespace MemoriaNote.Cli
             var notebookPath = Path.Combine(workspacePath, fileName.Value);
             if (!File.Exists(notebookPath))
             {
-                throw new FileNotFoundException(
-                    $"The notebook file does not exist: {notebookPath}",
-                    notebookPath);
+                throw new NotebookTargetNotFoundException(
+                    $"The notebook file does not exist: {CliMessage.Quote(fileName.Value)}.");
             }
 
             return notebookPath;
@@ -111,9 +159,9 @@ namespace MemoriaNote.Cli
                 configuration.CurrentNotebook.Value);
             if (!File.Exists(notebookPath))
             {
-                throw new FileNotFoundException(
-                    $"The selected notebook file does not exist: {notebookPath}",
-                    notebookPath);
+                throw new NotebookTargetNotFoundException(
+                    "The selected notebook file does not exist: " +
+                    $"{CliMessage.Quote(configuration.CurrentNotebook.Value)}.");
             }
 
             return notebookPath;

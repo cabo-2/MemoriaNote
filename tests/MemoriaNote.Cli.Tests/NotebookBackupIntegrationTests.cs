@@ -59,7 +59,7 @@ public sealed class NotebookBackupIntegrationTests
             Assert.That(result.StandardOutput, Does.StartWith("Backup completed: "));
             Assert.That(result.StandardOutput, Does.Contain($"source=\"{notebookPath}"));
             Assert.That(result.StandardOutput, Does.Contain($"archive=\"{archivePath}"));
-            Assert.That(result.StandardOutput, Does.Match(@"metadata=\d+, pages=1\r?\n$"));
+            Assert.That(result.StandardOutput, Does.Match(@"metadata=\d+, pages=1\.\r?\n$"));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(report.IsValid, Is.True);
             Assert.That(

@@ -60,7 +60,7 @@ namespace MemoriaNote.Cli.UserConfig
             {
                 throw new UserConfigurationFormatException(
                     $"The user configuration editor selection '{selection}' is invalid: " +
-                    exception.Message,
+                    CliMessage.ArgumentReason(exception),
                     exception);
             }
         }

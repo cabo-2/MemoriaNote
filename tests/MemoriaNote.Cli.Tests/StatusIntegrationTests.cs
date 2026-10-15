@@ -178,7 +178,7 @@ public sealed class StatusIntegrationTests
             Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(result.StandardOutput, Does.Contain("Location:  /future"));
             Assert.That(result.StandardOutput, Does.Contain("Status:    unsupported"));
-            Assert.That(result.StandardOutput, Does.Contain("version '2'"));
+            Assert.That(result.StandardOutput, Does.Contain("version \"2\""));
             Assert.That(result.StandardError, Is.Empty);
         }
     }

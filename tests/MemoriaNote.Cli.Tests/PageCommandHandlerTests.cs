@@ -102,7 +102,9 @@ public sealed class PageCommandHandlerTests
             Assert.That(fixture.Application.CreateAsyncCallCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardOutput,
-                Is.EqualTo("No changes." + Environment.NewLine));
+                Is.EqualTo(
+                    "Page \"New page\" was not created because the editor made no changes." +
+                    Environment.NewLine));
         }
     }
 
@@ -179,7 +181,7 @@ public sealed class PageCommandHandlerTests
             Assert.That(createdCommand.Text, Is.EqualTo("Body"));
             Assert.That(
                 fixture.Output.StandardOutput,
-                Does.Contain("The text created successfully."));
+                Does.Contain("Created the page."));
         }
     }
 
@@ -307,7 +309,7 @@ public sealed class PageCommandHandlerTests
             Assert.That(editCommand.ExpectedText, Is.EqualTo("Current body"));
             Assert.That(
                 fixture.Output.StandardOutput,
-                Does.Contain("The text updated successfully."));
+                Does.Contain("Updated page \"Daily\""));
         }
     }
 
@@ -381,7 +383,10 @@ public sealed class PageCommandHandlerTests
             Assert.That(fixture.Application.EditAsyncCallCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardOutput,
-                Is.EqualTo("No changes." + Environment.NewLine));
+                Does.StartWith("The editor made no changes to page \"Daily\" ("));
+            Assert.That(
+                fixture.Output.StandardOutput,
+                Does.EndWith(")." + Environment.NewLine));
         }
     }
 

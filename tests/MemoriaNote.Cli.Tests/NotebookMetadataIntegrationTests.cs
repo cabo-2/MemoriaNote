@@ -61,9 +61,9 @@ public sealed class NotebookMetadataIntegrationTests
             Assert.That(result.StandardOutput, Does.Contain("Description: first\\nsecond"));
             Assert.That(result.StandardOutput, Does.Contain("Author: Author\\\\Name"));
             Assert.That(result.StandardOutput, Does.Contain("Tag: planning"));
-            Assert.That(result.StandardOutput, Does.Contain("ReadOnly: false"));
+            Assert.That(result.StandardOutput, Does.Contain("Read-only: false"));
             Assert.That(result.StandardOutput, Does.Contain("Version: 1"));
-            Assert.That(result.StandardOutput, Does.Contain("CreateTime: 2026-01-02T03:04:05"));
+            Assert.That(result.StandardOutput, Does.Contain("Created: 2026-01-02T03:04:05"));
             Assert.That(result.StandardError, Is.Empty);
         }
     }

@@ -11,10 +11,10 @@ public sealed class NotebookMetadataValidationMessageMapperTests
     /// <param name="expected">The expected message.</param>
     [TestCase(
         NotebookMetadataErrorCode.NameRequired,
-        "Name cannot be blank")]
+        "Name cannot be blank.")]
     [TestCase(
         NotebookMetadataErrorCode.TitleRequired,
-        "Title cannot be blank")]
+        "Title cannot be blank.")]
     [TestCase(
         NotebookMetadataErrorCode.ControlCharacter,
         "The metadata value contains an unsupported control character.")]

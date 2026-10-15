@@ -43,7 +43,7 @@ public sealed class PageRenameIntegrationTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.ExitCode, Is.Zero);
-            Assert.That(result.StandardOutput, Does.Contain("renamed successfully"));
+            Assert.That(result.StandardOutput, Does.Contain("Renamed page to"));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(renamed, Is.Not.Null);
             Assert.That(renamed!.Guid, Is.EqualTo(page.Guid));
@@ -145,10 +145,10 @@ public sealed class PageRenameIntegrationTests
         {
             Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
             Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.Contain("already in use"));
+            Assert.That(result.StandardError, Does.Contain("already exists"));
             Assert.That(unchangedName.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
             Assert.That(unchangedName.StandardOutput, Is.Empty);
-            Assert.That(unchangedName.StandardError, Does.Contain("already in use"));
+            Assert.That(unchangedName.StandardError, Does.Contain("already exists"));
             Assert.That(
                 (await repository.FindPageAsync(
                     notebookPath,
