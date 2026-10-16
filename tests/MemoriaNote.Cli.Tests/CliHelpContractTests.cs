@@ -32,6 +32,8 @@ public sealed class CliHelpContractTests
         "config editor setup",
         "config editor show",
         "config editor unset",
+        "completion",
+        "completion zsh",
         "ls",
         "cat",
         "rename",
@@ -85,6 +87,7 @@ public sealed class CliHelpContractTests
     [TestCase("notebooks", "mn notebooks")]
     [TestCase("config", "mn config")]
     [TestCase("config editor", "mn config editor")]
+    [TestCase("completion", "mn completion")]
     public async Task Help_ForCommandGroups_UsesCompletePathInFooter(
         string commandPath,
         string expectedPath)

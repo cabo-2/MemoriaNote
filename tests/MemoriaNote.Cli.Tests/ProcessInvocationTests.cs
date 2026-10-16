@@ -39,6 +39,7 @@ public sealed class ProcessInvocationTests
         var visibleCommands = new[]
         {
             "cat",
+            "completion",
             "config",
             "create",
             "edit",

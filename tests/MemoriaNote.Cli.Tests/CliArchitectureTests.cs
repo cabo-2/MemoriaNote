@@ -162,6 +162,17 @@ public sealed class CliArchitectureTests
             () => string.Join(Environment.NewLine, remainingFiles));
     }
 
+    /// <summary>Verifies the obsolete source-controlled completion tree is absent.</summary>
+    [Test]
+    public void LegacyCompletionDirectory_IsAbsent()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+
+        Assert.That(
+            Directory.Exists(Path.Combine(repositoryRoot, "misc")),
+            Is.False);
+    }
+
     /// <summary>Verifies the removed legacy JSON configuration files are absent.</summary>
     [Test]
     public void RemovedLegacyConfigurationFiles_AreAbsent()

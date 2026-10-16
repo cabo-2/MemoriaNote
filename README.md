@@ -108,6 +108,27 @@ Inspection commands do not create a missing configuration or repair an invalid o
 and an explicit `unset` selection are displayed differently, although both require setup before
 `new` or `edit` can start an editor.
 
+### Enable zsh completion
+
+Generate the static completion script in a user-owned directory:
+
+```zsh
+mkdir -p ~/.zfunc
+mn completion zsh > ~/.zfunc/_mn
+```
+
+Add that directory to `fpath` before `compinit` in `~/.zshrc`:
+
+```zsh
+fpath=(~/.zfunc $fpath)
+autoload -Uz compinit
+compinit
+```
+
+If `.zshrc` already runs `compinit`, add only the `fpath` line before that initialization. Restart
+zsh after saving the file. Re-run the generation command after updating `mn`; to remove the
+completion, delete `~/.zfunc/_mn` and the corresponding `fpath` entry.
+
 ### Upgrading from `configuration.json`
 
 The move to `config.toml` is a breaking configuration change. Memoria Note does not migrate, read,
@@ -134,6 +155,7 @@ Options:
 
 Commands:
   cat                      Write one page body to standard output
+  completion               Generate static shell completion scripts
   config                   Inspect and configure user settings
   create                   Create a live notebook without overwriting an
                            existing file
