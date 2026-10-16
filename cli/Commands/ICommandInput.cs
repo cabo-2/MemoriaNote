@@ -9,6 +9,8 @@ namespace MemoriaNote.Cli
 
         string ReadLine();
 
+        Task<string> ReadLineAsync(CancellationToken cancellationToken);
+
         Task<string> ReadToEndAsync(CancellationToken cancellationToken);
     }
 }

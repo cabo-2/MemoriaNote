@@ -421,6 +421,11 @@ public sealed class CliCommandContractTests
             _standardOutput.AppendLine(value);
         }
 
+        public void WriteError(string value)
+        {
+            StandardError += value;
+        }
+
         public void WriteErrorLine(string value)
         {
             StandardError += value + Environment.NewLine;

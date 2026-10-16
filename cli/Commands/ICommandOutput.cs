@@ -10,6 +10,8 @@ namespace MemoriaNote.Cli
 
         void WriteLine(string value);
 
+        void WriteError(string value);
+
         void WriteErrorLine(string value);
 
         void WritePageList(IReadOnlyList<PageSummary> pages, bool longFormat);

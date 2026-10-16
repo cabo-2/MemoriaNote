@@ -23,6 +23,11 @@ namespace MemoriaNote.Cli
             return _standardInput.ReadLine();
         }
 
+        public Task<string> ReadLineAsync(CancellationToken cancellationToken)
+        {
+            return _standardInput.ReadLineAsync(cancellationToken).AsTask();
+        }
+
         public Task<string> ReadToEndAsync(CancellationToken cancellationToken)
         {
             return _standardInput.ReadToEndAsync(cancellationToken);

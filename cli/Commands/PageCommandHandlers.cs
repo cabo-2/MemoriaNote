@@ -648,7 +648,11 @@ namespace MemoriaNote.Cli
                             "the resolved page.");
                     }
 
-                    if (!_prompt.ConfirmPageDeletion(page.Name, target.PageId.Value.ToString("D")))
+                    if (!await _prompt.ConfirmPageDeletionAsync(
+                            page.Name,
+                            target.PageId.Value.ToString("D"),
+                            token)
+                        .ConfigureAwait(false))
                     {
                         _output.WriteLine("Page deletion canceled.");
                         return CliCommandResult.Success();
