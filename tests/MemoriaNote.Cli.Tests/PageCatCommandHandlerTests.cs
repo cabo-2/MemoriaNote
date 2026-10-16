@@ -225,6 +225,8 @@ public sealed class PageCatCommandHandlerTests
 
         public void WriteLine(string value) => _standardOutput.AppendLine(value);
 
+        public void WriteError(string value) => _standardError.Append(value);
+
         public void WriteErrorLine(string value) => _standardError.AppendLine(value);
 
         public void WritePageList(IReadOnlyList<PageSummary> pages, bool longFormat)

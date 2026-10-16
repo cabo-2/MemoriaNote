@@ -610,6 +610,11 @@ public sealed class UserConfigurationCommandHandlerTests
             return _lines.Count == 0 ? null : _lines.Dequeue();
         }
 
+        public Task<string> ReadLineAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(ReadLine()!);
+        }
+
         public Task<string> ReadToEndAsync(CancellationToken cancellationToken)
         {
             throw new AssertionException("Editor setup must read line-oriented input.");
@@ -633,6 +638,11 @@ public sealed class UserConfigurationCommandHandlerTests
         public void WriteLine(string value)
         {
             _standardOutput.AppendLine(value);
+        }
+
+        public void WriteError(string value)
+        {
+            _standardError.Append(value);
         }
 
         public void WriteErrorLine(string value)

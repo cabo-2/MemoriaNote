@@ -32,6 +32,11 @@ namespace MemoriaNote.Cli
             _standardOutput.WriteLine(value);
         }
 
+        public void WriteError(string value)
+        {
+            _standardError.Write(value);
+        }
+
         public void WriteErrorLine(string value)
         {
             _standardError.WriteLine(value);

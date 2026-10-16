@@ -7,6 +7,23 @@ namespace MemoriaNote.Cli.Tests;
 [TestFixture]
 public sealed class CommandOutputAdapterTests
 {
+    /// <summary>Verifies prompt text can be written to standard error without a newline.</summary>
+    [Test]
+    public void WriteError_WritesOnlyToStandardErrorWithoutNewline()
+    {
+        using var standardOutput = new StringWriter();
+        using var standardError = new StringWriter();
+        var output = new ConsoleCommandOutput(standardOutput, standardError);
+
+        output.WriteError("Continue? [y/N] ");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(standardOutput.ToString(), Is.Empty);
+            Assert.That(standardError.ToString(), Is.EqualTo("Continue? [y/N] "));
+        }
+    }
+
     /// <summary>Verifies that normal page output is line-oriented and does not truncate names.</summary>
     [Test]
     public void WritePageList_NormalFormat_WritesOnlyEscapedFullNames()

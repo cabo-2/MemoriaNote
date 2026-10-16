@@ -116,7 +116,10 @@ namespace MemoriaNote.Cli
                 Console.OpenStandardInput(),
                 !Console.IsInputRedirected);
             var input = new ConsoleCommandInput(Console.In, !Console.IsInputRedirected);
-            var prompt = new CommandPrompt(input, output);
+            var prompt = new CommandPrompt(
+                input,
+                output,
+                !Console.IsErrorRedirected);
             var errorMapper = new CliErrorMapper();
             var executor = new CliCommandExecutor(
                 output,

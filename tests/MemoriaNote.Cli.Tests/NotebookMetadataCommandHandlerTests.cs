@@ -137,6 +137,9 @@ public sealed class NotebookMetadataCommandHandlerTests
 
         public string ReadLine() => throw new InvalidOperationException();
 
+        public Task<string> ReadLineAsync(CancellationToken cancellationToken) =>
+            throw new InvalidOperationException();
+
         public Task<string> ReadToEndAsync(CancellationToken cancellationToken)
         {
             ReadToEndCount++;

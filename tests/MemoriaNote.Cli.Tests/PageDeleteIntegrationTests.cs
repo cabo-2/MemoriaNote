@@ -92,9 +92,9 @@ public sealed class PageDeleteIntegrationTests
         }
     }
 
-    /// <summary>Verifies dry-run resolves and reports a page without deleting it.</summary>
+    /// <summary>Verifies dry-run takes precedence over force without deleting the page.</summary>
     [Test]
-    public async Task Delete_DryRun_ReportsTargetWithoutMutation()
+    public async Task Delete_DryRunWithForce_ReportsTargetWithoutMutation()
     {
         using var harness = new CliInProcessHarness();
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
@@ -108,7 +108,11 @@ public sealed class PageDeleteIntegrationTests
             null!,
             CancellationToken.None);
 
-        var result = await harness.RunAsync("delete", "Preview", "--dry-run");
+        var result = await harness.RunAsync(
+            "delete",
+            "Preview",
+            "--dry-run",
+            "--force");
 
         using (Assert.EnterMultipleScope())
         {

@@ -105,6 +105,12 @@ public sealed class NotebookImportIntegrationTests
             "--on-conflict",
             "replace",
             "--dry-run");
+        Assert.That(
+            await File.ReadAllTextAsync(Path.Combine(source, "Existing.txt")),
+            Is.EqualTo("replacement"));
+        Assert.That(
+            await File.ReadAllTextAsync(Path.Combine(source, "New.txt")),
+            Is.EqualTo("created"));
         var skipped = await harness.RunAsync(
             "notebooks",
             "import",
@@ -178,6 +184,100 @@ public sealed class NotebookImportIntegrationTests
         }
     }
 
+    /// <summary>Verifies a late fail-policy conflict rolls back all planned creates.</summary>
+    [Test]
+    public async Task Import_FailPolicyConflictAfterNewItem_CommitsNothing()
+    {
+        using var harness = new CliInProcessHarness();
+        var notebookPath = await CreateAndSelectNotebookAsync(harness, "atomic-fail");
+        var repository = CreatePageRepository();
+        var existing = await repository.CreatePageAsync(
+            notebookPath,
+            "Z existing",
+            "original",
+            null!,
+            CancellationToken.None);
+        var source = CreateSourceDirectory(harness, "atomic-fail-import");
+        await File.WriteAllTextAsync(Path.Combine(source, "A new.txt"), "new");
+        await File.WriteAllTextAsync(Path.Combine(source, "Z existing.txt"), "replacement");
+
+        var result = await harness.RunAsync("notebooks", "import", source);
+
+        var retained = await repository.FindPageAsync(
+            notebookPath,
+            existing.Guid,
+            CancellationToken.None);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.StandardError, Does.Contain("already contains"));
+            Assert.That(retained?.Text, Is.EqualTo("original"));
+            Assert.That(
+                await repository.FindPageAsync(
+                    notebookPath,
+                    "A new",
+                    1,
+                    CancellationToken.None),
+                Is.Null);
+        }
+    }
+
+    /// <summary>Verifies a late replace ambiguity rolls back all planned creates.</summary>
+    [Test]
+    public async Task Import_ReplaceAmbiguityAfterNewItem_CommitsNothing()
+    {
+        using var harness = new CliInProcessHarness();
+        var notebookPath = await CreateAndSelectNotebookAsync(harness, "atomic-replace");
+        var repository = CreatePageRepository();
+        var first = await repository.CreatePageAsync(
+            notebookPath,
+            "Z duplicate",
+            "first",
+            null!,
+            CancellationToken.None);
+        var second = await repository.CreatePageAsync(
+            notebookPath,
+            "Z duplicate",
+            "second",
+            null!,
+            CancellationToken.None);
+        var source = CreateSourceDirectory(harness, "atomic-replace-import");
+        await File.WriteAllTextAsync(Path.Combine(source, "A new.txt"), "new");
+        await File.WriteAllTextAsync(Path.Combine(source, "Z duplicate.txt"), "replacement");
+
+        var result = await harness.RunAsync(
+            "notebooks",
+            "import",
+            source,
+            "--on-conflict",
+            "replace");
+
+        var retainedFirst = await repository.FindPageAsync(
+            notebookPath,
+            first.Guid,
+            CancellationToken.None);
+        var retainedSecond = await repository.FindPageAsync(
+            notebookPath,
+            second.Guid,
+            CancellationToken.None);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.StandardError, Does.Contain("exactly one existing page"));
+            Assert.That(retainedFirst?.Text, Is.EqualTo("first"));
+            Assert.That(retainedSecond?.Text, Is.EqualTo("second"));
+            Assert.That(
+                await repository.FindPageAsync(
+                    notebookPath,
+                    "A new",
+                    1,
+                    CancellationToken.None),
+                Is.Null);
+        }
+    }
+
     /// <summary>Verifies v1 and v2 encodings of one name are rejected before writes.</summary>
     [Test]
     public async Task Import_DuplicateDecodedName_ReturnsConflictWithoutWrites()
@@ -204,8 +304,9 @@ public sealed class NotebookImportIntegrationTests
     }
 
     /// <summary>Verifies read-only metadata is enforced and mapped to conflict.</summary>
-    [Test]
-    public async Task Import_ReadOnlyNotebook_ReturnsConflictWithoutWrites()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Import_ReadOnlyNotebook_ReturnsConflictWithoutWrites(bool dryRun)
     {
         using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "read-only");
@@ -217,7 +318,11 @@ public sealed class NotebookImportIntegrationTests
         var source = CreateSourceDirectory(harness, "read-only-import");
         await File.WriteAllTextAsync(Path.Combine(source, "Entry.txt"), "text");
 
-        var result = await harness.RunAsync("notebooks", "import", source);
+        var arguments = new List<string> { "notebooks", "import", source };
+        if (dryRun)
+            arguments.Add("--dry-run");
+
+        var result = await harness.RunAsync(arguments.ToArray());
 
         using (Assert.EnterMultipleScope())
         {
