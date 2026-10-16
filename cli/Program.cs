@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
-using McMaster.Extensions.CommandLineUtils.Conventions;
 
 namespace MemoriaNote.Cli
 {
@@ -19,6 +18,7 @@ namespace MemoriaNote.Cli
         typeof(EditCommand),
         typeof(NewCommand),
         typeof(ConfigCommand),
+        typeof(CompletionCommand),
         typeof(ListCommand),
         typeof(CatCommand),
         typeof(RenameCommand),
@@ -48,14 +48,11 @@ namespace MemoriaNote.Cli
             Console.CancelKeyPress += cancelHandler;
             try
             {
-                var app = new CommandLineApplication<Program>(
-                    new CliHelpTextGenerator(),
-                    PhysicalConsole.Singleton,
-                    Directory.GetCurrentDirectory());
-                app.Conventions.UseDefaultConventions();
                 using var parserOutput = new StringWriter();
-                ConfigureParserOutput(app, parserOutput);
-                ConfigureValidationErrors(app);
+                using var app = CliCommandApplicationFactory.Create(
+                    PhysicalConsole.Singleton,
+                    Directory.GetCurrentDirectory(),
+                    parserOutput);
                 try
                 {
                     var exitCode = await app.ExecuteAsync(args, cancellation.Token);
@@ -86,27 +83,6 @@ namespace MemoriaNote.Cli
             .Value;
 
         static CliCommandHandlers CommandHandlers => Composition.CommandHandlers;
-
-        static void ConfigureValidationErrors(CommandLineApplication command)
-        {
-            command.ValidationErrorHandler = result =>
-            {
-                command.Error.WriteLine($"Error: {result.ErrorMessage}");
-                return (int)CliExitCode.Validation;
-            };
-
-            foreach (var child in command.Commands)
-                ConfigureValidationErrors(child);
-        }
-
-        static void ConfigureParserOutput(
-            CommandLineApplication command,
-            TextWriter output)
-        {
-            command.Out = output;
-            foreach (var child in command.Commands)
-                ConfigureParserOutput(child, output);
-        }
 
         [Option(
             "--workspace <directory>",
@@ -693,6 +669,47 @@ namespace MemoriaNote.Cli
                     {
                         return CommandHandlers.UserConfigEditorUnset.ExecuteAsync(
                             cancellationToken);
+                    }
+                }
+            }
+        }
+
+        [Command(
+            "completion",
+            Description = "Generate static shell completion scripts")]
+        [Subcommand(typeof(CompletionZshCommand))]
+        [HelpOption("--help")]
+        class CompletionCommand
+        {
+            protected Task<int> OnExecuteAsync(CommandLineApplication app)
+            {
+                app.ShowHelp();
+                return Task.FromResult((int)CliExitCode.Success);
+            }
+
+            [Command(
+                "zsh",
+                Description = "Generate a static zsh completion script")]
+            [HelpOption("--help")]
+            class CompletionZshCommand
+            {
+                protected Task<int> OnExecuteAsync(CommandLineApplication app)
+                {
+                    var root = app;
+                    while (root.Parent != null)
+                        root = root.Parent;
+
+                    try
+                    {
+                        var script = ZshCompletionGenerator.Generate(root);
+                        app.Out.Write(script);
+                        return Task.FromResult((int)CliExitCode.Success);
+                    }
+                    catch (Exception)
+                    {
+                        app.Error.WriteLine(
+                            "Fatal: The zsh completion script could not be generated.");
+                        return Task.FromResult((int)CliExitCode.Unexpected);
                     }
                 }
             }
