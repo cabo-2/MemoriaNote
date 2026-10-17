@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <MemoriaNoteProductVersion Condition="'$(MemoriaNoteProductVersion)' == ''">0.2.0</MemoriaNoteProductVersion>
+    <MemoriaNoteReleaseBuild Condition="'$(MemoriaNoteReleaseBuild)' == ''">false</MemoriaNoteReleaseBuild>
+    <MemoriaNoteProductProject Condition="'$(MSBuildProjectName)' == 'mn' Or '$(MSBuildProjectName)' == 'MemoriaNote.Core'">true</MemoriaNoteProductProject>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MemoriaNoteProductProject)' == 'true'">
+    <VersionPrefix>$(MemoriaNoteProductVersion)</VersionPrefix>
+    <VersionSuffix Condition="'$(MemoriaNoteReleaseBuild)' != 'true'">dev</VersionSuffix>
+    <Version>$(VersionPrefix)</Version>
+    <Version Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</Version>
+    <AssemblyVersion>$(MemoriaNoteProductVersion).0</AssemblyVersion>
+    <FileVersion>$(MemoriaNoteProductVersion).0</FileVersion>
+    <IncludeSourceRevisionInInformationalVersion Condition="'$(MemoriaNoteReleaseBuild)' == 'true'">false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+</Project>

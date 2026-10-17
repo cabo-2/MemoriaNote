@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Text.Json;
 using MemoriaNote.Archive;
 using MemoriaNote.Cli.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -53,6 +55,7 @@ public sealed class NotebookBackupIntegrationTests
             "selected.backup.zip");
 
         var report = await ValidateFileAsync(archivePath);
+        var creatorVersion = ReadCreatorVersion(archivePath);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.ExitCode, Is.Zero, result.StandardError);
@@ -62,6 +65,9 @@ public sealed class NotebookBackupIntegrationTests
             Assert.That(result.StandardOutput, Does.Match(@"metadata=\d+, pages=1\.\r?\n$"));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(report.IsValid, Is.True);
+            Assert.That(
+                creatorVersion,
+                Is.EqualTo(CliProductVersion.InformationalVersion));
             Assert.That(
                 await File.ReadAllBytesAsync(configurationPath),
                 Is.EqualTo(configurationBefore));
@@ -255,6 +261,19 @@ public sealed class NotebookBackupIntegrationTests
             FileAccess.Read,
             FileShare.Read);
         return await new ArchiveV1Reader().ValidateAsync(stream, CancellationToken.None);
+    }
+
+    static string ReadCreatorVersion(string archivePath)
+    {
+        using var archive = ZipFile.OpenRead(archivePath);
+        var manifest = archive.GetEntry("manifest.json") ??
+            throw new InvalidDataException("The archive manifest is missing.");
+        using var stream = manifest.Open();
+        using var document = JsonDocument.Parse(stream);
+        return document.RootElement
+            .GetProperty("createdBy")
+            .GetProperty("version")
+            .GetString()!;
     }
 
     static SqliteNotebookDbContextFactory CreateDatabaseFactory()

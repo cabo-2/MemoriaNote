@@ -1,0 +1,26 @@
+<Project>
+  <Target
+    Name="ResolveMemoriaNoteSourceRevision"
+    BeforeTargets="AddSourceRevisionToInformationalVersion"
+    Condition="'$(MemoriaNoteProductProject)' == 'true' And '$(MemoriaNoteReleaseBuild)' != 'true'">
+    <Exec
+      Command="git rev-parse --short=7 HEAD"
+      ConsoleToMSBuild="true"
+      IgnoreExitCode="true"
+      StandardOutputImportance="Low"
+      StandardErrorImportance="Low"
+      WorkingDirectory="$(MSBuildThisFileDirectory)"
+      Condition="'$(MemoriaNoteCommitId)' == ''">
+      <Output TaskParameter="ConsoleOutput" PropertyName="MemoriaNoteCommitId" />
+    </Exec>
+
+    <PropertyGroup>
+      <MemoriaNoteCommitId>$([System.String]::Copy('$(MemoriaNoteCommitId)').Trim().ToLowerInvariant())</MemoriaNoteCommitId>
+      <SourceRevisionId>$(MemoriaNoteCommitId)</SourceRevisionId>
+    </PropertyGroup>
+
+    <Error
+      Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(MemoriaNoteCommitId)', '^[0-9a-f]{7}$'))"
+      Text="Development builds require a seven-character Git commit ID. Build from a Git checkout or set MemoriaNoteCommitId explicitly." />
+  </Target>
+</Project>

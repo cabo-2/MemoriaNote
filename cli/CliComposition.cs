@@ -140,8 +140,7 @@ namespace MemoriaNote.Cli
                 clock,
                 new ArchiveV1Creator(
                     ApplicationPaths.ApplicationName,
-                    typeof(CliComposition).Assembly.GetName().Version?.ToString() ??
-                        "unknown"));
+                    CliProductVersion.InformationalVersion));
             var archiveV1RestoreService = new ArchiveV1RestoreService(
                 databaseFactory,
                 temporaryFileStore);

@@ -11,6 +11,33 @@ namespace MemoriaNote.Cli.Tests;
 public sealed class ProcessInvocationTests
 {
     /// <summary>
+    /// Verifies version output uses the assembly informational version without runtime state.
+    /// </summary>
+    [Test]
+    public async Task Version_WritesInformationalVersionWithoutRuntimeState()
+    {
+        using var harness = new CliProcessHarness();
+
+        var result = await harness.RunAsync("--version");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(
+                result.StandardOutput,
+                Is.EqualTo(CliProductVersion.Display + Environment.NewLine));
+            Assert.That(result.StandardError, Is.Empty);
+            Assert.That(Directory.Exists(harness.ApplicationDataDirectory), Is.False);
+            Assert.That(
+                Directory.EnumerateFileSystemEntries(harness.WorkingDirectory),
+                Is.Empty);
+            Assert.That(
+                Directory.EnumerateFileSystemEntries(harness.TemporaryDirectory),
+                Is.Empty);
+        }
+    }
+
+    /// <summary>
     /// Verifies that root help is written to standard output by a successful process.
     /// </summary>
     [Test]
@@ -32,6 +59,7 @@ public sealed class ProcessInvocationTests
                 result.StandardOutput,
                 Does.Not.Contain("Temporarily unavailable"));
             Assert.That(result.StandardOutput, Does.Contain("Usage: mn"));
+            Assert.That(result.StandardOutput, Does.Contain("--version"));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
         }
