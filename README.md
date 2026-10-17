@@ -56,6 +56,35 @@ dotnet publish cli/mn.csproj -c Release -r linux-x64 --self-contained
 cp -r cli/bin/Release/net10.0/linux-x64/publish /path/to/dir
 ```
 
+## Versioning
+
+Memoria Note versions the CLI and Core together as one product. The shared product version is
+defined by `MemoriaNoteProductVersion` in `Directory.Build.props`; the initial release version is
+`0.2.0`. Test assemblies are not part of this public version contract.
+
+Normal local, main-branch, and pull-request builds are development builds. Their informational
+version includes the `dev` prerelease label and the seven-character Git commit ID:
+
+```console
+$ mn --version
+mn 0.2.0-dev+1a2b3c4
+```
+
+A release build is selected explicitly and uses the product version without a development suffix
+or commit metadata:
+
+```bash
+dotnet build MemoriaNote.sln -c Release \
+    -p:MemoriaNoteProductVersion=0.2.0 \
+    -p:MemoriaNoteReleaseBuild=true
+```
+
+For that build, `mn --version` writes `mn 0.2.0` to standard output. The CLI and Core assembly
+versions and file versions are both `0.2.0.0`; prerelease and commit information appears only in
+the informational version. Backup archive manifests use the same informational version displayed
+by the CLI. Release tags use the corresponding `v<major>.<minor>.<patch>` form, beginning with
+`v0.2.0`.
+
 ## Initial setup
 
 ### Configure an external editor
@@ -144,11 +173,14 @@ archives.
 Run `mn --help` to see the public command surface:
 
 ```text
+mn 0.2.0-dev+1a2b3c4
+
 A lightweight, cross-platform CLI for workspace notebooks
 
 Usage: mn [command] [options]
 
 Options:
+  --version                Show version information.
   --help                   Show help information.
   --workspace <directory>  Use this directory as the workspace for this
                            invocation
