@@ -34,6 +34,8 @@
     <ProjectReference Include="../../core/MemoriaNote.Core.csproj" />
     <ProjectReference Include="../MemoriaNote.TestEditor/MemoriaNote.TestEditor.csproj" ReferenceOutputAssembly="false" />
     <AssemblyMetadata Include="CliAssemblyPath" Value="$(CliAssemblyPath)" />
+    <AssemblyMetadata Include="ExpectedProductVersion" Value="$(MemoriaNoteProductVersion)" />
+    <AssemblyMetadata Include="ExpectedReleaseBuild" Value="$(MemoriaNoteReleaseBuild)" />
     <AssemblyMetadata Include="TestEditorExecutablePath" Value="$(TestEditorExecutablePath)" />
   </ItemGroup>
 </Project>

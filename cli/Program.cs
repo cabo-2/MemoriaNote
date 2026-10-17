@@ -24,6 +24,7 @@ namespace MemoriaNote.Cli
         typeof(RenameCommand),
         typeof(DeleteCommand))]
     [HelpOption("--help")]
+    [VersionOptionFromMember("--version", MemberName = nameof(GetVersion))]
     class Program
     {
         const string NotebookArgumentDescription =
@@ -83,6 +84,8 @@ namespace MemoriaNote.Cli
             .Value;
 
         static CliCommandHandlers CommandHandlers => Composition.CommandHandlers;
+
+        static string GetVersion() => CliProductVersion.Display;
 
         [Option(
             "--workspace <directory>",
