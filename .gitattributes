@@ -1,1 +1,4 @@
 reference/archive/v1/examples/** text eol=lf
+.github/scripts/*.py text eol=lf
+.github/scripts/tests/*.py text eol=lf
+LICENSE text eol=lf

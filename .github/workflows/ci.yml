@@ -32,6 +32,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
+      - name: Test repository scripts
+        run: python -m unittest discover --start-directory .github/scripts/tests --pattern "test_*.py"
+
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:

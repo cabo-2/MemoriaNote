@@ -41,4 +41,7 @@ packages/
 # Local test measurements
 /artifacts/test-measurements/
 
+# Local release packaging
+/artifacts/release/
+
 docs/
