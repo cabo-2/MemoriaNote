@@ -201,10 +201,11 @@ class TemporaryStateTests(unittest.TestCase):
 
 
 class PackageContractTests(unittest.TestCase):
-    def test_linux_package_is_checked_extracted_and_smoked_twice(self) -> None:
+    def test_native_package_is_checked_extracted_and_smoked_twice(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            fixture = PackageFixture(root)
+            native_rid = "win-x64" if os.name == "nt" else "linux-x64"
+            fixture = PackageFixture(root, rid=native_rid)
             smoke_calls = []
 
             def fake_smoke(executable, rid, version, smoke_root, timeout):
@@ -228,8 +229,11 @@ class PackageContractTests(unittest.TestCase):
             extracted = smoke_calls[1][0]
             self.assertTrue(extracted.is_file())
             self.assertIn("archive extraction", str(extracted))
-            self.assertEqual(smoke_calls[1][1:3], ("linux-x64", "0.0.0"))
-            self.assertNotEqual(extracted.stat().st_mode & 0o111, 0)
+            self.assertEqual(smoke_calls[1][1:3], (native_rid, "0.0.0"))
+            if native_rid == "linux-x64":
+                self.assertNotEqual(extracted.stat().st_mode & 0o111, 0)
+            else:
+                self.assertTrue((extracted.parent / "hostpolicy.dll").is_file())
 
     def test_windows_zip_layout_is_inspected_and_extracted(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
