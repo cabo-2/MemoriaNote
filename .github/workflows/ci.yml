@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -20,13 +21,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - windows-latest
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+            executable: mn
+          - os: windows-latest
+            rid: win-x64
+            executable: mn.exe
 
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: true
       DOTNET_NOLOGO: true
+      ARTIFACT_TEST_TAG: v0.0.0
+      ARTIFACT_TEST_VERSION: 0.0.0
 
     steps:
       - name: Check out repository
@@ -48,3 +55,19 @@ jobs:
 
       - name: Run full test suite
         run: dotnet test MemoriaNote.sln --configuration Release --no-build
+
+      # NCLI-650d moves package verification to the tag-only release workflow.
+      - name: Package self-contained release artifact
+        run: >-
+          python .github/scripts/package-release.py
+          --tag "${{ env.ARTIFACT_TEST_TAG }}"
+          --rid "${{ matrix.rid }}"
+
+      - name: Verify publish directory and release archive
+        run: >-
+          python .github/scripts/verify-release-artifacts.py package
+          --package-results "artifacts/release/${{ env.ARTIFACT_TEST_TAG }}/package-results.json"
+          --publish-executable "artifacts/release/${{ env.ARTIFACT_TEST_TAG }}/publish/${{ matrix.rid }}/${{ matrix.executable }}"
+          --rid "${{ matrix.rid }}"
+          --expected-version "${{ env.ARTIFACT_TEST_VERSION }}"
+          --cleanup-on-failure
