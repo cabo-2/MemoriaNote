@@ -236,7 +236,7 @@ class PackagingWorkflowTests(unittest.TestCase):
             (stale_directory / "stale.txt").write_text("stale", encoding="utf-8")
 
             def fake_runner(command, working_directory):
-                self.assertEqual(working_directory, repository)
+                self.assertTrue(os.path.samefile(working_directory, repository))
                 if command[1] == "publish":
                     publish = Path(command[command.index("--output") + 1])
                     publish.mkdir(parents=True, exist_ok=True)
