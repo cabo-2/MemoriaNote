@@ -56,7 +56,7 @@ jobs:
       - name: Run full test suite
         run: dotnet test MemoriaNote.sln --configuration Release --no-build
 
-      # NCLI-650d moves package verification to the tag-only release workflow.
+      # Keep synthetic package verification in ordinary CI as a release regression gate.
       - name: Package self-contained release artifact
         run: >-
           python .github/scripts/package-release.py
