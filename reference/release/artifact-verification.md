@@ -148,6 +148,9 @@ self-contained user experience.
 Keep the complete extracted directory together. Copying only `mn` or `mn.exe`
 loses required managed and native dependencies.
 
+The user-facing procedure is maintained in the
+[installation, update, and uninstall guide](../user-guide.md#installation-update-and-uninstall).
+
 ### Linux
 
 Use a versioned application directory such as
@@ -188,7 +191,15 @@ mkdir -p "$HOME/.local/share/zsh/site-functions"
 mn completion zsh > "$HOME/.local/share/zsh/site-functions/_mn"
 ```
 
-- [ ] Add the directory to `fpath` before `compinit`, then start a new zsh.
+Add the directory to `fpath` before `compinit` in `~/.zshrc`:
+
+```zsh
+fpath=("$HOME/.local/share/zsh/site-functions" $fpath)
+autoload -Uz compinit
+compinit
+```
+
+- [ ] Confirm the directory is in `fpath` before `compinit`, then start a new zsh.
 - [ ] Complete the root command, a representative subcommand, `--workspace`,
       and one fixed value such as `--on-conflict replace`.
 - [ ] Regenerate `_mn` after an update and verify it came from the new binary.

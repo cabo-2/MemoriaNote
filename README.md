@@ -1,412 +1,129 @@
 # Memoria Note
 
-Memoria Note is a lightweight, database-backed command-line notepad for Windows and Linux. It
-stores pages in SQLite notebook files and opens your preferred external editor when creating or
-editing page content.
+Memoria Note is a lightweight, database-backed command-line notepad. It stores pages in SQLite
+notebook files inside a workspace and uses your preferred external editor to create and edit page
+content.
 
-## Features
+The initial release provides self-contained archives for 64-bit Linux and Windows. A separate .NET
+runtime is not required.
 
-- **Flat workspaces:** A directory is treated as a workspace, with live `.mnote` notebooks directly
-  beneath it. Subdirectories are not searched or registered.
-- **Explicit notebook selection:** `mn use` stores the current notebook in the versioned,
-  atomically updated `mn-workspace.toml`. Notebook count never changes the selection implicitly.
-- **Workspace visibility:** `mn status` explains the current virtual location, while
-  `mn notebooks list` validates and lists workspace-root notebooks without changing them.
-- **SQLite storage:** Each notebook is a self-contained SQLite database with validated schema and
-  format metadata.
-- **Page-oriented commands:** Create, list, read, edit, rename, and delete pages from the command
-  line. Page IDs provide an unambiguous alternative to names.
-- **Safe external editing:** Page content is committed only after the editor exits successfully and
-  validation passes.
-- **Script-friendly behavior:** Stable exit codes, diagnostics on standard error, raw page output
-  from `cat`, and invocation-only notebook overrides.
-- **Cross-platform:** Runs on Windows and Linux with .NET 10.
+## Install
 
-## Installation
+Download the archive for your platform and `SHA256SUMS` from the
+[latest GitHub Release](https://github.com/cabo-2/MemoriaNote/releases/latest):
 
-### Get the code
+- Linux x64: `mn-v<version>-linux-x64.tar.gz`
+- Windows x64: `mn-v<version>-win-x64.zip`
+
+Verify the archive against `SHA256SUMS` before extracting it. Keep the complete extracted directory
+together; `mn` depends on the managed and native libraries beside it.
+
+### Linux
+
+Extract the archive into a versioned application directory and link the executable from a directory
+on `PATH`. For release `v0.2.0`:
 
 ```bash
-git clone "https://github.com/cabo-2/MemoriaNote.git"
-cd MemoriaNote
+tar -xzf mn-v0.2.0-linux-x64.tar.gz
+mkdir -p "$HOME/.local/lib/memoria-note" "$HOME/.local/bin"
+mv mn-v0.2.0-linux-x64 "$HOME/.local/lib/memoria-note/0.2.0"
+ln -s "$HOME/.local/lib/memoria-note/0.2.0/mn" "$HOME/.local/bin/mn"
+mn --version
 ```
 
-Building Memoria Note requires the .NET 10 SDK.
+Ensure `$HOME/.local/bin` is on `PATH` before running `mn`.
 
-### Build and test
+### Windows
 
-Run the following commands from the repository root:
-
-```bash
-dotnet build MemoriaNote.sln
-dotnet test MemoriaNote.sln --no-build
-```
-
-### Publish for Windows
+Extract `mn-v0.2.0-win-x64.zip` into a versioned directory such as
+`%LOCALAPPDATA%\Programs\MemoriaNote\0.2.0`, add that complete directory to the user `PATH`, open a
+new terminal, and run:
 
 ```powershell
-dotnet publish cli/mn.csproj -c Release -r win-x64 --self-contained
-Copy-Item -Recurse cli\bin\Release\net10.0\win-x64\publish C:\path\to\dir
+mn.exe --version
 ```
 
-### Publish for Linux, including WSL
+See the [user guide](reference/user-guide.md#installation-update-and-uninstall) for checksum,
+update, rollback, and uninstall instructions.
 
-```bash
-dotnet publish cli/mn.csproj -c Release -r linux-x64 --self-contained
-cp -r cli/bin/Release/net10.0/linux-x64/publish /path/to/dir
-```
+## Quick start
 
-## Versioning
-
-Memoria Note versions the CLI and Core together as one product. The shared product version is
-defined by `MemoriaNoteProductVersion` in `Directory.Build.props`; the initial release version is
-`0.2.0`. Test assemblies are not part of this public version contract.
-
-Normal local, main-branch, and pull-request builds are development builds. Their informational
-version includes the `dev` prerelease label and the seven-character Git commit ID:
-
-```console
-$ mn --version
-mn 0.2.0-dev+1a2b3c4
-```
-
-A release build is selected explicitly and uses the product version without a development suffix
-or commit metadata:
-
-```bash
-dotnet build MemoriaNote.sln -c Release \
-    -p:MemoriaNoteProductVersion=0.2.0 \
-    -p:MemoriaNoteReleaseBuild=true
-```
-
-For that build, `mn --version` writes `mn 0.2.0` to standard output. The CLI and Core assembly
-versions and file versions are both `0.2.0.0`; prerelease and commit information appears only in
-the informational version. Backup archive manifests use the same informational version displayed
-by the CLI. Release tags use the corresponding `v<major>.<minor>.<patch>` form, beginning with
-`v0.2.0`.
-
-## Initial setup
-
-### Configure an external editor
-
-The `new` and `edit` commands require an external editor. Configure one from an interactive
-terminal before using these commands:
-
-```bash
-mn config editor setup
-```
-
-The setup workflow offers three choices:
-
-1. Use an environment variable. Press Enter at the variable prompt to use `EDITOR`, or enter a
-   different variable name. Memoria Note stores the name and reads its current value whenever it
-   starts the editor.
-2. Specify an editor program. Enter the executable and any arguments as separate values; they are
-   not parsed as a shell command.
-3. Leave the editor explicitly unconfigured. `new` and `edit` will continue to direct you to the
-   setup command.
-
-For example, define `EDITOR` before choosing the first option:
-
-```bash
-export EDITOR=nano
-```
-
-For PowerShell:
-
-```powershell
-$env:EDITOR = "notepad"
-```
-
-Editor arguments may contain `{file}`, which is replaced with the temporary document path. If no
-argument contains `{file}`, Memoria Note appends the path as the final argument.
-
-The editor setting is stored in a versioned `config.toml` in the user application data directory.
-Use the config commands to inspect it without editing it directly:
-
-| Command | Purpose |
-| --- | --- |
-| `mn config path` | Show the path and whether the file exists |
-| `mn config show` | Show the stored setting and currently effective editor command |
-| `mn config validate` | Validate the file without changing it |
-| `mn config editor show` | Show only the editor setting and effective command |
-| `mn config editor setup` | Configure or replace the editor setting interactively |
-| `mn config editor unset` | Save an explicit unconfigured editor selection |
-
-Inspection commands do not create a missing configuration or repair an invalid one. A missing file
-and an explicit `unset` selection are displayed differently, although both require setup before
-`new` or `edit` can start an editor.
-
-### Enable zsh completion
-
-Generate the static completion script in a user-owned directory:
-
-```zsh
-mkdir -p ~/.zfunc
-mn completion zsh > ~/.zfunc/_mn
-```
-
-Add that directory to `fpath` before `compinit` in `~/.zshrc`:
-
-```zsh
-fpath=(~/.zfunc $fpath)
-autoload -Uz compinit
-compinit
-```
-
-If `.zshrc` already runs `compinit`, add only the `fpath` line before that initialization. Restart
-zsh after saving the file. Re-run the generation command after updating `mn`; to remove the
-completion, delete `~/.zfunc/_mn` and the corresponding `fpath` entry.
-
-### Upgrading from `configuration.json`
-
-The move to `config.toml` is a breaking configuration change. Memoria Note does not migrate, read,
-validate, repair, rename, quarantine, or delete the previous `configuration.json`. The old file is
-left byte-for-byte unchanged and is ignored even when it exists beside `config.toml`.
-
-After upgrading, run `mn config editor setup` to configure the editor in the new format. This
-change does not alter workspace selection in `mn-workspace.toml`, notebook databases, or backup
-archives.
-
-## Usage
-
-Run `mn --help` to see the public command surface:
-
-```text
-mn 0.2.0-dev+1a2b3c4
-
-A lightweight, cross-platform CLI for workspace notebooks
-
-Usage: mn [command] [options]
-
-Options:
-  --version                Show version information.
-  --help                   Show help information.
-  --workspace <directory>  Use this directory as the workspace for this
-                           invocation
-
-Commands:
-  cat                      Write one page body to standard output
-  completion               Generate static shell completion scripts
-  config                   Inspect and configure user settings
-  create                   Create a live notebook without overwriting an
-                           existing file
-  delete                   Delete one page after confirmation
-  edit                     Edit one page with an external editor
-  ls                       List pages in stable page-name order
-  new                      Create one page with an external editor
-  notebooks                Inspect workspace-root notebooks
-  rename                   Rename one page without changing its Page ID
-  status                   Show the workspace location and selected notebook
-                           state
-  use                      Select a notebook or return to the workspace root
-
-Run 'mn [command] --help' for more information about a command.
-```
-
-Run `mn <command> --help` for command-specific arguments and options.
-
-### Workspace and notebook selection
-
-The current directory is the workspace unless `--workspace <directory>` is supplied. A workspace
-contains its live notebooks and optional `mn-workspace.toml` configuration at the top level.
-
-Notebook input is always a leaf name. A lowercase `.mnote` suffix is optional and is added when
-omitted. Path separators and suffixes such as `.MNOTE` are rejected.
-
-Selection follows these rules:
-
-1. `--notebook <notebook>` selects a notebook for that invocation only.
-2. Otherwise, commands use the notebook saved by `mn use <notebook>`.
-3. Without either selection, the workspace remains at its virtual root `/` and notebook commands
-   report how to select a target.
-
-Creating a notebook does not select it. Even when the workspace contains exactly one notebook,
-Memoria Note never selects it automatically. A missing or invalid saved target is reported without
-falling back to another notebook.
-
-Notebook file symbolic links are supported and the workspace alias is saved as the selection.
-Local filesystems are recommended because SQLite locking behavior on network or synchronized
-storage depends on that filesystem. `mn-workspace.toml` itself must not be a symbolic link.
-
-### Inspect workspace status
-
-Run `mn status` to inspect the resolved physical workspace, virtual location, saved notebook, and
-its validation state:
-
-```console
-$ mn status
-Workspace: /path/to/notes
-Location:  /work
-Notebook:  work.mnote
-Status:    ready
-```
-
-Running `mn` without a command is an exact alias for `mn status`; both use the same output and exit
-code. At the virtual root, `Location` is `/`, `Notebook` is `(not selected)`, and the output suggests
-`mn use <notebook>`. A selected notebook is classified as `ready`, `read-only`, `missing`, `invalid`,
-or `unsupported`. Missing and invalid selections are reported without selecting another notebook.
-
-`status` returns success for `root`, `ready`, and `read-only`; `missing` returns exit code 3, while
-`invalid` and `unsupported` return exit code 2. The complete diagnostic is written to standard
-output even when the exit code is nonzero.
-
-### List workspace notebooks
-
-`mn notebooks list` lists only validly named lowercase `.mnote` file entries directly beneath the
-workspace. Results use ordinal file-name order. The saved current notebook is marked with `*`, and
-exceptional states are appended to the name:
-
-```console
-$ mn notebooks list
-  archive.mnote
-  broken.mnote [invalid]
-  shared.mnote [read-only]
-* work.mnote
-```
-
-Use `-l` or `--long` to include validation and filesystem details:
-
-```console
-$ mn notebooks list --long
-CURRENT STATUS    TYPE    FORMAT NOTEBOOK
-        ready     file    1      archive.mnote
-        invalid   file    -      broken.mnote
-        read-only symlink 1      shared.mnote
-*       ready     file    1      work.mnote
-```
-
-Valid file symbolic links are listed by their workspace alias. A dangling link or missing saved
-selection is shown as `missing`; invalid and newer-format files remain visible as `invalid` and
-`unsupported`. These entry states do not make a completed listing fail. An empty workspace produces
-no standard output. Listing does not create or update workspace configuration, notebooks, user
-configuration, or migration state.
-
-## Examples
-
-### Start a workspace and manage a page
-
-Create a workspace directory, create a notebook, and select it explicitly:
+Create a workspace and notebook, select the notebook, and configure an editor:
 
 ```bash
 mkdir notes
 cd notes
 mn create work
 mn use work
+mn config editor setup
 ```
 
-`work` is normalized to `work.mnote`. The selection is stored as that leaf name in
-`mn-workspace.toml`.
-
-Create a page with the external editor, then list and read it:
+Create, list, read, and edit a page:
 
 ```bash
 mn new meeting-notes
 mn ls
 mn cat meeting-notes
+mn edit meeting-notes
 ```
 
-Rename and edit the same page:
+`mn create work` creates `work.mnote`; it does not select it automatically. The selection made by
+`mn use work` is stored in the workspace's `mn-workspace.toml`. Run `mn status` at any time to see
+the current workspace and notebook state.
+
+## zsh completion
+
+Generate completion from the installed `mn`:
+
+```zsh
+mkdir -p "$HOME/.local/share/zsh/site-functions"
+mn completion zsh > "$HOME/.local/share/zsh/site-functions/_mn"
+```
+
+Add the directory to `fpath` before `compinit` in `~/.zshrc`:
+
+```zsh
+fpath=("$HOME/.local/share/zsh/site-functions" $fpath)
+autoload -Uz compinit
+compinit
+```
+
+Restart zsh after changing the file. Regenerate `_mn` whenever `mn` is updated.
+
+## Documentation
+
+- [User guide](reference/user-guide.md): concepts, every command, operations, migration, recovery,
+  troubleshooting, and the CLI process contract
+- [Archive v1 format](reference/archive/v1/format.md): normative backup and restore format
+- [Release artifact verification](reference/release/artifact-verification.md): maintainer release
+  checklist
+
+Memoria Note has stable exit-status and stream conventions for shell automation. Human-readable
+diagnostic text is not a versioned machine-readable interface; see
+[Automation and the CLI process contract](reference/user-guide.md#automation-and-the-cli-process-contract).
+
+## Build from source
+
+Building requires the .NET 10 SDK. From the repository root:
 
 ```bash
-mn rename meeting-notes project-notes
-mn edit project-notes
+dotnet build MemoriaNote.sln
+dotnet test MemoriaNote.sln --no-build
 ```
 
-Preview a deletion, then perform it without an interactive prompt:
+Repository builds are development builds and display a version such as
+`0.2.0-dev+1a2b3c4`. Release archives display the corresponding release version without the
+development suffix.
 
-```bash
-mn delete project-notes --dry-run
-mn delete project-notes --force
-```
+## Initial-release limits
 
-Return to the virtual workspace root without deleting notebooks:
+- Supported release artifacts are `linux-x64` and `win-x64` self-contained archives.
+- macOS, Arm, framework-dependent, single-file, Native AOT, trimmed, and ReadyToRun distributions
+  are not provided.
+- Installers and package-manager packages are not provided.
+- Static completion is provided for zsh only; bash, fish, PowerShell, and dynamic data completion
+  are not supported.
+- Notebook files should be kept on a local filesystem. SQLite behavior on network or synchronized
+  storage depends on that filesystem.
 
-```bash
-mn use --root
-```
-
-If no workspace configuration exists, `mn use --root` succeeds without creating one.
-
-### Work with multiple notebooks
-
-Create and select another notebook:
-
-```bash
-mn create personal
-mn use personal
-mn new shopping-list
-```
-
-Inspect both notebooks and confirm the current selection:
-
-```bash
-mn status
-mn notebooks list
-mn notebooks list --long
-```
-
-Temporarily target `work.mnote` without changing the saved `personal.mnote` selection:
-
-```bash
-mn ls --notebook work
-mn new --notebook work release-notes
-mn cat --notebook work release-notes
-```
-
-The same workflow can target a different directory without changing the process working directory:
-
-```bash
-mn --workspace /path/to/notes use work
-mn --workspace /path/to/notes ls
-```
-
-### Select pages by ID
-
-`mn ls --long` displays Page IDs. `edit`, `cat`, `rename`, and `delete` accept a complete Page ID or
-a unique hexadecimal prefix of at least four characters. This is useful when legacy data contains
-duplicate page names:
-
-```bash
-mn cat --id 744ffba0-0000-0000-0000-000000000000
-mn edit --id 744f
-mn rename --id 744f archived-notes
-mn delete --id 744f --dry-run
-```
-
-An ambiguous name or ID prefix returns a conflict instead of choosing a page implicitly.
-
-### Override the editor
-
-Pass an editor and its arguments without shell-string parsing. `{file}` is replaced with the
-temporary document path; if omitted, the path is appended automatically. Use the `=` form when an
-editor argument begins with `-`:
-
-```bash
-mn edit project-notes --editor code --editor-arg=--wait --editor-arg={file}
-```
-
-An invocation override takes priority over `config.toml` and does not read, create, or update the
-configuration. It is therefore also available before initial setup or while diagnosing an invalid
-configuration.
-
-The page is updated only when the editor exits with code 0, the temporary file remains available,
-its contents are valid UTF-8, validation succeeds, and the stored page has not changed since editing
-started. Unchanged content reports `No changes.`.
-
-## Exit codes
-
-Commands use stable exit codes so shell scripts can distinguish failures:
-
-| Code | Meaning |
-| --- | --- |
-| `0` | Success |
-| `1` | Command-line parsing or unexpected failure |
-| `2` | Invalid input or data |
-| `3` | File, directory, notebook, or page not found |
-| `4` | Conflict with existing data or state |
-| `5` | Storage or external I/O failure |
-| `130` | Canceled, including `Ctrl+C` |
-
-Expected diagnostics are written to standard error with an `Error:` prefix. Unexpected failures use
-`Fatal:`.
+Memoria Note is licensed under the [MIT License](LICENSE).
