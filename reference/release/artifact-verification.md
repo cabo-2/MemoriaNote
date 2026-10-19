@@ -31,17 +31,37 @@ root. Failed runs preserve it by default and report the command, exit code,
 standard output, standard error, and retained path. CI passes
 `--cleanup-on-failure` because hosted-runner storage is temporary.
 
-### Current CI trigger
+### Ordinary CI trigger
 
-During NCLI-650c, the normal CI workflow runs native package verification for
-pull requests, pushes to `main`, and manual `workflow_dispatch` runs. It uses
-the synthetic tag `v0.0.0`, does not create or push a Git tag, does not call the
-GitHub Release API, and does not upload an Actions artifact.
+The normal CI workflow runs native package verification for pull requests,
+pushes to `main`, and manual `workflow_dispatch` runs. It uses the synthetic
+tag `v0.0.0`, does not create or push a Git tag, does not call the GitHub
+Release API, and does not upload an Actions artifact.
 
-NCLI-650d must move the package and artifact-smoke steps out of ordinary push
-CI and into the tag-only draft-release workflow. That workflow will reuse this
-runner with the actual normalized tag version. Ordinary pushes must no longer
-produce release packages after that transition.
+This verification remains an ordinary CI regression gate. The tag-only release
+workflow repeats the native package and artifact-smoke checks with the actual
+normalized release version before it uploads either archive.
+
+### Tag-triggered draft Release
+
+Pushing a tag in strict `v<major>.<minor>.<patch>` form runs
+`.github/workflows/release.yml`. The workflow rejects a tag whose version does
+not match `MemoriaNoteProductVersion`, whose event revision does not resolve to
+the tagged commit, or whose commit is not contained in `main`. Lightweight and
+annotated tags are both resolved to their commit before these checks.
+
+After native release builds and the full test suite succeed on Ubuntu and
+Windows, the workflow creates or reuses a draft GitHub Release. Each native job
+packages its RID, verifies the publish directory and clean archive extraction,
+and uploads only the verified archive. The final job downloads both archives
+from the draft, regenerates `SHA256SUMS` from those downloaded bytes, and
+uploads it. No Actions artifact is used for transfer or storage.
+
+A rerun reuses an existing draft and replaces same-named platform assets only
+after local verification succeeds. Preparing or finalizing a rerun removes an
+old `SHA256SUMS` before assets can change, so a partial failure cannot leave a
+stale checksum presented as current. The workflow refuses to modify a
+published Release and never publishes a draft automatically.
 
 ### Local Linux verification
 
@@ -83,13 +103,6 @@ python .github/scripts/verify-release-artifacts.py package `
 GitHub Actions provides the routine native Windows result. Before the initial
 release is published, and after a material packaging change, repeat the manual
 checks below on a real Windows installation.
-
-### Optional GE-Proton preflight
-
-GE-Proton on Linux may provide a quick Windows executable preflight when it is
-already available. At minimum, verify `--version`, `--help`, and one isolated
-workspace. Record the GE-Proton version and prefix. Do not treat this result as
-a replacement for the native Windows CI or manual Windows checks.
 
 ## Archive integrity checklist
 
@@ -203,7 +216,6 @@ PowerShell version:
 Windows automated smoke result:
 Windows runtime-free/manual result:
 
-GE-Proton version and prefix (optional):
 Install/update/uninstall result:
 Completion result:
 Known limitations or deviations:

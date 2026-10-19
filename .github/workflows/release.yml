@@ -1,0 +1,258 @@
+name: Draft release
+
+run-name: Draft release ${{ github.ref_name }}
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+
+jobs:
+  validate:
+    name: Validate release source
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    outputs:
+      tag: ${{ steps.validate.outputs.tag }}
+      version: ${{ steps.validate.outputs.version }}
+      commit: ${{ steps.validate.outputs.commit }}
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag, version, and main ancestry
+        id: validate
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_EVENT_SHA: ${{ github.sha }}
+        run: >-
+          python .github/scripts/manage-draft-release.py validate
+          --tag "$RELEASE_TAG"
+          --event-sha "$RELEASE_EVENT_SHA"
+          --main-ref refs/remotes/origin/main
+          --github-output "$GITHUB_OUTPUT"
+
+  build_test:
+    name: Build and test release (${{ matrix.os }})
+    needs: validate
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+
+    steps:
+      - name: Check out release commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate.outputs.commit }}
+
+      - name: Test repository scripts
+        run: python -m unittest discover --start-directory .github/scripts/tests --pattern "test_*.py"
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore MemoriaNote.sln
+
+      - name: Build release solution
+        run: >-
+          dotnet build MemoriaNote.sln
+          --configuration Release
+          --no-restore
+          -p:MemoriaNoteProductVersion=${{ needs.validate.outputs.version }}
+          -p:MemoriaNoteReleaseBuild=true
+          -p:ContinuousIntegrationBuild=true
+
+      - name: Run full release test suite
+        run: >-
+          dotnet test MemoriaNote.sln
+          --configuration Release
+          --no-build
+          -p:MemoriaNoteProductVersion=${{ needs.validate.outputs.version }}
+          -p:MemoriaNoteReleaseBuild=true
+          -p:ContinuousIntegrationBuild=true
+
+  prepare_release:
+    name: Create or reuse draft Release
+    needs:
+      - validate
+      - build_test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+
+    outputs:
+      url: ${{ steps.prepare.outputs.url }}
+
+    steps:
+      - name: Check out release commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate.outputs.commit }}
+
+      - name: Prepare draft Release
+        id: prepare
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: >-
+          python .github/scripts/manage-draft-release.py prepare
+          --tag "$RELEASE_TAG"
+          --repository "$RELEASE_REPOSITORY"
+          --github-output "$GITHUB_OUTPUT"
+
+  package:
+    name: Package and verify (${{ matrix.rid }})
+    needs:
+      - validate
+      - prepare_release
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+            executable: mn
+            archive: mn-${{ needs.validate.outputs.tag }}-linux-x64.tar.gz
+          - os: windows-latest
+            rid: win-x64
+            executable: mn.exe
+            archive: mn-${{ needs.validate.outputs.tag }}-win-x64.zip
+
+    steps:
+      - name: Check out release commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate.outputs.commit }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Package self-contained release archive
+        run: >-
+          python .github/scripts/package-release.py
+          --tag "${{ needs.validate.outputs.tag }}"
+          --rid "${{ matrix.rid }}"
+
+      - name: Verify publish directory and clean archive extraction
+        run: >-
+          python .github/scripts/verify-release-artifacts.py package
+          --package-results "artifacts/release/${{ needs.validate.outputs.tag }}/package-results.json"
+          --publish-executable "artifacts/release/${{ needs.validate.outputs.tag }}/publish/${{ matrix.rid }}/${{ matrix.executable }}"
+          --rid "${{ matrix.rid }}"
+          --expected-version "${{ needs.validate.outputs.version }}"
+          --cleanup-on-failure
+
+      - name: Upload verified archive to draft Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >-
+          python .github/scripts/manage-draft-release.py upload
+          --tag "${{ needs.validate.outputs.tag }}"
+          --repository "${{ github.repository }}"
+          --rid "${{ matrix.rid }}"
+          --asset "artifacts/release/${{ needs.validate.outputs.tag }}/${{ matrix.archive }}"
+
+  finalize:
+    name: Regenerate release checksum
+    needs:
+      - validate
+      - prepare_release
+      - package
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out release commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate.outputs.commit }}
+
+      - name: Create empty download directory
+        run: mkdir "${{ runner.temp }}/release-assets"
+
+      - name: Download archives and upload regenerated checksum
+        id: finalize
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: >-
+          python .github/scripts/manage-draft-release.py finalize
+          --tag "$RELEASE_TAG"
+          --repository "$RELEASE_REPOSITORY"
+          --download-directory "${{ runner.temp }}/release-assets"
+          --github-output "$GITHUB_OUTPUT"
+
+  release_summary:
+    name: Summarize draft Release
+    if: ${{ always() && needs.prepare_release.result == 'success' }}
+    needs:
+      - validate
+      - build_test
+      - prepare_release
+      - package
+      - finalize
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Write release summary
+        env:
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          RELEASE_URL: ${{ needs.prepare_release.outputs.url }}
+          BUILD_RESULT: ${{ needs.build_test.result }}
+          PACKAGE_RESULT: ${{ needs.package.result }}
+          CHECKSUM_RESULT: ${{ needs.finalize.result }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: |
+          {
+            echo "## Draft Release $RELEASE_TAG"
+            echo
+            echo "- Draft: [$RELEASE_URL]($RELEASE_URL)"
+            echo "- Native build and test: $BUILD_RESULT"
+            echo "- Package and artifact smoke: $PACKAGE_RESULT"
+            echo "- Checksum regeneration: $CHECKSUM_RESULT"
+            echo
+            if [ "$CHECKSUM_RESULT" = "success" ]; then
+              echo "The draft contains both verified archives and a checksum regenerated from downloaded Release assets."
+            else
+              echo "> Do not publish this draft. One or more automated release gates are incomplete."
+            fi
+            echo
+            echo "Complete the [manual release checklist](https://github.com/$RELEASE_REPOSITORY/blob/$RELEASE_TAG/reference/release/artifact-verification.md) before publishing."
+          } >> "$GITHUB_STEP_SUMMARY"
