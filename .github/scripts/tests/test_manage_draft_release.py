@@ -304,7 +304,7 @@ class AssetWorkflowTests(unittest.TestCase):
                 f"{hashlib.sha256(windows_bytes).hexdigest()}  {windows_name}\n"
             )
             self.assertEqual(checksum.read_text(encoding="utf-8"), expected)
-            self.assertEqual(result["checksum"], str(checksum))
+            self.assertTrue(Path(result["checksum"]).samefile(checksum))
             self.assertTrue(
                 any(command[1:3] == ("release", "download") for command in commands)
             )
