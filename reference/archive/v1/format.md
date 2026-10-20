@@ -4,13 +4,14 @@
 - archive format version: `1`
 - content model version: `1`
 - specification status: NCLI-400 format baseline
-- last updated: 2026-09-28
+- last updated: 2026-10-20
 
 ## 1. Purpose and compatibility promise
 
 Archive v1 is a logical backup of one MemoriaNote notebook. It preserves every authoritative value in the current
 `Metadata` and `Pages` tables without depending on the current persistence entities. It is not a copy of a SQLite
-database file.
+database file. The authoritative database tables and derived-data boundary for source format `1` are defined by the
+[notebook database schema v1 specification](../../notebook/v1/schema.md).
 
 Once published, the tuple of archive format version `1` and content model version `1` remains readable even if the
 application model or database schema changes. A reader must accept only version combinations listed in its explicit
@@ -277,6 +278,7 @@ rebuilds `Contents` and FTS, and verifies them before publishing the new `.mnote
 
 ## 13. Schemas and examples
 
+- [Notebook database schema v1](../../notebook/v1/schema.md)
 - [Manifest JSON Schema](schema/manifest.schema.json)
 - [Metadata JSON Schema](schema/metadata.schema.json)
 - [Page record JSON Schema](schema/page.schema.json)
