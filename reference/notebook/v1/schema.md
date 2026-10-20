@@ -366,7 +366,7 @@ validated new database, not an in-place mutation of the source format `1`
 database. Defining that future target and its loss policy is outside this
 specification.
 
-## 11. Versioning policy and implementation references
+## 11. Versioning policy and conformance baseline
 
 This specification can receive an editorial revision such as `1.1` without
 changing the persisted notebook format version. A change to persisted meaning,
@@ -375,24 +375,12 @@ explicit format-version decision. An incompatible format will be documented in
 a new version directory while this format `1` specification remains available
 for recognition, archive conversion, and migration testing.
 
-The `v0.2.0` release implementation and tests used to verify this specification
-include:
+Specification revision `1.0` was verified against a notebook created by the
+MemoriaNote `v0.2.0` release executable. Format identity, the complete fresh
+schema inventory, stored value representations, trigger synchronization, FTS5
+integrity and rebuild behavior, and the archive v1 preservation boundary were
+reviewed as one conformance baseline.
 
-- [Initial relational migration](../../../core/Migrations/20230404004629_InitialCreate.cs)
-- [FTS5 and trigger migration](../../../core/Migrations/20230404004813_FtsIndexTable.cs)
-- [EF Core model snapshot](../../../core/Migrations/NoteDbContextModelSnapshot.cs)
-- [Notebook database context](../../../core/Models/NotebookDbContext.cs)
-- [Metadata row model](../../../core/Models/NoteKeyValue.cs)
-- [Page model](../../../core/Models/Page.cs)
-- [Summary read-model record](../../../core/Persistence/PageSummaryRecord.cs)
-- [Current-format validator](../../../core/Persistence/SqliteNotebookFormatValidator.cs)
-- [Read-model integrity and rebuild](../../../core/Persistence/SqliteNotebookReadModelMaintenance.cs)
-- [Archive v1 persistence adapter](../../../core/Persistence/SqliteArchiveV1PersistenceAdapter.cs)
-- [Format-validator functional tests](../../../tests/MemoriaNote.Core.Tests/Functional/SqliteNotebookFormatValidatorTests.cs)
-- [Read-model functional tests](../../../tests/MemoriaNote.Core.Tests/Functional/SqliteNotebookReadModelMaintenanceTests.cs)
-- [Archive compatibility tests](../../../tests/MemoriaNote.Core.Tests/Archive/ArchiveV1CompatibilityTests.cs)
-
-The migration source, model, validator, archive implementation, functional
-tests, and a product-created `v0.2.0` notebook were reviewed together. This
-specification does not change production behavior, the database schema, or the
-archive format.
+Supporting implementation traceability and verification evidence are
+maintained separately from this public specification. This specification does
+not change production behavior, the database schema, or the archive format.
