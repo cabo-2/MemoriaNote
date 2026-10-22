@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1",
+  "datasetId": "synthetic-small",
+  "datasetVersion": "1",
+  "languages": ["en", "ja"],
+  "source": {
+    "name": "MemoriaNote deterministic synthetic fixture",
+    "url": "https://github.com/cabo-2/MemoriaNote",
+    "revision": "ecli-1000"
+  },
+  "licenses": [
+    {
+      "expression": "MIT",
+      "appliesTo": "prepared/**/*",
+      "licenseFile": "LICENSE.md",
+      "attribution": "MemoriaNote contributors"
+    }
+  ],
+  "selection": {
+    "description": "Two hand-authored pages covering English and Japanese text.",
+    "seed": 1000,
+    "scales": [
+      {
+        "scaleId": "tiny-2",
+        "pageCount": 2
+      }
+    ]
+  },
+  "transform": {
+    "name": "hand-authored-ndjson",
+    "version": "1"
+  },
+  "prepared": {
+    "relativePath": "prepared",
+    "sha256": "9d98b36e3d3cc8bf73a84242ad574f34124620748a433a832470e2e9555afa13",
+    "pageCount": 2,
+    "totalBytes": 424
+  }
+}

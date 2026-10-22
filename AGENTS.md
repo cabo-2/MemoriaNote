@@ -6,6 +6,7 @@ This project uses C# targeting **.NET 10**.
 
 - `core/` – production library providing the data model, database access, and services
 - `cli/` – production console application depending on `core`
+- `tools/` – standalone development tools, including the published performance harness
 - `tests/` – automated test projects for `core` and `cli`
 - `docs/` – local design explorations and work notes; excluded from Git and not a home for canonical documentation
 - `reference/` – version-controlled specifications and external-facing documentation

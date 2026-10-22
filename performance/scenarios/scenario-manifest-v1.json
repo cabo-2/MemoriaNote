@@ -1,0 +1,116 @@
+{
+  "schemaVersion": "1",
+  "scenarios": [
+    {
+      "scenarioId": "startup-version.publish-directory",
+      "scenarioVersion": "1",
+      "description": "Starts the published executable and prints its product version.",
+      "availability": ["v0.2.0", "phase-11", "phase-12"],
+      "artifactInputKind": "publish-directory",
+      "cacheMode": "process-cold",
+      "arrange": [],
+      "command": {
+        "arguments": ["--version"],
+        "workingDirectory": "{working}",
+        "environment": {}
+      },
+      "expected": {
+        "exitCode": 0,
+        "standardOutputContains": ["mn "],
+        "standardErrorContains": [],
+        "standardOutputEmpty": false,
+        "standardErrorEmpty": true
+      },
+      "warmupCount": 3,
+      "measurementCount": 30,
+      "timeoutMilliseconds": 10000,
+      "resetPolicy": "per-trial"
+    },
+    {
+      "scenarioId": "startup-help.publish-directory",
+      "scenarioVersion": "1",
+      "description": "Starts the published executable and renders root help.",
+      "availability": ["v0.2.0", "phase-11", "phase-12"],
+      "artifactInputKind": "publish-directory",
+      "cacheMode": "process-cold",
+      "arrange": [],
+      "command": {
+        "arguments": ["--help"],
+        "workingDirectory": "{working}",
+        "environment": {}
+      },
+      "expected": {
+        "exitCode": 0,
+        "standardOutputContains": ["Usage: mn"],
+        "standardErrorContains": [],
+        "standardOutputEmpty": false,
+        "standardErrorEmpty": true
+      },
+      "warmupCount": 3,
+      "measurementCount": 30,
+      "timeoutMilliseconds": 10000,
+      "resetPolicy": "per-trial"
+    },
+    {
+      "scenarioId": "status-ready.publish-directory",
+      "scenarioVersion": "1",
+      "description": "Recognizes an isolated workspace with a selected current notebook.",
+      "availability": ["v0.2.0", "phase-11", "phase-12"],
+      "artifactInputKind": "publish-directory",
+      "cacheMode": "fresh-state",
+      "arrange": [
+        {
+          "command": {
+            "arguments": ["--workspace", "{workspace}", "create", "benchmark"],
+            "workingDirectory": "{working}",
+            "environment": {}
+          },
+          "expected": {
+            "exitCode": 0,
+            "standardOutputContains": ["benchmark.mnote"],
+            "standardErrorContains": [],
+            "standardOutputEmpty": false,
+            "standardErrorEmpty": true,
+            "fileSystemEntries": [
+              {
+                "path": "{workspace}/benchmark.mnote",
+                "kind": "file",
+                "exists": true
+              }
+            ]
+          }
+        },
+        {
+          "command": {
+            "arguments": ["--workspace", "{workspace}", "use", "benchmark"],
+            "workingDirectory": "{working}",
+            "environment": {}
+          },
+          "expected": {
+            "exitCode": 0,
+            "standardOutputContains": ["benchmark.mnote"],
+            "standardErrorContains": [],
+            "standardOutputEmpty": false,
+            "standardErrorEmpty": true
+          }
+        }
+      ],
+      "command": {
+        "arguments": ["--workspace", "{workspace}", "status"],
+        "workingDirectory": "{working}",
+        "environment": {}
+      },
+      "expected": {
+        "exitCode": 0,
+        "standardOutputContains": ["Status:    ready"],
+        "standardErrorContains": [],
+        "standardOutputEmpty": false,
+        "standardErrorEmpty": true
+      },
+      "warmupCount": 3,
+      "measurementCount": 30,
+      "timeoutMilliseconds": 10000,
+      "resetPolicy": "per-trial"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <PerformanceTestTargetName>MemoriaNote.Performance.TestTarget</PerformanceTestTargetName>
+    <PerformanceTestTargetName Condition="$([MSBuild]::IsOSPlatform('Windows'))">MemoriaNote.Performance.TestTarget.exe</PerformanceTestTargetName>
+    <PerformanceTestTargetPath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../MemoriaNote.Performance.TestTarget/bin/$(Configuration)/$(TargetFramework)/$(PerformanceTestTargetName)'))</PerformanceTestTargetPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageReference Include="NUnit" Version="4.6.1" />
+    <PackageReference Include="NUnit3TestAdapter" Version="6.3.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="NUnit.Analyzers" Version="4.15.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="10.0.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../tools/MemoriaNote.Performance/MemoriaNote.Performance.csproj" />
+    <ProjectReference Include="../MemoriaNote.Performance.TestTarget/MemoriaNote.Performance.TestTarget.csproj"
+                      ReferenceOutputAssembly="false" />
+    <AssemblyMetadata Include="PerformanceTestTargetPath" Value="$(PerformanceTestTargetPath)" />
+  </ItemGroup>
+</Project>

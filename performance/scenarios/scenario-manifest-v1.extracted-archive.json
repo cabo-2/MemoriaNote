@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1",
+  "scenarios": [
+    {
+      "scenarioId": "startup-version.extracted-archive",
+      "scenarioVersion": "1",
+      "description": "Starts the executable from a cleanly extracted distribution archive.",
+      "availability": ["v0.2.0", "phase-11", "phase-12"],
+      "artifactInputKind": "extracted-archive",
+      "cacheMode": "process-cold",
+      "arrange": [],
+      "command": {
+        "arguments": ["--version"],
+        "workingDirectory": "{working}",
+        "environment": {}
+      },
+      "expected": {
+        "exitCode": 0,
+        "standardOutputContains": ["mn "],
+        "standardErrorContains": [],
+        "standardOutputEmpty": false,
+        "standardErrorEmpty": true
+      },
+      "warmupCount": 3,
+      "measurementCount": 30,
+      "timeoutMilliseconds": 10000,
+      "resetPolicy": "per-trial"
+    }
+  ]
+}
