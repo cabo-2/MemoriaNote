@@ -1,0 +1,2 @@
+{"id":"00000000-0000-0000-0000-000000000001","name":"english-note","title":"English note","tags":["fixture","english"],"text":"A small deterministic note for harness contract tests.\n"}
+{"id":"00000000-0000-0000-0000-000000000002","name":"日本語ノート","title":"日本語のノート","tags":["fixture","日本語"],"text":"空白なしの日本語本文とemoji 🚀を含む、小さな決定的fixtureです。\n"}

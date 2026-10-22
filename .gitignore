@@ -45,4 +45,8 @@ packages/
 # Local release packaging
 /artifacts/release/
 
+# Local performance inputs and transient output
+/performance/.cache/
+/performance/.tmp/
+
 docs/
