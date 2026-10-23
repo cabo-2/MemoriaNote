@@ -1,0 +1,91 @@
+{
+  "schemaVersion": "2",
+  "datasetId": "dotnet-docs-en",
+  "datasetVersion": "2026-10-22.1",
+  "languages": [
+    "en"
+  ],
+  "source": {
+    "kind": "git",
+    "name": "dotnet/docs",
+    "url": "https://github.com/dotnet/docs.git",
+    "revision": "ac3fa30c9d65bdf7f584394a950e4e9d2f9a827e",
+    "contentRoot": "docs",
+    "sparsePaths": [
+      "docs",
+      "LICENSE",
+      "LICENSE-CODE",
+      "ThirdPartyNotices.md"
+    ],
+    "contentSha256": "802d9d9a8a70661543d3dff333bad6bb5293c56b4f8aed082d7871dc614395ea"
+  },
+  "licenses": [
+    {
+      "expression": "CC-BY-4.0",
+      "appliesTo": "prepared/**/* except code examples",
+      "licenseFile": "LICENSES.md",
+      "attribution": "Microsoft and .NET documentation contributors; source paths are retained in catalog.ndjson"
+    },
+    {
+      "expression": "MIT",
+      "appliesTo": "code examples embedded in prepared/**/*",
+      "licenseFile": "LICENSES.md",
+      "attribution": "Copyright (c) Microsoft Corporation"
+    }
+  ],
+  "selection": {
+    "description": "Markdown documents under docs/, excluding include fragments, samples, snippets, and empty bodies; ranked deterministically by source-path hash within body-size strata.",
+    "includeGlobs": [
+      "**/*.md"
+    ],
+    "excludedPathSegments": [
+      "includes",
+      "samples",
+      "snippets"
+    ],
+    "scales": [
+      {
+        "scaleId": "pages-100",
+        "pageCount": 100
+      },
+      {
+        "scaleId": "pages-1000",
+        "pageCount": 1000
+      },
+      {
+        "scaleId": "pages-10000",
+        "pageCount": 10000
+      }
+    ]
+  },
+  "transform": {
+    "name": "dotnet-docs-markdown",
+    "version": "1",
+    "outputEncoding": "utf-8-no-bom",
+    "newline": "lf",
+    "pageNameStrategy": "repository-relative-path-v1",
+    "titleFields": [
+      "title"
+    ],
+    "tagFields": [
+      "ms.topic"
+    ]
+  },
+  "prepared": {
+    "relativePath": "prepared",
+    "sha256": "a7cd7adf6178cc3e8115b4e0120ad5caf1cddb474516f00aa2aef3a71c7c0d64",
+    "pageCount": 10000,
+    "totalBytes": 47736583
+  },
+  "statistics": {
+    "sourceMarkdownCount": 13533,
+    "sourceMarkdownBytes": 57135870,
+    "eligiblePageCount": 13031,
+    "excludedPageCount": 502,
+    "selectedPageCount": 10000,
+    "selectedBodyBytes": 38727544,
+    "frontMatterTitleCount": 9991,
+    "headingTitleCount": 0,
+    "pathTitleCount": 9
+  }
+}

@@ -63,6 +63,27 @@ internal static partial class ManifestValidator
             issues.Add("prepared.pageCount must be positive.");
         if (!allowUnlocked && manifest.Prepared.TotalBytes <= 0)
             issues.Add("prepared.totalBytes must be positive.");
+        if (!allowUnlocked)
+        {
+            if (manifest.Prepared.PageCount != lastCount)
+                issues.Add("prepared.pageCount must equal the largest scale pageCount.");
+            if (manifest.Statistics.SourceMarkdownCount !=
+                manifest.Statistics.EligiblePageCount + manifest.Statistics.ExcludedPageCount)
+            {
+                issues.Add(
+                    "statistics sourceMarkdownCount must equal eligiblePageCount plus excludedPageCount.");
+            }
+            if (manifest.Statistics.SelectedPageCount != manifest.Prepared.PageCount)
+                issues.Add("statistics.selectedPageCount must equal prepared.pageCount.");
+            if (manifest.Statistics.EligiblePageCount < manifest.Statistics.SelectedPageCount)
+                issues.Add("statistics.eligiblePageCount cannot be smaller than selectedPageCount.");
+            if (manifest.Statistics.FrontMatterTitleCount +
+                manifest.Statistics.HeadingTitleCount +
+                manifest.Statistics.PathTitleCount != manifest.Statistics.SelectedPageCount)
+            {
+                issues.Add("statistics title source counts must equal selectedPageCount.");
+            }
+        }
 
         if (issues.Count > 0)
             throw new InvalidDataException(string.Join(Environment.NewLine, issues));

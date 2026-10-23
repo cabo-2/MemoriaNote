@@ -59,6 +59,32 @@ public sealed class DotnetDocsTransformerTests
         }
     }
 
+    /// <summary>Verifies preparation never replaces an unrelated directory.</summary>
+    [Test]
+    public async Task Write_ForeignOutputDirectory_IsRejectedWithoutDeletion()
+    {
+        using var temporary = new TemporaryDirectory();
+        Write(temporary.Path, "docs/core/only.md", "# Only\nBody.\n");
+        var manifest = ManifestFactory.Create(1);
+        var inventory = await new DotnetDocsTransformer().InventoryAsync(
+            temporary.Path,
+            manifest,
+            CancellationToken.None);
+        var output = System.IO.Path.Combine(temporary.Path, "foreign");
+        Directory.CreateDirectory(output);
+        var sentinel = System.IO.Path.Combine(output, "sentinel.txt");
+        File.WriteAllText(sentinel, "keep");
+
+        Assert.That(
+            async () => await new PreparedDatasetWriter().WriteAsync(
+                output,
+                manifest,
+                inventory,
+                CancellationToken.None),
+            Throws.TypeOf<InvalidDataException>());
+        Assert.That(File.ReadAllText(sentinel), Is.EqualTo("keep"));
+    }
+
     static void Write(string root, string relativePath, string content)
     {
         var path = System.IO.Path.Combine(root, relativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));

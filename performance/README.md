@@ -80,3 +80,31 @@ the measured artifact input kind.
 
 The checked-in `synthetic-small` dataset is for harness correctness only. Representative English and
 Japanese datasets and initial baselines belong to `ECLI-1010`.
+
+## Prepare the English dataset
+
+The `dotnet-docs-en` manifest pins a full `dotnet/docs` commit and records the selected Markdown tree,
+transformation, nested scales, licenses, statistics, and prepared tree checksum. Source and prepared
+content are stored under the ignored `performance/.cache/` directory.
+
+The first command may access the network to shallow-fetch and sparse-checkout the pinned Git commit.
+Subsequent preparation reuses that checkout. Verification is always offline:
+
+```console
+dotnet run --project tools/MemoriaNote.DatasetPreparation -- prepare \
+  --manifest performance/datasets/dotnet-docs-en/dataset-manifest.json \
+  --cache-root performance/.cache
+
+dotnet run --project tools/MemoriaNote.DatasetPreparation -- verify \
+  --manifest performance/datasets/dotnet-docs-en/dataset-manifest.json \
+  --cache-root performance/.cache
+```
+
+Use `inventory` to inspect a pinned source without writing prepared pages. `prepare --update-lock` is
+reserved for an intentional dataset revision or transform-version change; review every resulting
+manifest checksum and statistic before committing it.
+
+The prepared root contains `catalog.ndjson`, deterministic statistics, and flat UTF-8 text directories
+under `scales/pages-100`, `scales/pages-1000`, and `scales/pages-10000`. Pass the selected scale
+directory to the published CLI's `notebooks import` command. The preparation tool refuses to replace a
+directory unless it contains the ownership marker for the same dataset ID and version.

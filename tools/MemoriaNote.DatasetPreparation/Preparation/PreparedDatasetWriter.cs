@@ -8,6 +8,8 @@ namespace MemoriaNote.DatasetPreparation.Preparation;
 
 internal sealed class PreparedDatasetWriter
 {
+    const string OwnershipMarkerName = ".memorianote-prepared-dataset";
+
     static readonly UTF8Encoding Utf8NoBom = new(false);
     static readonly JsonSerializerOptions CompactJson = new()
     {
@@ -35,6 +37,11 @@ internal sealed class PreparedDatasetWriter
         Directory.CreateDirectory(staging);
         try
         {
+            await File.WriteAllTextAsync(
+                Path.Combine(staging, OwnershipMarkerName),
+                manifest.DatasetId + "\n" + manifest.DatasetVersion + "\n",
+                Utf8NoBom,
+                token);
             await WriteCatalogAsync(staging, selected, token);
             foreach (var scale in manifest.Selection.Scales)
                 await WriteScaleAsync(staging, scale, selected, token);
@@ -45,7 +52,17 @@ internal sealed class PreparedDatasetWriter
                 statistics,
                 token);
             if (Directory.Exists(outputDirectory))
+            {
+                var markerPath = Path.Combine(outputDirectory, OwnershipMarkerName);
+                var expectedMarker = manifest.DatasetId + "\n" + manifest.DatasetVersion + "\n";
+                if (!File.Exists(markerPath) ||
+                    await File.ReadAllTextAsync(markerPath, token) != expectedMarker)
+                {
+                    throw new InvalidDataException(
+                        "The prepared output directory is not owned by this dataset version.");
+                }
                 Directory.Delete(outputDirectory, recursive: true);
+            }
             Directory.Move(staging, outputDirectory);
 
             var preparedTree = await TreeHasher.HashDirectoryAsync(outputDirectory, token);
