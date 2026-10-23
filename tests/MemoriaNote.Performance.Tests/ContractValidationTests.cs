@@ -66,6 +66,31 @@ public sealed class ContractValidationTests
         }
     }
 
+    /// <summary>Verifies the locked dotnet/docs manifest satisfies the version 2 contract.</summary>
+    [Test]
+    public async Task DatasetManifest_DotnetDocsLock_IsValidVersionTwo()
+    {
+        var manifestPath = System.IO.Path.Combine(
+            TestPaths.RepositoryRoot,
+            "performance",
+            "datasets",
+            "dotnet-docs-en",
+            "dataset-manifest.json");
+
+        var manifest = await ContractLoader.ReadDatasetManifestAsync(manifestPath);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(manifest.SchemaVersion, Is.EqualTo("2"));
+            Assert.That(manifest.DatasetId, Is.EqualTo("dotnet-docs-en"));
+            Assert.That(manifest.Source.Kind, Is.EqualTo("git"));
+            Assert.That(manifest.Source.ContentSha256, Has.Length.EqualTo(64));
+            Assert.That(manifest.Prepared.PageCount, Is.EqualTo(10000));
+            Assert.That(manifest.Statistics, Is.Not.Null);
+            Assert.That(manifest.Statistics!.EligiblePageCount, Is.GreaterThan(10000));
+        }
+    }
+
     /// <summary>Verifies JSON Schema rejects fields not included in the contract.</summary>
     [Test]
     public void ScenarioManifest_WithUnknownProperty_IsRejected()

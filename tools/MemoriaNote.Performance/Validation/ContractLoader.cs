@@ -8,6 +8,8 @@ internal static class ContractLoader
         JsonSchemaValidator.FromEmbeddedResource("scenario-manifest-v1.schema.json");
     static readonly JsonSchemaValidator DatasetSchema =
         JsonSchemaValidator.FromEmbeddedResource("dataset-manifest-v1.schema.json");
+    static readonly JsonSchemaValidator DatasetSchemaV2 =
+        JsonSchemaValidator.FromEmbeddedResource("dataset-manifest-v2.schema.json");
     static readonly JsonSchemaValidator ResultSchema =
         JsonSchemaValidator.FromEmbeddedResource("result-v1.schema.json");
 
@@ -29,12 +31,29 @@ internal static class ContractLoader
         CancellationToken cancellationToken = default)
     {
         var bytes = await File.ReadAllBytesAsync(path, cancellationToken);
-        ThrowForSchemaIssues(path, DatasetSchema.Validate(bytes));
+        var schema = ReadSchemaVersion(bytes) == "2" ? DatasetSchemaV2 : DatasetSchema;
+        ThrowForSchemaIssues(path, schema.Validate(bytes));
         var manifest = await ContractJson.ReadAsync<DatasetManifestDocument>(
             path,
             cancellationToken);
         ThrowForSemanticIssues(path, ManifestValidators.Validate(manifest));
         return manifest;
+    }
+
+    static string? ReadSchemaVersion(ReadOnlyMemory<byte> bytes)
+    {
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(bytes);
+            return document.RootElement.TryGetProperty("schemaVersion", out var version) &&
+                version.ValueKind == System.Text.Json.JsonValueKind.String
+                ? version.GetString()
+                : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 
     internal static async Task<PerformanceResultDocument> ReadResultAsync(

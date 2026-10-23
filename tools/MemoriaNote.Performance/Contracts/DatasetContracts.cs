@@ -2,8 +2,6 @@ namespace MemoriaNote.Performance.Contracts;
 
 internal sealed class DatasetManifestDocument
 {
-    internal const string CurrentSchemaVersion = "1";
-
     public string SchemaVersion { get; set; } = string.Empty;
 
     public string DatasetId { get; set; } = string.Empty;
@@ -21,10 +19,14 @@ internal sealed class DatasetManifestDocument
     public DatasetTransform Transform { get; set; } = new();
 
     public PreparedDataset Prepared { get; set; } = new();
+
+    public DatasetStatistics? Statistics { get; set; }
 }
 
 internal sealed class DatasetSource
 {
+    public string? Kind { get; set; }
+
     public string Name { get; set; } = string.Empty;
 
     public string Url { get; set; } = string.Empty;
@@ -32,6 +34,12 @@ internal sealed class DatasetSource
     public string Revision { get; set; } = string.Empty;
 
     public string? ArchiveSha256 { get; set; }
+
+    public string? ContentRoot { get; set; }
+
+    public List<string>? SparsePaths { get; set; }
+
+    public string? ContentSha256 { get; set; }
 }
 
 internal sealed class DatasetLicense
@@ -51,6 +59,10 @@ internal sealed class DatasetSelection
 
     public int? Seed { get; set; }
 
+    public List<string>? IncludeGlobs { get; set; }
+
+    public List<string>? ExcludedPathSegments { get; set; }
+
     public List<DatasetScale> Scales { get; set; } = [];
 }
 
@@ -66,6 +78,16 @@ internal sealed class DatasetTransform
     public string Name { get; set; } = string.Empty;
 
     public string Version { get; set; } = string.Empty;
+
+    public string? OutputEncoding { get; set; }
+
+    public string? Newline { get; set; }
+
+    public string? PageNameStrategy { get; set; }
+
+    public List<string>? TitleFields { get; set; }
+
+    public List<string>? TagFields { get; set; }
 }
 
 internal sealed class PreparedDataset
@@ -77,4 +99,25 @@ internal sealed class PreparedDataset
     public int PageCount { get; set; }
 
     public long TotalBytes { get; set; }
+}
+
+internal sealed class DatasetStatistics
+{
+    public int SourceMarkdownCount { get; set; }
+
+    public long SourceMarkdownBytes { get; set; }
+
+    public int EligiblePageCount { get; set; }
+
+    public int ExcludedPageCount { get; set; }
+
+    public int SelectedPageCount { get; set; }
+
+    public long SelectedBodyBytes { get; set; }
+
+    public int FrontMatterTitleCount { get; set; }
+
+    public int HeadingTitleCount { get; set; }
+
+    public int PathTitleCount { get; set; }
 }

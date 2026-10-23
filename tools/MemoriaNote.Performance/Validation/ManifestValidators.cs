@@ -78,10 +78,9 @@ internal static partial class ManifestValidators
     {
         ArgumentNullException.ThrowIfNull(manifest);
         var issues = new List<string>();
-        if (manifest.SchemaVersion != DatasetManifestDocument.CurrentSchemaVersion)
+        if (manifest.SchemaVersion is not ("1" or "2"))
         {
-            issues.Add(
-                $"schemaVersion must be '{DatasetManifestDocument.CurrentSchemaVersion}'.");
+            issues.Add("schemaVersion must be '1' or '2'.");
         }
         ValidateIdentifier(manifest.DatasetId, "datasetId", issues);
         ValidateIdentifier(manifest.DatasetVersion, "datasetVersion", issues);
@@ -91,6 +90,69 @@ internal static partial class ManifestValidators
         RequireText(manifest.Source.Url, "source.url", issues);
         RequireText(manifest.Source.Revision, "source.revision", issues);
         ValidateOptionalSha256(manifest.Source.ArchiveSha256, "source.archiveSha256", issues);
+        if (manifest.SchemaVersion == "2")
+        {
+            if (manifest.Source.Kind != "git")
+                issues.Add("source.kind must be 'git' for schema version 2.");
+            RequireText(manifest.Source.ContentRoot, "source.contentRoot", issues);
+            if (manifest.Source.SparsePaths == null || manifest.Source.SparsePaths.Count == 0)
+                issues.Add("source.sparsePaths must not be empty for schema version 2.");
+            else
+            {
+                foreach (var path in manifest.Source.SparsePaths)
+                    ValidateRelativePath(path, "source.sparsePaths[]", issues);
+            }
+            ValidateSha256(manifest.Source.ContentSha256, "source.contentSha256", issues);
+            if (manifest.Selection.IncludeGlobs == null ||
+                manifest.Selection.IncludeGlobs.Count == 0)
+            {
+                issues.Add("selection.includeGlobs must not be empty for schema version 2.");
+            }
+            if (manifest.Selection.ExcludedPathSegments == null)
+            {
+                issues.Add(
+                    "selection.excludedPathSegments is required for schema version 2.");
+            }
+            RequireText(manifest.Transform.OutputEncoding, "transform.outputEncoding", issues);
+            RequireText(manifest.Transform.Newline, "transform.newline", issues);
+            RequireText(manifest.Transform.PageNameStrategy, "transform.pageNameStrategy", issues);
+            if (manifest.Transform.TitleFields == null || manifest.Transform.TitleFields.Count == 0)
+                issues.Add("transform.titleFields must not be empty for schema version 2.");
+            if (manifest.Transform.TagFields == null)
+                issues.Add("transform.tagFields is required for schema version 2.");
+            if (manifest.Statistics == null)
+                issues.Add("statistics is required for schema version 2.");
+            else
+            {
+                if (manifest.Statistics.SourceMarkdownCount !=
+                    manifest.Statistics.EligiblePageCount +
+                    manifest.Statistics.ExcludedPageCount)
+                {
+                    issues.Add(
+                        "statistics.sourceMarkdownCount must equal eligiblePageCount plus " +
+                        "excludedPageCount.");
+                }
+                if (manifest.Statistics.SelectedPageCount != manifest.Prepared.PageCount)
+                {
+                    issues.Add(
+                        "statistics.selectedPageCount must equal prepared.pageCount.");
+                }
+                if (manifest.Statistics.EligiblePageCount <
+                    manifest.Statistics.SelectedPageCount)
+                {
+                    issues.Add(
+                        "statistics.eligiblePageCount cannot be smaller than selectedPageCount.");
+                }
+                if (manifest.Statistics.FrontMatterTitleCount +
+                    manifest.Statistics.HeadingTitleCount +
+                    manifest.Statistics.PathTitleCount !=
+                    manifest.Statistics.SelectedPageCount)
+                {
+                    issues.Add(
+                        "statistics title source counts must equal selectedPageCount.");
+                }
+            }
+        }
         if (manifest.Licenses.Count == 0)
             issues.Add("licenses must contain at least one license record.");
         for (var index = 0; index < manifest.Licenses.Count; index++)
@@ -126,6 +188,13 @@ internal static partial class ManifestValidators
             scale => scale.PageCount > manifest.Prepared.PageCount))
         {
             issues.Add("selection scale pageCount cannot exceed prepared.pageCount.");
+        }
+        if (manifest.SchemaVersion == "2" &&
+            manifest.Selection.Scales.Count > 0 &&
+            manifest.Selection.Scales.Max(scale => scale.PageCount) !=
+                manifest.Prepared.PageCount)
+        {
+            issues.Add("prepared.pageCount must equal the largest scale pageCount.");
         }
 
         return issues;
@@ -179,7 +248,7 @@ internal static partial class ManifestValidators
             issues.Add($"{path} must match {IdentifierPattern()}.");
     }
 
-    static void RequireText(string value, string path, List<string> issues)
+    static void RequireText(string? value, string path, List<string> issues)
     {
         if (string.IsNullOrWhiteSpace(value))
             issues.Add($"{path} is required.");
@@ -191,15 +260,15 @@ internal static partial class ManifestValidators
             ValidateSha256(value, path, issues);
     }
 
-    static void ValidateSha256(string value, string path, List<string> issues)
+    static void ValidateSha256(string? value, string path, List<string> issues)
     {
-        if (!Sha256Pattern().IsMatch(value))
+        if (value == null || !Sha256Pattern().IsMatch(value))
             issues.Add($"{path} must be a lowercase SHA-256 value.");
     }
 
-    static void ValidateRelativePath(string value, string path, List<string> issues)
+    static void ValidateRelativePath(string? value, string path, List<string> issues)
     {
-        if (Path.IsPathRooted(value) ||
+        if (string.IsNullOrWhiteSpace(value) || Path.IsPathRooted(value) ||
             value.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries)
                 .Any(segment => segment == ".."))
         {

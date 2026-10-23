@@ -18,6 +18,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoriaNote.Performance.Tes
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoriaNote.Performance.TestTarget", "tests\MemoriaNote.Performance.TestTarget\MemoriaNote.Performance.TestTarget.csproj", "{0AD7DBCC-AD6B-4B98-856F-EBC48A347D05}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoriaNote.DatasetPreparation", "tools\MemoriaNote.DatasetPreparation\MemoriaNote.DatasetPreparation.csproj", "{66A0DC40-12A4-4B46-A676-6CD46D9E7A60}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoriaNote.DatasetPreparation.Tests", "tests\MemoriaNote.DatasetPreparation.Tests\MemoriaNote.DatasetPreparation.Tests.csproj", "{19C228F1-5307-4CB4-B353-79B16C0B97A3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -56,6 +60,14 @@ Global
 		{0AD7DBCC-AD6B-4B98-856F-EBC48A347D05}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0AD7DBCC-AD6B-4B98-856F-EBC48A347D05}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0AD7DBCC-AD6B-4B98-856F-EBC48A347D05}.Release|Any CPU.Build.0 = Release|Any CPU
+		{66A0DC40-12A4-4B46-A676-6CD46D9E7A60}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{66A0DC40-12A4-4B46-A676-6CD46D9E7A60}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{66A0DC40-12A4-4B46-A676-6CD46D9E7A60}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{66A0DC40-12A4-4B46-A676-6CD46D9E7A60}.Release|Any CPU.Build.0 = Release|Any CPU
+		{19C228F1-5307-4CB4-B353-79B16C0B97A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{19C228F1-5307-4CB4-B353-79B16C0B97A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{19C228F1-5307-4CB4-B353-79B16C0B97A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{19C228F1-5307-4CB4-B353-79B16C0B97A3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
