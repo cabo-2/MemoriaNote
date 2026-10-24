@@ -360,6 +360,16 @@ def default_download(url: str, destination: BinaryIO) -> None:
         shutil.copyfileobj(response, destination)
 
 
+def artifact_cache_path(profile: Mapping[str, object], cache_root: Path) -> Path:
+    archive = profile.get("archive")
+    if not isinstance(archive, dict):
+        raise WorkflowError("Artifact profile does not define an archive.")
+    version = require_text(profile.get("productVersion"), "productVersion")
+    return cache_root / "artifacts" / ("v" + version) / "download" / str(
+        archive["fileName"]
+    )
+
+
 def ensure_downloaded_artifact(
     profile: Mapping[str, object],
     cache_root: Path,
@@ -368,9 +378,7 @@ def ensure_downloaded_artifact(
     archive = profile.get("archive")
     if not isinstance(archive, dict):
         raise WorkflowError("Artifact profile does not define a downloadable archive.")
-    destination = cache_root / "artifacts" / str(profile["artifactId"]) / str(
-        archive["fileName"]
-    )
+    destination = artifact_cache_path(profile, cache_root)
     expected_sha256 = str(archive["sha256"])
     if destination.exists():
         if not destination.is_file():
@@ -482,24 +490,25 @@ def dataset_tool_arguments(command: str, manifest_path: Path, cache_root: Path) 
 def prepare_dataset(
     manifest_path: Path,
     cache_root: Path,
-    command: CommandFunction = run_command,
+    command: CommandFunction | None = None,
 ) -> None:
+    executor = command or run_command
     manifest = read_json(manifest_path, "Dataset manifest")
     prepared_root = dataset_prepared_root(manifest, cache_root)
     if prepared_root.exists():
         print(f"Verifying cached dataset: {manifest['datasetId']}")
-        result = command(
+        result = executor(
             dataset_tool_arguments("verify", manifest_path, cache_root), REPOSITORY_ROOT
         )
         require_success(result, f"Dataset verification for {manifest['datasetId']}")
         return
 
     print(f"Preparing dataset: {manifest['datasetId']}")
-    result = command(
+    result = executor(
         dataset_tool_arguments("prepare", manifest_path, cache_root), REPOSITORY_ROOT
     )
     require_success(result, f"Dataset preparation for {manifest['datasetId']}")
-    result = command(
+    result = executor(
         dataset_tool_arguments("verify", manifest_path, cache_root), REPOSITORY_ROOT
     )
     require_success(result, f"Dataset verification for {manifest['datasetId']}")
@@ -508,15 +517,16 @@ def prepare_dataset(
 def verify_dataset(
     manifest_path: Path,
     cache_root: Path,
-    command: CommandFunction = run_command,
+    command: CommandFunction | None = None,
 ) -> Path:
+    executor = command or run_command
     manifest = read_json(manifest_path, "Dataset manifest")
     prepared_root = dataset_prepared_root(manifest, cache_root)
     if not prepared_root.is_dir():
         raise WorkflowError(
             f"Prepared dataset is missing for {manifest['datasetId']}; run prepare first."
         )
-    result = command(
+    result = executor(
         dataset_tool_arguments("verify", manifest_path, cache_root), REPOSITORY_ROOT
     )
     require_success(result, f"Dataset verification for {manifest['datasetId']}")
@@ -531,11 +541,7 @@ def resolve_artifact_input(
     if explicit_input:
         path = resolve_from_repository(explicit_input)
     elif profile["artifactInputKind"] == "extracted-archive":
-        archive = profile["archive"]
-        assert isinstance(archive, dict)
-        path = cache_root / "artifacts" / str(profile["artifactId"]) / str(
-            archive["fileName"]
-        )
+        path = artifact_cache_path(profile, cache_root)
     else:
         raise WorkflowError("publish-directory profiles require --artifact-input.")
 
@@ -664,9 +670,10 @@ def prepare_executable(
 def verify_product_version(
     profile: Mapping[str, object],
     executable: Path,
-    command: CommandFunction = run_command,
+    command: CommandFunction | None = None,
 ) -> None:
-    result = command([str(executable), "--version"], REPOSITORY_ROOT)
+    executor = command or run_command
+    result = executor([str(executable), "--version"], REPOSITORY_ROOT)
     if result.exit_code != 0:
         echo_command_result(result)
         raise WorkflowError("Artifact --version command failed.")
@@ -697,8 +704,9 @@ def write_json_new_or_replace(path: Path, value: Mapping[str, object]) -> None:
     os.replace(temporary, path)
 
 
-def dotnet_sdk_version(command: CommandFunction = run_command) -> str:
-    result = command(["dotnet", "--version"], REPOSITORY_ROOT)
+def dotnet_sdk_version(command: CommandFunction | None = None) -> str:
+    executor = command or run_command
+    result = executor(["dotnet", "--version"], REPOSITORY_ROOT)
     if result.exit_code != 0:
         echo_command_result(result)
         raise WorkflowError("dotnet --version failed.")
@@ -1416,6 +1424,13 @@ def report_workflow(arguments: argparse.Namespace) -> Path:
     session_path = resolve_from_repository(arguments.session)
     session = read_json(session_path, "Checkpoint session")
     validate_session_record(session)
+    output_path = (
+        resolve_from_repository(arguments.output)
+        if arguments.output
+        else default_report_path(session)
+    )
+    if output_path.exists():
+        raise WorkflowError("Report output already exists; choose a new path.")
     build = run_command(
         [
             "dotnet",
@@ -1429,13 +1444,6 @@ def report_workflow(arguments: argparse.Namespace) -> Path:
     require_success(build, "Performance runner build")
     results = load_results_for_report(session)
     report = render_report(session, results)
-    output_path = (
-        resolve_from_repository(arguments.output)
-        if arguments.output
-        else default_report_path(session)
-    )
-    if output_path.exists():
-        raise WorkflowError("Report output already exists; choose a new path.")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(report, encoding="utf-8", newline="\n")
     return output_path

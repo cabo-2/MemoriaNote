@@ -3,12 +3,16 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import sys
 import tarfile
 import tempfile
 import unittest
 import zipfile
+from argparse import Namespace
+from datetime import datetime, timezone
 from pathlib import Path
+from unittest import mock
 
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parents[1]
@@ -90,7 +94,8 @@ class ArtifactCacheTests(unittest.TestCase):
             destination = (
                 cache_root
                 / "artifacts"
-                / profile["artifactId"]
+                / "v1.0.0"
+                / "download"
                 / profile["archive"]["fileName"]
             )
             destination.parent.mkdir(parents=True)
@@ -120,7 +125,8 @@ class ArtifactCacheTests(unittest.TestCase):
             destination = (
                 cache_root
                 / "artifacts"
-                / profile["artifactId"]
+                / "v1.0.0"
+                / "download"
                 / profile["archive"]["fileName"]
             )
             self.assertFalse(destination.exists())
@@ -142,7 +148,8 @@ class ArchiveExtractionTests(unittest.TestCase):
             checkpoint.extract_tar_gz(archive_path, destination, "sample-root")
             executable = destination / "sample-root/mn"
             self.assertEqual(executable.read_bytes(), content)
-            self.assertNotEqual(executable.stat().st_mode & 0o100, 0)
+            if os.name != "nt":
+                self.assertNotEqual(executable.stat().st_mode & 0o100, 0)
 
     def test_extracts_small_zip(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -249,6 +256,86 @@ class ReportTests(unittest.TestCase):
             checkpoint.render_report(session, [first, second, third])
 
 
+class WorkflowIntegrationTests(unittest.TestCase):
+    def test_small_fixture_runs_session_and_generates_report(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            repository_root = Path(temporary)
+            profile_path, archive_path = write_workflow_fixture(repository_root)
+            fixed_time = datetime(2026, 10, 24, 1, 2, 3, tzinfo=timezone.utc)
+
+            def command(arguments, working_directory):
+                values = list(arguments)
+                if values[:2] == ["dotnet", "--version"]:
+                    return checkpoint.CommandResult(0, "10.0.100\n", "")
+                if values[0] == "dotnet" and values[1] == "build":
+                    return checkpoint.CommandResult(0, "build succeeded\n", "")
+                if Path(values[0]).name == "mn" and values[1:] == ["--version"]:
+                    return checkpoint.CommandResult(0, "mn 1.0.0\n", "")
+                separator = values.index("--")
+                action = values[separator + 1]
+                if action == "describe":
+                    return checkpoint.CommandResult(0, "description\n", "")
+                if action == "run":
+                    output = Path(values[values.index("--output") + 1])
+                    output.parent.mkdir(parents=True, exist_ok=True)
+                    result = sample_result()
+                    result["environment"]["environmentLabel"] = "fixture-environment"
+                    output.write_text(json.dumps(result), encoding="utf-8")
+                    return checkpoint.CommandResult(0, "valid result\n", "")
+                if action == "validate-result":
+                    return checkpoint.CommandResult(0, "validated\n", "")
+                raise AssertionError(f"Unexpected command: {values}")
+
+            run_arguments = Namespace(
+                artifact_profile=str(profile_path.relative_to(repository_root)),
+                artifact_input=str(archive_path),
+                roadmap_id="ECLI-1010c",
+                description="Small fixture checkpoint",
+                environment_label="fixture-environment",
+                power_mode_note=None,
+                cache_root="performance/.cache",
+                results_root="performance/results",
+                temporary_root="performance/.tmp/checkpoints",
+                keep_temporary=False,
+            )
+
+            with (
+                mock.patch.object(checkpoint, "REPOSITORY_ROOT", repository_root),
+                mock.patch.object(checkpoint, "run_command", side_effect=command),
+                mock.patch.object(
+                    checkpoint,
+                    "verify_dataset",
+                    return_value=repository_root / "performance/.cache/prepared",
+                ),
+                mock.patch.object(
+                    checkpoint,
+                    "detect_host",
+                    return_value=checkpoint.HostIdentity("linux", "x64"),
+                ),
+                mock.patch.object(checkpoint, "utc_now", return_value=fixed_time),
+                mock.patch.object(checkpoint.os, "access", return_value=True),
+            ):
+                session_path = checkpoint.run_workflow(run_arguments)
+                session = checkpoint.read_json(session_path, "Checkpoint session")
+                self.assertEqual(session["status"], "valid")
+                self.assertEqual(len(session["results"]), 3)
+                self.assertFalse(
+                    (repository_root / "performance/.tmp/checkpoints" / session["sessionId"]).exists()
+                )
+
+                output_path = repository_root / "generated-report.md"
+                report_arguments = Namespace(
+                    session=str(session_path), output=str(output_path)
+                )
+                report_path = checkpoint.report_workflow(report_arguments)
+                self.assertEqual(report_path, output_path)
+                report = report_path.read_text(encoding="utf-8")
+                self.assertIn("# Small fixture checkpoint", report)
+                self.assertEqual(report.count("startup-version.extracted-archive"), 3)
+                with self.assertRaisesRegex(checkpoint.WorkflowError, "already exists"):
+                    checkpoint.report_workflow(report_arguments)
+
+
 def sample_profile(payload: bytes = b"fixture") -> dict:
     return {
         "schemaVersion": "1",
@@ -282,6 +369,41 @@ def write_dataset_manifest(root: Path) -> tuple[Path, Path]:
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     prepared_root = root / "cache/datasets/sample/1/prepared"
     return manifest_path, prepared_root
+
+
+def write_workflow_fixture(repository_root: Path) -> tuple[Path, Path]:
+    for spec in checkpoint.RUN_SPECS:
+        scenario_path = repository_root / spec.scenario_manifest
+        scenario_path.parent.mkdir(parents=True, exist_ok=True)
+        scenario_path.write_text("{}\n", encoding="utf-8")
+        if spec.dataset_manifest is not None:
+            dataset_path = repository_root / spec.dataset_manifest
+            dataset_path.parent.mkdir(parents=True, exist_ok=True)
+            dataset_id = spec.name
+            dataset_path.write_text(
+                json.dumps(
+                    {
+                        "datasetId": dataset_id,
+                        "datasetVersion": "1",
+                        "prepared": {"relativePath": "prepared"},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+    archive_path = repository_root / "sample.tar.gz"
+    content = b"#!/bin/sh\n"
+    with tarfile.open(archive_path, "w:gz") as archive:
+        member = tarfile.TarInfo("sample-root/mn")
+        member.size = len(content)
+        member.mode = 0o755
+        archive.addfile(member, io.BytesIO(content))
+
+    profile = sample_profile(archive_path.read_bytes())
+    profile_path = repository_root / "performance/artifacts/sample.json"
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    profile_path.write_text(json.dumps(profile), encoding="utf-8")
+    return profile_path, archive_path
 
 
 def command_action(arguments: list[str]) -> str:
