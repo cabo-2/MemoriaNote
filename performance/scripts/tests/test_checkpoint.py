@@ -419,7 +419,7 @@ class WorkflowIntegrationTests(unittest.TestCase):
                     session=str(session_path), output=str(output_path)
                 )
                 report_path = checkpoint.report_workflow(report_arguments)
-                self.assertEqual(report_path, output_path)
+                self.assertEqual(report_path, output_path.resolve())
                 report = report_path.read_text(encoding="utf-8")
                 self.assertIn("# Small fixture checkpoint", report)
                 self.assertEqual(report.count("startup-version.extracted-archive"), 3)
