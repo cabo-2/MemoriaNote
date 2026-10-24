@@ -74,6 +74,21 @@ class HostDetectionTests(unittest.TestCase):
             checkpoint.detect_host("Darwin", "arm64")
 
 
+class RepositoryPathTests(unittest.TestCase):
+    def test_normalizes_repository_root_before_relativizing(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            repository_root = Path(temporary).resolve()
+            aliased_root = repository_root / "unused" / ".."
+            target = repository_root / "performance" / "sample.json"
+            target.parent.mkdir()
+            target.write_text("{}", encoding="utf-8")
+
+            with mock.patch.object(checkpoint, "REPOSITORY_ROOT", aliased_root):
+                relative = checkpoint.repository_relative(target)
+
+        self.assertEqual(relative, "performance/sample.json")
+
+
 class ArtifactCacheTests(unittest.TestCase):
     def test_downloads_once_and_reuses_matching_cache(self) -> None:
         payload = b"small artifact fixture"

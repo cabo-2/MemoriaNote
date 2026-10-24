@@ -193,7 +193,7 @@ def resolve_from_repository(value: str | Path) -> Path:
 
 def repository_relative(path: Path) -> str:
     try:
-        return path.resolve().relative_to(REPOSITORY_ROOT).as_posix()
+        return path.resolve().relative_to(REPOSITORY_ROOT.resolve()).as_posix()
     except ValueError as error:
         raise WorkflowError(f"Path must be inside the repository: {path.name}") from error
 
