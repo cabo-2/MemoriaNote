@@ -24,12 +24,21 @@ public sealed class ContractValidationTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(manifests, Has.Count.EqualTo(2));
+            Assert.That(manifests, Has.Count.EqualTo(4));
             Assert.That(manifests, Has.All.Property("SchemaVersion").EqualTo("1"));
             Assert.That(
                 manifests.SelectMany(manifest => manifest.Scenarios)
                     .Select(scenario => scenario.ScenarioId),
                 Does.Contain("status-ready.publish-directory"));
+            Assert.That(
+                manifests.SelectMany(manifest => manifest.Scenarios)
+                    .Select(scenario => scenario.ScenarioId),
+                Does.Contain("ls-pages-10000.dotnet-docs-en.extracted-archive"));
+            Assert.That(
+                manifests.SelectMany(manifest => manifest.Scenarios)
+                    .Select(scenario => scenario.ScenarioId),
+                Does.Contain(
+                    "ls-pages-10000.mdn-translated-content-ja.extracted-archive"));
             Assert.That(
                 manifests.SelectMany(manifest => manifest.Scenarios),
                 Has.All.Property("MeasurementCount").GreaterThanOrEqualTo(20));
@@ -116,6 +125,64 @@ public sealed class ContractValidationTests
             Assert.That(manifest.Prepared.PageCount, Is.EqualTo(10000));
             Assert.That(manifest.Statistics, Is.Not.Null);
             Assert.That(manifest.Statistics!.EligiblePageCount, Is.GreaterThan(10000));
+        }
+    }
+
+    /// <summary>Verifies a 10,000-page scenario matches its locked dataset contract.</summary>
+    [TestCase(
+        "scenario-manifest-v1.dotnet-docs-en-pages-10000.extracted-archive.json",
+        "dotnet-docs-en")]
+    [TestCase(
+        "scenario-manifest-v1.mdn-translated-content-ja-pages-10000.extracted-archive.json",
+        "mdn-translated-content-ja")]
+    public async Task ScenarioManifest_DatasetScale_MatchesLockedDataset(
+        string scenarioFileName,
+        string datasetId)
+    {
+        var scenarioPath = System.IO.Path.Combine(
+            TestPaths.RepositoryRoot,
+            "performance",
+            "scenarios",
+            scenarioFileName);
+        var datasetPath = System.IO.Path.Combine(
+            TestPaths.RepositoryRoot,
+            "performance",
+            "datasets",
+            datasetId,
+            "dataset-manifest.json");
+
+        var scenarioManifest = await ContractLoader.ReadScenarioManifestAsync(scenarioPath);
+        var datasetManifest = await ContractLoader.ReadDatasetManifestAsync(datasetPath);
+        var scenario = scenarioManifest.Scenarios.Single();
+        var scale = datasetManifest.Selection.Scales.Single(candidate =>
+            candidate.ScaleId == scenario.ScaleId);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(scenario.DatasetId, Is.EqualTo(datasetManifest.DatasetId));
+            Assert.That(scale.PageCount, Is.EqualTo(10000));
+            Assert.That(scenario.ArtifactInputKind, Is.EqualTo("extracted-archive"));
+            Assert.That(scenario.CacheMode, Is.EqualTo("warm-reopen"));
+            Assert.That(scenario.ResetPolicy, Is.EqualTo("reuse-state"));
+            Assert.That(scenario.WarmupCount, Is.EqualTo(3));
+            Assert.That(scenario.MeasurementCount, Is.EqualTo(30));
+            Assert.That(scenario.TimeoutMilliseconds, Is.EqualTo(600000));
+            Assert.That(scenario.Arrange, Has.Count.EqualTo(2));
+            Assert.That(
+                scenario.Arrange[1].Command.Arguments,
+                Does.Contain("{dataset}/scales/pages-10000"));
+            Assert.That(
+                scenario.Command.Arguments,
+                Is.EqualTo(new[]
+                {
+                    "--workspace",
+                    "{workspace}",
+                    "ls",
+                    "--notebook",
+                    "benchmark",
+                    "--limit",
+                    "10000"
+                }));
         }
     }
 
