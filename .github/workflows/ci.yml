@@ -42,6 +42,9 @@ jobs:
       - name: Test repository scripts
         run: python -m unittest discover --start-directory .github/scripts/tests --pattern "test_*.py"
 
+      - name: Test performance workflow
+        run: python -m unittest discover --start-directory performance/scripts/tests --pattern "test_*.py"
+
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:

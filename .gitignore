@@ -48,6 +48,7 @@ packages/
 # Local performance inputs and transient output
 /performance/.cache/
 /performance/.tmp/
+/performance/reports/
 /performance/results/
 
 docs/
