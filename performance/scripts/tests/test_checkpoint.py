@@ -42,6 +42,15 @@ class ArtifactProfileTests(unittest.TestCase):
             with self.assertRaisesRegex(checkpoint.WorkflowError, "unknown fields"):
                 checkpoint.load_artifact_profile(path)
 
+    def test_profile_rejects_version_that_could_escape_cache(self) -> None:
+        profile = sample_profile()
+        profile["productVersion"] = "../outside"
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "profile.json"
+            path.write_text(json.dumps(profile), encoding="utf-8")
+            with self.assertRaisesRegex(checkpoint.WorkflowError, "SemVer"):
+                checkpoint.load_artifact_profile(path)
+
     def test_profile_rejects_host_mismatch(self) -> None:
         with self.assertRaisesRegex(checkpoint.WorkflowError, "requires linux"):
             checkpoint.validate_profile_host(

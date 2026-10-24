@@ -35,6 +35,10 @@ SUPPORTED_ARCHITECTURES = {
 }
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+VERSION_PATTERN = re.compile(
+    r"^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$",
+    re.ASCII,
+)
 ROADMAP_PATTERN = re.compile(r"^[A-Z][A-Z0-9-]*-[0-9]+[a-z]?$", re.ASCII)
 IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$", re.ASCII)
 
@@ -262,7 +266,9 @@ def load_artifact_profile(path: Path) -> dict:
     artifact_id = require_text(profile["artifactId"], "artifactId")
     if not IDENTIFIER_PATTERN.fullmatch(artifact_id):
         raise WorkflowError("artifactId contains unsupported characters.")
-    require_text(profile["productVersion"], "productVersion")
+    product_version = require_text(profile["productVersion"], "productVersion")
+    if not VERSION_PATTERN.fullmatch(product_version):
+        raise WorkflowError("productVersion must be a SemVer value without a v prefix.")
     source_commit = require_text(profile["sourceCommit"], "sourceCommit")
     if not COMMIT_PATTERN.fullmatch(source_commit):
         raise WorkflowError("sourceCommit must be a full lowercase Git commit SHA.")
@@ -834,7 +840,6 @@ def prepare_workflow(arguments: argparse.Namespace) -> None:
     profile = load_artifact_profile(profile_path)
     validate_profile_host(profile, host)
     cache_root = resolve_from_repository(arguments.cache_root)
-    repository_relative(cache_root)
     for spec in RUN_SPECS:
         if spec.dataset_manifest is not None:
             prepare_dataset(REPOSITORY_ROOT / spec.dataset_manifest, cache_root)
@@ -901,9 +906,7 @@ def run_workflow(arguments: argparse.Namespace) -> Path:
     cache_root = resolve_from_repository(arguments.cache_root)
     results_root = resolve_from_repository(arguments.results_root)
     temporary_root = resolve_from_repository(arguments.temporary_root)
-    repository_relative(cache_root)
     repository_relative(results_root)
-    repository_relative(temporary_root)
     artifact_input = resolve_artifact_input(
         profile, cache_root, arguments.artifact_input
     )
