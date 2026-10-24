@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "2",
+  "datasetId": "mdn-translated-content-ja",
+  "datasetVersion": "2026-10-24.1",
+  "languages": [
+    "ja"
+  ],
+  "source": {
+    "kind": "git",
+    "name": "mdn/translated-content",
+    "url": "https://github.com/mdn/translated-content.git",
+    "revision": "d5419da29edb53438cf40d7ad41b3aa080bd3d71",
+    "contentRoot": "files/ja",
+    "sparsePaths": [
+      "files/ja",
+      "LICENSE.md"
+    ],
+    "contentSha256": "e9d31111f7689d343b53b7be36cff4e9c9b094c23d95d1afecdc0095adb63d61"
+  },
+  "licenses": [
+    {
+      "expression": "CC-BY-SA-2.5",
+      "appliesTo": "prose in prepared/**/*",
+      "licenseFile": "LICENSES.md",
+      "attribution": "Mozilla Contributors; source paths are retained in catalog.ndjson"
+    },
+    {
+      "expression": "CC0-1.0",
+      "appliesTo": "code examples and snippets added on or after 2010-08-20 in prepared/**/*",
+      "licenseFile": "LICENSES.md",
+      "attribution": "Public-domain dedication recorded by the pinned upstream LICENSE.md"
+    },
+    {
+      "expression": "MIT",
+      "appliesTo": "code examples and snippets added before 2010-08-20 in prepared/**/*",
+      "licenseFile": "LICENSES.md",
+      "attribution": "Original authors identified through the pinned source path and repository history"
+    }
+  ],
+  "selection": {
+    "description": "Japanese Markdown documents under files/ja/, excluding conflicting and orphaned content, empty bodies, missing slugs, and duplicate slugs; ranked deterministically by source-path hash within body-size strata.",
+    "includeGlobs": [
+      "**/*.md"
+    ],
+    "excludedPathSegments": [
+      "conflicting",
+      "orphaned"
+    ],
+    "scales": [
+      {
+        "scaleId": "pages-100",
+        "pageCount": 100
+      },
+      {
+        "scaleId": "pages-1000",
+        "pageCount": 1000
+      },
+      {
+        "scaleId": "pages-10000",
+        "pageCount": 10000
+      }
+    ]
+  },
+  "transform": {
+    "name": "mdn-translated-content-markdown",
+    "version": "1",
+    "outputEncoding": "utf-8-no-bom",
+    "newline": "lf",
+    "pageNameStrategy": "front-matter-slug-v1",
+    "titleFields": [
+      "title"
+    ],
+    "tagFields": [
+      "slug"
+    ]
+  },
+  "prepared": {
+    "relativePath": "prepared",
+    "sha256": "9cc67ee9e0a509c5b4cf5c82d5e3980f6af410bdfedc5fdddf21fb2d1ceb60aa",
+    "pageCount": 10000,
+    "totalBytes": 60973902
+  },
+  "statistics": {
+    "sourceMarkdownCount": 10303,
+    "sourceMarkdownBytes": 54245362,
+    "eligiblePageCount": 10271,
+    "excludedPageCount": 32,
+    "selectedPageCount": 10000,
+    "selectedBodyBytes": 51057898,
+    "frontMatterTitleCount": 10000,
+    "headingTitleCount": 0,
+    "pathTitleCount": 0
+  }
+}

@@ -4,13 +4,13 @@ using MemoriaNote.DatasetPreparation.IO;
 
 namespace MemoriaNote.DatasetPreparation.Transform;
 
-internal sealed class DotnetDocsTransformer
+internal sealed class DotnetDocsTransformer : IDatasetTransformer
 {
     static readonly UTF8Encoding StrictUtf8 = new(
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
-    internal async Task<DatasetInventory> InventoryAsync(
+    public async Task<DatasetInventory> InventoryAsync(
         string checkoutRoot,
         DatasetManifest manifest,
         CancellationToken token)

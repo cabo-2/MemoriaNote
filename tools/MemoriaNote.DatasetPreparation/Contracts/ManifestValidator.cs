@@ -48,15 +48,40 @@ internal static partial class ManifestValidator
                 issues.Add("selection scale pageCount values must be positive and increasing.");
             lastCount = scale.PageCount;
         }
-        if (manifest.Transform.Name != "dotnet-docs-markdown")
-            issues.Add("transform.name must be 'dotnet-docs-markdown'.");
+        switch (manifest.Transform.Name)
+        {
+            case "dotnet-docs-markdown":
+                if (manifest.Transform.PageNameStrategy != "repository-relative-path-v1")
+                {
+                    issues.Add(
+                        "transform.pageNameStrategy must be 'repository-relative-path-v1' " +
+                        "for dotnet-docs-markdown.");
+                }
+                break;
+            case "mdn-translated-content-markdown":
+                if (manifest.Transform.PageNameStrategy != "front-matter-slug-v1")
+                {
+                    issues.Add(
+                        "transform.pageNameStrategy must be 'front-matter-slug-v1' " +
+                        "for mdn-translated-content-markdown.");
+                }
+                break;
+            default:
+                issues.Add("transform.name is not supported.");
+                break;
+        }
         RequireIdentifier(manifest.Transform.Version, "transform.version", issues);
         if (manifest.Transform.OutputEncoding != "utf-8-no-bom")
             issues.Add("transform.outputEncoding must be 'utf-8-no-bom'.");
         if (manifest.Transform.Newline != "lf")
             issues.Add("transform.newline must be 'lf'.");
-        if (manifest.Transform.PageNameStrategy != "repository-relative-path-v1")
-            issues.Add("transform.pageNameStrategy must be 'repository-relative-path-v1'.");
+        if (manifest.Transform.TitleFields.Count == 0 ||
+            manifest.Transform.TitleFields.Any(string.IsNullOrWhiteSpace))
+        {
+            issues.Add("transform.titleFields must contain at least one non-empty field.");
+        }
+        if (manifest.Transform.TagFields.Any(string.IsNullOrWhiteSpace))
+            issues.Add("transform.tagFields must contain only non-empty fields.");
         RequireRelativePath(manifest.Prepared.RelativePath, "prepared.relativePath", issues);
         ValidateHash(manifest.Prepared.Sha256, "prepared.sha256", allowUnlocked, issues);
         if (!allowUnlocked && manifest.Prepared.PageCount <= 0)
