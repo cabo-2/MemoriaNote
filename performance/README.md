@@ -34,8 +34,8 @@ matching checked-in profile:
 | Linux x64 | `performance/artifacts/v0.2.0-linux-x64.json` |
 | Windows x64 | `performance/artifacts/v0.2.0-win-x64.json` |
 
-First prepare both representative datasets and the official release archive. This is the only
-workflow command that may use the network:
+First restore the solution dependencies and prepare both representative datasets and the official
+release archive. `prepare` is the only workflow command that may use the network:
 
 ```console
 python performance/scripts/checkpoint.py prepare \
@@ -57,7 +57,7 @@ python performance/scripts/checkpoint.py run \
   --environment-label linux-reference-1
 ```
 
-`run` is offline. It verifies both datasets and the archive, builds the solution in `Release`,
+`run` is offline. It verifies both datasets and the archive, builds the restored solution in `Release`,
 extracts the artifact into a new temporary directory, checks `mn --version`, and invokes `describe`,
 `run`, and `validate-result` for each manifest. Raw results and `session.json` are written below a
 new `performance/results/ecli-1010c/<session-id>/` directory. Existing sessions are never replaced.

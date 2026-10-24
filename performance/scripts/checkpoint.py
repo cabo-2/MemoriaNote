@@ -480,6 +480,7 @@ def dataset_tool_arguments(command: str, manifest_path: Path, cache_root: Path) 
     return [
         "dotnet",
         "run",
+        "--no-restore",
         "--configuration",
         "Release",
         "--project",
@@ -840,6 +841,8 @@ def prepare_workflow(arguments: argparse.Namespace) -> None:
     profile = load_artifact_profile(profile_path)
     validate_profile_host(profile, host)
     cache_root = resolve_from_repository(arguments.cache_root)
+    restore = run_command(["dotnet", "restore", "MemoriaNote.sln"], REPOSITORY_ROOT)
+    require_success(restore, "Solution restore")
     for spec in RUN_SPECS:
         if spec.dataset_manifest is not None:
             prepare_dataset(REPOSITORY_ROOT / spec.dataset_manifest, cache_root)
@@ -915,7 +918,14 @@ def run_workflow(arguments: argparse.Namespace) -> Path:
             verify_dataset(REPOSITORY_ROOT / spec.dataset_manifest, cache_root)
 
     build = run_command(
-        ["dotnet", "build", "MemoriaNote.sln", "--configuration", "Release"],
+        [
+            "dotnet",
+            "build",
+            "MemoriaNote.sln",
+            "--configuration",
+            "Release",
+            "--no-restore",
+        ],
         REPOSITORY_ROOT,
     )
     require_success(build, "Release build")
@@ -1441,6 +1451,7 @@ def report_workflow(arguments: argparse.Namespace) -> Path:
             str(PERFORMANCE_PROJECT),
             "--configuration",
             "Release",
+            "--no-restore",
         ],
         REPOSITORY_ROOT,
     )

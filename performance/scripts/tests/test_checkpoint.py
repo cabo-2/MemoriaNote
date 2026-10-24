@@ -203,6 +203,7 @@ class DatasetPreparationTests(unittest.TestCase):
 
             def command(arguments, working_directory):
                 commands.append(list(arguments))
+                self.assertIn("--no-restore", arguments)
                 return checkpoint.CommandResult(0, "verified\n", "")
 
             checkpoint.prepare_dataset(manifest_path, root / "cache", command=command)
@@ -217,6 +218,7 @@ class DatasetPreparationTests(unittest.TestCase):
 
             def command(arguments, working_directory):
                 commands.append(list(arguments))
+                self.assertIn("--no-restore", arguments)
                 return checkpoint.CommandResult(0, "ok\n", "")
 
             checkpoint.prepare_dataset(manifest_path, root / "cache", command=command)
@@ -231,11 +233,63 @@ class DatasetPreparationTests(unittest.TestCase):
 
             def command(arguments, working_directory):
                 commands.append(list(arguments))
+                self.assertIn("--no-restore", arguments)
                 return checkpoint.CommandResult(1, "checksum mismatch\n", "")
 
             with self.assertRaisesRegex(checkpoint.WorkflowError, "verification"):
                 checkpoint.prepare_dataset(manifest_path, root / "cache", command=command)
             self.assertEqual([command_action(value) for value in commands], ["verify"])
+
+
+class PrepareWorkflowTests(unittest.TestCase):
+    def test_restores_before_preparing_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            repository_root = Path(temporary)
+            profile_path = repository_root / "performance/artifacts/sample.json"
+            profile_path.parent.mkdir(parents=True)
+            profile_path.write_text(json.dumps(sample_profile()), encoding="utf-8")
+            events = []
+
+            def command(arguments, working_directory):
+                events.append(tuple(arguments))
+                return checkpoint.CommandResult(0, "restored\n", "")
+
+            def prepare_dataset(manifest_path, cache_root):
+                events.append(("prepare-dataset", manifest_path.name))
+
+            def prepare_artifact(profile, cache_root):
+                events.append(("prepare-artifact", profile["artifactId"]))
+                return cache_root / "artifact"
+
+            arguments = Namespace(
+                artifact_profile="performance/artifacts/sample.json",
+                artifact_input=None,
+                cache_root="performance/.cache",
+            )
+            with (
+                mock.patch.object(checkpoint, "REPOSITORY_ROOT", repository_root),
+                mock.patch.object(
+                    checkpoint,
+                    "detect_host",
+                    return_value=checkpoint.HostIdentity("linux", "x64"),
+                ),
+                mock.patch.object(checkpoint, "run_command", side_effect=command),
+                mock.patch.object(
+                    checkpoint, "prepare_dataset", side_effect=prepare_dataset
+                ),
+                mock.patch.object(
+                    checkpoint,
+                    "ensure_downloaded_artifact",
+                    side_effect=prepare_artifact,
+                ),
+            ):
+                checkpoint.prepare_workflow(arguments)
+
+            self.assertEqual(events[0], ("dotnet", "restore", "MemoriaNote.sln"))
+            self.assertEqual(
+                [event[0] for event in events[1:]],
+                ["prepare-dataset", "prepare-dataset", "prepare-artifact"],
+            )
 
 
 class ReportTests(unittest.TestCase):
@@ -277,6 +331,7 @@ class WorkflowIntegrationTests(unittest.TestCase):
                 if values[:2] == ["dotnet", "--version"]:
                     return checkpoint.CommandResult(0, "10.0.100\n", "")
                 if values[0] == "dotnet" and values[1] == "build":
+                    self.assertIn("--no-restore", values)
                     return checkpoint.CommandResult(0, "build succeeded\n", "")
                 if Path(values[0]).name == "mn" and values[1:] == ["--version"]:
                     return checkpoint.CommandResult(0, "mn 1.0.0\n", "")
