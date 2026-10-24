@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "1",
+  "scenarios": [
+    {
+      "scenarioId": "ls-pages-10000.dotnet-docs-en.extracted-archive",
+      "scenarioVersion": "1",
+      "description": "Lists all summaries from a notebook imported from the 10,000-page dotnet/docs corpus.",
+      "availability": ["v0.2.0", "phase-11", "phase-12"],
+      "artifactInputKind": "extracted-archive",
+      "datasetId": "dotnet-docs-en",
+      "scaleId": "pages-10000",
+      "cacheMode": "warm-reopen",
+      "arrange": [
+        {
+          "command": {
+            "arguments": ["--workspace", "{workspace}", "create", "benchmark"],
+            "workingDirectory": "{working}",
+            "environment": {}
+          },
+          "expected": {
+            "exitCode": 0,
+            "standardOutputContains": ["benchmark.mnote"],
+            "standardErrorContains": [],
+            "standardOutputEmpty": false,
+            "standardErrorEmpty": true,
+            "fileSystemEntries": [
+              {
+                "path": "{workspace}/benchmark.mnote",
+                "kind": "file",
+                "exists": true
+              }
+            ]
+          }
+        },
+        {
+          "command": {
+            "arguments": [
+              "--workspace",
+              "{workspace}",
+              "notebooks",
+              "import",
+              "{dataset}/scales/pages-10000",
+              "--notebook",
+              "benchmark"
+            ],
+            "workingDirectory": "{working}",
+            "environment": {}
+          },
+          "expected": {
+            "exitCode": 0,
+            "standardOutputContains": ["Import completed:", "created=10000"],
+            "standardErrorContains": [],
+            "standardOutputEmpty": false,
+            "standardErrorEmpty": true
+          }
+        }
+      ],
+      "command": {
+        "arguments": [
+          "--workspace",
+          "{workspace}",
+          "ls",
+          "--notebook",
+          "benchmark",
+          "--limit",
+          "10000"
+        ],
+        "workingDirectory": "{working}",
+        "environment": {}
+      },
+      "expected": {
+        "exitCode": 0,
+        "standardOutputContains": [],
+        "standardErrorContains": [],
+        "standardOutputEmpty": false,
+        "standardErrorEmpty": true
+      },
+      "warmupCount": 3,
+      "measurementCount": 30,
+      "timeoutMilliseconds": 600000,
+      "resetPolicy": "reuse-state"
+    }
+  ]
+}

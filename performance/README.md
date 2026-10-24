@@ -133,3 +133,94 @@ dotnet run --project tools/MemoriaNote.DatasetPreparation -- verify \
 As with the English dataset, use `inventory` to inspect the pinned source and reserve
 `prepare --update-lock` for intentional source or transform changes. The prepared Japanese corpus
 contains nested `pages-100`, `pages-1000`, and `pages-10000` scales.
+
+## Run the 10,000-page listing scenarios
+
+The ECLI-1010c manifests measure `ls --limit 10000` against notebooks populated from the largest
+locked English and Japanese scales. The `v0.2.0` baseline creates schema v1 notebooks; later
+checkpoints create the current format owned by the measured artifact:
+
+| Dataset | Scenario manifest |
+| --- | --- |
+| `dotnet-docs-en` | `performance/scenarios/scenario-manifest-v1.dotnet-docs-en-pages-10000.extracted-archive.json` |
+| `mdn-translated-content-ja` | `performance/scenarios/scenario-manifest-v1.mdn-translated-content-ja-pages-10000.extracted-archive.json` |
+
+Run each manifest separately with its matching `--dataset-manifest` and full prepared directory as
+`--dataset-root`. The runner verifies the complete prepared tree before arranging the scenario; the
+manifest resolves the measured scale below that root as `{dataset}/scales/pages-10000`.
+
+Each scenario creates a notebook and imports the 10,000 text files once outside the measured interval.
+The same closed notebook is then reopened by a new CLI process for three unmeasured warm-ups and 30
+measured `ls` invocations. The existing scenario contract applies one 600,000 ms timeout to both
+arrange and measured commands. One invalid warm-up or sample invalidates the scenario.
+
+Use `describe` before `run` and inspect the manifest to confirm the dataset ID and scale,
+`warm-reopen` cache mode, `reuse-state` reset policy, repetitions, and timeout. Representative dataset
+runs remain local-only; CI validates only the manifest and locked dataset contracts with bounded tests.
+
+## Create retained v0.2.0 schema v1 notebooks
+
+The performance runner deletes its isolated workspace after a successful run. Create the notebooks
+that will be retained for SchemaLab separately with the official `v0.2.0` executable. The prepared
+corpora must first pass the `prepare` and offline `verify` commands in the English and Japanese
+sections above.
+
+From the repository root, set the executable and a new staging directory. Keep both locations under
+ignored local storage and replace the placeholders before running the commands:
+
+```bash
+readonly ECLI_V020_MN="/path/to/mn-v0.2.0-linux-x64/mn"
+readonly ECLI_V1_STAGE="performance/.cache/ecli-1010c/notebook-build/<session-id>"
+readonly ECLI_V1_RETAIN="performance/.cache/notebooks/schema-v1/v0.2.0"
+
+mkdir -p "$ECLI_V1_STAGE/dotnet" "$ECLI_V1_STAGE/mdn" "$ECLI_V1_RETAIN"
+```
+
+Create and import the English notebook:
+
+```console
+"$ECLI_V020_MN" --workspace "$ECLI_V1_STAGE/dotnet" \
+  create dotnet-docs-en-pages-10000
+
+"$ECLI_V020_MN" --workspace "$ECLI_V1_STAGE/dotnet" \
+  notebooks import \
+  performance/.cache/datasets/dotnet-docs-en/2026-10-22.1/prepared/scales/pages-10000 \
+  --notebook dotnet-docs-en-pages-10000
+```
+
+Create and import the Japanese notebook:
+
+```console
+"$ECLI_V020_MN" --workspace "$ECLI_V1_STAGE/mdn" \
+  create mdn-translated-content-ja-pages-10000
+
+"$ECLI_V020_MN" --workspace "$ECLI_V1_STAGE/mdn" \
+  notebooks import \
+  performance/.cache/datasets/mdn-translated-content-ja/2026-10-24.1/prepared/scales/pages-10000 \
+  --notebook mdn-translated-content-ja-pages-10000
+```
+
+Confirm that both files are recognized as ready file-based format `1` notebooks:
+
+```console
+"$ECLI_V020_MN" --workspace "$ECLI_V1_STAGE/dotnet" notebooks list --long
+"$ECLI_V020_MN" --workspace "$ECLI_V1_STAGE/mdn" notebooks list --long
+```
+
+After every CLI process has exited, confirm that no `*.mnote-wal` or `*.mnote-shm` file remains. Then
+copy without replacing an existing retained input and record each checksum:
+
+```console
+test ! -e "$ECLI_V1_RETAIN/dotnet-docs-en-pages-10000.mnote"
+test ! -e "$ECLI_V1_RETAIN/mdn-translated-content-ja-pages-10000.mnote"
+
+cp "$ECLI_V1_STAGE/dotnet/dotnet-docs-en-pages-10000.mnote" \
+  "$ECLI_V1_RETAIN/dotnet-docs-en-pages-10000.mnote"
+cp "$ECLI_V1_STAGE/mdn/mdn-translated-content-ja-pages-10000.mnote" \
+  "$ECLI_V1_RETAIN/mdn-translated-content-ja-pages-10000.mnote"
+
+sha256sum "$ECLI_V1_RETAIN"/*.mnote
+```
+
+These notebooks contain upstream documentation and code examples. Keep them under
+`performance/.cache/`; never commit the `.mnote` files or their extracted content.
