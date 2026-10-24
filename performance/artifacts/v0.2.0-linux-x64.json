@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1",
+  "artifactId": "v0.2.0-linux-x64-self-contained",
+  "productVersion": "0.2.0",
+  "sourceCommit": "3ddede8a6240a6abe91f3f431f84a2764ed2faa6",
+  "hostOs": "linux",
+  "rid": "linux-x64",
+  "configuration": "Release",
+  "deploymentKind": "self-contained",
+  "artifactInputKind": "extracted-archive",
+  "executableRelativePath": "mn",
+  "expectedVersionOutput": "mn 0.2.0",
+  "archive": {
+    "format": "tar.gz",
+    "fileName": "mn-v0.2.0-linux-x64.tar.gz",
+    "url": "https://github.com/cabo-2/MemoriaNote/releases/download/v0.2.0/mn-v0.2.0-linux-x64.tar.gz",
+    "sha256": "4099fde524b67ea6b9d18577d6e90ce1542d4e24b11ced4cd0592062dfefeecc",
+    "rootDirectory": "mn-v0.2.0-linux-x64"
+  }
+}

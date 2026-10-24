@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1",
+  "artifactId": "v0.2.0-win-x64-self-contained",
+  "productVersion": "0.2.0",
+  "sourceCommit": "3ddede8a6240a6abe91f3f431f84a2764ed2faa6",
+  "hostOs": "windows",
+  "rid": "win-x64",
+  "configuration": "Release",
+  "deploymentKind": "self-contained",
+  "artifactInputKind": "extracted-archive",
+  "executableRelativePath": "mn.exe",
+  "expectedVersionOutput": "mn 0.2.0",
+  "archive": {
+    "format": "zip",
+    "fileName": "mn-v0.2.0-win-x64.zip",
+    "url": "https://github.com/cabo-2/MemoriaNote/releases/download/v0.2.0/mn-v0.2.0-win-x64.zip",
+    "sha256": "eec8652e95eaf4f1cbd632bd8dc2bf5657971ed1ca65b13571cdbb66effe33fc",
+    "rootDirectory": "mn-v0.2.0-win-x64"
+  }
+}
