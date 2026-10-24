@@ -12,7 +12,6 @@ internal sealed class DatasetApplication
 {
     readonly TextWriter _output;
     readonly GitSourceManager _gitSourceManager = new();
-    readonly DotnetDocsTransformer _transformer = new();
     readonly PreparedDatasetWriter _writer = new();
 
     internal DatasetApplication(TextWriter output)
@@ -59,7 +58,8 @@ internal sealed class DatasetApplication
     {
         var (manifest, manifestPath) = await ReadManifestAsync(options, allowUnlocked: false, token);
         var sourceRoot = await ResolveSourceRootAsync(options, manifest, token);
-        var inventory = await _transformer.InventoryAsync(sourceRoot, manifest, token);
+        var transformer = DatasetTransformerFactory.Create(manifest.Transform.Name);
+        var inventory = await transformer.InventoryAsync(sourceRoot, manifest, token);
         var maximum = manifest.Selection.Scales.Max(scale => scale.PageCount);
         var selected = inventory.RankedPages.Take(Math.Min(maximum, inventory.RankedPages.Count));
         var report = new
@@ -86,7 +86,8 @@ internal sealed class DatasetApplication
             allowUnlocked: options.UpdateLock,
             token);
         var sourceRoot = await ResolveSourceRootAsync(options, manifest, token);
-        var inventory = await _transformer.InventoryAsync(sourceRoot, manifest, token);
+        var transformer = DatasetTransformerFactory.Create(manifest.Transform.Name);
+        var inventory = await transformer.InventoryAsync(sourceRoot, manifest, token);
         if (!options.UpdateLock && inventory.SourceTree.Sha256 != manifest.Source.ContentSha256)
         {
             throw new InvalidDataException(

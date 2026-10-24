@@ -108,3 +108,28 @@ The prepared root contains `catalog.ndjson`, deterministic statistics, and flat 
 under `scales/pages-100`, `scales/pages-1000`, and `scales/pages-10000`. Pass the selected scale
 directory to the published CLI's `notebooks import` command. The preparation tool refuses to replace a
 directory unless it contains the ownership marker for the same dataset ID and version.
+
+## Prepare the Japanese dataset
+
+The `mdn-translated-content-ja` manifest pins a full `mdn/translated-content` commit and selects
+Japanese Markdown below `files/ja`. Conflicting and orphaned pages are excluded. MDN `slug` metadata
+provides stable page names and categories, while `title` supplies display titles. Source paths and
+content hashes remain in the generated local catalog for attribution and reproducibility.
+
+The first command may access the network to shallow-fetch and sparse-checkout the pinned Git commit.
+Source articles, code examples, and prepared page text remain under the ignored
+`performance/.cache/` directory and are never committed:
+
+```console
+dotnet run --project tools/MemoriaNote.DatasetPreparation -- prepare \
+  --manifest performance/datasets/mdn-translated-content-ja/dataset-manifest.json \
+  --cache-root performance/.cache
+
+dotnet run --project tools/MemoriaNote.DatasetPreparation -- verify \
+  --manifest performance/datasets/mdn-translated-content-ja/dataset-manifest.json \
+  --cache-root performance/.cache
+```
+
+As with the English dataset, use `inventory` to inspect the pinned source and reserve
+`prepare --update-lock` for intentional source or transform changes. The prepared Japanese corpus
+contains nested `pages-100`, `pages-1000`, and `pages-10000` scales.

@@ -62,4 +62,20 @@ internal static class ManifestFactory
             }
         };
     }
+
+    internal static DatasetManifest CreateMdn(params int[] pageCounts)
+    {
+        var manifest = Create(pageCounts);
+        manifest.DatasetId = "mdn-translated-content-ja";
+        manifest.Languages = ["ja"];
+        manifest.Source.Name = "mdn/translated-content";
+        manifest.Source.Url = "https://github.com/mdn/translated-content.git";
+        manifest.Source.ContentRoot = "files/ja";
+        manifest.Source.SparsePaths = ["files/ja", "LICENSE.md"];
+        manifest.Selection.ExcludedPathSegments = ["conflicting", "orphaned"];
+        manifest.Transform.Name = "mdn-translated-content-markdown";
+        manifest.Transform.PageNameStrategy = "front-matter-slug-v1";
+        manifest.Transform.TagFields = ["slug"];
+        return manifest;
+    }
 }
