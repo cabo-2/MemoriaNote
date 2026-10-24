@@ -293,6 +293,18 @@ class PrepareWorkflowTests(unittest.TestCase):
 
 
 class ReportTests(unittest.TestCase):
+    def test_default_report_path_uses_local_reports_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            repository_root = Path(temporary)
+            with mock.patch.object(checkpoint, "REPOSITORY_ROOT", repository_root):
+                path = checkpoint.default_report_path(sample_session())
+
+        self.assertEqual(
+            path,
+            repository_root
+            / "performance/reports/ecli-1010c/20261024T010203Z-abcdef.md",
+        )
+
     def test_renders_english_report_from_small_result_fixture(self) -> None:
         session = sample_session()
         results = [sample_result(), sample_result(), sample_result()]

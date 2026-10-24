@@ -83,10 +83,15 @@ python performance/scripts/checkpoint.py report \
   --session performance/results/ecli-1010c/<session-id>/session.json
 ```
 
-The default report path is under `docs/performance/`. The English report contains the minimum
+The default report path is
+`performance/reports/<roadmap-id>/<session-id>.md`. The `performance/reports/` directory contains
+local generated output and is not tracked by Git. The English report contains the minimum
 environment, artifact, runner, manifest, dataset, and scenario summary fields that can be derived
 automatically. It excludes raw samples, command output, host names, user names, and machine-specific
 absolute paths. Result and report output paths must be new unless a different new path is selected.
+
+Use `--output <path>` when a different new report path is required. A reviewed report intended to
+become canonical documentation can therefore be generated explicitly outside the ignored directory.
 
 ## Internal component documentation
 

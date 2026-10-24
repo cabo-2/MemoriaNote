@@ -47,6 +47,7 @@ PERFORMANCE_PROJECT = Path("tools/MemoriaNote.Performance")
 DATASET_PROJECT = Path("tools/MemoriaNote.DatasetPreparation")
 DEFAULT_CACHE_ROOT = Path("performance/.cache")
 DEFAULT_RESULTS_ROOT = Path("performance/results")
+DEFAULT_REPORTS_ROOT = Path("performance/reports")
 DEFAULT_TEMPORARY_ROOT = Path("performance/.tmp/checkpoints")
 
 
@@ -165,7 +166,10 @@ def parse_arguments(arguments: Sequence[str]) -> argparse.Namespace:
     report.add_argument("--session", required=True, help="Path to session.json.")
     report.add_argument(
         "--output",
-        help="New report path (default: docs/performance/<checkpoint>.md).",
+        help=(
+            "New report path (default: "
+            "performance/reports/<roadmap-id>/<session-id>.md)."
+        ),
     )
     return parser.parse_args(arguments)
 
@@ -1423,14 +1427,9 @@ def load_results_for_report(session: Mapping[str, object]) -> list[dict]:
 
 
 def default_report_path(session: Mapping[str, object]) -> Path:
-    date = str(session["startedAtUtc"])[:10]
-    artifact = session["artifact"]
-    assert isinstance(artifact, dict)
-    name = (
-        f"{date}-{str(session['roadmapId']).lower()}-"
-        f"{str(artifact['artifactId']).lower()}-performance.md"
-    )
-    return REPOSITORY_ROOT / "docs" / "performance" / name
+    roadmap_id = str(session["roadmapId"]).lower()
+    session_id = str(session["sessionId"])
+    return REPOSITORY_ROOT / DEFAULT_REPORTS_ROOT / roadmap_id / f"{session_id}.md"
 
 
 def report_workflow(arguments: argparse.Namespace) -> Path:
