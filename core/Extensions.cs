@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using System.IO;
 using System.IO.Compression;
 using System.Globalization;
-using Newtonsoft.Json;
 
 namespace MemoriaNote
 {

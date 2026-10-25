@@ -55,6 +55,37 @@ public sealed class SourceDependencyTests
     }
 
     /// <summary>
+    /// Verifies that production sources no longer use Newtonsoft.Json APIs.
+    /// The package reference remains until ECLI-1030 removes unused dependencies.
+    /// </summary>
+    [Test]
+    public void CoreProductionSources_DoNotReferenceNewtonsoftJsonApis()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var coreDirectory = Path.Combine(repositoryRoot, "core");
+        var forbiddenReferences = new[] { "Newtonsoft.Json", "JsonConvert" };
+        var violations = Directory
+            .EnumerateFiles(coreDirectory, "*.cs", SearchOption.AllDirectories)
+            .Where(file => !Path.GetRelativePath(coreDirectory, file)
+                .Split(
+                    new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                    StringSplitOptions.RemoveEmptyEntries)
+                .Any(directory => directory == "bin" || directory == "obj"))
+            .SelectMany(file => forbiddenReferences
+                .Where(reference => File.ReadAllText(file).Contains(
+                    reference,
+                    StringComparison.Ordinal))
+                .Select(reference =>
+                    $"{Path.GetRelativePath(repositoryRoot, file)}: {reference}"))
+            .ToList();
+
+        Assert.That(
+            violations,
+            Is.Empty,
+            () => string.Join(Environment.NewLine, violations));
+    }
+
+    /// <summary>
     /// Verifies that core production namespaces match their source directories.
     /// </summary>
     [Test]

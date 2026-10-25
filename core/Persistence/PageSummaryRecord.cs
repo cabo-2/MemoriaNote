@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 using MemoriaNote;
+using MemoriaNote.Serialization;
 
 namespace MemoriaNote.Persistence
 {
@@ -44,12 +45,8 @@ namespace MemoriaNote.Persistence
         [JsonIgnore]
         public string Tags
         {
-            get => TagDict == null || TagDict.Count == 0
-                ? null
-                : JsonConvert.SerializeObject(TagDict);
-            set => TagDict = string.IsNullOrWhiteSpace(value)
-                ? new Dictionary<string, string>()
-                : JsonConvert.DeserializeObject<Dictionary<string, string>>(value);
+            get => TagJsonCodec.Serialize(TagDict);
+            set => TagDict = TagJsonCodec.Deserialize(value);
         }
 
         /// <summary>Gets or sets the persisted content type.</summary>
