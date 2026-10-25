@@ -3,9 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 using MemoriaNote;
 using MemoriaNote.Domain;
+using MemoriaNote.Serialization;
 
 namespace MemoriaNote.Models
 {
@@ -112,20 +113,8 @@ namespace MemoriaNote.Models
         [JsonIgnore]
         public string Tags
         {
-            get
-            {
-                if (TagDict == null || TagDict.Count == 0)
-                    return null;
-
-                return JsonConvert.SerializeObject(TagDict);
-            }
-            set
-            {
-                if (string.IsNullOrWhiteSpace(value))
-                    TagDict = new Dictionary<string, string>();
-                else
-                    TagDict = JsonConvert.DeserializeObject<Dictionary<string, string>>(value);
-            }
+            get => TagJsonCodec.Serialize(TagDict);
+            set => TagDict = TagJsonCodec.Deserialize(value);
         }
         /// <summary>
         /// Represents the content type of the page.
