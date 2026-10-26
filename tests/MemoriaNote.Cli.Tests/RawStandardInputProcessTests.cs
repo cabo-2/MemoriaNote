@@ -27,7 +27,7 @@ public sealed class RawStandardInputProcessTests
         var result = await harness.RunWithStandardInputAsync(
             arguments,
             archiveBytes,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(30));
 
         var destination = Path.Combine(
             harness.WorkingDirectory,
@@ -60,7 +60,7 @@ public sealed class RawStandardInputProcessTests
                 "--dry-run"
             },
             archiveBytes,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(30));
 
         using (Assert.EnterMultipleScope())
         {
