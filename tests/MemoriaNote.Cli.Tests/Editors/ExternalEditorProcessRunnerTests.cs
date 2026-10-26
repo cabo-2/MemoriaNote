@@ -54,7 +54,7 @@ public sealed class ExternalEditorProcessRunnerTests
 
     /// <summary>Verifies that a non-zero editor exit is reported as a failure.</summary>
     [Test]
-    public void RunAsync_NonZeroExit_ThrowsAndDisposesProcess()
+    public async Task RunAsync_NonZeroExit_ThrowsAndDisposesProcess()
     {
         var process = new StubEditorProcess(exitCode: 17);
         var runner = CreateRunner(process);
@@ -64,7 +64,7 @@ public sealed class ExternalEditorProcessRunnerTests
             "/tmp/document",
             CancellationToken.None);
 
-        var exception = Assert.ThrowsAsync<ExternalEditorProcessException>(run);
+        var exception = await Assert.ThrowsAsync<ExternalEditorProcessException>(run);
 
         using (Assert.EnterMultipleScope())
         {
@@ -76,7 +76,7 @@ public sealed class ExternalEditorProcessRunnerTests
 
     /// <summary>Verifies that an operating-system start failure has a typed editor error.</summary>
     [Test]
-    public void RunAsync_StartFailure_ThrowsExternalEditorStartException()
+    public async Task RunAsync_StartFailure_ThrowsExternalEditorStartException()
     {
         var runner = new ExternalEditorProcessRunner(
             NullLogger<ExternalEditorProcessRunner>.Instance,
@@ -87,7 +87,7 @@ public sealed class ExternalEditorProcessRunnerTests
             "/tmp/document",
             CancellationToken.None);
 
-        var exception = Assert.ThrowsAsync<ExternalEditorStartException>(run);
+        var exception = await Assert.ThrowsAsync<ExternalEditorStartException>(run);
 
         using (Assert.EnterMultipleScope())
         {
@@ -100,7 +100,7 @@ public sealed class ExternalEditorProcessRunnerTests
 
     /// <summary>Verifies that cancellation terminates the editor process tree.</summary>
     [Test]
-    public void RunAsync_CanceledWait_KillsProcessTreeAndRethrows()
+    public async Task RunAsync_CanceledWait_KillsProcessTreeAndRethrows()
     {
         using var cancellation = new CancellationTokenSource();
         var process = new StubEditorProcess(exitCode: 0)
@@ -118,7 +118,7 @@ public sealed class ExternalEditorProcessRunnerTests
             "/tmp/document",
             cancellation.Token);
 
-        Assert.CatchAsync<OperationCanceledException>(run);
+        await Assert.CatchAsync<OperationCanceledException>(run);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(process.KillEntireProcessTree, Is.True);

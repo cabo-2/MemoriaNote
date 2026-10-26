@@ -336,7 +336,7 @@ public sealed class SqliteNotebookReadModelMaintenanceTests
             await context.Database.ExecuteSqlRawAsync("DROP TABLE FtsIndex;");
         }
 
-        Assert.ThrowsAsync<Microsoft.Data.Sqlite.SqliteException>(new Func<Task>(async () =>
+        await Assert.ThrowsAsync<Microsoft.Data.Sqlite.SqliteException>(new Func<Task>(async () =>
             await CreateMaintenance().RebuildReadModelsAsync(
                 database.DatabasePath,
                 CancellationToken.None)));
@@ -367,7 +367,7 @@ public sealed class SqliteNotebookReadModelMaintenanceTests
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        Assert.ThrowsAsync<OperationCanceledException>(new Func<Task>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(new Func<Task>(async () =>
             await CreateMaintenance().RebuildReadModelsAsync(
                 database.DatabasePath,
                 cancellation.Token)));

@@ -348,7 +348,7 @@ public sealed class ArchiveV1CompatibilityTests
 
     /// <summary>Verifies cancellation while spooling removes only the owned temporary input.</summary>
     [Test]
-    public void Restore_CanceledDuringSpool_CleansOwnedOutput()
+    public async Task Restore_CanceledDuringSpool_CleansOwnedOutput()
     {
         using var database = new TemporaryNotebookDatabase();
         using var temporaryFiles = new TemporaryFileStore(
@@ -360,7 +360,7 @@ public sealed class ArchiveV1CompatibilityTests
             cancellation);
         var destinationPath = Path.Combine(database.DirectoryPath, "canceled-spool.mnote");
 
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await service.RestoreAsync(
                 new ArchiveV1StreamRestoreRequest(input, destinationPath),
                 cancellation.Token));
@@ -374,7 +374,7 @@ public sealed class ArchiveV1CompatibilityTests
 
     /// <summary>Verifies cancellation after restore staging begins removes the temporary database.</summary>
     [Test]
-    public void Restore_CanceledAtDatabaseCreation_CleansDatabaseAndSidecars()
+    public async Task Restore_CanceledAtDatabaseCreation_CleansDatabaseAndSidecars()
     {
         using var database = new TemporaryNotebookDatabase();
         using var cancellation = new CancellationTokenSource();
@@ -388,7 +388,7 @@ public sealed class ArchiveV1CompatibilityTests
         var archiveBefore = input.ToArray();
         var destinationPath = Path.Combine(database.DirectoryPath, "canceled-db.mnote");
 
-        Assert.CatchAsync<OperationCanceledException>(async () =>
+        await Assert.CatchAsync<OperationCanceledException>(async () =>
             await service.RestoreAsync(
                 new ArchiveV1StreamRestoreRequest(input, destinationPath),
                 cancellation.Token));

@@ -16,7 +16,7 @@ public sealed class NotebookTransferFailureTests
     /// Verifies that text transfer entry points honor an already-canceled caller token.
     /// </summary>
     [Test]
-    public void TransferOperations_WhenCallerTokenIsCanceled_DoNotCreateOutputs()
+    public async Task TransferOperations_WhenCallerTokenIsCanceled_DoNotCreateOutputs()
     {
         using var database = new TemporaryNotebookDatabase();
         var notebook = database.CreateNotebook("cancel", "Canceled transfer");
@@ -28,14 +28,14 @@ public sealed class NotebookTransferFailureTests
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        Assert.ThrowsAsync<OperationCanceledException>(
+        await Assert.ThrowsAsync<OperationCanceledException>(
             (Func<Task>)(async () => await services.Importer.ImportAsync(
                 new TextPageImportRequest(
                     GetNotebookId(notebook),
                     importDirectory,
                     TextPageImportConflictPolicy.Fail),
                 cancellation.Token)));
-        Assert.ThrowsAsync<OperationCanceledException>(
+        await Assert.ThrowsAsync<OperationCanceledException>(
             (Func<Task>)(async () => await services.Exporter.ExportAsync(
                 new TextPageExportRequest(
                     GetNotebookId(notebook),
