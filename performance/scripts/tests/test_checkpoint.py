@@ -26,6 +26,8 @@ class ArtifactProfileTests(unittest.TestCase):
         cases = (
             ("v0.2.0-linux-x64.json", checkpoint.HostIdentity("linux", "x64")),
             ("v0.2.0-win-x64.json", checkpoint.HostIdentity("windows", "x64")),
+            ("v0.2.1-linux-x64.json", checkpoint.HostIdentity("linux", "x64")),
+            ("v0.2.1-win-x64.json", checkpoint.HostIdentity("windows", "x64")),
         )
         for file_name, host in cases:
             with self.subTest(file_name=file_name):
