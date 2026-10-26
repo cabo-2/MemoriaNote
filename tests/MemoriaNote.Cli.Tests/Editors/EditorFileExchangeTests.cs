@@ -64,7 +64,7 @@ public sealed class EditorFileExchangeTests
 
     /// <summary>Verifies that deleting the exchange file is treated as an editor error.</summary>
     [Test]
-    public void EditAsync_DeletedFile_ThrowsAndCleansDirectory()
+    public async Task EditAsync_DeletedFile_ThrowsAndCleansDirectory()
     {
         using var directory = new TemporaryEditorDirectory();
         using var store = new TemporaryFileStore(directory.Path);
@@ -79,7 +79,7 @@ public sealed class EditorFileExchangeTests
             },
             CancellationToken.None);
 
-        var exception = Assert.ThrowsAsync<ExternalEditorExchangeException>(edit);
+        var exception = await Assert.ThrowsAsync<ExternalEditorExchangeException>(edit);
 
         Assert.That(
             exception!.Message,
@@ -89,7 +89,7 @@ public sealed class EditorFileExchangeTests
 
     /// <summary>Verifies that process failures still remove the exchange file.</summary>
     [Test]
-    public void EditAsync_ProcessFailure_CleansFileAndRethrows()
+    public async Task EditAsync_ProcessFailure_CleansFileAndRethrows()
     {
         using var directory = new TemporaryEditorDirectory();
         using var store = new TemporaryFileStore(directory.Path);
@@ -100,7 +100,7 @@ public sealed class EditorFileExchangeTests
             (_, _) => throw new InvalidOperationException("process failed"),
             CancellationToken.None);
 
-        var exception = Assert.ThrowsAsync<InvalidOperationException>(edit);
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(edit);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(exception!.Message, Is.EqualTo("process failed"));
@@ -110,7 +110,7 @@ public sealed class EditorFileExchangeTests
 
     /// <summary>Verifies invalid UTF-8 is rejected and the exchange file is removed.</summary>
     [Test]
-    public void EditAsync_InvalidUtf8_ThrowsAndCleansFile()
+    public async Task EditAsync_InvalidUtf8_ThrowsAndCleansFile()
     {
         using var directory = new TemporaryEditorDirectory();
         using var store = new TemporaryFileStore(directory.Path);
@@ -121,7 +121,7 @@ public sealed class EditorFileExchangeTests
             (path, _) => File.WriteAllBytesAsync(path, new byte[] { 0xff }),
             CancellationToken.None);
 
-        var exception = Assert.ThrowsAsync<ExternalEditorExchangeException>(edit);
+        var exception = await Assert.ThrowsAsync<ExternalEditorExchangeException>(edit);
 
         Assert.That(exception!.Message, Does.Contain("not valid UTF-8"));
         Assert.That(Directory.EnumerateFiles(directory.Path), Is.Empty);
@@ -129,7 +129,7 @@ public sealed class EditorFileExchangeTests
 
     /// <summary>Verifies that cancellation still removes the exchange file.</summary>
     [Test]
-    public void EditAsync_Canceled_CleansFileAndRethrows()
+    public async Task EditAsync_Canceled_CleansFileAndRethrows()
     {
         using var directory = new TemporaryEditorDirectory();
         using var store = new TemporaryFileStore(directory.Path);
@@ -140,7 +140,7 @@ public sealed class EditorFileExchangeTests
             (_, token) => Task.FromCanceled(token),
             new CancellationToken(canceled: true));
 
-        Assert.CatchAsync<OperationCanceledException>(edit);
+        await Assert.CatchAsync<OperationCanceledException>(edit);
         Assert.That(Directory.EnumerateFiles(directory.Path), Is.Empty);
     }
 

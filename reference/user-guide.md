@@ -68,21 +68,21 @@ the expected tag and RID.
 On Windows, calculate the archive digest and compare it with the matching line in `SHA256SUMS`:
 
 ```powershell
-Get-FileHash .\mn-v0.2.0-win-x64.zip -Algorithm SHA256
-Select-String "mn-v0.2.0-win-x64.zip" .\SHA256SUMS
+Get-FileHash .\mn-v0.2.1-win-x64.zip -Algorithm SHA256
+Select-String "mn-v0.2.1-win-x64.zip" .\SHA256SUMS
 ```
 
 The hexadecimal values must be equal, ignoring letter case.
 
 ### Linux installation
 
-Install each release beside earlier versions and expose it through a symbolic link. For `v0.2.0`:
+Install each release beside earlier versions and expose it through a symbolic link. For `v0.2.1`:
 
 ```bash
-tar -xzf mn-v0.2.0-linux-x64.tar.gz
+tar -xzf mn-v0.2.1-linux-x64.tar.gz
 mkdir -p "$HOME/.local/lib/memoria-note" "$HOME/.local/bin"
-mv mn-v0.2.0-linux-x64 "$HOME/.local/lib/memoria-note/0.2.0"
-ln -s "$HOME/.local/lib/memoria-note/0.2.0/mn" "$HOME/.local/bin/mn"
+mv mn-v0.2.1-linux-x64 "$HOME/.local/lib/memoria-note/0.2.1"
+ln -s "$HOME/.local/lib/memoria-note/0.2.1/mn" "$HOME/.local/bin/mn"
 mn --version
 ```
 
@@ -94,7 +94,7 @@ only the `mn` executable out of its installed directory.
 Extract the ZIP, then move or rename its complete root directory to a versioned location such as:
 
 ```text
-%LOCALAPPDATA%\Programs\MemoriaNote\0.2.0
+%LOCALAPPDATA%\Programs\MemoriaNote\0.2.1
 ```
 
 Add that version directory—not just `mn.exe`—to the user `PATH`. Open a new terminal and verify the

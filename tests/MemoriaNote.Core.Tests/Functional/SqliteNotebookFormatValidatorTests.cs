@@ -44,7 +44,7 @@ public sealed class SqliteNotebookFormatValidatorTests
             new NotebookMetadataPatch().SetVersion("2"),
             CancellationToken.None);
 
-        var exception = Assert.ThrowsAsync<UnsupportedNotebookFormatVersionException>(
+        var exception = await Assert.ThrowsAsync<UnsupportedNotebookFormatVersionException>(
             new Func<Task>(async () =>
             await validator.ValidateCurrentAsync(
                 database.DatabasePath,
@@ -74,7 +74,7 @@ public sealed class SqliteNotebookFormatValidatorTests
             new NotebookMetadataPatch().SetVersion(version),
             CancellationToken.None);
 
-        Assert.ThrowsAsync<InvalidDataException>(new Func<Task>(async () =>
+        await Assert.ThrowsAsync<InvalidDataException>(new Func<Task>(async () =>
             await validator.ValidateCurrentAsync(
                 database.DatabasePath,
                 CancellationToken.None)));
@@ -82,12 +82,12 @@ public sealed class SqliteNotebookFormatValidatorTests
 
     /// <summary>Verifies validating a missing path never creates a SQLite file.</summary>
     [Test]
-    public void ValidateCurrentAsync_MissingNotebook_DoesNotCreateFile()
+    public async Task ValidateCurrentAsync_MissingNotebook_DoesNotCreateFile()
     {
         using var database = new TemporaryNotebookDatabase();
         var validator = CreateValidator(out _);
 
-        Assert.ThrowsAsync<FileNotFoundException>(new Func<Task>(async () =>
+        await Assert.ThrowsAsync<FileNotFoundException>(new Func<Task>(async () =>
             await validator.ValidateCurrentAsync(
                 database.DatabasePath,
                 CancellationToken.None)));

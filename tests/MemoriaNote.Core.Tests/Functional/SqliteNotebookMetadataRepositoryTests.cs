@@ -176,7 +176,7 @@ public sealed class SqliteNotebookMetadataRepositoryTests
     /// Verifies that a failed multi-field update leaves every original value intact.
     /// </summary>
     [Test]
-    public void UpdateAsync_WhenOneRowFails_RollsBackEveryValue()
+    public async Task UpdateAsync_WhenOneRowFails_RollsBackEveryValue()
     {
         using var database = new TemporaryNotebookDatabase();
         database.CreateNotebook("test-note", "Test Note");
@@ -193,7 +193,7 @@ public sealed class SqliteNotebookMetadataRepositoryTests
             .SetName("partially-renamed")
             .SetTitle("Rejected title");
 
-        Assert.ThrowsAsync<DbUpdateException>(new Func<Task>(async () =>
+        await Assert.ThrowsAsync<DbUpdateException>(new Func<Task>(async () =>
             await _repository.UpdateAsync(
                 database.DatabasePath,
                 update,
@@ -212,13 +212,13 @@ public sealed class SqliteNotebookMetadataRepositoryTests
     /// Verifies that cancellation is observed before a database is created or opened.
     /// </summary>
     [Test]
-    public void LoadAsync_WithPreCancelledToken_DoesNotCreateDatabase()
+    public async Task LoadAsync_WithPreCancelledToken_DoesNotCreateDatabase()
     {
         using var database = new TemporaryNotebookDatabase();
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        Assert.ThrowsAsync<OperationCanceledException>(new Func<Task>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(new Func<Task>(async () =>
             await _repository.LoadAsync(database.DatabasePath, cancellation.Token)));
         Assert.That(File.Exists(database.DatabasePath), Is.False);
     }

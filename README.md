@@ -21,13 +21,13 @@ together; `mn` depends on the managed and native libraries beside it.
 ### Linux
 
 Extract the archive into a versioned application directory and link the executable from a directory
-on `PATH`. For release `v0.2.0`:
+on `PATH`. For release `v0.2.1`:
 
 ```bash
-tar -xzf mn-v0.2.0-linux-x64.tar.gz
+tar -xzf mn-v0.2.1-linux-x64.tar.gz
 mkdir -p "$HOME/.local/lib/memoria-note" "$HOME/.local/bin"
-mv mn-v0.2.0-linux-x64 "$HOME/.local/lib/memoria-note/0.2.0"
-ln -s "$HOME/.local/lib/memoria-note/0.2.0/mn" "$HOME/.local/bin/mn"
+mv mn-v0.2.1-linux-x64 "$HOME/.local/lib/memoria-note/0.2.1"
+ln -s "$HOME/.local/lib/memoria-note/0.2.1/mn" "$HOME/.local/bin/mn"
 mn --version
 ```
 
@@ -35,8 +35,8 @@ Ensure `$HOME/.local/bin` is on `PATH` before running `mn`.
 
 ### Windows
 
-Extract `mn-v0.2.0-win-x64.zip` into a versioned directory such as
-`%LOCALAPPDATA%\Programs\MemoriaNote\0.2.0`, add that complete directory to the user `PATH`, open a
+Extract `mn-v0.2.1-win-x64.zip` into a versioned directory such as
+`%LOCALAPPDATA%\Programs\MemoriaNote\0.2.1`, add that complete directory to the user `PATH`, open a
 new terminal, and run:
 
 ```powershell
@@ -112,7 +112,7 @@ dotnet test MemoriaNote.sln --no-build
 ```
 
 Repository builds are development builds and display a version such as
-`0.2.0-dev+1a2b3c4`. Release archives display the corresponding release version without the
+`0.2.1-dev+1a2b3c4`. Release archives display the corresponding release version without the
 development suffix.
 
 ## Initial-release limits

@@ -58,7 +58,7 @@ public sealed class SqliteNotebookMigratorTests
         await File.WriteAllTextAsync(database.DatabasePath, "existing content");
         var (migrator, _, _) = CreatePersistence();
 
-        Assert.ThrowsAsync<ArgumentException>(new Func<Task>(async () =>
+        await Assert.ThrowsAsync<ArgumentException>(new Func<Task>(async () =>
             await migrator.CreateAsync(
                 "created-note",
                 "Created Note",
@@ -74,14 +74,14 @@ public sealed class SqliteNotebookMigratorTests
     /// Verifies that cancellation is observed before creating the output file.
     /// </summary>
     [Test]
-    public void CreateAsync_WhenPreCancelled_DoesNotCreateDatabase()
+    public async Task CreateAsync_WhenPreCancelled_DoesNotCreateDatabase()
     {
         using var database = new TemporaryNotebookDatabase();
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         var (migrator, _, _) = CreatePersistence();
 
-        Assert.ThrowsAsync<OperationCanceledException>(new Func<Task>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(new Func<Task>(async () =>
             await migrator.CreateAsync(
                 "created-note",
                 "Created Note",
@@ -94,7 +94,7 @@ public sealed class SqliteNotebookMigratorTests
     /// Verifies that creation removes a partial database when metadata initialization fails.
     /// </summary>
     [Test]
-    public void CreateAsync_WhenMetadataInitializationFails_RemovesPartialDatabase()
+    public async Task CreateAsync_WhenMetadataInitializationFails_RemovesPartialDatabase()
     {
         using var database = new TemporaryNotebookDatabase();
         var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
@@ -102,7 +102,7 @@ public sealed class SqliteNotebookMigratorTests
             factory,
             new FailingMetadataRepository());
 
-        Assert.ThrowsAsync<IOException>(new Func<Task>(async () =>
+        await Assert.ThrowsAsync<IOException>(new Func<Task>(async () =>
             await migrator.CreateAsync(
                 "created-note",
                 "Created Note",
@@ -122,7 +122,7 @@ public sealed class SqliteNotebookMigratorTests
     /// Verifies that creation removes a database that cannot be reopened as the current format.
     /// </summary>
     [Test]
-    public void CreateAsync_WhenReopenedMetadataIsInvalid_RemovesUnverifiedDatabase()
+    public async Task CreateAsync_WhenReopenedMetadataIsInvalid_RemovesUnverifiedDatabase()
     {
         using var database = new TemporaryNotebookDatabase();
         var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
@@ -131,7 +131,7 @@ public sealed class SqliteNotebookMigratorTests
             factory,
             new InvalidatingMetadataRepository(factory, metadataRepository));
 
-        Assert.ThrowsAsync<InvalidDataException>(new Func<Task>(async () =>
+        await Assert.ThrowsAsync<InvalidDataException>(new Func<Task>(async () =>
             await migrator.CreateAsync(
                 "created-note",
                 "Created Note",
@@ -145,12 +145,12 @@ public sealed class SqliteNotebookMigratorTests
     /// Verifies that migrating a missing database fails without creating a file.
     /// </summary>
     [Test]
-    public void MigrateAsync_WhenDatabaseIsMissing_DoesNotCreateDatabase()
+    public async Task MigrateAsync_WhenDatabaseIsMissing_DoesNotCreateDatabase()
     {
         using var database = new TemporaryNotebookDatabase();
         var (migrator, _, _) = CreatePersistence();
 
-        Assert.ThrowsAsync<ArgumentException>(new Func<Task>(async () =>
+        await Assert.ThrowsAsync<ArgumentException>(new Func<Task>(async () =>
             await migrator.MigrateAsync(
                 database.DatabasePath,
                 CancellationToken.None)));
@@ -210,7 +210,7 @@ public sealed class SqliteNotebookMigratorTests
             await context.SaveChangesAsync();
         }
 
-        Assert.ThrowsAsync<SqliteException>(new Func<Task>(async () =>
+        await Assert.ThrowsAsync<SqliteException>(new Func<Task>(async () =>
             await migrator.MigrateAsync(
                 database.DatabasePath,
                 CancellationToken.None)));

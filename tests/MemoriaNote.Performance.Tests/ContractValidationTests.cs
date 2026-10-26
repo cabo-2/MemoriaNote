@@ -188,7 +188,7 @@ public sealed class ContractValidationTests
 
     /// <summary>Verifies JSON Schema rejects fields not included in the contract.</summary>
     [Test]
-    public void ScenarioManifest_WithUnknownProperty_IsRejected()
+    public async Task ScenarioManifest_WithUnknownProperty_IsRejected()
     {
         using var temporary = new TemporaryDirectory();
         var path = System.IO.Path.Combine(temporary.Path, "scenario.json");
@@ -203,7 +203,7 @@ public sealed class ContractValidationTests
             """,
             Encoding.UTF8);
 
-        var exception = Assert.ThrowsAsync<ContractException>(
+        var exception = await Assert.ThrowsAsync<ContractException>(
             async () => await ContractLoader.ReadScenarioManifestAsync(path));
 
         Assert.That(exception!.Message, Does.Contain("additional property"));
@@ -211,7 +211,7 @@ public sealed class ContractValidationTests
 
     /// <summary>Verifies duplicate JSON properties cannot override an earlier value.</summary>
     [Test]
-    public void ScenarioManifest_WithDuplicateProperty_IsRejected()
+    public async Task ScenarioManifest_WithDuplicateProperty_IsRejected()
     {
         using var temporary = new TemporaryDirectory();
         var path = System.IO.Path.Combine(temporary.Path, "scenario.json");
@@ -226,7 +226,7 @@ public sealed class ContractValidationTests
             """,
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
-        var exception = Assert.ThrowsAsync<ContractException>(
+        var exception = await Assert.ThrowsAsync<ContractException>(
             async () => await ContractLoader.ReadScenarioManifestAsync(path));
 
         Assert.That(exception!.Message, Does.Contain("duplicate property"));

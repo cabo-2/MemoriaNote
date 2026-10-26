@@ -293,7 +293,7 @@ public sealed class ArchiveV1ServiceTests
 
     /// <summary>Verifies pre-canceled operations create no output and preserve caller streams.</summary>
     [Test]
-    public void PreCanceledOperations_CreateNoOutputs()
+    public async Task PreCanceledOperations_CreateNoOutputs()
     {
         using var database = new TemporaryNotebookDatabase();
         database.CreateNotebook("cancel", "Cancel");
@@ -304,15 +304,15 @@ public sealed class ArchiveV1ServiceTests
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await services.Backup.BackupAsync(
                 new ArchiveV1FileBackupRequest(database.DatabasePath, archivePath),
                 cancellation.Token));
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await services.Backup.BackupAsync(
                 new ArchiveV1StreamBackupRequest(database.DatabasePath, output),
                 cancellation.Token));
-        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
             await services.Restore.RestoreAsync(
                 new ArchiveV1StreamRestoreRequest(
                     new NonSeekableReadStream("cancel"u8.ToArray()),
@@ -353,7 +353,7 @@ public sealed class ArchiveV1ServiceTests
             clock.Continue();
         }
 
-        Assert.ThrowsAsync<OperationCanceledException>(async () => await backupTask);
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await backupTask);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(File.Exists(archivePath), Is.False);

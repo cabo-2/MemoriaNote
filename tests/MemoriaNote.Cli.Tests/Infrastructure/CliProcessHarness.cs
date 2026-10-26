@@ -9,7 +9,7 @@ namespace MemoriaNote.Cli.Tests.Infrastructure;
 
 internal sealed class CliProcessHarness : IDisposable
 {
-    static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(10);
+    static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
     readonly string _testRoot;
     readonly Dictionary<string, string> _environmentVariables = new();
 

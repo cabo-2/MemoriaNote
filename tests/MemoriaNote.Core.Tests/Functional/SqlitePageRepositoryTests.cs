@@ -227,7 +227,7 @@ public sealed class SqlitePageRepositoryTests
         secondPage.Text = "Changed text";
 
         Assert.That(secondPage.Rowid, Is.EqualTo(firstPage.Rowid));
-        Assert.ThrowsAsync<KeyNotFoundException>(new Func<Task>(async () =>
+        await Assert.ThrowsAsync<KeyNotFoundException>(new Func<Task>(async () =>
             await _repository.UpdatePageAsync(
                 firstDatabase.DatabasePath,
                 secondPage,
@@ -317,18 +317,18 @@ public sealed class SqlitePageRepositoryTests
     /// Verifies that a pre-cancelled token prevents repository database access.
     /// </summary>
     [Test]
-    public void Operations_PreCancelledToken_ThrowOperationCanceledException()
+    public async Task Operations_PreCancelledToken_ThrowOperationCanceledException()
     {
         using var database = new TemporaryNotebookDatabase();
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        Assert.ThrowsAsync<OperationCanceledException>(new Func<Task>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(new Func<Task>(async () =>
             await _repository.FindPageAsync(
                 database.DatabasePath,
                 Guid.NewGuid(),
                 cancellation.Token)));
-        Assert.ThrowsAsync<OperationCanceledException>(new Func<Task>(async () =>
+        await Assert.ThrowsAsync<OperationCanceledException>(new Func<Task>(async () =>
             await _repository.CreatePageAsync(
                 database.DatabasePath,
                 "Cancelled",

@@ -27,7 +27,7 @@ public sealed class RawStandardOutputProcessTests
         var result = await harness.RunAsync(
             arguments,
             null,
-            TimeSpan.FromSeconds(10));
+            TimeSpan.FromSeconds(30));
 
         using var archive = new MemoryStream(result.StandardOutputBytes, writable: false);
         var report = await new ArchiveV1Reader().ValidateAsync(

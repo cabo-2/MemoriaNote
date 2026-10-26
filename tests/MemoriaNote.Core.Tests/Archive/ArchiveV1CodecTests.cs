@@ -111,7 +111,7 @@ public sealed class ArchiveV1CodecTests
 
         AssertIssue(report, ArchiveV1IssueCode.UnsupportedVersion);
         Assert.That(report.Issues, Has.None.Matches<ArchiveV1ValidationIssue>(
-            issue => issue.Code == ArchiveV1IssueCode.MalformedJson));
+            issue => issue is { Code: ArchiveV1IssueCode.MalformedJson }));
     }
 
     /// <summary>Verifies semantic validation against a published invalid metadata example.</summary>
@@ -302,7 +302,7 @@ public sealed class ArchiveV1CodecTests
 
         AssertIssue(report, ArchiveV1IssueCode.CompressionRatioExceeded);
         Assert.That(report.Issues, Has.None.Matches<ArchiveV1ValidationIssue>(
-            issue => issue.Code == ArchiveV1IssueCode.MalformedJson));
+            issue => issue is { Code: ArchiveV1IssueCode.MalformedJson }));
     }
 
     /// <summary>Verifies classification without interpreting legacy payload bytes.</summary>
@@ -324,7 +324,7 @@ public sealed class ArchiveV1CodecTests
                 Is.EqualTo(ArchiveV1Classification.LegacyArchiveCandidate));
             AssertIssue(report, ArchiveV1IssueCode.LegacyArchiveUnsupported);
             Assert.That(report.Issues, Has.None.Matches<ArchiveV1ValidationIssue>(
-                issue => issue.Code == ArchiveV1IssueCode.MalformedJson));
+                issue => issue is { Code: ArchiveV1IssueCode.MalformedJson }));
         }
     }
 
@@ -367,7 +367,7 @@ public sealed class ArchiveV1CodecTests
 
         AssertIssue(report, ArchiveV1IssueCode.ChecksumMismatch);
         Assert.That(report.Issues, Has.None.Matches<ArchiveV1ValidationIssue>(
-            issue => issue.Code == ArchiveV1IssueCode.ByteLengthMismatch));
+            issue => issue is { Code: ArchiveV1IssueCode.ByteLengthMismatch }));
     }
 
     /// <summary>Verifies manifest count and byte-length comparisons.</summary>
@@ -397,7 +397,7 @@ public sealed class ArchiveV1CodecTests
 
     /// <summary>Verifies cancellation propagation through public streaming operations.</summary>
     [Test]
-    public void Codec_PreCanceledToken_ThrowsOperationCanceledException()
+    public async Task Codec_PreCanceledToken_ThrowsOperationCanceledException()
     {
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
@@ -407,15 +407,15 @@ public sealed class ArchiveV1CodecTests
             ReadExample("valid/pages.ndjson"));
         using var output = new MemoryStream();
 
-        Assert.ThrowsAsync<OperationCanceledException>(() =>
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
             new ArchiveV1Reader().ValidateAsync(input, cancellation.Token));
-        Assert.ThrowsAsync<OperationCanceledException>(() =>
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
             new ArchiveV1Writer().WriteAsync(output, CreateExampleRequest(), cancellation.Token));
     }
 
     /// <summary>Verifies cancellation after streaming has started.</summary>
     [Test]
-    public void Writer_MidStreamCancellation_ThrowsOperationCanceledException()
+    public async Task Writer_MidStreamCancellation_ThrowsOperationCanceledException()
     {
         using var cancellation = new CancellationTokenSource();
         var request = new ArchiveV1WriteRequest(
@@ -426,13 +426,13 @@ public sealed class ArchiveV1CodecTests
             CancelAfterFirstPage(ExamplePages(), cancellation));
         using var output = new MemoryStream();
 
-        Assert.ThrowsAsync<OperationCanceledException>(() =>
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
             new ArchiveV1Writer().WriteAsync(output, request, cancellation.Token));
     }
 
     /// <summary>Verifies writer-side validation before invalid records are published.</summary>
     [Test]
-    public void Writer_NonCanonicalPageOrder_ReturnsStableValidationIssue()
+    public async Task Writer_NonCanonicalPageOrder_ReturnsStableValidationIssue()
     {
         var pages = ExamplePages().Reverse().ToArray();
         var request = new ArchiveV1WriteRequest(
@@ -443,7 +443,7 @@ public sealed class ArchiveV1CodecTests
             ToAsync(pages));
         using var output = new MemoryStream();
 
-        var exception = Assert.ThrowsAsync<ArchiveV1ValidationException>(() =>
+        var exception = await Assert.ThrowsAsync<ArchiveV1ValidationException>(() =>
             new ArchiveV1Writer().WriteAsync(output, request, CancellationToken.None));
 
         Assert.That(
