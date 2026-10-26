@@ -43,7 +43,7 @@ digest = hashlib.sha256()
 with path.open("rb") as stream:
     for block in iter(lambda: stream.read(1024 * 1024), b""):
         digest.update(block)
-print(digest.hexdigest())
+sys.stdout.buffer.write((digest.hexdigest() + "\n").encode("ascii"))
 PY
 }
 
@@ -90,7 +90,7 @@ for required_name in required_names:
     )
     if url != expected_url:
         raise SystemExit(f"error: release asset URL is invalid: {required_name}")
-    print(url)
+    sys.stdout.buffer.write((url + "\n").encode("utf-8"))
 PY
 }
 
@@ -116,7 +116,7 @@ if len(versions) != 1:
     raise SystemExit(
         "error: tagged source must define exactly one MemoriaNoteProductVersion."
     )
-print(versions.pop())
+sys.stdout.buffer.write((versions.pop() + "\n").encode("utf-8"))
 PY
 }
 
@@ -149,7 +149,7 @@ if set(expected) != set(required_names):
         "error: SHA256SUMS must contain exactly the Linux and Windows archives."
     )
 for name in required_names:
-    print(expected[name])
+    sys.stdout.buffer.write((expected[name] + "\n").encode("ascii"))
 PY
 }
 
