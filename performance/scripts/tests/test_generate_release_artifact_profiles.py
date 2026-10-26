@@ -25,7 +25,46 @@ LINUX_ARCHIVE = f"mn-{TAG}-linux-x64.tar.gz"
 WINDOWS_ARCHIVE = f"mn-{TAG}-win-x64.zip"
 
 
-@unittest.skipUnless(shutil.which("bash"), "bash is required")
+def find_bash() -> str | None:
+    candidates: list[Path] = []
+    if os.name == "nt":
+        git = shutil.which("git")
+        if git:
+            candidates.append(Path(git).resolve().parent.parent / "bin" / "bash.exe")
+        for variable in ("ProgramFiles", "ProgramFiles(x86)"):
+            root = os.environ.get(variable)
+            if root:
+                candidates.append(Path(root) / "Git" / "bin" / "bash.exe")
+
+    discovered = shutil.which("bash")
+    if discovered:
+        candidates.append(Path(discovered))
+
+    checked: set[str] = set()
+    for candidate in candidates:
+        key = str(candidate).casefold()
+        if key in checked or not candidate.is_file():
+            continue
+        checked.add(key)
+        try:
+            completed = subprocess.run(
+                [str(candidate), "--version"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if completed.returncode == 0 and "GNU bash" in completed.stdout:
+            return str(candidate)
+    return None
+
+
+BASH_COMMAND = find_bash()
+
+
+@unittest.skipUnless(BASH_COMMAND, "GNU Bash is required")
 class GenerateReleaseArtifactProfilesTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
@@ -170,7 +209,7 @@ esac
 
     def run_script(self, tag: str = TAG) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            ["bash", self.script.as_posix(), tag],
+            [str(BASH_COMMAND), self.script.as_posix(), tag],
             cwd=self.root,
             env=self.environment,
             check=False,
