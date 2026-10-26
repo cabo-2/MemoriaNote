@@ -16,14 +16,37 @@ artifacts.
 - A native Linux or Windows x64 host.
 - Network access for `prepare`. The `run` and `report` commands are offline.
 
+Generating profiles for a published release additionally requires Bash, an authenticated GitHub
+CLI (`gh`), and network access. The checkpoint commands themselves do not depend on `gh`.
+
 The workflow rejects unsupported operating systems, an architecture or RID mismatch, and an
 artifact profile for the other operating system. Run all commands from the repository root and use
 the profile matching the host:
 
-| Host | Artifact profile |
-| --- | --- |
-| Linux x64 | `performance/artifacts/v0.2.0-linux-x64.json` |
-| Windows x64 | `performance/artifacts/v0.2.0-win-x64.json` |
+| Release | Host | Artifact profile |
+| --- | --- | --- |
+| `v0.2.0` | Linux x64 | `performance/artifacts/v0.2.0-linux-x64.json` |
+| `v0.2.0` | Windows x64 | `performance/artifacts/v0.2.0-win-x64.json` |
+| `v0.2.1` | Linux x64 | `performance/artifacts/v0.2.1-linux-x64.json` |
+| `v0.2.1` | Windows x64 | `performance/artifacts/v0.2.1-win-x64.json` |
+
+## Generate release artifact profiles
+
+After a release is published and its final assets are available, generate both host profiles from
+the repository root:
+
+```console
+bash performance/scripts/generate-release-artifact-profiles.sh v0.2.1
+```
+
+The script rejects drafts and prereleases, validates the remote tag commit and tagged product
+version, downloads the two archives and `SHA256SUMS`, and verifies both archive checksums. Downloads
+are stored under `performance/.cache/artifacts/v0.2.1/download/`; the generated profiles are stored
+under `performance/artifacts/`.
+
+A matching cache or profile is reused without modification. Existing content that differs from the
+published release is an error and is never overwritten. The script supports later stable release
+tags with the same archive naming and profile contract.
 
 ## Test the workflow
 
@@ -40,7 +63,7 @@ release archive:
 
 ```console
 python performance/scripts/checkpoint.py prepare \
-  --artifact-profile performance/artifacts/v0.2.0-linux-x64.json
+  --artifact-profile performance/artifacts/v0.2.1-linux-x64.json
 ```
 
 PowerShell accepts the same arguments when the command is entered on one line or written with its
@@ -60,9 +83,9 @@ Run the generic, English, and Japanese manifests as one checkpoint session:
 
 ```console
 python performance/scripts/checkpoint.py run \
-  --artifact-profile performance/artifacts/v0.2.0-linux-x64.json \
-  --roadmap-id ECLI-1010c \
-  --description "v0.2.0 initial baseline" \
+  --artifact-profile performance/artifacts/v0.2.1-linux-x64.json \
+  --roadmap-id ECLI-1040 \
+  --description "v0.2.1 post-upgrade checkpoint" \
   --environment-label linux-reference-1
 ```
 
@@ -71,7 +94,7 @@ python performance/scripts/checkpoint.py run \
 runs and validates every configured manifest.
 
 Raw results and `session.json` are written under a new
-`performance/results/ecli-1010c/<session-id>/` directory. Existing sessions are never replaced. Use
+`performance/results/ecli-1040/<session-id>/` directory. Existing sessions are never replaced. Use
 `--keep-temporary` only when the isolated workspace is needed for troubleshooting.
 
 ## Generate the report
