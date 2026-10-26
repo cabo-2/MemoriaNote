@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <MemoriaNoteProductVersion Condition="'$(MemoriaNoteProductVersion)' == ''">0.2.0</MemoriaNoteProductVersion>
+    <MemoriaNoteProductVersion Condition="'$(MemoriaNoteProductVersion)' == ''">0.2.1</MemoriaNoteProductVersion>
     <MemoriaNoteReleaseBuild Condition="'$(MemoriaNoteReleaseBuild)' == ''">false</MemoriaNoteReleaseBuild>
     <MemoriaNoteProductProject Condition="'$(MSBuildProjectName)' == 'mn' Or '$(MSBuildProjectName)' == 'MemoriaNote.Core'">true</MemoriaNoteProductProject>
   </PropertyGroup>

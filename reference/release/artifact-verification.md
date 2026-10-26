@@ -70,14 +70,14 @@ verifying a release candidate:
 
 ```console
 python3 .github/scripts/package-release.py \
-  --tag v0.2.0 \
+  --tag v0.2.1 \
   --rid linux-x64
 
 python3 .github/scripts/verify-release-artifacts.py package \
-  --package-results artifacts/release/v0.2.0/package-results.json \
-  --publish-executable artifacts/release/v0.2.0/publish/linux-x64/mn \
+  --package-results artifacts/release/v0.2.1/package-results.json \
+  --publish-executable artifacts/release/v0.2.1/publish/linux-x64/mn \
   --rid linux-x64 \
-  --expected-version 0.2.0
+  --expected-version 0.2.1
 ```
 
 The local Linux run is authoritative only for `linux-x64`. A Linux host may
@@ -90,14 +90,14 @@ Run the following from PowerShell at the repository root:
 
 ```powershell
 python .github/scripts/package-release.py `
-  --tag v0.2.0 `
+  --tag v0.2.1 `
   --rid win-x64
 
 python .github/scripts/verify-release-artifacts.py package `
-  --package-results artifacts/release/v0.2.0/package-results.json `
-  --publish-executable artifacts/release/v0.2.0/publish/win-x64/mn.exe `
+  --package-results artifacts/release/v0.2.1/package-results.json `
+  --publish-executable artifacts/release/v0.2.1/publish/win-x64/mn.exe `
   --rid win-x64 `
-  --expected-version 0.2.0
+  --expected-version 0.2.1
 ```
 
 GitHub Actions provides the routine native Windows result. Before the initial
