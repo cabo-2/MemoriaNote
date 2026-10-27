@@ -1,0 +1,204 @@
+{
+  "observationContractVersion": 1,
+  "persistedNotebookFormatVersion": "2",
+  "applicationId": 1782832723,
+  "userVersion": 2,
+  "authoritativeTables": [
+    "Metadata",
+    "Pages"
+  ],
+  "derivedObjects": [
+    "PageTags",
+    "FtsIndex"
+  ],
+  "implementationObjects": [],
+  "allowsUnknownMetadataKeys": true,
+  "metadataKeys": [
+    { "name": "Author", "required": false, "fixedValue": null },
+    { "name": "CreateTime", "required": false, "fixedValue": null },
+    { "name": "Description", "required": false, "fixedValue": null },
+    { "name": "Name", "required": true, "fixedValue": null },
+    { "name": "ReadOnly", "required": false, "fixedValue": null },
+    { "name": "Tag", "required": false, "fixedValue": null },
+    { "name": "Title", "required": true, "fixedValue": null },
+    { "name": "Version", "required": true, "fixedValue": "2" }
+  ],
+  "schemaObjects": [
+    { "type": "index", "name": "IX_PageTags_Label_PageInternalId", "tableName": "PageTags", "origin": "explicit" },
+    { "type": "index", "name": "IX_Pages_Name", "tableName": "Pages", "origin": "explicit" },
+    { "type": "index", "name": "IX_Pages_PageId", "tableName": "Pages", "origin": "explicit" },
+    { "type": "index", "name": "sqlite_autoindex_Metadata_1", "tableName": "Metadata", "origin": "auto-index" },
+    { "type": "table", "name": "FtsIndex", "tableName": "FtsIndex", "origin": "explicit" },
+    { "type": "table", "name": "FtsIndex_config", "tableName": "FtsIndex_config", "origin": "fts5-shadow" },
+    { "type": "table", "name": "FtsIndex_data", "tableName": "FtsIndex_data", "origin": "fts5-shadow" },
+    { "type": "table", "name": "FtsIndex_docsize", "tableName": "FtsIndex_docsize", "origin": "fts5-shadow" },
+    { "type": "table", "name": "FtsIndex_idx", "tableName": "FtsIndex_idx", "origin": "fts5-shadow" },
+    { "type": "table", "name": "Metadata", "tableName": "Metadata", "origin": "explicit" },
+    { "type": "table", "name": "PageTags", "tableName": "PageTags", "origin": "explicit" },
+    { "type": "table", "name": "Pages", "tableName": "Pages", "origin": "explicit" },
+    { "type": "table", "name": "sqlite_sequence", "tableName": "sqlite_sequence", "origin": "sqlite-internal" },
+    { "type": "trigger", "name": "Pages_FtsDelete", "tableName": "Pages", "origin": "explicit" },
+    { "type": "trigger", "name": "Pages_FtsInsert", "tableName": "Pages", "origin": "explicit" },
+    { "type": "trigger", "name": "Pages_FtsUpdate", "tableName": "Pages", "origin": "explicit" },
+    { "type": "trigger", "name": "Pages_RejectInternalIdUpdate", "tableName": "Pages", "origin": "explicit" },
+    { "type": "trigger", "name": "Pages_RejectPageIdUpdate", "tableName": "Pages", "origin": "explicit" },
+    { "type": "trigger", "name": "Pages_TagsInsert", "tableName": "Pages", "origin": "explicit" },
+    { "type": "trigger", "name": "Pages_TagsUpdate", "tableName": "Pages", "origin": "explicit" }
+  ],
+  "tables": [
+    {
+      "name": "FtsIndex",
+      "columns": [
+        { "id": 0, "name": "Name", "declaredType": "", "notNull": false, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 0 },
+        { "id": 1, "name": "Text", "declaredType": "", "notNull": false, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 0 },
+        { "id": 2, "name": "FtsIndex", "declaredType": "", "notNull": false, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 1 },
+        { "id": 3, "name": "rank", "declaredType": "", "notNull": false, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 1 }
+      ],
+      "foreignKeys": [],
+      "indexes": []
+    },
+    {
+      "name": "Metadata",
+      "columns": [
+        { "id": 0, "name": "Key", "declaredType": "TEXT", "notNull": true, "defaultValue": null, "primaryKeyOrdinal": 1, "hidden": 0 },
+        { "id": 1, "name": "Value", "declaredType": "TEXT", "notNull": false, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 0 }
+      ],
+      "foreignKeys": [],
+      "indexes": [
+        {
+          "name": "sqlite_autoindex_Metadata_1",
+          "unique": true,
+          "origin": "pk",
+          "partial": false,
+          "columns": [
+            { "sequence": 0, "columnId": 0, "name": "Key", "descending": false, "collation": "BINARY", "key": true },
+            { "sequence": 1, "columnId": -1, "name": null, "descending": false, "collation": "BINARY", "key": false }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "PageTags",
+      "columns": [
+        { "id": 0, "name": "PageInternalId", "declaredType": "INTEGER", "notNull": true, "defaultValue": null, "primaryKeyOrdinal": 1, "hidden": 0 },
+        { "id": 1, "name": "Label", "declaredType": "TEXT", "notNull": true, "defaultValue": null, "primaryKeyOrdinal": 2, "hidden": 0 }
+      ],
+      "foreignKeys": [
+        { "id": 0, "sequence": 0, "targetTable": "Pages", "sourceColumn": "PageInternalId", "targetColumn": "InternalId", "onUpdate": "NO ACTION", "onDelete": "CASCADE", "match": "NONE" }
+      ],
+      "indexes": [
+        {
+          "name": "IX_PageTags_Label_PageInternalId",
+          "unique": false,
+          "origin": "c",
+          "partial": false,
+          "columns": [
+            { "sequence": 0, "columnId": 1, "name": "Label", "descending": false, "collation": "BINARY", "key": true },
+            { "sequence": 1, "columnId": 0, "name": "PageInternalId", "descending": false, "collation": "BINARY", "key": true }
+          ]
+        },
+        {
+          "name": "sqlite_autoindex_PageTags_1",
+          "unique": true,
+          "origin": "pk",
+          "partial": false,
+          "columns": [
+            { "sequence": 0, "columnId": 0, "name": "PageInternalId", "descending": false, "collation": "BINARY", "key": true },
+            { "sequence": 1, "columnId": 1, "name": "Label", "descending": false, "collation": "BINARY", "key": true }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Pages",
+      "columns": [
+        { "id": 0, "name": "InternalId", "declaredType": "INTEGER", "notNull": true, "defaultValue": null, "primaryKeyOrdinal": 1, "hidden": 0 },
+        { "id": 1, "name": "PageId", "declaredType": "TEXT", "notNull": true, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 0 },
+        { "id": 2, "name": "Name", "declaredType": "TEXT", "notNull": true, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 0 },
+        { "id": 3, "name": "CreateTime", "declaredType": "TEXT", "notNull": true, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 0 },
+        { "id": 4, "name": "UpdateTime", "declaredType": "TEXT", "notNull": true, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 0 },
+        { "id": 5, "name": "Revision", "declaredType": "INTEGER", "notNull": true, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 0 },
+        { "id": 6, "name": "Tags", "declaredType": "TEXT", "notNull": true, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 0 },
+        { "id": 7, "name": "Text", "declaredType": "TEXT", "notNull": true, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 0 }
+      ],
+      "foreignKeys": [],
+      "indexes": [
+        {
+          "name": "IX_Pages_Name",
+          "unique": true,
+          "origin": "c",
+          "partial": false,
+          "columns": [
+            { "sequence": 0, "columnId": 2, "name": "Name", "descending": false, "collation": "BINARY", "key": true },
+            { "sequence": 1, "columnId": -1, "name": null, "descending": false, "collation": "BINARY", "key": false }
+          ]
+        },
+        {
+          "name": "IX_Pages_PageId",
+          "unique": true,
+          "origin": "c",
+          "partial": false,
+          "columns": [
+            { "sequence": 0, "columnId": 1, "name": "PageId", "descending": false, "collation": "BINARY", "key": true },
+            { "sequence": 1, "columnId": -1, "name": null, "descending": false, "collation": "BINARY", "key": false }
+          ]
+        }
+      ]
+    }
+  ],
+  "appliedMigrations": [],
+  "fts5": {
+    "table": "FtsIndex",
+    "contentTable": "Pages",
+    "contentRowId": "InternalId",
+    "tokenizer": "unicode61",
+    "indexedColumns": [
+      "Name",
+      "Text"
+    ]
+  },
+  "sqlRequirements": [
+    {
+      "type": "trigger",
+      "name": "Pages_TagsInsert",
+      "requiredFragments": [
+        "AFTER INSERT ON Pages",
+        "SELECT new.InternalId, value FROM json_each(new.Tags)"
+      ]
+    },
+    {
+      "type": "trigger",
+      "name": "Pages_TagsUpdate",
+      "requiredFragments": [
+        "AFTER UPDATE OF Tags ON Pages",
+        "WHEN old.Tags IS NOT new.Tags",
+        "DELETE FROM PageTags WHERE PageInternalId = old.InternalId",
+        "SELECT new.InternalId, value FROM json_each(new.Tags)"
+      ]
+    },
+    {
+      "type": "trigger",
+      "name": "Pages_FtsUpdate",
+      "requiredFragments": [
+        "AFTER UPDATE OF Name, Text ON Pages",
+        "WHEN old.Name IS NOT new.Name OR old.Text IS NOT new.Text"
+      ]
+    },
+    {
+      "type": "trigger",
+      "name": "Pages_RejectInternalIdUpdate",
+      "requiredFragments": [
+        "BEFORE UPDATE OF InternalId ON Pages",
+        "RAISE(ABORT, 'Pages.InternalId is immutable')"
+      ]
+    },
+    {
+      "type": "trigger",
+      "name": "Pages_RejectPageIdUpdate",
+      "requiredFragments": [
+        "BEFORE UPDATE OF PageId ON Pages",
+        "RAISE(ABORT, 'Pages.PageId is immutable')"
+      ]
+    }
+  ]
+}
