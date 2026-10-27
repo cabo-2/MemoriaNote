@@ -2,4 +2,6 @@ reference/archive/v1/examples/** text eol=lf
 .github/scripts/*.py text eol=lf
 .github/scripts/tests/*.py text eol=lf
 performance/datasets/**/*.ndjson text eol=lf
+core/Persistence/SchemaV2/**/*.sql text eol=lf
+core/Persistence/SchemaV2/**/*.json text eol=lf
 LICENSE text eol=lf
