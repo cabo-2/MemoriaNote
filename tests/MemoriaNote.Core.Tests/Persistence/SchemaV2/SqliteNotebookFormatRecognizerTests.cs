@@ -271,10 +271,24 @@ public sealed class SqliteNotebookFormatRecognizerTests
         string directoryPath)
     {
         return new FileSetSnapshot(
-            await File.ReadAllBytesAsync(databasePath),
+            await ReadAllBytesSharedAsync(databasePath),
             Directory.GetFileSystemEntries(directoryPath)
                 .OrderBy(path => path, StringComparer.Ordinal)
                 .ToArray());
+    }
+
+    private static async Task<byte[]> ReadAllBytesSharedAsync(string databasePath)
+    {
+        await using var input = new FileStream(
+            databasePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete,
+            bufferSize: 4096,
+            useAsync: true);
+        using var output = new MemoryStream();
+        await input.CopyToAsync(output);
+        return output.ToArray();
     }
 
     private static async Task AssertUnchangedAsync(
