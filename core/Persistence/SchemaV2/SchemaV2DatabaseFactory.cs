@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MemoriaNote.Persistence.SchemaV2.Validation;
 using Microsoft.Data.Sqlite;
 
 namespace MemoriaNote.Persistence.SchemaV2;
@@ -16,9 +17,27 @@ internal static class SchemaV2DatabaseFactory
         string title,
         CancellationToken cancellationToken = default)
     {
+        await CreateAsync(
+                databasePath,
+                name,
+                title,
+                SchemaV2DatabaseValidator.ValidateAsync,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Creates a database using an explicit publication validation operation.</summary>
+    internal static async Task CreateAsync(
+        string databasePath,
+        string name,
+        string title,
+        Func<string, CancellationToken, Task<SchemaV2DatabaseValidation>> validateAsync,
+        CancellationToken cancellationToken = default)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        ArgumentNullException.ThrowIfNull(validateAsync);
         cancellationToken.ThrowIfCancellationRequested();
 
         var canonicalDdl = SchemaV2Resources.ReadCanonicalDdl();
@@ -31,6 +50,16 @@ internal static class SchemaV2DatabaseFactory
                 title,
                 cancellationToken)
             .ConfigureAwait(false);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var validation = await validateAsync(output.StagingPath, cancellationToken)
+            .ConfigureAwait(false);
+        if (!validation.IsValid)
+        {
+            throw new InvalidDataException(
+                "The private Schema V2 database failed validation: " +
+                string.Join(" ", validation.AllIssues));
+        }
 
         cancellationToken.ThrowIfCancellationRequested();
         FlushToDisk(output.StagingPath);

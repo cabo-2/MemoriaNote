@@ -1,4 +1,5 @@
 using MemoriaNote.Persistence.SchemaV2;
+using MemoriaNote.Persistence.SchemaV2.Validation;
 using Microsoft.Data.Sqlite;
 using NUnit.Framework;
 
@@ -78,25 +79,54 @@ public sealed class SchemaV2DatabaseFactoryTests
         Assert.That(Directory.GetFileSystemEntries(directory.Path), Is.Empty);
     }
 
-    /// <summary>Verifies lifecycle source provenance remains tied to the accepted handoff.</summary>
+    /// <summary>Verifies a failed publication gate removes its private database.</summary>
     [Test]
-    public void LifecycleSources_RecordAcceptedSchemaLabHashes()
+    public void CreateAsync_WithValidationFailure_LeavesNoOutput()
     {
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(
-                SchemaV2BaselineProvenance.ConnectionFactorySourceSha256,
-                Is.EqualTo("0b2e33f199dc1fad5b48a55841a806d7f551fb3dea30ceee7c94b66537a9befe"));
-            Assert.That(
-                SchemaV2BaselineProvenance.DatabaseFilesSourceSha256,
-                Is.EqualTo("b9ec57def9b8623ceb5410f3fa147d5640f1bcb03f17aee2254a51fd1655e73b"));
-            Assert.That(
-                SchemaV2BaselineProvenance.PendingOutputSourceSha256,
-                Is.EqualTo("0eee62991898ef990cb922eff8fda78e4bdafe591ed911cc159854d66070fb08"));
-            Assert.That(
-                SchemaV2BaselineProvenance.DatabaseFactorySourceSha256,
-                Is.EqualTo("30be0d906bdc583cf740c4f962f68d34123455f053291b6e90383e907a5a15c0"));
-        }
+        using var directory = new TemporaryDirectory();
+        var databasePath = directory.GetPath("invalid.mnote");
+        var invalidLayer = SchemaV2ValidationLayerResult.Evaluated(
+            new[] { "injected validation failure" });
+        var validLayer = SchemaV2ValidationLayerResult.Evaluated(Array.Empty<string>());
+        var invalid = new SchemaV2DatabaseValidation(
+            validLayer,
+            invalidLayer,
+            validLayer,
+            validLayer);
+
+        Assert.That(
+            async () => await SchemaV2DatabaseFactory.CreateAsync(
+                databasePath,
+                "created-note",
+                "Created Note",
+                (_, _) => Task.FromResult(invalid)),
+            Throws.TypeOf<InvalidDataException>()
+                .With.Message.Contains("injected validation failure"));
+        Assert.That(Directory.GetFileSystemEntries(directory.Path), Is.Empty);
+    }
+
+    /// <summary>Verifies cancellation in the publication gate removes private output.</summary>
+    [Test]
+    public void CreateAsync_WithValidationCancellation_LeavesNoOutput()
+    {
+        using var directory = new TemporaryDirectory();
+        var databasePath = directory.GetPath("validation-cancelled.mnote");
+        using var cancellation = new CancellationTokenSource();
+
+        Assert.That(
+            async () => await SchemaV2DatabaseFactory.CreateAsync(
+                databasePath,
+                "created-note",
+                "Created Note",
+                (_, token) =>
+                {
+                    cancellation.Cancel();
+                    token.ThrowIfCancellationRequested();
+                    throw new InvalidOperationException("Unreachable.");
+                },
+                cancellation.Token),
+            Throws.InstanceOf<OperationCanceledException>());
+        Assert.That(Directory.GetFileSystemEntries(directory.Path), Is.Empty);
     }
 
     private static async Task<int> ReadInt32Async(

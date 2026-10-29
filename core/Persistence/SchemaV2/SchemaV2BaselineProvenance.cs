@@ -21,34 +21,4 @@ internal static class SchemaV2BaselineProvenance
 
     internal const string ExpectedContractSha256 =
         "63cd171db3b06b63db6b1f3396674fc36a393c53b0d8ed88abfd9a8a778be22f";
-
-    internal const string FormatIdentitySourcePath =
-        "src/MemoriaNote.SchemaLab.Core/SchemaV2Schema.cs";
-
-    internal const string FormatIdentitySourceSha256 =
-        "8304d86e42d4f6f93ee5ee3e74a33b19a658fc9b63381d785355a3b6106725e9";
-
-    internal const string ConnectionFactorySourcePath =
-        "src/MemoriaNote.SchemaLab.Core/SqliteConnectionFactory.cs";
-
-    internal const string ConnectionFactorySourceSha256 =
-        "0b2e33f199dc1fad5b48a55841a806d7f551fb3dea30ceee7c94b66537a9befe";
-
-    internal const string DatabaseFilesSourcePath =
-        "src/MemoriaNote.SchemaLab.Core/SqliteDatabaseFiles.cs";
-
-    internal const string DatabaseFilesSourceSha256 =
-        "b9ec57def9b8623ceb5410f3fa147d5640f1bcb03f17aee2254a51fd1655e73b";
-
-    internal const string PendingOutputSourcePath =
-        "src/MemoriaNote.SchemaLab.Core/PendingSqliteOutput.cs";
-
-    internal const string PendingOutputSourceSha256 =
-        "0eee62991898ef990cb922eff8fda78e4bdafe591ed911cc159854d66070fb08";
-
-    internal const string DatabaseFactorySourcePath =
-        "src/MemoriaNote.SchemaLab.Core/SchemaV2DatabaseFactory.cs";
-
-    internal const string DatabaseFactorySourceSha256 =
-        "30be0d906bdc583cf740c4f962f68d34123455f053291b6e90383e907a5a15c0";
 }
