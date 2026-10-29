@@ -24,10 +24,20 @@ public sealed class DatabaseSchemaInspectorTests
             Assert.That(observation.ApplicationId, Is.EqualTo(SchemaV2Format.ApplicationId));
             Assert.That(observation.UserVersion, Is.EqualTo(SchemaV2Format.UserVersion));
             Assert.That(
-                observation.SchemaObjects.Single(candidate => candidate.Name == "FtsIndex").Origin,
+                observation.SchemaObjects.Single(candidate =>
+                    candidate.Name == "FtsIndexUnicode61").Origin,
                 Is.EqualTo("explicit"));
             Assert.That(
-                observation.SchemaObjects.Single(candidate => candidate.Name == "FtsIndex_data").Origin,
+                observation.SchemaObjects.Single(candidate =>
+                    candidate.Name == "FtsIndexUnicode61_data").Origin,
+                Is.EqualTo("fts5-shadow"));
+            Assert.That(
+                observation.SchemaObjects.Single(candidate =>
+                    candidate.Name == "FtsIndexTrigram").Origin,
+                Is.EqualTo("explicit"));
+            Assert.That(
+                observation.SchemaObjects.Single(candidate =>
+                    candidate.Name == "FtsIndexTrigram_data").Origin,
                 Is.EqualTo("fts5-shadow"));
             Assert.That(
                 observation.SchemaObjects.Single(candidate => candidate.Name == "sqlite_sequence").Origin,

@@ -32,7 +32,8 @@ internal static class DatabaseExpectedContractValidator
             .ToList();
 
         ValidateObjectClassification(contract, differences);
-        ValidateFts5(contract.Fts5, observation, differences);
+        foreach (var fts5Index in contract.Fts5Indexes)
+            ValidateFts5(fts5Index, observation, differences);
         return differences;
     }
 

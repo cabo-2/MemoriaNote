@@ -95,7 +95,7 @@ BEGIN
         FROM json_each(new.Tags);
 END;
 
-CREATE VIRTUAL TABLE "FtsIndex"
+CREATE VIRTUAL TABLE "FtsIndexUnicode61"
     USING fts5(
         Name,
         Text,
@@ -104,17 +104,30 @@ CREATE VIRTUAL TABLE "FtsIndex"
         tokenize='unicode61'
     );
 
+CREATE VIRTUAL TABLE "FtsIndexTrigram"
+    USING fts5(
+        Name,
+        Text,
+        content='Pages',
+        content_rowid='InternalId',
+        tokenize='trigram'
+    );
+
 CREATE TRIGGER "Pages_FtsInsert"
 AFTER INSERT ON "Pages"
 BEGIN
-    INSERT INTO "FtsIndex"(rowid, Name, Text)
+    INSERT INTO "FtsIndexUnicode61"(rowid, Name, Text)
+        VALUES (new.InternalId, new.Name, new.Text);
+    INSERT INTO "FtsIndexTrigram"(rowid, Name, Text)
         VALUES (new.InternalId, new.Name, new.Text);
 END;
 
 CREATE TRIGGER "Pages_FtsDelete"
 AFTER DELETE ON "Pages"
 BEGIN
-    INSERT INTO "FtsIndex"("FtsIndex", rowid, Name, Text)
+    INSERT INTO "FtsIndexUnicode61"("FtsIndexUnicode61", rowid, Name, Text)
+        VALUES ('delete', old.InternalId, old.Name, old.Text);
+    INSERT INTO "FtsIndexTrigram"("FtsIndexTrigram", rowid, Name, Text)
         VALUES ('delete', old.InternalId, old.Name, old.Text);
 END;
 
@@ -123,9 +136,13 @@ AFTER UPDATE OF Name, Text ON "Pages"
 WHEN old.Name IS NOT new.Name
   OR old.Text IS NOT new.Text
 BEGIN
-    INSERT INTO "FtsIndex"("FtsIndex", rowid, Name, Text)
+    INSERT INTO "FtsIndexUnicode61"("FtsIndexUnicode61", rowid, Name, Text)
         VALUES ('delete', old.InternalId, old.Name, old.Text);
-    INSERT INTO "FtsIndex"(rowid, Name, Text)
+    INSERT INTO "FtsIndexUnicode61"(rowid, Name, Text)
+        VALUES (new.InternalId, new.Name, new.Text);
+    INSERT INTO "FtsIndexTrigram"("FtsIndexTrigram", rowid, Name, Text)
+        VALUES ('delete', old.InternalId, old.Name, old.Text);
+    INSERT INTO "FtsIndexTrigram"(rowid, Name, Text)
         VALUES (new.InternalId, new.Name, new.Text);
 END;
 

@@ -6,14 +6,14 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Core.Tests.Persistence.SchemaV2;
 
-/// <summary>Verifies the fixed SchemaLab baseline accepted for Schema V2.</summary>
+/// <summary>Verifies the amended production contract accepted for Schema V2.</summary>
 [TestFixture]
 [Category("Functional")]
 public sealed class SchemaV2ContractBaselineTests
 {
-    /// <summary>Verifies embedded assets retain their accepted SchemaLab hashes.</summary>
+    /// <summary>Verifies embedded assets retain their reviewed production hashes.</summary>
     [Test]
-    public async Task EmbeddedAssets_MatchAcceptedSchemaLabBaseline()
+    public async Task EmbeddedAssets_MatchReviewedProductionContract()
     {
         await using var ddl = SchemaV2Resources.OpenCanonicalDdl();
         await using var contract = SchemaV2Resources.OpenExpectedContract();
@@ -29,6 +29,15 @@ public sealed class SchemaV2ContractBaselineTests
             Assert.That(
                 SchemaV2BaselineProvenance.SchemaLabFreezeCommit,
                 Is.EqualTo("5da289582ccf475dfe4c1d7e6dcbf3bb6b4ec4a7"));
+            Assert.That(
+                SchemaV2BaselineProvenance.DualIndexSchemaAmendment,
+                Is.EqualTo("ECLI-1120a"));
+            Assert.That(
+                SchemaV2BaselineProvenance.InitialCanonicalDdlSha256,
+                Is.EqualTo("e641601efd21623b774b292aed3fe3b64aa1b14c6318de798d0d24e535140ef7"));
+            Assert.That(
+                SchemaV2BaselineProvenance.InitialExpectedContractSha256,
+                Is.EqualTo("63cd171db3b06b63db6b1f3396674fc36a393c53b0d8ed88abfd9a8a778be22f"));
             Assert.That(
                 ddlHash,
                 Is.EqualTo(SchemaV2BaselineProvenance.CanonicalDdlSha256));
@@ -48,12 +57,23 @@ public sealed class SchemaV2ContractBaselineTests
         var authoritativeTables = ReadStringArray(
             root.GetProperty("authoritativeTables"));
         var derivedObjects = ReadStringArray(root.GetProperty("derivedObjects"));
-        var indexedColumns = ReadStringArray(
-            root.GetProperty("fts5").GetProperty("indexedColumns"));
+        var fts5Indexes = root.GetProperty("fts5Indexes")
+            .EnumerateArray()
+            .ToDictionary(
+                item => item.GetProperty("table").GetString()!,
+                item => new
+                {
+                    Tokenizer = item.GetProperty("tokenizer").GetString(),
+                    IndexedColumns = ReadStringArray(item.GetProperty("indexedColumns"))
+                },
+                StringComparer.Ordinal);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(SchemaV2Format.SchemaId, Is.EqualTo("schema-v2"));
+            Assert.That(
+                root.GetProperty("observationContractVersion").GetInt32(),
+                Is.EqualTo(2));
             Assert.That(
                 root.GetProperty("applicationId").GetInt32(),
                 Is.EqualTo(SchemaV2Format.ApplicationId));
@@ -67,16 +87,30 @@ public sealed class SchemaV2ContractBaselineTests
                 root.GetProperty("allowsUnknownMetadataKeys").GetBoolean(),
                 Is.True);
             Assert.That(
-                root.GetProperty("fts5").GetProperty("tokenizer").GetString(),
-                Is.EqualTo("unicode61"));
-            Assert.That(
                 authoritativeTables,
                 Is.EqualTo(new[] { "Metadata", "Pages" }));
             Assert.That(
                 derivedObjects,
-                Is.EqualTo(new[] { "PageTags", "FtsIndex" }));
+                Is.EqualTo(new[]
+                {
+                    "PageTags",
+                    "FtsIndexUnicode61",
+                    "FtsIndexTrigram"
+                }));
             Assert.That(
-                indexedColumns,
+                fts5Indexes.Keys,
+                Is.EquivalentTo(new[] { "FtsIndexUnicode61", "FtsIndexTrigram" }));
+            Assert.That(
+                fts5Indexes["FtsIndexUnicode61"].Tokenizer,
+                Is.EqualTo("unicode61"));
+            Assert.That(
+                fts5Indexes["FtsIndexTrigram"].Tokenizer,
+                Is.EqualTo("trigram"));
+            Assert.That(
+                fts5Indexes["FtsIndexUnicode61"].IndexedColumns,
+                Is.EqualTo(new[] { "Name", "Text" }));
+            Assert.That(
+                fts5Indexes["FtsIndexTrigram"].IndexedColumns,
                 Is.EqualTo(new[] { "Name", "Text" }));
         }
     }

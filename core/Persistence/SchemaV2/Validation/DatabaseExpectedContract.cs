@@ -15,7 +15,7 @@ internal interface IDatabaseExpectedContract
     IReadOnlyList<SchemaObjectContract> SchemaObjects { get; }
     IReadOnlyList<TableObservation> Tables { get; }
     IReadOnlyList<MigrationEntryObservation> AppliedMigrations { get; }
-    Fts5Contract Fts5 { get; }
+    IReadOnlyList<Fts5Contract> Fts5Indexes { get; }
 }
 
 /// <summary>Defines one known metadata key and any fixed value.</summary>

@@ -1,5 +1,5 @@
 {
-  "observationContractVersion": 1,
+  "observationContractVersion": 2,
   "persistedNotebookFormatVersion": "2",
   "applicationId": 1782832723,
   "userVersion": 2,
@@ -9,7 +9,8 @@
   ],
   "derivedObjects": [
     "PageTags",
-    "FtsIndex"
+    "FtsIndexUnicode61",
+    "FtsIndexTrigram"
   ],
   "implementationObjects": [],
   "allowsUnknownMetadataKeys": true,
@@ -28,11 +29,16 @@
     { "type": "index", "name": "IX_Pages_Name", "tableName": "Pages", "origin": "explicit" },
     { "type": "index", "name": "IX_Pages_PageId", "tableName": "Pages", "origin": "explicit" },
     { "type": "index", "name": "sqlite_autoindex_Metadata_1", "tableName": "Metadata", "origin": "auto-index" },
-    { "type": "table", "name": "FtsIndex", "tableName": "FtsIndex", "origin": "explicit" },
-    { "type": "table", "name": "FtsIndex_config", "tableName": "FtsIndex_config", "origin": "fts5-shadow" },
-    { "type": "table", "name": "FtsIndex_data", "tableName": "FtsIndex_data", "origin": "fts5-shadow" },
-    { "type": "table", "name": "FtsIndex_docsize", "tableName": "FtsIndex_docsize", "origin": "fts5-shadow" },
-    { "type": "table", "name": "FtsIndex_idx", "tableName": "FtsIndex_idx", "origin": "fts5-shadow" },
+    { "type": "table", "name": "FtsIndexTrigram", "tableName": "FtsIndexTrigram", "origin": "explicit" },
+    { "type": "table", "name": "FtsIndexTrigram_config", "tableName": "FtsIndexTrigram_config", "origin": "fts5-shadow" },
+    { "type": "table", "name": "FtsIndexTrigram_data", "tableName": "FtsIndexTrigram_data", "origin": "fts5-shadow" },
+    { "type": "table", "name": "FtsIndexTrigram_docsize", "tableName": "FtsIndexTrigram_docsize", "origin": "fts5-shadow" },
+    { "type": "table", "name": "FtsIndexTrigram_idx", "tableName": "FtsIndexTrigram_idx", "origin": "fts5-shadow" },
+    { "type": "table", "name": "FtsIndexUnicode61", "tableName": "FtsIndexUnicode61", "origin": "explicit" },
+    { "type": "table", "name": "FtsIndexUnicode61_config", "tableName": "FtsIndexUnicode61_config", "origin": "fts5-shadow" },
+    { "type": "table", "name": "FtsIndexUnicode61_data", "tableName": "FtsIndexUnicode61_data", "origin": "fts5-shadow" },
+    { "type": "table", "name": "FtsIndexUnicode61_docsize", "tableName": "FtsIndexUnicode61_docsize", "origin": "fts5-shadow" },
+    { "type": "table", "name": "FtsIndexUnicode61_idx", "tableName": "FtsIndexUnicode61_idx", "origin": "fts5-shadow" },
     { "type": "table", "name": "Metadata", "tableName": "Metadata", "origin": "explicit" },
     { "type": "table", "name": "PageTags", "tableName": "PageTags", "origin": "explicit" },
     { "type": "table", "name": "Pages", "tableName": "Pages", "origin": "explicit" },
@@ -47,11 +53,22 @@
   ],
   "tables": [
     {
-      "name": "FtsIndex",
+      "name": "FtsIndexTrigram",
       "columns": [
         { "id": 0, "name": "Name", "declaredType": "", "notNull": false, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 0 },
         { "id": 1, "name": "Text", "declaredType": "", "notNull": false, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 0 },
-        { "id": 2, "name": "FtsIndex", "declaredType": "", "notNull": false, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 1 },
+        { "id": 2, "name": "FtsIndexTrigram", "declaredType": "", "notNull": false, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 1 },
+        { "id": 3, "name": "rank", "declaredType": "", "notNull": false, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 1 }
+      ],
+      "foreignKeys": [],
+      "indexes": []
+    },
+    {
+      "name": "FtsIndexUnicode61",
+      "columns": [
+        { "id": 0, "name": "Name", "declaredType": "", "notNull": false, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 0 },
+        { "id": 1, "name": "Text", "declaredType": "", "notNull": false, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 0 },
+        { "id": 2, "name": "FtsIndexUnicode61", "declaredType": "", "notNull": false, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 1 },
         { "id": 3, "name": "rank", "declaredType": "", "notNull": false, "defaultValue": null, "primaryKeyOrdinal": 0, "hidden": 1 }
       ],
       "foreignKeys": [],
@@ -147,16 +164,28 @@
     }
   ],
   "appliedMigrations": [],
-  "fts5": {
-    "table": "FtsIndex",
-    "contentTable": "Pages",
-    "contentRowId": "InternalId",
-    "tokenizer": "unicode61",
-    "indexedColumns": [
-      "Name",
-      "Text"
-    ]
-  },
+  "fts5Indexes": [
+    {
+      "table": "FtsIndexUnicode61",
+      "contentTable": "Pages",
+      "contentRowId": "InternalId",
+      "tokenizer": "unicode61",
+      "indexedColumns": [
+        "Name",
+        "Text"
+      ]
+    },
+    {
+      "table": "FtsIndexTrigram",
+      "contentTable": "Pages",
+      "contentRowId": "InternalId",
+      "tokenizer": "trigram",
+      "indexedColumns": [
+        "Name",
+        "Text"
+      ]
+    }
+  ],
   "sqlRequirements": [
     {
       "type": "trigger",
@@ -178,10 +207,32 @@
     },
     {
       "type": "trigger",
+      "name": "Pages_FtsInsert",
+      "requiredFragments": [
+        "AFTER INSERT ON Pages",
+        "INSERT INTO FtsIndexUnicode61(rowid, Name, Text) VALUES (new.InternalId, new.Name, new.Text)",
+        "INSERT INTO FtsIndexTrigram(rowid, Name, Text) VALUES (new.InternalId, new.Name, new.Text)"
+      ]
+    },
+    {
+      "type": "trigger",
+      "name": "Pages_FtsDelete",
+      "requiredFragments": [
+        "AFTER DELETE ON Pages",
+        "INSERT INTO FtsIndexUnicode61(FtsIndexUnicode61, rowid, Name, Text) VALUES ('delete', old.InternalId, old.Name, old.Text)",
+        "INSERT INTO FtsIndexTrigram(FtsIndexTrigram, rowid, Name, Text) VALUES ('delete', old.InternalId, old.Name, old.Text)"
+      ]
+    },
+    {
+      "type": "trigger",
       "name": "Pages_FtsUpdate",
       "requiredFragments": [
         "AFTER UPDATE OF Name, Text ON Pages",
-        "WHEN old.Name IS NOT new.Name OR old.Text IS NOT new.Text"
+        "WHEN old.Name IS NOT new.Name OR old.Text IS NOT new.Text",
+        "INSERT INTO FtsIndexUnicode61(FtsIndexUnicode61, rowid, Name, Text) VALUES ('delete', old.InternalId, old.Name, old.Text)",
+        "INSERT INTO FtsIndexUnicode61(rowid, Name, Text) VALUES (new.InternalId, new.Name, new.Text)",
+        "INSERT INTO FtsIndexTrigram(FtsIndexTrigram, rowid, Name, Text) VALUES ('delete', old.InternalId, old.Name, old.Text)",
+        "INSERT INTO FtsIndexTrigram(rowid, Name, Text) VALUES (new.InternalId, new.Name, new.Text)"
       ]
     },
     {

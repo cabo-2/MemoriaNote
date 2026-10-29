@@ -21,7 +21,7 @@ internal sealed record SchemaV2ExpectedContract(
     IReadOnlyList<SchemaObjectContract> SchemaObjects,
     IReadOnlyList<TableObservation> Tables,
     IReadOnlyList<MigrationEntryObservation> AppliedMigrations,
-    Fts5Contract Fts5,
+    IReadOnlyList<Fts5Contract> Fts5Indexes,
     IReadOnlyList<SqlRequirementContract> SqlRequirements) : IDatabaseExpectedContract
 {
     /// <summary>Loads the product-owned schema v2 contract embedded in the Core assembly.</summary>

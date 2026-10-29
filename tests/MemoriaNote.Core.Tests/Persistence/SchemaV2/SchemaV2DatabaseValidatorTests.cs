@@ -85,9 +85,13 @@ public sealed class SchemaV2DatabaseValidatorTests
             CREATE TRIGGER Pages_FtsUpdate
             AFTER UPDATE ON Pages
             BEGIN
-                INSERT INTO FtsIndex(FtsIndex, rowid, Name, Text)
+                INSERT INTO FtsIndexUnicode61(FtsIndexUnicode61, rowid, Name, Text)
                     VALUES('delete', old.InternalId, old.Name, old.Text);
-                INSERT INTO FtsIndex(rowid, Name, Text)
+                INSERT INTO FtsIndexUnicode61(rowid, Name, Text)
+                    VALUES(new.InternalId, new.Name, new.Text);
+                INSERT INTO FtsIndexTrigram(FtsIndexTrigram, rowid, Name, Text)
+                    VALUES('delete', old.InternalId, old.Name, old.Text);
+                INSERT INTO FtsIndexTrigram(rowid, Name, Text)
                     VALUES(new.InternalId, new.Name, new.Text);
             END;
             """);
@@ -96,6 +100,56 @@ public sealed class SchemaV2DatabaseValidatorTests
 
         Assert.That(result.Schema.Issues,
             Has.Some.Contains("AFTER UPDATE OF Name, Text"));
+    }
+
+    /// <summary>Verifies every FTS synchronization target is part of the trigger contract.</summary>
+    [Test]
+    public async Task ValidateAsync_InsertTriggerMissingTrigram_ReportsSchemaLayer()
+    {
+        using var directory = new TemporaryDirectory();
+        var databasePath = directory.GetPath("trigger-target.mnote");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "trigger-target", "Trigger target");
+        await ExecuteAsync(
+            databasePath,
+            """
+            DROP TRIGGER Pages_FtsInsert;
+            CREATE TRIGGER Pages_FtsInsert
+            AFTER INSERT ON Pages
+            BEGIN
+                INSERT INTO FtsIndexUnicode61(rowid, Name, Text)
+                    VALUES(new.InternalId, new.Name, new.Text);
+            END;
+            """);
+
+        var result = await SchemaV2DatabaseValidator.ValidateAsync(databasePath);
+
+        Assert.That(result.Schema.Issues,
+            Has.Some.Contains("INSERT INTO FtsIndexTrigram"));
+    }
+
+    /// <summary>Verifies each FTS5 tokenizer remains part of the schema contract.</summary>
+    [Test]
+    public async Task ValidateAsync_TrigramTableWithWrongTokenizer_ReportsSchemaLayer()
+    {
+        using var directory = new TemporaryDirectory();
+        var databasePath = directory.GetPath("trigram-tokenizer.mnote");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "trigram", "Trigram");
+        await ExecuteAsync(
+            databasePath,
+            """
+            DROP TABLE FtsIndexTrigram;
+            CREATE VIRTUAL TABLE FtsIndexTrigram USING fts5(
+                Name,
+                Text,
+                content='Pages',
+                content_rowid='InternalId',
+                tokenize='unicode61');
+            """);
+
+        var result = await SchemaV2DatabaseValidator.ValidateAsync(databasePath);
+
+        Assert.That(result.Schema.Issues,
+            Has.Some.Contains("FTS5 tokenizer does not match 'tokenize='trigram''"));
     }
 
     /// <summary>Verifies malformed authoritative table shape is reported rather than queried blindly.</summary>
