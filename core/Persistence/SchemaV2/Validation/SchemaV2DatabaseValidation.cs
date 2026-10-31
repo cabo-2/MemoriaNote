@@ -17,22 +17,25 @@ internal sealed record SchemaV2ValidationLayerResult(
         new(false, new string[0]);
 }
 
-/// <summary>Reports identity, schema, integrity, and authoritative-value validation separately.</summary>
+/// <summary>Reports each Schema V2 validation layer separately.</summary>
 internal sealed record SchemaV2DatabaseValidation(
     SchemaV2ValidationLayerResult Identity,
     SchemaV2ValidationLayerResult Schema,
     SchemaV2ValidationLayerResult Integrity,
-    SchemaV2ValidationLayerResult AuthoritativeValues)
+    SchemaV2ValidationLayerResult AuthoritativeValues,
+    SchemaV2DerivedDataValidation DerivedData)
 {
     internal bool IsValid =>
         Identity.IsValid &&
         Schema.IsValid &&
         Integrity.IsValid &&
-        AuthoritativeValues.IsValid;
+        AuthoritativeValues.IsValid &&
+        DerivedData.IsValid;
 
     internal IEnumerable<string> AllIssues =>
         Identity.Issues
             .Concat(Schema.Issues)
             .Concat(Integrity.Issues)
-            .Concat(AuthoritativeValues.Issues);
+            .Concat(AuthoritativeValues.Issues)
+            .Concat(DerivedData.Issues.Select(issue => issue.Message));
 }

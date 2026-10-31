@@ -92,7 +92,8 @@ public sealed class SchemaV2DatabaseFactoryTests
             validLayer,
             invalidLayer,
             validLayer,
-            validLayer);
+            validLayer,
+            SchemaV2DerivedDataValidation.NotEvaluated);
 
         Assert.That(
             async () => await SchemaV2DatabaseFactory.CreateAsync(
