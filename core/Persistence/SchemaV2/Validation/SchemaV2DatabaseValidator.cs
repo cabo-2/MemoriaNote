@@ -45,11 +45,22 @@ internal static class SchemaV2DatabaseValidator
                     .ConfigureAwait(false))
             : SchemaV2ValidationLayerResult.NotEvaluated;
 
+        var derivedData = schemaIssues.Count == 0 &&
+                          integrityIssues.Count == 0 &&
+                          authoritativeValues.IsValid
+            ? await SchemaV2DerivedDataValidator.ValidateAsync(
+                    databasePath,
+                    SchemaV2DerivedIndexSelection.All,
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : SchemaV2DerivedDataValidation.NotEvaluated;
+
         return new SchemaV2DatabaseValidation(
             SchemaV2ValidationLayerResult.Evaluated(identityIssues),
             SchemaV2ValidationLayerResult.Evaluated(schemaIssues),
             SchemaV2ValidationLayerResult.Evaluated(integrityIssues),
-            authoritativeValues);
+            authoritativeValues,
+            derivedData);
     }
 
     private static IReadOnlyList<string> ValidateIdentity(

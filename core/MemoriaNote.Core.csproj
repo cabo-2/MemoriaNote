@@ -22,6 +22,12 @@
   <ItemGroup>
     <EmbeddedResource Include="Persistence/SchemaV2/Sql/schema-v2.sql"
                       LogicalName="MemoriaNote.Persistence.SchemaV2.Sql.schema-v2.sql" />
+    <EmbeddedResource Include="Persistence/SchemaV2/Sql/rebuild-page-tags.sql"
+                      LogicalName="MemoriaNote.Persistence.SchemaV2.Sql.rebuild-page-tags.sql" />
+    <EmbeddedResource Include="Persistence/SchemaV2/Sql/rebuild-fts-unicode61.sql"
+                      LogicalName="MemoriaNote.Persistence.SchemaV2.Sql.rebuild-fts-unicode61.sql" />
+    <EmbeddedResource Include="Persistence/SchemaV2/Sql/rebuild-fts-trigram.sql"
+                      LogicalName="MemoriaNote.Persistence.SchemaV2.Sql.rebuild-fts-trigram.sql" />
     <EmbeddedResource Include="Persistence/SchemaV2/Contracts/schema-v2.expected.json"
                       LogicalName="MemoriaNote.Persistence.SchemaV2.Contracts.schema-v2.expected.json" />
   </ItemGroup>

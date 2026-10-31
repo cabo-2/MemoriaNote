@@ -240,6 +240,57 @@ public sealed class SchemaV2DatabaseValidatorTests
                 Has.Some.Contains("invalid canonical UpdateTime"));
             Assert.That(result.AuthoritativeValues.Issues,
                 Has.Some.Contains("Pages.Tags is not canonical JSON"));
+            Assert.That(result.DerivedData.WasEvaluated, Is.False);
+        }
+    }
+
+    /// <summary>Verifies derived mismatches are classified separately from schema validity.</summary>
+    [Test]
+    public async Task ValidateAsync_DerivedMismatches_ReportsDerivedDataLayer()
+    {
+        using var directory = new TemporaryDirectory();
+        var databasePath = directory.GetPath("derived.mnote");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "derived", "Derived");
+        await ExecuteAsync(
+            databasePath,
+            """
+            INSERT INTO Pages(
+                PageId, Name, CreateTime, UpdateTime, Revision, Tags, Text)
+            VALUES (
+                '11111111-1111-1111-1111-111111111111',
+                'derived',
+                '2026-10-31 00:00:00.0000000',
+                '2026-10-31 00:00:00.0000000',
+                1,
+                '["expected"]',
+                'searchable body');
+            DELETE FROM PageTags WHERE Label = 'expected';
+            INSERT INTO PageTags(PageInternalId, Label)
+                SELECT InternalId, 'unexpected' FROM Pages;
+            INSERT INTO FtsIndexTrigram(FtsIndexTrigram) VALUES('delete-all');
+            """);
+
+        var result = await SchemaV2DatabaseValidator.ValidateAsync(databasePath);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Identity.IsValid, Is.True);
+            Assert.That(result.Schema.IsValid, Is.True);
+            Assert.That(result.Integrity.IsValid, Is.True);
+            Assert.That(result.AuthoritativeValues.IsValid, Is.True);
+            Assert.That(result.DerivedData.IsValid, Is.False);
+            Assert.That(result.DerivedData.Issues, Has.Some.Matches<SchemaV2DerivedDataIssue>(
+                issue => issue is not null &&
+                         issue.Index == SchemaV2DerivedIndexKind.PageTags &&
+                         issue.Kind == SchemaV2DerivedDataIssueKind.MissingRows));
+            Assert.That(result.DerivedData.Issues, Has.Some.Matches<SchemaV2DerivedDataIssue>(
+                issue => issue is not null &&
+                         issue.Index == SchemaV2DerivedIndexKind.PageTags &&
+                         issue.Kind == SchemaV2DerivedDataIssueKind.UnexpectedRows));
+            Assert.That(result.DerivedData.Issues, Has.Some.Matches<SchemaV2DerivedDataIssue>(
+                issue => issue is not null &&
+                         issue.Index == SchemaV2DerivedIndexKind.FtsTrigram &&
+                         issue.Kind == SchemaV2DerivedDataIssueKind.ContentMismatch));
         }
     }
 
@@ -291,6 +342,7 @@ public sealed class SchemaV2DatabaseValidatorTests
             Assert.That(result.Schema.IsValid, Is.True);
             Assert.That(result.Integrity.IsValid, Is.True);
             Assert.That(result.AuthoritativeValues.IsValid, Is.True);
+            Assert.That(result.DerivedData.IsValid, Is.True);
         }
     }
 
