@@ -1,0 +1,30 @@
+[
+  {
+    "key": "Description",
+    "value": "Archive v1 / content model v2 example"
+  },
+  {
+    "key": "Name",
+    "value": "cm2-example"
+  },
+  {
+    "key": "NullableValue",
+    "value": null
+  },
+  {
+    "key": "Title",
+    "value": "CM2 例"
+  },
+  {
+    "key": "Version",
+    "value": "2"
+  },
+  {
+    "key": "X-Empty",
+    "value": ""
+  },
+  {
+    "key": "X-Unknown",
+    "value": "preserved"
+  }
+]
