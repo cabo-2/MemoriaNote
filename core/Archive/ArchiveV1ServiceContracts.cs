@@ -1,8 +1,38 @@
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MemoriaNote.Archive
 {
+    /// <summary>Creates archive v1 backups from the configured current notebook format.</summary>
+    public interface IArchiveV1BackupService
+    {
+        /// <summary>Creates a new archive file without replacing an existing output.</summary>
+        Task<ArchiveV1BackupResult> BackupAsync(
+            ArchiveV1FileBackupRequest request,
+            CancellationToken cancellationToken);
+
+        /// <summary>Writes a validated archive to a caller-owned stream.</summary>
+        Task<ArchiveV1BackupResult> BackupAsync(
+            ArchiveV1StreamBackupRequest request,
+            CancellationToken cancellationToken);
+    }
+
+    /// <summary>Restores archive v1 inputs to the configured current notebook format.</summary>
+    public interface IArchiveV1RestoreService
+    {
+        /// <summary>Restores an archive file to a new notebook.</summary>
+        Task<ArchiveV1RestoreResult> RestoreAsync(
+            ArchiveV1FileRestoreRequest request,
+            CancellationToken cancellationToken);
+
+        /// <summary>Restores a caller-owned archive stream to a new notebook.</summary>
+        Task<ArchiveV1RestoreResult> RestoreAsync(
+            ArchiveV1StreamRestoreRequest request,
+            CancellationToken cancellationToken);
+    }
+
     /// <summary>Identifies a stable backup or restore operation failure.</summary>
     public enum ArchiveV1OperationErrorCode
     {

@@ -9,13 +9,13 @@ namespace MemoriaNote.Cli
     internal sealed class NotebookRestoreCommandHandler
     {
         readonly CliCommandExecutor _executor;
-        readonly ArchiveV1RestoreService _restoreService;
+        readonly IArchiveV1RestoreService _restoreService;
         readonly IBinaryStandardInput _binaryStandardInput;
         readonly ICommandOutput _output;
 
         internal NotebookRestoreCommandHandler(
             CliCommandExecutor executor,
-            ArchiveV1RestoreService restoreService,
+            IArchiveV1RestoreService restoreService,
             IBinaryStandardInput binaryStandardInput,
             ICommandOutput output)
         {

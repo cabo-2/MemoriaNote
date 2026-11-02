@@ -294,6 +294,47 @@ public sealed class SchemaV2DatabaseValidatorTests
         }
     }
 
+    /// <summary>Verifies authoritative-only validation neither evaluates nor repairs derived data.</summary>
+    [Test]
+    public async Task ValidateAuthoritativeAsync_DerivedMismatch_SkipsDerivedData()
+    {
+        using var directory = new TemporaryDirectory();
+        var databasePath = directory.GetPath("authoritative.mnote");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "authoritative", "Authoritative");
+        await ExecuteAsync(
+            databasePath,
+            """
+            INSERT INTO Pages(
+                PageId, Name, CreateTime, UpdateTime, Revision, Tags, Text)
+            VALUES (
+                '11111111-1111-1111-1111-111111111111',
+                'authoritative',
+                '2026-11-02 00:00:00.0000000',
+                '2026-11-02 00:00:00.0000000',
+                1,
+                '["expected"]',
+                'body');
+            DELETE FROM PageTags;
+            """);
+        var beforeBytes = await File.ReadAllBytesAsync(databasePath);
+        var beforeFiles = Directory.GetFileSystemEntries(directory.Path);
+
+        var result = await SchemaV2DatabaseValidator.ValidateAuthoritativeAsync(databasePath);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Identity.IsValid, Is.True);
+            Assert.That(result.Schema.IsValid, Is.True);
+            Assert.That(result.Integrity.IsValid, Is.True);
+            Assert.That(result.AuthoritativeValues.IsValid, Is.True);
+            Assert.That(result.DerivedData.WasEvaluated, Is.False);
+            Assert.That(result.IsValid, Is.False);
+            Assert.That(await File.ReadAllBytesAsync(databasePath), Is.EqualTo(beforeBytes));
+            Assert.That(Directory.GetFileSystemEntries(directory.Path), Is.EqualTo(beforeFiles));
+            Assert.That(await ReadScalarAsync<long>(databasePath, "SELECT COUNT(*) FROM PageTags;"), Is.Zero);
+        }
+    }
+
     /// <summary>Verifies validation does not change bytes or leave SQLite sidecars.</summary>
     [Test]
     public async Task ValidateAsync_ExistingDatabase_LeavesFileSetUnchanged()
@@ -354,6 +395,16 @@ public sealed class SchemaV2DatabaseValidatorTests
         await using var command = connection.CreateCommand();
         command.CommandText = commandText;
         await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task<T> ReadScalarAsync<T>(string databasePath, string commandText)
+    {
+        await using var connection = await SqliteConnectionFactory.OpenAsync(
+            databasePath,
+            SqliteOpenMode.ReadOnly);
+        await using var command = connection.CreateCommand();
+        command.CommandText = commandText;
+        return (T)(await command.ExecuteScalarAsync())!;
     }
 
     private sealed class TemporaryDirectory : IDisposable
