@@ -10,14 +10,14 @@ namespace MemoriaNote.Cli
     {
         readonly CliCommandExecutor _executor;
         readonly INotebookTargetSessionResolver _targetResolver;
-        readonly ArchiveV1BackupService _backupService;
+        readonly IArchiveV1BackupService _backupService;
         readonly IBinaryStandardOutput _binaryStandardOutput;
         readonly ICommandOutput _output;
 
         internal NotebookBackupCommandHandler(
             CliCommandExecutor executor,
             INotebookTargetSessionResolver targetResolver,
-            ArchiveV1BackupService backupService,
+            IArchiveV1BackupService backupService,
             IBinaryStandardOutput binaryStandardOutput,
             ICommandOutput output)
         {

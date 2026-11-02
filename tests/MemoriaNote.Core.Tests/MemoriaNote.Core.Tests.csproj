@@ -32,5 +32,8 @@
     <None Include="../../reference/archive/v1/examples/**/*"
           Link="reference/archive/v1/examples/%(RecursiveDir)%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../reference/archive/v1-content-model-v2/examples/**/*"
+          Link="reference/archive/v1-content-model-v2/examples/%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

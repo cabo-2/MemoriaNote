@@ -7,7 +7,7 @@ using MemoriaNote.Persistence;
 namespace MemoriaNote.Archive
 {
     /// <summary>Restores validated archive v1 inputs to new current-format notebooks.</summary>
-    public sealed class ArchiveV1RestoreService
+    public sealed class ArchiveV1RestoreService : IArchiveV1RestoreService
     {
         readonly SqliteArchiveV1PersistenceAdapter _persistence;
         readonly ITemporaryFileStore _temporaryFileStore;

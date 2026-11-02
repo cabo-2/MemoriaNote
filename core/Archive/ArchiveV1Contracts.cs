@@ -125,6 +125,15 @@ namespace MemoriaNote.Archive
         /// <summary>A page UUID occurs more than once.</summary>
         DuplicatePageUuid,
 
+        /// <summary>A content model 2 source-local page identifier occurs more than once.</summary>
+        DuplicatePageInternalId,
+
+        /// <summary>A content model 2 stable Page ID occurs more than once.</summary>
+        DuplicatePageId,
+
+        /// <summary>A content model 2 page name occurs more than once.</summary>
+        DuplicatePageName,
+
         /// <summary>Writer input is not in the canonical archive order.</summary>
         NonCanonicalOrder
     }
