@@ -57,16 +57,36 @@ internal sealed class ArchiveV1ContentModel2TransferBridge
     private async IAsyncEnumerable<CurrentNotebookPageRecord> ReadPagesAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        using var producerCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken);
         var channel = Channel.CreateBounded<CurrentNotebookPageRecord>(new BoundedChannelOptions(1)
         {
             SingleReader = true,
             SingleWriter = true,
             FullMode = BoundedChannelFullMode.Wait
         });
-        var producer = ProduceAsync(channel.Writer, cancellationToken);
-        await foreach (var page in channel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
-            yield return page;
-        await producer.ConfigureAwait(false);
+        var producer = ProduceAsync(channel.Writer, producerCancellation.Token);
+        try
+        {
+            await foreach (var page in channel.Reader
+                               .ReadAllAsync(cancellationToken)
+                               .ConfigureAwait(false))
+            {
+                yield return page;
+            }
+            await producer.ConfigureAwait(false);
+        }
+        finally
+        {
+            producerCancellation.Cancel();
+            try
+            {
+                await producer.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (producerCancellation.IsCancellationRequested)
+            {
+            }
+        }
     }
 
     private async Task ProduceAsync(

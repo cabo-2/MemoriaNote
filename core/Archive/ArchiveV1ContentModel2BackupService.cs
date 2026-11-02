@@ -148,6 +148,7 @@ public sealed class ArchiveV1ContentModel2BackupService : IArchiveV1BackupServic
                     cancellationToken)
                 .ConfigureAwait(false);
             await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+            output.Flush(flushToDisk: true);
             if (output.Length > ArchiveV1Format.MaximumArchiveLength)
                 return ArchiveV1BackupResult.Failed(ArchiveV1OperationErrorCode.IntegrityFailure);
         }

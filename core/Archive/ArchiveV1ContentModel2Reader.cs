@@ -257,6 +257,8 @@ public sealed class ArchiveV1ContentModel2Reader
                 ["format", "archiveFormatVersion", "contentModelVersion", "sourceNotebookFormatVersion", "createdBy", "createdAtUtc", "dataSets"],
                 "manifest.json",
                 issues);
+            if (root.ValueKind != JsonValueKind.Object)
+                return null;
             var format = RequiredString(root, "format", "manifest.json", issues);
             var archiveVersion = RequiredInteger(root, "archiveFormatVersion", 0, int.MaxValue, "manifest.json", issues);
             var contentVersion = RequiredInteger(root, "contentModelVersion", 0, int.MaxValue, "manifest.json", issues);
@@ -291,6 +293,8 @@ public sealed class ArchiveV1ContentModel2Reader
         if (!root.TryGetProperty("createdBy", out var creator))
             return;
         ValidateObject(creator, ["application", "version"], "manifest.json.createdBy", issues);
+        if (creator.ValueKind != JsonValueKind.Object)
+            return;
         var application = RequiredString(creator, "application", "manifest.json.createdBy", issues);
         var version = RequiredString(creator, "version", "manifest.json.createdBy", issues);
         if (application is not null && application.Length is < 1 or > 128)
@@ -306,6 +310,8 @@ public sealed class ArchiveV1ContentModel2Reader
         if (!root.TryGetProperty("dataSets", out var dataSets))
             return null;
         ValidateObject(dataSets, ["metadata", "pages"], "manifest.json.dataSets", issues);
+        if (dataSets.ValueKind != JsonValueKind.Object)
+            return null;
         if (!dataSets.TryGetProperty("metadata", out var metadata) ||
             !dataSets.TryGetProperty("pages", out var pages))
         {
@@ -339,6 +345,8 @@ public sealed class ArchiveV1ContentModel2Reader
         ICollection<ArchiveV1ValidationIssue> issues)
     {
         ValidateObject(element, ["entry", "recordCount", "uncompressedByteLength", "sha256"], location, issues);
+        if (element.ValueKind != JsonValueKind.Object)
+            return null;
         var entry = RequiredString(element, "entry", location, issues);
         var count = RequiredInteger(element, "recordCount", 0, long.MaxValue, location, issues);
         var length = RequiredInteger(element, "uncompressedByteLength", 0, long.MaxValue, location, issues);
@@ -375,6 +383,11 @@ public sealed class ArchiveV1ContentModel2Reader
             {
                 var location = $"metadata.json[{rows.Count}]";
                 ValidateObject(element, ["key", "value"], location, issues);
+                if (element.ValueKind != JsonValueKind.Object)
+                {
+                    rows.Add(null);
+                    continue;
+                }
                 var key = RequiredString(element, "key", location, issues);
                 string value = null;
                 if (element.TryGetProperty("value", out var valueElement))
@@ -524,6 +537,8 @@ public sealed class ArchiveV1ContentModel2Reader
                 ["sourceInternalId", "pageId", "name", "createTime", "updateTime", "revision", "tags", "text"],
                 location,
                 issues);
+            if (root.ValueKind != JsonValueKind.Object)
+                return null;
             var internalId = RequiredInteger(root, "sourceInternalId", 1, long.MaxValue, location, issues);
             var pageId = RequiredString(root, "pageId", location, issues);
             var name = RequiredString(root, "name", location, issues);

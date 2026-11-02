@@ -80,6 +80,31 @@ public sealed class PendingSqliteOutputTests
         Assert.That(await File.ReadAllTextAsync(sidecarPath), Is.EqualTo("existing"));
     }
 
+    /// <summary>Verifies a sidecar symlink reserves the destination file set.</summary>
+    [Test]
+    public async Task Create_WithSidecarSymbolicLink_PreservesTarget()
+    {
+        using var directory = new TemporaryDirectory();
+        var finalPath = directory.GetPath("result.mnote");
+        var sidecarPath = finalPath + "-wal";
+        var targetPath = directory.GetPath("target");
+        await File.WriteAllTextAsync(targetPath, "existing");
+        try
+        {
+            File.CreateSymbolicLink(sidecarPath, targetPath);
+        }
+        catch (Exception exception) when (
+            exception is UnauthorizedAccessException or PlatformNotSupportedException)
+        {
+            Assert.Ignore("Symbolic links are not available on this platform.");
+        }
+
+        Assert.That(
+            () => PendingSqliteOutput.Create(finalPath),
+            Throws.TypeOf<IOException>());
+        Assert.That(await File.ReadAllTextAsync(targetPath), Is.EqualTo("existing"));
+    }
+
     /// <summary>Verifies commit rejects an incomplete SQLite file set.</summary>
     [Test]
     public async Task Commit_WithWalSidecar_RejectsIncompleteFileSet()

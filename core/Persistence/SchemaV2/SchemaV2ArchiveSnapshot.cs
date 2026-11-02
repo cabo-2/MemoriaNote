@@ -43,7 +43,8 @@ internal sealed class SchemaV2ArchiveSnapshot : IAsyncDisposable
         if (!File.Exists(fullPath))
             throw new FileNotFoundException("The source notebook does not exist.", fullPath);
 
-        var validation = await SchemaV2DatabaseValidator.ValidateAsync(fullPath, cancellationToken)
+        var validation = await SchemaV2DatabaseValidator
+            .ValidateAuthoritativeAsync(fullPath, cancellationToken)
             .ConfigureAwait(false);
         if (!validation.Identity.IsValid ||
             !validation.Schema.IsValid ||

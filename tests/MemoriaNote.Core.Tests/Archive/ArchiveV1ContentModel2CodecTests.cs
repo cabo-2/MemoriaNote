@@ -132,6 +132,52 @@ public sealed class ArchiveV1ContentModel2CodecTests
             Describe(report));
     }
 
+    /// <summary>Verifies the native CM2 reader does not reinterpret published CM1 payloads.</summary>
+    [Test]
+    public async Task ContentModel2Reader_RejectsContentModel1AsUnsupportedVersion()
+    {
+        var cm1Directory = Path.Combine(
+            TestContext.CurrentContext.TestDirectory,
+            "reference",
+            "archive",
+            "v1",
+            "examples",
+            "compatibility",
+            "full-field");
+        await using var archive = CreateArchive(
+            File.ReadAllBytes(Path.Combine(cm1Directory, "manifest.json")),
+            File.ReadAllBytes(Path.Combine(cm1Directory, "metadata.json")),
+            File.ReadAllBytes(Path.Combine(cm1Directory, "pages.ndjson")));
+
+        var report = await new ArchiveV1ContentModel2Reader().ValidateAsync(
+            archive,
+            CancellationToken.None);
+
+        Assert.That(
+            report.Issues.Any(issue => issue.Code == ArchiveV1IssueCode.UnsupportedVersion),
+            Is.True,
+            Describe(report));
+    }
+
+    /// <summary>Verifies a non-object manifest is classified instead of escaping as an exception.</summary>
+    [Test]
+    public async Task NonObjectManifest_ReturnsInvalidPropertyType()
+    {
+        await using var archive = CreateArchive(
+            Encoding.UTF8.GetBytes("[]\n"),
+            ReadBytes("valid/metadata.json"),
+            ReadBytes("valid/pages.ndjson"));
+
+        var report = await new ArchiveV1ContentModel2Reader().ValidateAsync(
+            archive,
+            CancellationToken.None);
+
+        Assert.That(
+            report.Issues.Any(issue => issue.Code == ArchiveV1IssueCode.InvalidPropertyType),
+            Is.True,
+            Describe(report));
+    }
+
     private static MemoryStream CreateFixtureArchive(string group, string fixture) =>
         CreateArchive(
             ReadBytes($"{group}/{fixture}/manifest.json"),

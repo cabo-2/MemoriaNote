@@ -75,8 +75,7 @@ internal sealed class NotebookLogicalFingerprintBuilder
             writer.WriteString(_domain);
             writer.WriteInt64(Count);
             foreach (var entry in _entries
-                         .OrderBy(candidate => candidate.SortKey, StringComparer.Ordinal)
-                         .ThenBy(candidate => Convert.ToHexString(candidate.Digest), StringComparer.Ordinal))
+                         .OrderBy(candidate => candidate.SortKey, StringComparer.Ordinal))
             {
                 writer.WriteString(entry.SortKey);
                 writer.WriteBytes(entry.Digest);

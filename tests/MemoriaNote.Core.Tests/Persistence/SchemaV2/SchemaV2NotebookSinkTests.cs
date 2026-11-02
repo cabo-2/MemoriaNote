@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using MemoriaNote.Application;
 using MemoriaNote.Persistence;
 using MemoriaNote.Persistence.SchemaV2;
+using MemoriaNote.Persistence.SchemaV2.Validation;
 using Microsoft.Data.Sqlite;
 using NUnit.Framework;
 
@@ -117,6 +118,82 @@ public sealed class SchemaV2NotebookSinkTests
                 Array.Empty<string>()),
             Throws.InstanceOf<SqliteException>());
         Assert.That(Directory.GetFileSystemEntries(directory.Path), Is.Empty);
+    }
+
+    /// <summary>Verifies post-load validation failure removes the database and every sidecar.</summary>
+    [Test]
+    public void PublishAsync_WithPostValidationFailure_LeavesNoOutput()
+    {
+        using var directory = new TemporaryDirectory();
+        var destination = directory.GetPath("post-validation.mnote");
+        var transfer = ValidEmptyTransfer();
+        var invalidLayer = SchemaV2ValidationLayerResult.Evaluated(new[] { "injected failure" });
+        var validLayer = SchemaV2ValidationLayerResult.Evaluated(Array.Empty<string>());
+        var invalid = new SchemaV2DatabaseValidation(
+            validLayer,
+            invalidLayer,
+            validLayer,
+            validLayer,
+            SchemaV2DerivedDataValidation.NotEvaluated);
+
+        Assert.That(
+            async () => await SchemaV2NotebookSink.PublishAsync(
+                destination,
+                transfer,
+                Array.Empty<string>(),
+                (_, _) => Task.FromResult(invalid)),
+            Throws.TypeOf<InvalidDataException>()
+                .With.Message.Contains("injected failure"));
+        Assert.That(Directory.GetFileSystemEntries(directory.Path), Is.Empty);
+    }
+
+    /// <summary>Verifies cancellation during page loading rolls back and removes private output.</summary>
+    [Test]
+    public void PublishAsync_WithMidStreamCancellation_LeavesNoOutput()
+    {
+        using var directory = new TemporaryDirectory();
+        var destination = directory.GetPath("cancelled.mnote");
+        using var cancellation = new CancellationTokenSource();
+        var transfer = new CurrentNotebookTransfer(
+            ValidMetadata(),
+            CancelingPages(cancellation));
+
+        Assert.That(
+            async () => await SchemaV2NotebookSink.PublishAsync(
+                destination,
+                transfer,
+                Array.Empty<string>(),
+                cancellation.Token),
+            Throws.InstanceOf<OperationCanceledException>());
+        Assert.That(Directory.GetFileSystemEntries(directory.Path), Is.Empty);
+    }
+
+    private static CurrentNotebookTransfer ValidEmptyTransfer() =>
+        new(ValidMetadata(), ToAsync(Array.Empty<CurrentNotebookPageRecord>()));
+
+    private static IReadOnlyList<CurrentNotebookMetadataRecord> ValidMetadata() =>
+        new[]
+        {
+            new CurrentNotebookMetadataRecord("Name", "sink"),
+            new CurrentNotebookMetadataRecord("Title", "Sink"),
+            new CurrentNotebookMetadataRecord("Version", "2")
+        };
+
+    private static async IAsyncEnumerable<CurrentNotebookPageRecord> CancelingPages(
+        CancellationTokenSource cancellation,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        yield return new CurrentNotebookPageRecord(
+            "11111111-2222-4333-8444-555555555555",
+            "first",
+            "2026-11-01 00:00:00.0000000",
+            "2026-11-01 00:00:00.0000000",
+            1,
+            "[]",
+            "text");
+        cancellation.Cancel();
+        await Task.Yield();
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     private static async Task<T?> ScalarAsync<T>(SqliteConnection connection, string sql)

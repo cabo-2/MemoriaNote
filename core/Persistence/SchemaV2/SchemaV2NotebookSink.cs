@@ -19,9 +19,27 @@ internal static class SchemaV2NotebookSink
         IReadOnlyCollection<string> sourcePaths,
         CancellationToken cancellationToken = default)
     {
+        return await PublishAsync(
+                destinationPath,
+                transfer,
+                sourcePaths,
+                SchemaV2DatabaseValidator.ValidateAsync,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Creates and publishes using an explicit post-load validation operation.</summary>
+    internal static async Task<SchemaV2NotebookSinkResult> PublishAsync(
+        string destinationPath,
+        CurrentNotebookTransfer transfer,
+        IReadOnlyCollection<string> sourcePaths,
+        Func<string, CancellationToken, Task<SchemaV2DatabaseValidation>> validateAsync,
+        CancellationToken cancellationToken = default)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
         ArgumentNullException.ThrowIfNull(transfer);
         ArgumentNullException.ThrowIfNull(sourcePaths);
+        ArgumentNullException.ThrowIfNull(validateAsync);
         cancellationToken.ThrowIfCancellationRequested();
 
         var fullDestinationPath = Path.GetFullPath(destinationPath);
@@ -30,8 +48,7 @@ internal static class SchemaV2NotebookSink
         var expected = await LoadAsync(output.StagingPath, transfer, cancellationToken)
             .ConfigureAwait(false);
 
-        var validation = await SchemaV2DatabaseValidator
-            .ValidateAsync(output.StagingPath, cancellationToken)
+        var validation = await validateAsync(output.StagingPath, cancellationToken)
             .ConfigureAwait(false);
         if (!validation.IsValid)
         {

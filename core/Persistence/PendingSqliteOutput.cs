@@ -100,10 +100,13 @@ internal sealed class PendingSqliteOutput : IDisposable
         if (Directory.Exists(finalPath))
             throw new IOException($"The SQLite output path is an existing directory: {finalPath}");
 
-        var finalInfo = new FileInfo(finalPath);
-        finalInfo.Refresh();
-        if (finalInfo.LinkTarget is not null)
-            throw new IOException($"The SQLite output path is a symbolic link: {finalPath}");
+        foreach (var path in SqliteDatabaseFiles.Enumerate(finalPath))
+        {
+            var fileInfo = new FileInfo(path);
+            fileInfo.Refresh();
+            if (fileInfo.LinkTarget is not null)
+                throw new IOException($"The SQLite output file set contains a symbolic link: {path}");
+        }
 
         var existingPath = SqliteDatabaseFiles.Enumerate(finalPath)
             .FirstOrDefault(File.Exists);

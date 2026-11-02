@@ -143,6 +143,151 @@ public sealed class ArchiveV1ContentModel2ServiceTests
         }
     }
 
+    /// <summary>Verifies a SQLite sidecar reserves the complete destination file set.</summary>
+    [Test]
+    public async Task ExistingDestinationSidecar_IsPreservedBeforeInputIsRead()
+    {
+        using var directory = new TemporaryDirectory();
+        using var temporaryFiles = new TemporaryFileStore(directory.GetPath("temp"));
+        var service = new ArchiveV1ContentModel2RestoreService(temporaryFiles);
+        var destination = directory.GetPath("sidecar.mnote");
+        var sidecar = destination + "-wal";
+        await File.WriteAllTextAsync(sidecar, "keep");
+        using var input = new ThrowingReadStream();
+
+        var result = await service.RestoreAsync(
+            new ArchiveV1StreamRestoreRequest(input, destination),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Error?.Code, Is.EqualTo(ArchiveV1OperationErrorCode.DestinationConflict));
+            Assert.That(input.ReadAttempted, Is.False);
+            Assert.That(File.Exists(destination), Is.False);
+            Assert.That(await File.ReadAllTextAsync(sidecar), Is.EqualTo("keep"));
+        }
+    }
+
+    /// <summary>Verifies malformed input leaves neither a database nor private temporary files.</summary>
+    [Test]
+    public async Task InvalidArchive_CleansSpoolAndOutput()
+    {
+        using var directory = new TemporaryDirectory();
+        using var temporaryFiles = new TemporaryFileStore(directory.GetPath("temp"));
+        var service = new ArchiveV1ContentModel2RestoreService(temporaryFiles);
+        var destination = directory.GetPath("invalid.mnote");
+        await using var input = new MemoryStream("not a zip archive"u8.ToArray());
+
+        var result = await service.RestoreAsync(
+            new ArchiveV1StreamRestoreRequest(input, destination),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Error?.Code, Is.EqualTo(ArchiveV1OperationErrorCode.ArchiveValidationFailed));
+            Assert.That(SqliteDatabaseFiles.AnyExists(destination), Is.False);
+            Assert.That(Directory.GetFiles(temporaryFiles.WorkingDirectory), Is.Empty);
+            Assert.That(Directory.GetDirectories(directory.Path), Is.EqualTo(new[] { temporaryFiles.WorkingDirectory }));
+        }
+    }
+
+    /// <summary>Verifies backup ignores damaged derived data and restore rebuilds it from authoritative values.</summary>
+    [Test]
+    public async Task Backup_DerivedMismatch_RestoresValidatedDerivedDataWithoutRepairingSource()
+    {
+        using var directory = new TemporaryDirectory();
+        using var temporaryFiles = new TemporaryFileStore(directory.GetPath("temp"));
+        var restore = new ArchiveV1ContentModel2RestoreService(temporaryFiles);
+        var backup = CreateBackupService(temporaryFiles, new FixedClock(
+            new DateTimeOffset(2026, 11, 2, 0, 0, 0, TimeSpan.Zero)));
+        var source = directory.GetPath("source.mnote");
+        var archive = directory.GetPath("backup.mnarchive");
+        var destination = directory.GetPath("restored.mnote");
+        await using var fixture = CreateFixtureArchive();
+        Assert.That((await restore.RestoreAsync(
+            new ArchiveV1StreamRestoreRequest(fixture, source),
+            CancellationToken.None)).IsSuccess, Is.True);
+        await ExecuteAsync(source, "DELETE FROM PageTags;");
+        var before = await SchemaV2DatabaseValidator.ValidateAsync(source);
+
+        var backupResult = await backup.BackupAsync(
+            new ArchiveV1FileBackupRequest(source, archive),
+            CancellationToken.None);
+        var restoreResult = await restore.RestoreAsync(
+            new ArchiveV1FileRestoreRequest(archive, destination),
+            CancellationToken.None);
+        var restored = await SchemaV2DatabaseValidator.ValidateAsync(destination);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(before.AuthoritativeValues.IsValid, Is.True);
+            Assert.That(before.DerivedData.IsValid, Is.False);
+            Assert.That(backupResult.IsSuccess, Is.True, Describe(backupResult));
+            Assert.That(restoreResult.IsSuccess, Is.True, Describe(restoreResult));
+            Assert.That(restored.IsValid, Is.True);
+            Assert.That(await ReadScalarAsync<long>(source, "SELECT COUNT(*) FROM PageTags;"), Is.Zero);
+            Assert.That(await ReadScalarAsync<long>(destination, "SELECT COUNT(*) FROM PageTags;"), Is.GreaterThan(0));
+        }
+    }
+
+    /// <summary>Verifies backup exports one SQLite snapshot while a concurrent writer commits.</summary>
+    [Test]
+    public async Task Backup_ConcurrentWriter_ExportsOneConsistentSnapshot()
+    {
+        using var directory = new TemporaryDirectory();
+        using var temporaryFiles = new TemporaryFileStore(directory.GetPath("temp"));
+        var restore = new ArchiveV1ContentModel2RestoreService(temporaryFiles);
+        using var clock = new BlockingClock(
+            new DateTimeOffset(2026, 11, 2, 0, 0, 0, TimeSpan.Zero));
+        var backup = CreateBackupService(temporaryFiles, clock);
+        var source = directory.GetPath("source.mnote");
+        var archive = directory.GetPath("snapshot.mnarchive");
+        var destination = directory.GetPath("restored.mnote");
+        await using var fixture = CreateFixtureArchive();
+        Assert.That((await restore.RestoreAsync(
+            new ArchiveV1StreamRestoreRequest(fixture, source),
+            CancellationToken.None)).IsSuccess, Is.True);
+        await ExecuteAsync(source, "PRAGMA journal_mode = WAL;");
+        var expected = await ReadValuesAsync(source);
+
+        var backupTask = Task.Run(() => backup.BackupAsync(
+            new ArchiveV1FileBackupRequest(source, archive),
+            CancellationToken.None));
+        Task updateTask = Task.CompletedTask;
+        try
+        {
+            Assert.That(clock.WaitUntilRead(TimeSpan.FromSeconds(10)), Is.True);
+            updateTask = Task.Run(() => ExecuteAsync(
+                    source,
+                    """
+                    UPDATE Metadata SET Value = 'changed during backup' WHERE Key = 'Title';
+                    UPDATE Pages SET Text = 'changed during backup' WHERE InternalId = 1;
+                    """));
+            await Task.Delay(TimeSpan.FromMilliseconds(100));
+        }
+        finally
+        {
+            clock.Continue();
+        }
+        var backupResult = await backupTask;
+        await updateTask;
+        var restoreResult = await restore.RestoreAsync(
+            new ArchiveV1FileRestoreRequest(archive, destination),
+            CancellationToken.None);
+        var actual = await ReadValuesAsync(destination);
+        var changedSource = await ReadValuesAsync(source);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(backupResult.IsSuccess, Is.True, Describe(backupResult));
+            Assert.That(restoreResult.IsSuccess, Is.True, Describe(restoreResult));
+            Assert.That(actual.Metadata, Is.EqualTo(expected.Metadata));
+            Assert.That(actual.Pages, Is.EqualTo(expected.Pages));
+            Assert.That(changedSource.Metadata, Is.Not.EqualTo(expected.Metadata));
+            Assert.That(changedSource.Pages, Is.Not.EqualTo(expected.Pages));
+        }
+    }
+
     private static MemoryStream CreateFixtureArchive()
     {
         var output = new MemoryStream();
@@ -158,6 +303,30 @@ public sealed class ArchiveV1ContentModel2ServiceTests
         }
         output.Position = 0;
         return output;
+    }
+
+    private static ArchiveV1ContentModel2BackupService CreateBackupService(
+        ITemporaryFileStore temporaryFiles,
+        IClock clock) =>
+        new(
+            temporaryFiles,
+            clock,
+            new ArchiveV1Creator("MemoriaNote.Tests", "ecli-1130b"));
+
+    private static async Task ExecuteAsync(string path, string commandText)
+    {
+        await using var connection = await SqliteConnectionFactory.OpenAsync(path, SqliteOpenMode.ReadWrite);
+        await using var command = connection.CreateCommand();
+        command.CommandText = commandText;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task<T> ReadScalarAsync<T>(string path, string commandText)
+    {
+        await using var connection = await SqliteConnectionFactory.OpenAsync(path, SqliteOpenMode.ReadOnly);
+        await using var command = connection.CreateCommand();
+        command.CommandText = commandText;
+        return (T)(await command.ExecuteScalarAsync())!;
     }
 
     private static async Task<DatabaseValues> ReadValuesAsync(string path)
@@ -288,5 +457,38 @@ public sealed class ArchiveV1ContentModel2ServiceTests
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private sealed class BlockingClock : IClock, IDisposable
+    {
+        private readonly DateTimeOffset _utcNow;
+        private readonly ManualResetEventSlim _read = new();
+        private readonly ManualResetEventSlim _continue = new();
+
+        internal BlockingClock(DateTimeOffset utcNow)
+        {
+            _utcNow = utcNow;
+        }
+
+        public DateTimeOffset UtcNow
+        {
+            get
+            {
+                _read.Set();
+                _continue.Wait(TimeSpan.FromSeconds(30));
+                return _utcNow;
+            }
+        }
+
+        internal bool WaitUntilRead(TimeSpan timeout) => _read.Wait(timeout);
+
+        internal void Continue() => _continue.Set();
+
+        public void Dispose()
+        {
+            _continue.Set();
+            _read.Dispose();
+            _continue.Dispose();
+        }
     }
 }

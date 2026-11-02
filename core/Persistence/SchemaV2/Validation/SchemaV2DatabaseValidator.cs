@@ -21,6 +21,30 @@ internal static class SchemaV2DatabaseValidator
         string databasePath,
         CancellationToken cancellationToken = default)
     {
+        return await ValidateAsync(
+                databasePath,
+                includeDerivedData: true,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Validates identity, schema, integrity, and authoritative values without derived writes.</summary>
+    internal static async Task<SchemaV2DatabaseValidation> ValidateAuthoritativeAsync(
+        string databasePath,
+        CancellationToken cancellationToken = default)
+    {
+        return await ValidateAsync(
+                databasePath,
+                includeDerivedData: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task<SchemaV2DatabaseValidation> ValidateAsync(
+        string databasePath,
+        bool includeDerivedData,
+        CancellationToken cancellationToken)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -45,7 +69,8 @@ internal static class SchemaV2DatabaseValidator
                     .ConfigureAwait(false))
             : SchemaV2ValidationLayerResult.NotEvaluated;
 
-        var derivedData = schemaIssues.Count == 0 &&
+        var derivedData = includeDerivedData &&
+                          schemaIssues.Count == 0 &&
                           integrityIssues.Count == 0 &&
                           authoritativeValues.IsValid
             ? await SchemaV2DerivedDataValidator.ValidateAsync(

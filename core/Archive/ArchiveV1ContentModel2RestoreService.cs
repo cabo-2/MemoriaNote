@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Persistence;
@@ -201,7 +202,10 @@ public sealed class ArchiveV1ContentModel2RestoreService : IArchiveV1RestoreServ
     }
 
     private static bool DestinationExists(string path) =>
-        File.Exists(path) || Directory.Exists(path) || new FileInfo(path).LinkTarget is not null;
+        SqliteDatabaseFiles.AnyExists(path) ||
+        Directory.Exists(path) ||
+        SqliteDatabaseFiles.Enumerate(path).Any(
+            candidate => new FileInfo(candidate).LinkTarget is not null);
 
     private static bool PathsEqual(string left, string right) =>
         string.Equals(
