@@ -101,6 +101,12 @@ internal sealed class NotebookMigrationCommandHandler
                 detail += " final-name=" + CliMessage.Quote(issue.FinalName);
             if (issue.Count.HasValue)
                 detail += " count=" + issue.Count.Value.ToString(CultureInfo.InvariantCulture);
+            if (issue.Reason is not null)
+                detail += " reason=" + CliMessage.Quote(issue.Reason);
+            if (issue.Actual.HasValue)
+                detail += " actual=" + issue.Actual.Value.ToString(CultureInfo.InvariantCulture);
+            if (issue.Limit.HasValue)
+                detail += " limit=" + issue.Limit.Value.ToString(CultureInfo.InvariantCulture);
             _output.WriteLine($"{issue.Severity.ToString().ToUpperInvariant()} {issue.Code}{detail}");
         }
 

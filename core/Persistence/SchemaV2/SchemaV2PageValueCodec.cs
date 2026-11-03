@@ -6,17 +6,48 @@ using System.Text;
 
 namespace MemoriaNote.Persistence.SchemaV2;
 
+internal enum SchemaV2PageNameValidationError
+{
+    None,
+    EmptyOrWhitespace,
+    OuterWhitespace,
+    InvalidUnicode,
+    ControlCharacter,
+    ScalarLimitExceeded
+}
+
+internal readonly record struct SchemaV2PageNameValidationFailure(
+    SchemaV2PageNameValidationError Error,
+    int? Actual = null,
+    int? Limit = null);
+
 /// <summary>Validates and converts authoritative Schema V2 page values.</summary>
 internal static class SchemaV2PageValueCodec
 {
+    internal const int MaximumNameScalarCount = 255;
     internal const string TimestampFormat = "yyyy-MM-dd HH:mm:ss.fffffff";
 
     internal static void ValidateName(string name, string parameterName)
     {
-        if (string.IsNullOrWhiteSpace(name) ||
-            !string.Equals(name, name.Trim(), StringComparison.Ordinal))
+        if (!TryValidateName(name, out var failure))
+            throw new ArgumentException(MessageFor(failure.Error), parameterName);
+    }
+
+    internal static bool TryValidateName(
+        string name,
+        out SchemaV2PageNameValidationFailure failure)
+    {
+        if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("A page name has invalid whitespace.", parameterName);
+            failure = new SchemaV2PageNameValidationFailure(
+                SchemaV2PageNameValidationError.EmptyOrWhitespace);
+            return false;
+        }
+        if (!string.Equals(name, name.Trim(), StringComparison.Ordinal))
+        {
+            failure = new SchemaV2PageNameValidationFailure(
+                SchemaV2PageNameValidationError.OuterWhitespace);
+            return false;
         }
 
         var scalarCount = 0;
@@ -25,20 +56,33 @@ internal static class SchemaV2PageValueCodec
         {
             var status = Rune.DecodeFromUtf16(remaining, out var rune, out var consumed);
             if (status != OperationStatus.Done)
-                throw new ArgumentException("A page name is not valid UTF-16.", parameterName);
+            {
+                failure = new SchemaV2PageNameValidationFailure(
+                    SchemaV2PageNameValidationError.InvalidUnicode);
+                return false;
+            }
             if (Rune.GetUnicodeCategory(rune) == UnicodeCategory.Control)
-                throw new ArgumentException("A page name contains a control character.", parameterName);
+            {
+                failure = new SchemaV2PageNameValidationFailure(
+                    SchemaV2PageNameValidationError.ControlCharacter);
+                return false;
+            }
 
             scalarCount++;
             remaining = remaining[consumed..];
         }
 
-        if (scalarCount is < 1 or > 255)
+        if (scalarCount > MaximumNameScalarCount)
         {
-            throw new ArgumentException(
-                "A page name must contain 1 to 255 Unicode scalars.",
-                parameterName);
+            failure = new SchemaV2PageNameValidationFailure(
+                SchemaV2PageNameValidationError.ScalarLimitExceeded,
+                scalarCount,
+                MaximumNameScalarCount);
+            return false;
         }
+
+        failure = default;
+        return true;
     }
 
     internal static string FormatTimestamp(DateTimeOffset value)
@@ -112,4 +156,20 @@ internal static class SchemaV2PageValueCodec
 
         return null;
     }
+
+    private static string MessageFor(SchemaV2PageNameValidationError error) =>
+        error switch
+        {
+            SchemaV2PageNameValidationError.EmptyOrWhitespace =>
+                "A page name must not be empty or whitespace.",
+            SchemaV2PageNameValidationError.OuterWhitespace =>
+                "A page name has leading or trailing whitespace.",
+            SchemaV2PageNameValidationError.InvalidUnicode =>
+                "A page name is not valid UTF-16.",
+            SchemaV2PageNameValidationError.ControlCharacter =>
+                "A page name contains a control character.",
+            SchemaV2PageNameValidationError.ScalarLimitExceeded =>
+                $"A page name must contain at most {MaximumNameScalarCount} Unicode scalars.",
+            _ => throw new ArgumentOutOfRangeException(nameof(error))
+        };
 }

@@ -68,6 +68,91 @@ public sealed class NotebookMigrationServiceTests
         Assert.That(validation.IsValid, Is.True, string.Join(Environment.NewLine, validation.AllIssues));
     }
 
+    /// <summary>Verifies name failures expose reasons and duplicate suffixes preserve the limit.</summary>
+    [Test]
+    public async Task LiveNotebook_NameConstraints_ReportReasonsAndKeepSuffixWithinLimit()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("name-constraints", "Name constraints");
+        var maximumName = new string('x', 255);
+        InsertPage(
+            database.DatabasePath,
+            1,
+            "11111111-1111-4111-8111-111111111111",
+            maximumName,
+            1);
+        InsertPage(
+            database.DatabasePath,
+            2,
+            "22222222-2222-4222-8222-222222222222",
+            maximumName,
+            2);
+        InsertPage(
+            database.DatabasePath,
+            3,
+            "33333333-3333-4333-8333-333333333333",
+            new string('y', 256),
+            3);
+        InsertPage(
+            database.DatabasePath,
+            4,
+            "44444444-4444-4444-8444-444444444444",
+            " outer ",
+            4);
+        InsertPage(
+            database.DatabasePath,
+            5,
+            "55555555-5555-4555-8555-555555555555",
+            "control\nname",
+            5);
+        InsertPage(
+            database.DatabasePath,
+            6,
+            "66666666-6666-4666-8666-666666666666",
+            "   ",
+            6);
+        var destination = Path.Combine(database.DirectoryPath, "names.mnote");
+
+        var result = await new NotebookMigrationService().MigrateAsync(
+            new NotebookMigrationRequest(database.DatabasePath, destination),
+            CancellationToken.None);
+
+        var names = ReadNames(destination);
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.ToString());
+            Assert.That(result.Report.HasPageErrors, Is.True);
+            Assert.That(result.Report.Counts.MigratedPages, Is.EqualTo(2));
+            Assert.That(result.Report.Counts.SkippedPages, Is.EqualTo(4));
+            Assert.That(names, Does.Contain(maximumName));
+            Assert.That(names.Single(name => name.EndsWith(" (2)", StringComparison.Ordinal)).Length,
+                Is.EqualTo(255));
+            Assert.That(
+                result.Report.Issues,
+                Has.Some.Matches<NotebookMigrationIssue>(issue =>
+                    issue is not null &&
+                    issue.Code == NotebookMigrationIssueCode.InvalidPageName &&
+                    issue.Reason == NotebookMigrationIssueReason.ScalarLimitExceeded &&
+                    issue.Actual == 256 &&
+                    issue.Limit == 255));
+            Assert.That(
+                result.Report.Issues,
+                Has.Some.Matches<NotebookMigrationIssue>(issue =>
+                    issue is not null &&
+                    issue.Reason == NotebookMigrationIssueReason.OuterWhitespace));
+            Assert.That(
+                result.Report.Issues,
+                Has.Some.Matches<NotebookMigrationIssue>(issue =>
+                    issue is not null &&
+                    issue.Reason == NotebookMigrationIssueReason.ControlCharacter));
+            Assert.That(
+                result.Report.Issues,
+                Has.Some.Matches<NotebookMigrationIssue>(issue =>
+                    issue is not null &&
+                    issue.Reason == NotebookMigrationIssueReason.EmptyOrWhitespace));
+        }
+    }
+
     /// <summary>Verifies a live notebook and its CM1 backup produce the same logical result.</summary>
     [Test]
     public async Task LiveNotebookAndCm1Archive_ProduceSameLogicalFingerprint()

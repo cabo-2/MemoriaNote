@@ -203,13 +203,16 @@ internal static class LegacyMigrationPlanner
             }
 
             var name = hasRename ? resolvedName : page.Name;
-            if (!IsValidName(name))
+            if (!SchemaV2PageValueCodec.TryValidateName(name, out var nameFailure))
             {
                 pageIssues.Add(Error(
                     NotebookMigrationIssueCode.InvalidPageName,
                     pageId,
                     page,
-                    "name"));
+                    "name",
+                    NameReason(nameFailure.Error),
+                    nameFailure.Actual,
+                    nameFailure.Limit));
             }
 
             string tags = null;
@@ -398,7 +401,8 @@ internal static class LegacyMigrationPlanner
     private static string AppendOrdinal(string baseName, long number)
     {
         var suffix = $" ({number.ToString(CultureInfo.InvariantCulture)})";
-        var allowed = 255 - suffix.EnumerateRunes().Count();
+        var allowed = SchemaV2PageValueCodec.MaximumNameScalarCount -
+            suffix.EnumerateRunes().Count();
         var builder = new StringBuilder();
         foreach (var rune in baseName.EnumerateRunes().Take(allowed))
             builder.Append(rune.ToString());
@@ -457,19 +461,6 @@ internal static class LegacyMigrationPlanner
         return canonical;
     }
 
-    private static bool IsValidName(string value)
-    {
-        try
-        {
-            SchemaV2PageValueCodec.ValidateName(value, nameof(value));
-            return true;
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
-    }
-
     private static bool TryPageId(string value, out string pageId)
     {
         pageId = null;
@@ -483,7 +474,10 @@ internal static class LegacyMigrationPlanner
         string code,
         string pageId,
         LegacyPageRecord page,
-        string field) =>
+        string field,
+        string reason = null,
+        long? actual = null,
+        long? limit = null) =>
         new(
             code,
             NotebookMigrationIssueSeverity.Error,
@@ -491,7 +485,26 @@ internal static class LegacyMigrationPlanner
             pageId,
             page.RowId,
             page.Index,
-            field);
+            field,
+            Reason: reason,
+            Actual: actual,
+            Limit: limit);
+
+    private static string NameReason(SchemaV2PageNameValidationError error) =>
+        error switch
+        {
+            SchemaV2PageNameValidationError.EmptyOrWhitespace =>
+                NotebookMigrationIssueReason.EmptyOrWhitespace,
+            SchemaV2PageNameValidationError.OuterWhitespace =>
+                NotebookMigrationIssueReason.OuterWhitespace,
+            SchemaV2PageNameValidationError.InvalidUnicode =>
+                NotebookMigrationIssueReason.InvalidUnicode,
+            SchemaV2PageNameValidationError.ControlCharacter =>
+                NotebookMigrationIssueReason.ControlCharacter,
+            SchemaV2PageNameValidationError.ScalarLimitExceeded =>
+                NotebookMigrationIssueReason.ScalarLimitExceeded,
+            _ => throw new ArgumentOutOfRangeException(nameof(error))
+        };
 
     private static void Skip(
         IEnumerable<NotebookMigrationIssue> pageIssues,

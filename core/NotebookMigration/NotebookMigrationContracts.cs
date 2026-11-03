@@ -148,6 +148,25 @@ public static class NotebookMigrationIssueCode
     public const string TimestampsCanonicalized = "timestamps-canonicalized";
 }
 
+/// <summary>Defines stable reasons that further classify migration issues.</summary>
+public static class NotebookMigrationIssueReason
+{
+    /// <summary>The page name is empty or consists only of whitespace.</summary>
+    public const string EmptyOrWhitespace = "empty-or-whitespace";
+
+    /// <summary>The page name has leading or trailing whitespace.</summary>
+    public const string OuterWhitespace = "outer-whitespace";
+
+    /// <summary>The page name is not valid Unicode text.</summary>
+    public const string InvalidUnicode = "invalid-unicode";
+
+    /// <summary>The page name contains a Unicode control character.</summary>
+    public const string ControlCharacter = "control-character";
+
+    /// <summary>The page name exceeds the Unicode scalar limit.</summary>
+    public const string ScalarLimitExceeded = "scalar-limit-exceeded";
+}
+
 /// <summary>Describes one safe migration report entry without page body content.</summary>
 public sealed record NotebookMigrationIssue(
     string Code,
@@ -158,7 +177,10 @@ public sealed record NotebookMigrationIssue(
     long? SourceIndex = null,
     string Field = null,
     string FinalName = null,
-    long? Count = null);
+    long? Count = null,
+    string Reason = null,
+    long? Actual = null,
+    long? Limit = null);
 
 /// <summary>Counts classified legacy ContentType values.</summary>
 public sealed record NotebookMigrationContentTypeCounts(

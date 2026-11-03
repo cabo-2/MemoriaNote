@@ -107,6 +107,39 @@ public sealed class NotebookMigrationIntegrationTests
         }
     }
 
+    /// <summary>Verifies a page-name failure reports its stable reason and boundary values.</summary>
+    [Test]
+    public async Task Migrate_PageNameOverLimit_ReportsReasonAndBoundary()
+    {
+        using var harness = new CliInProcessHarness();
+        var source = await CreateLegacySourceAsync(harness, "legacy.mnote");
+        InsertPage(
+            source,
+            1,
+            "11111111-1111-4111-8111-111111111111",
+            new string('x', 256),
+            1);
+        var destination = Path.Combine(harness.WorkingDirectory, "partial.mnote");
+
+        var result = await harness.RunAsync(
+            "notebooks",
+            "migrate",
+            source,
+            "--output",
+            destination);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Partial));
+            Assert.That(result.StandardError, Is.Empty);
+            Assert.That(result.StandardOutput, Does.Contain(
+                "ERROR invalid-page-name"));
+            Assert.That(result.StandardOutput, Does.Contain(
+                "reason=\"scalar-limit-exceeded\" actual=256 limit=255"));
+            Assert.That(ReadPageCount(destination), Is.Zero);
+        }
+    }
+
     /// <summary>Verifies dry-run validates the output path but creates no database.</summary>
     [Test]
     public async Task Migrate_DryRun_CreatesNoOutput()
