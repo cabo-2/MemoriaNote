@@ -193,6 +193,7 @@ namespace MemoriaNote.Cli
         [Subcommand(typeof(NotebooksListCommand),
                     typeof(NotebooksBackupCommand),
                     typeof(NotebooksRestoreCommand),
+                    typeof(NotebooksMigrateCommand),
                     typeof(NotebooksImportCommand),
                     typeof(NotebooksExportCommand),
                     typeof(NotebooksMetadataCommand))]
@@ -298,6 +299,61 @@ namespace MemoriaNote.Cli
                         Target,
                         Archive.hasValue ? Archive.value : null,
                         DryRun,
+                        cancellationToken);
+                }
+            }
+
+            [Command(
+                "migrate",
+                Description = "Migrate a schema v1 notebook or CM1 archive to schema v2")]
+            [HelpOption("--help")]
+            class NotebooksMigrateCommand
+            {
+                public NotebooksCommand Parent { get; set; }
+
+                [Argument(
+                    0,
+                    Name = "source",
+                    Description = "Schema v1 notebook or CM1 archive file")]
+                public (bool hasValue, string value) Source { get; set; }
+
+                [Option(
+                    "--output <notebook>",
+                    Description = "New schema v2 notebook file")]
+                public string Output { get; set; }
+
+                [Option(
+                    "--resolution <file>",
+                    Description = "Optional versioned page resolution JSON file")]
+                public string Resolution { get; set; }
+
+                [Option(
+                    "--dry-run",
+                    Description = "Validate and transform without creating the output")]
+                public bool DryRun { get; set; }
+
+                [Option(
+                    "--report-level <level>",
+                    Description = "Report detail: error, warning (default), or info")]
+                public string ReportLevel { get; set; }
+
+                protected ValidationResult OnValidate()
+                {
+                    if (!Source.hasValue || string.IsNullOrWhiteSpace(Source.value))
+                        return new ValidationResult("Specify a migration source file.");
+                    return string.IsNullOrWhiteSpace(Output)
+                        ? new ValidationResult("Specify --output <notebook>.")
+                        : ValidationResult.Success;
+                }
+
+                protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+                {
+                    return CommandHandlers.NotebookMigration.ExecuteAsync(
+                        Source.value,
+                        Output,
+                        Resolution,
+                        DryRun,
+                        ReportLevel,
                         cancellationToken);
                 }
             }

@@ -83,6 +83,10 @@ namespace MemoriaNote.Cli
             {
                 _logger.LogInformation("A CLI command was canceled.");
             }
+            else if (result.ErrorKind == CliErrorKind.Partial)
+            {
+                _logger.LogWarning("A CLI command completed with partial results.");
+            }
             else
             {
                 _logger.LogWarning(
@@ -97,6 +101,7 @@ namespace MemoriaNote.Cli
             {
                 CliErrorKind.Unexpected => "Fatal",
                 CliErrorKind.Canceled => "Canceled",
+                CliErrorKind.Partial => "Partial",
                 _ => "Error"
             };
             _output.WriteErrorLine($"{prefix}: {result.Message}");

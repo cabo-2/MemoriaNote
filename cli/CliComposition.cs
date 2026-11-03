@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Globalization;
 using MemoriaNote.Archive;
+using MemoriaNote.NotebookMigration;
 using MemoriaNote.Application;
 using MemoriaNote.Cli.UserConfig;
 using MemoriaNote.Persistence;
@@ -172,6 +173,10 @@ namespace MemoriaNote.Cli
                     executor,
                     archiveV1RestoreService,
                     binaryStandardInput,
+                    output),
+                new NotebookMigrationCommandHandler(
+                    executor,
+                    new NotebookMigrationService(),
                     output),
                 new NotebookImportCommandHandler(
                     executor,

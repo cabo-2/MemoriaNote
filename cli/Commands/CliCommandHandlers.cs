@@ -11,6 +11,7 @@ namespace MemoriaNote.Cli
             NotebookListCommandHandler notebookList,
             NotebookBackupCommandHandler notebookBackup,
             NotebookRestoreCommandHandler notebookRestore,
+            NotebookMigrationCommandHandler notebookMigration,
             NotebookImportCommandHandler notebookImport,
             NotebookExportCommandHandler notebookExport,
             NotebookMetadataCommandHandler notebookMetadata,
@@ -38,6 +39,8 @@ namespace MemoriaNote.Cli
                 throw new ArgumentNullException(nameof(notebookBackup));
             NotebookRestore = notebookRestore ??
                 throw new ArgumentNullException(nameof(notebookRestore));
+            NotebookMigration = notebookMigration ??
+                throw new ArgumentNullException(nameof(notebookMigration));
             NotebookImport = notebookImport ??
                 throw new ArgumentNullException(nameof(notebookImport));
             NotebookExport = notebookExport ??
@@ -78,6 +81,8 @@ namespace MemoriaNote.Cli
         internal NotebookBackupCommandHandler NotebookBackup { get; }
 
         internal NotebookRestoreCommandHandler NotebookRestore { get; }
+
+        internal NotebookMigrationCommandHandler NotebookMigration { get; }
 
         internal NotebookImportCommandHandler NotebookImport { get; }
 
