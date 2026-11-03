@@ -37,7 +37,7 @@ internal static class MigrationSourceFactory
                 fullPath,
                 FileMode.Open,
                 FileAccess.Read,
-                FileShare.Read,
+                FileShare.ReadWrite | FileShare.Delete,
                 header.Length,
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
             var read = await input.ReadAsync(header, cancellationToken).ConfigureAwait(false);

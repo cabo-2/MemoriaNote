@@ -153,6 +153,41 @@ public sealed class NotebookMigrationServiceTests
         }
     }
 
+    /// <summary>Verifies format probing coexists with a live SQLite-compatible writer handle.</summary>
+    [Test]
+    public async Task LiveNotebook_SharedWriterHandle_OpensReadSnapshot()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("shared", "Shared");
+        InsertPage(
+            database.DatabasePath,
+            1,
+            "11111111-1111-4111-8111-111111111111",
+            "Page",
+            1);
+        await using var writerHandle = new FileStream(
+            database.DatabasePath,
+            FileMode.Open,
+            FileAccess.ReadWrite,
+            FileShare.ReadWrite | FileShare.Delete);
+        var destination = Path.Combine(database.DirectoryPath, "shared.mnote");
+
+        var result = await new NotebookMigrationService().MigrateAsync(
+            new NotebookMigrationRequest(
+                database.DatabasePath,
+                destination,
+                dryRun: true),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.ToString());
+            Assert.That(result.Report.Counts.SourcePages, Is.EqualTo(1));
+            Assert.That(result.Report.Counts.MigratedPages, Is.EqualTo(1));
+            Assert.That(File.Exists(destination), Is.False);
+        }
+    }
+
     /// <summary>Verifies a live notebook and its CM1 backup produce the same logical result.</summary>
     [Test]
     public async Task LiveNotebookAndCm1Archive_ProduceSameLogicalFingerprint()
@@ -389,8 +424,15 @@ public sealed class NotebookMigrationServiceTests
         return values;
     }
 
-    private static string Hash(string path) =>
-        Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
+    private static string Hash(string path)
+    {
+        using var input = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete);
+        return Convert.ToHexString(SHA256.HashData(input));
+    }
 
     private sealed class FixedClock : IClock
     {
