@@ -24,6 +24,7 @@ public sealed class DestructiveOperationContractTests
             Contract(new[] { "delete" }, dryRun: true, force: true),
             Contract(new[] { "notebooks", "backup" }),
             Contract(new[] { "notebooks", "restore" }, dryRun: true),
+            Contract(new[] { "notebooks", "migrate" }, dryRun: true),
             Contract(new[] { "notebooks", "import" }, dryRun: true),
             Contract(new[] { "notebooks", "export" }),
             Contract(new[] { "notebooks", "metadata" }),

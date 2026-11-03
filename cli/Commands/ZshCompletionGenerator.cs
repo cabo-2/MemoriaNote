@@ -39,6 +39,18 @@ namespace MemoriaNote.Cli
                     new CompletionHint(CompletionKind.File),
                 ["mn notebooks restore argument archive"] =
                     new CompletionHint(CompletionKind.File),
+                ["mn notebooks migrate argument source"] =
+                    new CompletionHint(CompletionKind.File),
+                ["mn notebooks migrate option --output"] =
+                    new CompletionHint(CompletionKind.File),
+                ["mn notebooks migrate option --resolution"] =
+                    new CompletionHint(CompletionKind.File),
+                ["mn notebooks migrate option --report-level"] =
+                    new CompletionHint(
+                        CompletionKind.Values,
+                        "error",
+                        "warning",
+                        "info"),
                 ["mn notebooks import argument directory"] =
                     new CompletionHint(CompletionKind.Directory),
                 ["mn notebooks export argument directory"] =

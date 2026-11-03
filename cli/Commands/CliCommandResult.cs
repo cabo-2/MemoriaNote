@@ -10,6 +10,7 @@ namespace MemoriaNote.Cli
         NotFound = 3,
         Conflict = 4,
         Storage = 5,
+        Partial = 6,
         Canceled = 130
     }
 
@@ -19,6 +20,7 @@ namespace MemoriaNote.Cli
         NotFound,
         Conflict,
         Storage,
+        Partial,
         Canceled,
         Unexpected
     }
@@ -86,6 +88,7 @@ namespace MemoriaNote.Cli
                 CliErrorKind.NotFound => CliExitCode.NotFound,
                 CliErrorKind.Conflict => CliExitCode.Conflict,
                 CliErrorKind.Storage => CliExitCode.Storage,
+                CliErrorKind.Partial => CliExitCode.Partial,
                 CliErrorKind.Canceled => CliExitCode.Canceled,
                 CliErrorKind.Unexpected => CliExitCode.Unexpected,
                 _ => throw new ArgumentOutOfRangeException(nameof(errorKind))
