@@ -143,6 +143,7 @@ public sealed class ArchiveV1ContentModel2BackupService : IArchiveV1BackupServic
                     new ArchiveV1ContentModel2WriteRequest(
                         _creator,
                         _clock.UtcNow,
+                        snapshot.SourceNotebookFormatVersion,
                         snapshot.Metadata,
                         snapshot.ReadPagesAsync(cancellationToken)),
                     cancellationToken)

@@ -20,14 +20,18 @@ internal sealed class SchemaV2ArchiveSnapshot : IAsyncDisposable
     private SchemaV2ArchiveSnapshot(
         SqliteConnection connection,
         SqliteTransaction transaction,
+        string sourceNotebookFormatVersion,
         IReadOnlyList<ArchiveV1MetadataRow> metadata,
         int pageCount)
     {
         _connection = connection;
         _transaction = transaction;
+        SourceNotebookFormatVersion = sourceNotebookFormatVersion;
         Metadata = metadata;
         PageCount = pageCount;
     }
+
+    internal string SourceNotebookFormatVersion { get; }
 
     internal IReadOnlyList<ArchiveV1MetadataRow> Metadata { get; }
 
@@ -42,6 +46,17 @@ internal sealed class SchemaV2ArchiveSnapshot : IAsyncDisposable
         var fullPath = Path.GetFullPath(databasePath);
         if (!File.Exists(fullPath))
             throw new FileNotFoundException("The source notebook does not exist.", fullPath);
+
+        var recognition = await SqliteNotebookFormatRecognizer
+            .RecognizeAsync(fullPath, cancellationToken)
+            .ConfigureAwait(false);
+        if (recognition.Classification != NotebookFormatClassification.Current ||
+            recognition.Reason != NotebookFormatRecognitionReason.SchemaV2Identity ||
+            recognition.DetectedVersion is null)
+        {
+            throw new InvalidDataException(
+                "The source is not a recognized Schema V2 notebook.");
+        }
 
         var validation = await SchemaV2DatabaseValidator
             .ValidateAuthoritativeAsync(fullPath, cancellationToken)
@@ -70,7 +85,12 @@ internal sealed class SchemaV2ArchiveSnapshot : IAsyncDisposable
                     .ConfigureAwait(false);
                 var pageCount = await ReadPageCountAsync(connection, transaction, cancellationToken)
                     .ConfigureAwait(false);
-                return new SchemaV2ArchiveSnapshot(connection, transaction, metadata, pageCount);
+                return new SchemaV2ArchiveSnapshot(
+                    connection,
+                    transaction,
+                    recognition.DetectedVersion,
+                    metadata,
+                    pageCount);
             }
             catch
             {

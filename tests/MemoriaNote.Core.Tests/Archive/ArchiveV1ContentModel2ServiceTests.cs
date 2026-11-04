@@ -1,7 +1,5 @@
 using System.IO.Compression;
-using System.Security.Cryptography;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using MemoriaNote.Archive;
 using MemoriaNote.Core.Tests.Infrastructure;
 using MemoriaNote.Persistence;
@@ -50,6 +48,7 @@ public sealed class ArchiveV1ContentModel2ServiceTests
         var backupResult = await backup.BackupAsync(
             new ArchiveV1FileBackupRequest(firstPath, archivePath),
             CancellationToken.None);
+        var backupSourceVersion = ReadManifestSourceVersion(archivePath);
         var secondRestore = await restore.RestoreAsync(
             new ArchiveV1FileRestoreRequest(archivePath, secondPath),
             CancellationToken.None);
@@ -60,8 +59,15 @@ public sealed class ArchiveV1ContentModel2ServiceTests
             Assert.That(firstRestore.IsSuccess, Is.True, Describe(firstRestore));
             Assert.That(backupResult.IsSuccess, Is.True, Describe(backupResult));
             Assert.That(secondRestore.IsSuccess, Is.True, Describe(secondRestore));
-            Assert.That(firstRestore.MetadataCount, Is.EqualTo(8));
+            Assert.That(firstRestore.MetadataCount, Is.EqualTo(9));
             Assert.That(firstRestore.PageCount, Is.EqualTo(3));
+            Assert.That(backupSourceVersion, Is.EqualTo("2"));
+            Assert.That(firstValues.Metadata.Any(row => row.Key == "Version"), Is.False);
+            Assert.That(firstValues.Metadata.Single(row => row.Key == "EmptyValue").Value, Is.Empty);
+            Assert.That(firstValues.Metadata.Single(row => row.Key == "NullValue").Value, Is.Null);
+            Assert.That(
+                firstValues.Metadata.Single(row => row.Key == "X-Unknown-雪").Value,
+                Is.EqualTo("  preserved  "));
             Assert.That(firstValues.Metadata, Is.EqualTo(secondValues.Metadata));
             Assert.That(firstValues.Pages, Is.EqualTo(secondValues.Pages));
             Assert.That(await File.ReadAllBytesAsync(firstPath), Is.EqualTo(sourceBytes));
@@ -115,7 +121,7 @@ public sealed class ArchiveV1ContentModel2ServiceTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.IsSuccess, Is.True, Describe(result));
-            Assert.That(result.MetadataCount, Is.EqualTo(8));
+            Assert.That(result.MetadataCount, Is.EqualTo(9));
             Assert.That(result.PageCount, Is.EqualTo(3));
             Assert.That(File.Exists(destination), Is.False);
             Assert.That(Directory.GetFileSystemEntries(directory.Path)
@@ -293,25 +299,6 @@ public sealed class ArchiveV1ContentModel2ServiceTests
 
     private static MemoryStream CreateFixtureArchive()
     {
-        var metadata = JsonSerializer.SerializeToUtf8Bytes(new Dictionary<string, string?>[]
-        {
-            new() { ["key"] = "Author", ["value"] = "Example Author" },
-            new() { ["key"] = "CreateTime", ["value"] = null },
-            new() { ["key"] = "Description", ["value"] = "Archive v1 / content model v2 example" },
-            new() { ["key"] = "ReadOnly", ["value"] = "False" },
-            new() { ["key"] = "Tag", ["value"] = string.Empty },
-            new() { ["key"] = "Title", ["value"] = "CM2 example" },
-            new() { ["key"] = "X-Empty", ["value"] = string.Empty },
-            new() { ["key"] = "X-Unknown", ["value"] = "preserved" }
-        });
-        var manifestPath = Path.Combine(FixtureDirectory, "manifest.json");
-        var manifest = JsonNode.Parse(File.ReadAllBytes(manifestPath))!.AsObject();
-        var descriptor = manifest["dataSets"]!["metadata"]!.AsObject();
-        descriptor["recordCount"] = 8;
-        descriptor["uncompressedByteLength"] = metadata.LongLength;
-        descriptor["sha256"] = Convert.ToHexString(SHA256.HashData(metadata)).ToLowerInvariant();
-        var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest);
-
         var output = new MemoryStream();
         using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
         {
@@ -319,19 +306,20 @@ public sealed class ArchiveV1ContentModel2ServiceTests
             {
                 var entry = archive.CreateEntry(name, CompressionLevel.NoCompression);
                 using var destination = entry.Open();
-                if (name == "manifest.json")
-                    destination.Write(manifestBytes);
-                else if (name == "metadata.json")
-                    destination.Write(metadata);
-                else
-                {
-                    using var input = File.OpenRead(Path.Combine(FixtureDirectory, name));
-                    input.CopyTo(destination);
-                }
+                using var input = File.OpenRead(Path.Combine(FixtureDirectory, name));
+                input.CopyTo(destination);
             }
         }
         output.Position = 0;
         return output;
+    }
+
+    private static string ReadManifestSourceVersion(string archivePath)
+    {
+        using var archive = ZipFile.OpenRead(archivePath);
+        using var input = archive.GetEntry("manifest.json")!.Open();
+        using var document = JsonDocument.Parse(input);
+        return document.RootElement.GetProperty("sourceNotebookFormatVersion").GetString()!;
     }
 
     private static ArchiveV1ContentModel2BackupService CreateBackupService(
