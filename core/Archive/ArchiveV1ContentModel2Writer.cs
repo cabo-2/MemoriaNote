@@ -105,6 +105,13 @@ public sealed class ArchiveV1ContentModel2Writer
                 ArchiveV1IssueCode.InvalidPropertyValue,
                 "manifest.json.createdBy.version"));
         }
+        if (request.SourceNotebookFormatVersion !=
+            ArchiveV1ContentModel2Format.SourceNotebookFormatVersion)
+        {
+            issues.Add(new ArchiveV1ValidationIssue(
+                ArchiveV1IssueCode.UnsupportedVersion,
+                "manifest.json.sourceNotebookFormatVersion"));
+        }
         return issues;
     }
 
@@ -236,7 +243,9 @@ public sealed class ArchiveV1ContentModel2Writer
             writer.WriteString("format", ArchiveV1Format.FormatIdentifier);
             writer.WriteNumber("archiveFormatVersion", ArchiveV1Format.ArchiveFormatVersion);
             writer.WriteNumber("contentModelVersion", ArchiveV1ContentModel2Format.ContentModelVersion);
-            writer.WriteString("sourceNotebookFormatVersion", ArchiveV1ContentModel2Format.SourceNotebookFormatVersion);
+            writer.WriteString(
+                "sourceNotebookFormatVersion",
+                request.SourceNotebookFormatVersion);
             writer.WriteStartObject("createdBy");
             writer.WriteString("application", request.Creator.Application);
             writer.WriteString("version", request.Creator.Version);

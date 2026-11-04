@@ -8,7 +8,7 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Core.Tests.Archive;
 
-/// <summary>Verifies content model 2 codec behavior independently of the amended reference bytes.</summary>
+/// <summary>Locks the content model 2 codec to the amended draft reference bytes.</summary>
 [TestFixture]
 [Category("Functional")]
 public sealed class ArchiveV1ContentModel2CodecTests
@@ -19,6 +19,31 @@ public sealed class ArchiveV1ContentModel2CodecTests
         "archive",
         "v1-content-model-v2",
         "examples");
+
+    /// <summary>Verifies every amended compatibility fixture is accepted and streamed.</summary>
+    [TestCase("empty", 6, 0)]
+    [TestCase("single-page", 7, 1)]
+    [TestCase("full-field", 9, 3)]
+    public async Task CompatibilityFixture_IsAccepted(
+        string fixture,
+        int metadataCount,
+        int pageCount)
+    {
+        await using var archive = CreateFixtureArchive("compatibility", fixture);
+        var sink = new RecordingSink();
+
+        var report = await new ArchiveV1ContentModel2Reader().ReadAsync(
+            archive,
+            sink,
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(report.IsValid, Is.True, Describe(report));
+            Assert.That(sink.Metadata, Has.Count.EqualTo(metadataCount));
+            Assert.That(sink.Pages, Has.Count.EqualTo(pageCount));
+        }
+    }
 
     /// <summary>Verifies pre-amendment metadata is not reinterpreted as the current CM2 contract.</summary>
     [Test]
@@ -60,6 +85,7 @@ public sealed class ArchiveV1ContentModel2CodecTests
         var request = new ArchiveV1ContentModel2WriteRequest(
             new ArchiveV1Creator("MemoriaNote.Tests", "ecli-1145b"),
             new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero),
+            "2",
             metadata,
             ToAsync(pages));
         await using var output = new MemoryStream();
@@ -86,6 +112,65 @@ public sealed class ArchiveV1ContentModel2CodecTests
                 sink.Pages.Select(ProjectPage),
                 Is.EqualTo(pages.Select(ProjectPage)));
         }
+    }
+
+    /// <summary>Verifies canonical writer payload bytes equal the amended full-field fixture.</summary>
+    [Test]
+    public async Task FullFieldFixture_MatchesCanonicalWriterPayloadBytes()
+    {
+        var metadata = ReadMetadata("compatibility/full-field/metadata.json");
+        var pages = ReadPages("compatibility/full-field/pages.ndjson");
+        var request = new ArchiveV1ContentModel2WriteRequest(
+            new ArchiveV1Creator("MemoriaNote.Tests", "ecli-1145b"),
+            new DateTimeOffset(2026, 11, 4, 0, 0, 0, TimeSpan.Zero),
+            "2",
+            metadata,
+            ToAsync(pages));
+        await using var output = new MemoryStream();
+
+        await new ArchiveV1ContentModel2Writer().WriteAsync(
+            output,
+            request,
+            CancellationToken.None);
+
+        output.Position = 0;
+        using var archive = new ZipArchive(output, ZipArchiveMode.Read, leaveOpen: true);
+        foreach (var entryName in new[] { "manifest.json", "metadata.json", "pages.ndjson" })
+        {
+            var entry = archive.GetEntry(entryName);
+            Assert.That(entry, Is.Not.Null);
+            await using var input = entry!.Open();
+            using var actual = new MemoryStream();
+            await input.CopyToAsync(actual);
+            Assert.That(
+                actual.ToArray(),
+                Is.EqualTo(ReadBytes($"compatibility/full-field/{entryName}")),
+                entryName);
+        }
+    }
+
+    /// <summary>Verifies the writer rejects a source version not recognized as Schema V2.</summary>
+    [Test]
+    public async Task Writer_UnsupportedSourceVersion_IsRejected()
+    {
+        var request = new ArchiveV1ContentModel2WriteRequest(
+            new ArchiveV1Creator("MemoriaNote.Tests", "ecli-1145c"),
+            new DateTimeOffset(2026, 11, 4, 0, 0, 0, TimeSpan.Zero),
+            "1",
+            CurrentMetadata(),
+            ToAsync(Array.Empty<ArchiveV1ContentModel2PageRow>()));
+        using var output = new MemoryStream();
+
+        var exception = await Assert.ThrowsAsync<ArchiveV1ValidationException>(() =>
+            new ArchiveV1ContentModel2Writer().WriteAsync(
+                output,
+                request,
+                CancellationToken.None));
+
+        Assert.That(exception!.Report.Issues, Has.Some.Matches<ArchiveV1ValidationIssue>(issue =>
+            issue is not null &&
+            issue.Code == ArchiveV1IssueCode.UnsupportedVersion &&
+            issue.Location == "manifest.json.sourceNotebookFormatVersion"));
     }
 
     private static object ProjectPage(ArchiveV1ContentModel2PageRow row) => new

@@ -61,11 +61,14 @@ public sealed class ArchiveV1ContentModel2WriteRequest
     public ArchiveV1ContentModel2WriteRequest(
         ArchiveV1Creator creator,
         DateTimeOffset createdAtUtc,
+        string sourceNotebookFormatVersion,
         IEnumerable<ArchiveV1MetadataRow> metadata,
         IAsyncEnumerable<ArchiveV1ContentModel2PageRow> pages)
     {
         Creator = creator ?? throw new ArgumentNullException(nameof(creator));
         CreatedAtUtc = createdAtUtc;
+        SourceNotebookFormatVersion = sourceNotebookFormatVersion ??
+            throw new ArgumentNullException(nameof(sourceNotebookFormatVersion));
         Metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
         Pages = pages ?? throw new ArgumentNullException(nameof(pages));
     }
@@ -75,6 +78,9 @@ public sealed class ArchiveV1ContentModel2WriteRequest
 
     /// <summary>Gets the archive creation time.</summary>
     public DateTimeOffset CreatedAtUtc { get; }
+
+    /// <summary>Gets the notebook format version recognized from the source schema identity.</summary>
+    public string SourceNotebookFormatVersion { get; }
 
     /// <summary>Gets the exact metadata rows.</summary>
     public IEnumerable<ArchiveV1MetadataRow> Metadata { get; }
