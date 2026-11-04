@@ -8,24 +8,28 @@
     "value": "20261101123456"
   },
   {
-    "key": "EmptyValue",
-    "value": ""
+    "key": "Description",
+    "value": "Archive v1 / content model v2 compatibility fixture"
   },
   {
-    "key": "Name",
-    "value": "cm2-compatibility"
+    "key": "EmptyValue",
+    "value": ""
   },
   {
     "key": "NullValue",
     "value": null
   },
   {
-    "key": "Title",
-    "value": "互換性 é"
+    "key": "ReadOnly",
+    "value": "True"
   },
   {
-    "key": "Version",
-    "value": "2"
+    "key": "Tag",
+    "value": "compatibility"
+  },
+  {
+    "key": "Title",
+    "value": "互換性 é"
   },
   {
     "key": "X-Unknown-雪",

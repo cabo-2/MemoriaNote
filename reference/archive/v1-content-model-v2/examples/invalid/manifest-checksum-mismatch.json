@@ -5,14 +5,14 @@
   "sourceNotebookFormatVersion": "2",
   "createdBy": {
     "application": "MemoriaNote",
-    "version": "0.0.0-ecli-1130a-example"
+    "version": "0.0.0-ecli-1145b-example"
   },
-  "createdAtUtc": "2026-11-01T00:00:00.0000000Z",
+  "createdAtUtc": "2026-11-04T00:00:00.0000000Z",
   "dataSets": {
     "metadata": {
       "entry": "metadata.json",
-      "recordCount": 7,
-      "uncompressedByteLength": 406,
+      "recordCount": 9,
+      "uncompressedByteLength": 523,
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
     },
     "pages": {

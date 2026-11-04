@@ -1,0 +1,26 @@
+[
+  {
+    "key": "Author",
+    "value": "Invalid fixture"
+  },
+  {
+    "key": "CreateTime",
+    "value": null
+  },
+  {
+    "key": "Description",
+    "value": "Invalid Boolean spelling"
+  },
+  {
+    "key": "ReadOnly",
+    "value": "false"
+  },
+  {
+    "key": "Tag",
+    "value": ""
+  },
+  {
+    "key": "Title",
+    "value": "Invalid ReadOnly"
+  }
+]

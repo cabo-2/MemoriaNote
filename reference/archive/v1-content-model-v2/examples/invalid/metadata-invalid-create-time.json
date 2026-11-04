@@ -1,0 +1,26 @@
+[
+  {
+    "key": "Author",
+    "value": "Invalid fixture"
+  },
+  {
+    "key": "CreateTime",
+    "value": "20260230010101"
+  },
+  {
+    "key": "Description",
+    "value": "Invalid calendar date"
+  },
+  {
+    "key": "ReadOnly",
+    "value": "False"
+  },
+  {
+    "key": "Tag",
+    "value": ""
+  },
+  {
+    "key": "Title",
+    "value": "Invalid CreateTime"
+  }
+]

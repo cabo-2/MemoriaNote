@@ -1,15 +1,27 @@
 [
   {
-    "key": "Name",
-    "value": "cm2-single"
+    "key": "Author",
+    "value": "Single-page Author"
+  },
+  {
+    "key": "CreateTime",
+    "value": null
+  },
+  {
+    "key": "Description",
+    "value": "Single-page fixture"
+  },
+  {
+    "key": "ReadOnly",
+    "value": "False"
+  },
+  {
+    "key": "Tag",
+    "value": "single"
   },
   {
     "key": "Title",
     "value": "Single page notebook"
-  },
-  {
-    "key": "Version",
-    "value": "2"
   },
   {
     "key": "X-Optional",
