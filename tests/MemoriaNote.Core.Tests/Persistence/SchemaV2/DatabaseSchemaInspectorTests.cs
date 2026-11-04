@@ -15,7 +15,7 @@ public sealed class DatabaseSchemaInspectorTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("observed.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "observed", "Observed");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Observed");
 
         var observation = await DatabaseSchemaInspector.InspectAsync(databasePath);
 

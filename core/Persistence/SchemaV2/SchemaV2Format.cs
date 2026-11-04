@@ -12,6 +12,4 @@ internal static class SchemaV2Format
     /// <summary>Gets the schema v2 notebook format version.</summary>
     internal const int UserVersion = 2;
 
-    /// <summary>Gets the persisted metadata format version.</summary>
-    internal const string MetadataVersion = "2";
 }

@@ -13,14 +13,29 @@ internal static class SchemaV2DatabaseFactory
     /// <summary>Creates a new Schema V2 database with its required metadata.</summary>
     internal static async Task CreateAsync(
         string databasePath,
-        string name,
         string title,
         CancellationToken cancellationToken = default)
     {
         await CreateAsync(
                 databasePath,
-                name,
                 title,
+                SystemClock.Instance,
+                SchemaV2DatabaseValidator.ValidateAsync,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Creates a new Schema V2 database using the supplied application clock.</summary>
+    internal static async Task CreateAsync(
+        string databasePath,
+        string title,
+        IClock clock,
+        CancellationToken cancellationToken = default)
+    {
+        await CreateAsync(
+                databasePath,
+                title,
+                clock,
                 SchemaV2DatabaseValidator.ValidateAsync,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -29,14 +44,14 @@ internal static class SchemaV2DatabaseFactory
     /// <summary>Creates a database using an explicit publication validation operation.</summary>
     internal static async Task CreateAsync(
         string databasePath,
-        string name,
         string title,
+        IClock clock,
         Func<string, CancellationToken, Task<SchemaV2DatabaseValidation>> validateAsync,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        ArgumentNullException.ThrowIfNull(title);
+        ArgumentNullException.ThrowIfNull(clock);
         ArgumentNullException.ThrowIfNull(validateAsync);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -46,8 +61,8 @@ internal static class SchemaV2DatabaseFactory
         await CreatePrivateDatabaseAsync(
                 output.StagingPath,
                 canonicalDdl,
-                name,
                 title,
+                SchemaV2MetadataContract.FormatCreateTime(clock.UtcNow),
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -69,8 +84,8 @@ internal static class SchemaV2DatabaseFactory
     private static async Task CreatePrivateDatabaseAsync(
         string databasePath,
         string canonicalDdl,
-        string name,
         string title,
+        string createTime,
         CancellationToken cancellationToken)
     {
         await using var connection = SqliteConnectionFactory.Create(
@@ -94,8 +109,8 @@ internal static class SchemaV2DatabaseFactory
         await InsertMetadataAsync(
                 connection,
                 (SqliteTransaction)transaction,
-                name,
                 title,
+                createTime,
                 cancellationToken)
             .ConfigureAwait(false);
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
@@ -113,21 +128,23 @@ internal static class SchemaV2DatabaseFactory
     private static async Task InsertMetadataAsync(
         SqliteConnection connection,
         SqliteTransaction transaction,
-        string name,
         string title,
+        string createTime,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
             INSERT INTO Metadata(Key, Value) VALUES
-                ('Name', $name),
-                ('Title', $title),
-                ('Version', $version);
+                ('Author', ''),
+                ('CreateTime', $createTime),
+                ('Description', ''),
+                ('ReadOnly', 'False'),
+                ('Tag', ''),
+                ('Title', $title);
             """;
-        command.Parameters.AddWithValue("$name", name);
+        command.Parameters.AddWithValue("$createTime", createTime);
         command.Parameters.AddWithValue("$title", title);
-        command.Parameters.AddWithValue("$version", SchemaV2Format.MetadataVersion);
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 

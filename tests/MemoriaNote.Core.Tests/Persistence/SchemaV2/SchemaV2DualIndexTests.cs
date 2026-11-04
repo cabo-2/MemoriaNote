@@ -21,7 +21,7 @@ public sealed class SchemaV2DualIndexTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("dual-index.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "dual-index", "Dual index");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Dual index");
 
         await ExecuteAsync(
             databasePath,
@@ -72,7 +72,7 @@ public sealed class SchemaV2DualIndexTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("atomic-sync.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "atomic-sync", "Atomic sync");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Atomic sync");
         await ExecuteAsync(databasePath, "DROP TABLE FtsIndexTrigram;");
 
         Assert.That(

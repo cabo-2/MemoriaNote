@@ -335,20 +335,49 @@ internal static class LegacyMigrationPlanner
         }
 
         if (!values.TryGetValue("Version", out var version) || version != "1" ||
-            !values.TryGetValue("Name", out var name) || name is null ||
-            !values.TryGetValue("Title", out var title) || title is null)
+            !values.ContainsKey("Name") ||
+            !values.TryGetValue("Title", out var title))
         {
             throw new LegacySourceException(
                 NotebookMigrationErrorCode.InvalidSource,
-                "The legacy metadata cannot satisfy required schema v2 values.");
+                "The legacy metadata does not satisfy the schema v1 source contract.");
         }
 
-        values["Version"] = "2";
-        return values
-            .OrderBy(row => row.Key, StringComparer.Ordinal)
-            .Select(row => new CurrentNotebookMetadataRecord(row.Key, row.Value))
-            .ToArray();
+        var readOnly = values.TryGetValue("ReadOnly", out var readOnlyValue) &&
+                       readOnlyValue is not null
+            ? bool.Parse(readOnlyValue).ToString()
+            : bool.FalseString;
+        var createTime = values.TryGetValue("CreateTime", out var createTimeValue)
+            ? createTimeValue
+            : null;
+
+        return new[]
+        {
+            new CurrentNotebookMetadataRecord(
+                SchemaV2MetadataContract.AuthorKey,
+                ValueOrEmpty(values, SchemaV2MetadataContract.AuthorKey)),
+            new CurrentNotebookMetadataRecord(
+                SchemaV2MetadataContract.CreateTimeKey,
+                createTime),
+            new CurrentNotebookMetadataRecord(
+                SchemaV2MetadataContract.DescriptionKey,
+                ValueOrEmpty(values, SchemaV2MetadataContract.DescriptionKey)),
+            new CurrentNotebookMetadataRecord(
+                SchemaV2MetadataContract.ReadOnlyKey,
+                readOnly),
+            new CurrentNotebookMetadataRecord(
+                SchemaV2MetadataContract.TagKey,
+                ValueOrEmpty(values, SchemaV2MetadataContract.TagKey)),
+            new CurrentNotebookMetadataRecord(
+                SchemaV2MetadataContract.TitleKey,
+                title ?? string.Empty)
+        };
     }
+
+    private static string ValueOrEmpty(
+        IReadOnlyDictionary<string, string> values,
+        string key) =>
+        values.TryGetValue(key, out var value) ? value ?? string.Empty : string.Empty;
 
     private static void ResolveDuplicateNames(
         IReadOnlyList<Candidate> candidates,

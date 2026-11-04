@@ -1,5 +1,6 @@
 using MemoriaNote.Persistence.SchemaV2;
 using MemoriaNote.Persistence.SchemaV2.Validation;
+using MemoriaNote.Core.Tests.Infrastructure;
 using Microsoft.Data.Sqlite;
 using NUnit.Framework;
 
@@ -19,8 +20,8 @@ public sealed class SchemaV2DatabaseFactoryTests
 
         await SchemaV2DatabaseFactory.CreateAsync(
             databasePath,
-            "created-note",
-            "Created Note");
+            "Created Note",
+            new FixedClock(new DateTimeOffset(2026, 11, 4, 23, 45, 6, TimeSpan.Zero)));
 
         await using var connection = await SqliteConnectionFactory.OpenAsync(
             databasePath,
@@ -33,14 +34,39 @@ public sealed class SchemaV2DatabaseFactoryTests
         {
             Assert.That(applicationId, Is.EqualTo(SchemaV2Format.ApplicationId));
             Assert.That(userVersion, Is.EqualTo(SchemaV2Format.UserVersion));
-            Assert.That(metadata["Name"], Is.EqualTo("created-note"));
+            Assert.That(metadata.Keys, Is.EqualTo(new[]
+            {
+                "Author",
+                "CreateTime",
+                "Description",
+                "ReadOnly",
+                "Tag",
+                "Title"
+            }));
+            Assert.That(metadata["Author"], Is.Empty);
+            Assert.That(metadata["CreateTime"], Is.EqualTo("20261104114506"));
+            Assert.That(metadata["Description"], Is.Empty);
+            Assert.That(metadata["ReadOnly"], Is.EqualTo("False"));
+            Assert.That(metadata["Tag"], Is.Empty);
             Assert.That(metadata["Title"], Is.EqualTo("Created Note"));
-            Assert.That(metadata["Version"], Is.EqualTo(SchemaV2Format.MetadataVersion));
             Assert.That(SqliteDatabaseFiles.AnyExists(databasePath), Is.True);
             Assert.That(
                 Directory.GetFileSystemEntries(directory.Path),
                 Is.EqualTo(new[] { databasePath }));
         }
+    }
+
+    /// <summary>Verifies the storage creator accepts an empty notebook title.</summary>
+    [Test]
+    public async Task CreateAsync_WithEmptyTitle_CreatesValidDatabase()
+    {
+        using var directory = new TemporaryDirectory();
+        var databasePath = directory.GetPath("untitled.mnote");
+
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, string.Empty);
+
+        var validation = await SchemaV2DatabaseValidator.ValidateAsync(databasePath);
+        Assert.That(validation.IsValid, Is.True);
     }
 
     /// <summary>Verifies creation never overwrites an existing output.</summary>
@@ -54,7 +80,6 @@ public sealed class SchemaV2DatabaseFactoryTests
         Assert.That(
             async () => await SchemaV2DatabaseFactory.CreateAsync(
                 databasePath,
-                "created-note",
                 "Created Note"),
             Throws.TypeOf<IOException>());
         Assert.That(await File.ReadAllTextAsync(databasePath), Is.EqualTo("existing"));
@@ -72,7 +97,6 @@ public sealed class SchemaV2DatabaseFactoryTests
         Assert.That(
             async () => await SchemaV2DatabaseFactory.CreateAsync(
                 databasePath,
-                "created-note",
                 "Created Note",
                 cancellation.Token),
             Throws.InstanceOf<OperationCanceledException>());
@@ -98,8 +122,8 @@ public sealed class SchemaV2DatabaseFactoryTests
         Assert.That(
             async () => await SchemaV2DatabaseFactory.CreateAsync(
                 databasePath,
-                "created-note",
                 "Created Note",
+                SystemClock.Instance,
                 (_, _) => Task.FromResult(invalid)),
             Throws.TypeOf<InvalidDataException>()
                 .With.Message.Contains("injected validation failure"));
@@ -117,8 +141,8 @@ public sealed class SchemaV2DatabaseFactoryTests
         Assert.That(
             async () => await SchemaV2DatabaseFactory.CreateAsync(
                 databasePath,
-                "created-note",
                 "Created Note",
+                SystemClock.Instance,
                 (_, token) =>
                 {
                     cancellation.Cancel();

@@ -20,14 +20,11 @@ public sealed class ArchiveV1ContentModel2CodecTests
         "v1-content-model-v2",
         "examples");
 
-    /// <summary>Verifies every immutable compatibility fixture is accepted and streamed.</summary>
-    [TestCase("empty", 3, 0)]
-    [TestCase("single-page", 4, 1)]
-    [TestCase("full-field", 8, 3)]
-    public async Task CompatibilityFixture_IsAccepted(
-        string fixture,
-        int metadataCount,
-        int pageCount)
+    /// <summary>Verifies pre-amendment fixtures are not reinterpreted as the current CM2 contract.</summary>
+    [TestCase("empty")]
+    [TestCase("single-page")]
+    [TestCase("full-field")]
+    public async Task PreAmendmentCompatibilityFixture_IsRejected(string fixture)
     {
         await using var archive = CreateFixtureArchive("compatibility", fixture);
         var sink = new RecordingSink();
@@ -37,19 +34,21 @@ public sealed class ArchiveV1ContentModel2CodecTests
             sink,
             CancellationToken.None);
 
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(report.IsValid, Is.True, Describe(report));
-            Assert.That(sink.Metadata, Has.Count.EqualTo(metadataCount));
-            Assert.That(sink.Pages, Has.Count.EqualTo(pageCount));
-        }
+        Assert.That(report.IsValid, Is.False);
+        Assert.That(report.Issues, Has.Some.Matches<ArchiveV1ValidationIssue>(issue =>
+            issue is not null &&
+            issue.Code == ArchiveV1IssueCode.InvalidPropertyValue &&
+            issue.Location is not null &&
+            issue.Location.EndsWith(".key", StringComparison.Ordinal)));
+        Assert.That(sink.Metadata, Is.Empty);
+        Assert.That(sink.Pages, Is.Empty);
     }
 
-    /// <summary>Verifies canonical writer payload bytes equal the full-field reference fixture.</summary>
+    /// <summary>Verifies the amended metadata contract is accepted by both writer and reader.</summary>
     [Test]
-    public async Task FullFieldFixture_MatchesCanonicalWriterPayloadBytes()
+    public async Task CurrentMetadata_RoundTripsWriterAndReader()
     {
-        var metadata = ReadMetadata("compatibility/full-field/metadata.json");
+        var metadata = CurrentMetadata();
         var pages = ReadPages("compatibility/full-field/pages.ndjson");
         var request = new ArchiveV1ContentModel2WriteRequest(
             new ArchiveV1Creator("MemoriaNote.Tests", "ecli-1130a"),
@@ -64,20 +63,48 @@ public sealed class ArchiveV1ContentModel2CodecTests
             CancellationToken.None);
 
         output.Position = 0;
-        using var archive = new ZipArchive(output, ZipArchiveMode.Read, leaveOpen: true);
-        foreach (var entryName in new[] { "manifest.json", "metadata.json", "pages.ndjson" })
+        var sink = new RecordingSink();
+        var report = await new ArchiveV1ContentModel2Reader().ReadAsync(
+            output,
+            sink,
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
         {
-            var entry = archive.GetEntry(entryName);
-            Assert.That(entry, Is.Not.Null);
-            await using var input = entry!.Open();
-            using var actual = new MemoryStream();
-            await input.CopyToAsync(actual);
+            Assert.That(report.IsValid, Is.True, Describe(report));
             Assert.That(
-                actual.ToArray(),
-                Is.EqualTo(ReadBytes($"compatibility/full-field/{entryName}")),
-                entryName);
+                sink.Metadata.Select(row => (row.Key, row.Value)),
+                Is.EqualTo(metadata.Select(row => (row.Key, row.Value))));
+            Assert.That(
+                sink.Pages.Select(ProjectPage),
+                Is.EqualTo(pages.Select(ProjectPage)));
         }
     }
+
+    private static object ProjectPage(ArchiveV1ContentModel2PageRow row) => new
+    {
+        row.SourceInternalId,
+        row.PageId,
+        row.Name,
+        row.CreateTime,
+        row.UpdateTime,
+        row.Revision,
+        row.Tags,
+        row.Text
+    };
+
+    private static IReadOnlyList<ArchiveV1MetadataRow> CurrentMetadata() =>
+        new[]
+        {
+            new ArchiveV1MetadataRow("Author", "Example Author"),
+            new ArchiveV1MetadataRow("CreateTime", null),
+            new ArchiveV1MetadataRow("Description", "CM2 amended metadata"),
+            new ArchiveV1MetadataRow("ReadOnly", "False"),
+            new ArchiveV1MetadataRow("Tag", string.Empty),
+            new ArchiveV1MetadataRow("Title", "CM2 example"),
+            new ArchiveV1MetadataRow("X-Empty", string.Empty),
+            new ArchiveV1MetadataRow("X-Unknown", "preserved")
+        };
 
     /// <summary>Verifies every ECLI-1130a invalid JSON fixture reaches its intended rejection.</summary>
     [TestCase("manifest-checksum-mismatch.json", "manifest", ArchiveV1IssueCode.ChecksumMismatch)]

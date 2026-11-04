@@ -287,7 +287,7 @@ public sealed class SchemaV2DerivedIndexMaintenanceTests
                 Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directoryPath);
             var databasePath = Path.Combine(directoryPath, name + ".mnote");
-            await SchemaV2DatabaseFactory.CreateAsync(databasePath, name, name);
+            await SchemaV2DatabaseFactory.CreateAsync(databasePath, name);
             return new TestDatabase(directoryPath, databasePath);
         }
 

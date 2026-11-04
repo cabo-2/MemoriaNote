@@ -14,8 +14,6 @@ internal sealed class SchemaV2MetadataRepository :
     INotebookMetadataReader,
     INotebookMetadataWriter
 {
-    internal const string FormatVersionKey = "Version";
-
     public async Task<NotebookMetadataSnapshot> LoadAsync(
         NotebookId notebookId,
         CancellationToken cancellationToken)
@@ -84,16 +82,10 @@ internal sealed class SchemaV2MetadataRepository :
     private static void ValidateChanges(NotebookMetadataChanges changes)
     {
         foreach (var change in changes.Values)
-        {
-            if (string.IsNullOrEmpty(change.Key))
-                throw new ArgumentException("A metadata key cannot be empty.", nameof(changes));
-            if (string.Equals(change.Key, FormatVersionKey, StringComparison.Ordinal))
-            {
-                throw new ArgumentException(
-                    "The notebook format version cannot be changed through metadata updates.",
-                    nameof(changes));
-            }
-        }
+            SchemaV2MetadataContract.ValidateUpdate(
+                change.Key,
+                change.Value,
+                nameof(changes));
     }
 
     private static async Task<NotebookMetadataSnapshot> ReadSnapshotAsync(

@@ -62,6 +62,13 @@ internal static class DatabaseExpectedContractValidator
             }
 
             var entry = entries.First();
+            if (entry.Value is null && !keyContract.AllowsNull)
+            {
+                differences.Add(
+                    $"Required metadata key '{keyContract.Name}' has a null value.");
+                continue;
+            }
+
             if (keyContract.FixedValue is not null &&
                 !string.Equals(entry.Value, keyContract.FixedValue, StringComparison.Ordinal))
             {
@@ -69,12 +76,29 @@ internal static class DatabaseExpectedContractValidator
                     $"Metadata key '{keyContract.Name}' differs. " +
                     $"Expected '{keyContract.FixedValue}'; actual '{entry.Value}'.");
             }
+
+            if (entry.Value is not null &&
+                keyContract.AllowedValues is not null &&
+                keyContract.AllowedValues.Count > 0 &&
+                !keyContract.AllowedValues.Contains(entry.Value, StringComparer.Ordinal))
+            {
+                differences.Add(
+                    $"Metadata key '{keyContract.Name}' has an invalid value '{entry.Value}'.");
+            }
+        }
+
+        var retiredKeys = contract.RetiredMetadataKeys.ToHashSet(StringComparer.Ordinal);
+        foreach (var entry in observation.Metadata.Where(candidate =>
+                     retiredKeys.Contains(candidate.Key)))
+        {
+            differences.Add($"Retired metadata key '{entry.Key}' is present.");
         }
 
         if (!contract.AllowsUnknownMetadataKeys)
         {
             var knownKeys = contract.MetadataKeys
                 .Select(candidate => candidate.Name)
+                .Concat(contract.RetiredMetadataKeys)
                 .ToHashSet(StringComparer.Ordinal);
             foreach (var entry in observation.Metadata.Where(candidate =>
                          !knownKeys.Contains(candidate.Key)))
