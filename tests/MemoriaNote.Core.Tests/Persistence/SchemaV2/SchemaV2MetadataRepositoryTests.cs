@@ -1,6 +1,7 @@
 using MemoriaNote.Domain;
 using MemoriaNote.Domain.Repositories;
 using MemoriaNote.Persistence.SchemaV2;
+using MemoriaNote.Persistence.SchemaV2.Validation;
 using NUnit.Framework;
 
 namespace MemoriaNote.Core.Tests.Persistence.SchemaV2;
@@ -16,7 +17,7 @@ public sealed class SchemaV2MetadataRepositoryTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("metadata.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "metadata", "Before");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Before");
         var notebookId = NotebookId.FromDatabasePath(databasePath);
         var repository = new SchemaV2MetadataRepository();
 
@@ -25,6 +26,7 @@ public sealed class SchemaV2MetadataRepositoryTests
             new NotebookMetadataChanges(new Dictionary<string, string>
             {
                 ["Title"] = "After",
+                ["name"] = "case-sensitive extension",
                 ["Unknown"] = "preserved",
                 ["NullableUnknown"] = null!
             }),
@@ -34,27 +36,29 @@ public sealed class SchemaV2MetadataRepositoryTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(first.NotebookId, Is.EqualTo(notebookId));
-            Assert.That(loaded.Values["Name"], Is.EqualTo("metadata"));
             Assert.That(loaded.Values["Title"], Is.EqualTo("After"));
-            Assert.That(loaded.Values["Version"], Is.EqualTo("2"));
+            Assert.That(loaded.Values["ReadOnly"], Is.EqualTo("False"));
+            Assert.That(loaded.Values["name"], Is.EqualTo("case-sensitive extension"));
             Assert.That(loaded.Values["Unknown"], Is.EqualTo("preserved"));
             Assert.That(loaded.Values["NullableUnknown"], Is.Null);
         }
     }
 
-    /// <summary>Verifies the format identity cannot be changed through metadata updates.</summary>
-    [Test]
-    public async Task UpdateAsync_WhenVersionIsIncluded_RejectsEntireChangeSet()
+    /// <summary>Verifies retired keys reject the entire metadata change set.</summary>
+    [TestCase("Name")]
+    [TestCase("Version")]
+    public async Task UpdateAsync_WhenRetiredKeyIsIncluded_RejectsEntireChangeSet(
+        string retiredKey)
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("fixed-version.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "fixed", "Before");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Before");
         var notebookId = NotebookId.FromDatabasePath(databasePath);
         var repository = new SchemaV2MetadataRepository();
         var changes = new NotebookMetadataChanges(new Dictionary<string, string>
         {
             ["Title"] = "Must not be saved",
-            ["Version"] = "3"
+            [retiredKey] = "retired"
         });
 
         Assert.That(
@@ -68,8 +72,65 @@ public sealed class SchemaV2MetadataRepositoryTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(loaded.Values["Title"], Is.EqualTo("Before"));
-            Assert.That(loaded.Values["Version"], Is.EqualTo("2"));
+            Assert.That(loaded.Values.ContainsKey(retiredKey), Is.False);
         }
+    }
+
+    /// <summary>Verifies managed values are validated before any write occurs.</summary>
+    [TestCase("ReadOnly", "true")]
+    [TestCase("CreateTime", "20261301120000")]
+    public async Task UpdateAsync_WithInvalidManagedValue_RejectsEntireChangeSet(
+        string key,
+        string value)
+    {
+        using var directory = new TemporaryDirectory();
+        var databasePath = directory.GetPath("invalid-managed.mnote");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Before");
+        var notebookId = NotebookId.FromDatabasePath(databasePath);
+        var repository = new SchemaV2MetadataRepository();
+
+        Assert.That(
+            async () => await repository.UpdateAsync(
+                notebookId,
+                new NotebookMetadataChanges(new Dictionary<string, string>
+                {
+                    ["Title"] = "Must not be saved",
+                    [key] = value
+                }),
+                CancellationToken.None),
+            Throws.TypeOf<ArgumentException>());
+
+        var loaded = await repository.LoadAsync(notebookId, CancellationToken.None);
+        Assert.That(loaded.Values["Title"], Is.EqualTo("Before"));
+    }
+
+    /// <summary>Verifies nullable CreateTime and an empty extension key retain exact values.</summary>
+    [Test]
+    public async Task UpdateAsync_WithNullableCreateTimeAndEmptyExtension_PreservesValues()
+    {
+        using var directory = new TemporaryDirectory();
+        var databasePath = directory.GetPath("nullable.mnote");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Before");
+        var notebookId = NotebookId.FromDatabasePath(databasePath);
+        var repository = new SchemaV2MetadataRepository();
+
+        var updated = await repository.UpdateAsync(
+            notebookId,
+            new NotebookMetadataChanges(new Dictionary<string, string>
+            {
+                ["CreateTime"] = null!,
+                [string.Empty] = null!
+            }),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(updated.Values["CreateTime"], Is.Null);
+            Assert.That(updated.Values[string.Empty], Is.Null);
+        }
+        Assert.That(
+            (await SchemaV2DatabaseValidator.ValidateAsync(databasePath)).IsValid,
+            Is.True);
     }
 
     /// <summary>Verifies pre-cancellation performs no metadata write.</summary>
@@ -78,7 +139,7 @@ public sealed class SchemaV2MetadataRepositoryTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("cancelled.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "cancelled", "Before");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Before");
         var notebookId = NotebookId.FromDatabasePath(databasePath);
         var repository = new SchemaV2MetadataRepository();
         using var cancellation = new CancellationTokenSource();

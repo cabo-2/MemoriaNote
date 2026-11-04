@@ -36,9 +36,29 @@ internal static class ArchiveV1ContentModel2RecordValidator
                     ArchiveV1IssueCode.DuplicateMetadataKey,
                     location + ".key"));
             }
+
+            if (SchemaV2MetadataContract.IsRetiredKey(row.Key))
+            {
+                Invalid(issues, location + ".key", "a non-retired Schema V2 metadata key");
+            }
+
+            if (SchemaV2MetadataContract.IsApplicationManagedKey(row.Key))
+            {
+                try
+                {
+                    SchemaV2MetadataContract.ValidateUpdate(
+                        row.Key,
+                        row.Value,
+                        nameof(rows));
+                }
+                catch (ArgumentException)
+                {
+                    Invalid(issues, location + ".value", "a valid Schema V2 metadata value");
+                }
+            }
         }
 
-        foreach (var required in new[] { "Name", "Title", "Version" })
+        foreach (var required in SchemaV2MetadataContract.ApplicationManagedKeys)
         {
             var matches = rows.Where(row => row is not null && row.Key == required).ToArray();
             if (matches.Length == 0)
@@ -48,20 +68,6 @@ internal static class ArchiveV1ContentModel2RecordValidator
                     "metadata.json",
                     required));
             }
-            else if (matches[0].Value is null)
-            {
-                Invalid(issues, $"metadata.json[{required}].value", "non-null string");
-            }
-        }
-
-        var version = rows.FirstOrDefault(row => row is not null && row.Key == "Version");
-        if (version is not null && version.Value != ArchiveV1ContentModel2Format.SourceNotebookFormatVersion)
-        {
-            issues.Add(new ArchiveV1ValidationIssue(
-                ArchiveV1IssueCode.MetadataVersionMismatch,
-                "metadata.json[Version].value",
-                ArchiveV1ContentModel2Format.SourceNotebookFormatVersion,
-                version.Value ?? "null"));
         }
 
         return issues;

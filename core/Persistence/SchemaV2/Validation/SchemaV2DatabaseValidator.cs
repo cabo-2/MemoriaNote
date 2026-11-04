@@ -107,21 +107,6 @@ internal static class SchemaV2DatabaseValidator
                 $"actual '{observation.UserVersion}'.");
         }
 
-        var versions = observation.Metadata
-            .Where(candidate => candidate.Key == "Version")
-            .ToArray();
-        if (versions.Length != 1)
-            issues.Add("Metadata.Version must be present exactly once.");
-        else if (!string.Equals(
-                     versions[0].Value,
-                     contract.PersistedNotebookFormatVersion,
-                     StringComparison.Ordinal))
-        {
-            issues.Add(
-                $"Metadata.Version differs. Expected " +
-                $"'{contract.PersistedNotebookFormatVersion}'; actual '{versions[0].Value}'.");
-        }
-
         return issues;
     }
 
@@ -180,8 +165,7 @@ internal static class SchemaV2DatabaseValidator
         var issues = DatabaseExpectedContractValidator
             .ValidateMetadata(contract, observation)
             .ToList();
-        ValidateRequiredMetadataValue(observation, "Name", issues);
-        ValidateRequiredMetadataValue(observation, "Title", issues);
+        ValidateMetadataCreateTime(observation, issues);
 
         await using var connection = await SqliteConnectionFactory.OpenAsync(
                 databasePath,
@@ -225,14 +209,18 @@ internal static class SchemaV2DatabaseValidator
         return issues;
     }
 
-    private static void ValidateRequiredMetadataValue(
+    private static void ValidateMetadataCreateTime(
         DatabaseSchemaObservation observation,
-        string key,
         ICollection<string> issues)
     {
-        var entry = observation.Metadata.SingleOrDefault(candidate => candidate.Key == key);
-        if (entry is not null && entry.Value is null)
-            issues.Add($"Required metadata key '{key}' has a null value.");
+        var entry = observation.Metadata.SingleOrDefault(candidate =>
+            candidate.Key == SchemaV2MetadataContract.CreateTimeKey);
+        if (entry?.Value is not null &&
+            !SchemaV2MetadataContract.IsValidCreateTime(entry.Value))
+        {
+            issues.Add(
+                $"Metadata key '{SchemaV2MetadataContract.CreateTimeKey}' has an invalid value.");
+        }
     }
 
     private static void ValidatePageId(

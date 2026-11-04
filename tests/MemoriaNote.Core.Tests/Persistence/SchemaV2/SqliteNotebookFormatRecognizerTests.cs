@@ -57,7 +57,7 @@ public sealed class SqliteNotebookFormatRecognizerTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("current.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "work", "Work");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Work");
         var before = await CaptureAsync(databasePath, directory.Path);
 
         var result = await SqliteNotebookFormatRecognizer.RecognizeAsync(databasePath);
@@ -77,7 +77,7 @@ public sealed class SqliteNotebookFormatRecognizerTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("future-v2.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "work", "Work");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Work");
         await ExecuteAsync(
             databasePath,
             "PRAGMA user_version = 3; DROP TABLE Metadata;");
@@ -137,25 +137,44 @@ public sealed class SqliteNotebookFormatRecognizerTests
             null);
     }
 
-    /// <summary>Verifies contradictory schema v2 identity is corrupt.</summary>
+    /// <summary>Verifies retired metadata cannot override positive Schema V2 identity.</summary>
     [Test]
-    public async Task RecognizeAsync_ConflictingSchemaV2Identity_ReturnsCorrupt()
+    public async Task RecognizeAsync_SchemaV2WithRetiredMetadata_RemainsCurrent()
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("conflicting.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "work", "Work");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Work");
         await ExecuteAsync(
             databasePath,
-            "UPDATE Metadata SET Value = '1' WHERE Key = 'Version';");
+            "INSERT INTO Metadata(Key, Value) VALUES ('Version', '1');");
 
         var result = await SqliteNotebookFormatRecognizer.RecognizeAsync(databasePath);
 
         AssertRecognition(
             result,
-            NotebookFormatClassification.Corrupt,
-            NotebookFormatRecognitionReason.ConflictingIdentity,
+            NotebookFormatClassification.Current,
+            NotebookFormatRecognitionReason.SchemaV2Identity,
             NotebookFormatRecommendedAction.None,
-            null);
+            "2");
+    }
+
+    /// <summary>Verifies metadata shape is not inspected during positive format recognition.</summary>
+    [Test]
+    public async Task RecognizeAsync_SchemaV2WithoutMetadataTable_RemainsCurrent()
+    {
+        using var directory = new TemporaryDirectory();
+        var databasePath = directory.GetPath("missing-metadata.mnote");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Work");
+        await ExecuteAsync(databasePath, "DROP TABLE Metadata;");
+
+        var result = await SqliteNotebookFormatRecognizer.RecognizeAsync(databasePath);
+
+        AssertRecognition(
+            result,
+            NotebookFormatClassification.Current,
+            NotebookFormatRecognitionReason.SchemaV2Identity,
+            NotebookFormatRecommendedAction.None,
+            "2");
     }
 
     /// <summary>Verifies arbitrary SQLite databases are not accepted as notebooks.</summary>
@@ -205,7 +224,7 @@ public sealed class SqliteNotebookFormatRecognizerTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("schema-defect.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "work", "Work");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Work");
         await ExecuteAsync(databasePath, "DROP INDEX IX_Pages_Name;");
 
         var result = await SqliteNotebookFormatRecognizer.RecognizeAsync(databasePath);
@@ -224,7 +243,7 @@ public sealed class SqliteNotebookFormatRecognizerTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("cancelled.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "work", "Work");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Work");
         var before = await CaptureAsync(databasePath, directory.Path);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();

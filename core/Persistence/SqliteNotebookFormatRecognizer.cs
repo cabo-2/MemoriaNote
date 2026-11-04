@@ -66,6 +66,16 @@ internal static class SqliteNotebookFormatRecognizer
                     userVersion.ToString(CultureInfo.InvariantCulture));
             }
 
+            if (applicationId == SchemaV2Format.ApplicationId &&
+                userVersion == SchemaV2Format.UserVersion)
+            {
+                return new NotebookFormatRecognition(
+                    NotebookFormatClassification.Current,
+                    NotebookFormatRecognitionReason.SchemaV2Identity,
+                    NotebookFormatRecommendedAction.None,
+                    userVersion.ToString(CultureInfo.InvariantCulture));
+            }
+
             var hasMetadata = await HasTableAsync(
                     connection,
                     "Metadata",
@@ -109,17 +119,6 @@ internal static class SqliteNotebookFormatRecognizer
         var hasSchemaV1Migrations = migrations.SequenceEqual(
             SchemaV1Migrations,
             StringComparer.Ordinal);
-
-        if (applicationId == SchemaV2Format.ApplicationId &&
-            userVersion == SchemaV2Format.UserVersion &&
-            metadataVersion == SchemaV2Format.MetadataVersion)
-        {
-            return new NotebookFormatRecognition(
-                NotebookFormatClassification.Current,
-                NotebookFormatRecognitionReason.SchemaV2Identity,
-                NotebookFormatRecommendedAction.None,
-                SchemaV2Format.MetadataVersion);
-        }
 
         if (hasSchemaV1Migrations && metadataVersion == SchemaV1Version)
         {
@@ -165,7 +164,6 @@ internal static class SqliteNotebookFormatRecognizer
     {
         return applicationId == SchemaV2Format.ApplicationId ||
             metadataVersion == SchemaV1Version ||
-            metadataVersion == SchemaV2Format.MetadataVersion ||
             migrations.Any(candidate => SchemaV1Migrations.Contains(
                 candidate,
                 StringComparer.Ordinal));

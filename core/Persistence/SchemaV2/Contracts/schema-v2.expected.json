@@ -1,6 +1,5 @@
 {
-  "observationContractVersion": 2,
-  "persistedNotebookFormatVersion": "2",
+  "observationContractVersion": 3,
   "applicationId": 1782832723,
   "userVersion": 2,
   "authoritativeTables": [
@@ -15,14 +14,16 @@
   "implementationObjects": [],
   "allowsUnknownMetadataKeys": true,
   "metadataKeys": [
-    { "name": "Author", "required": false, "fixedValue": null },
-    { "name": "CreateTime", "required": false, "fixedValue": null },
-    { "name": "Description", "required": false, "fixedValue": null },
-    { "name": "Name", "required": true, "fixedValue": null },
-    { "name": "ReadOnly", "required": false, "fixedValue": null },
-    { "name": "Tag", "required": false, "fixedValue": null },
-    { "name": "Title", "required": true, "fixedValue": null },
-    { "name": "Version", "required": true, "fixedValue": "2" }
+    { "name": "Author", "required": true, "allowsNull": false, "fixedValue": null, "allowedValues": [] },
+    { "name": "CreateTime", "required": true, "allowsNull": true, "fixedValue": null, "allowedValues": [] },
+    { "name": "Description", "required": true, "allowsNull": false, "fixedValue": null, "allowedValues": [] },
+    { "name": "ReadOnly", "required": true, "allowsNull": false, "fixedValue": null, "allowedValues": ["False", "True"] },
+    { "name": "Tag", "required": true, "allowsNull": false, "fixedValue": null, "allowedValues": [] },
+    { "name": "Title", "required": true, "allowsNull": false, "fixedValue": null, "allowedValues": [] }
+  ],
+  "retiredMetadataKeys": [
+    "Name",
+    "Version"
   ],
   "schemaObjects": [
     { "type": "index", "name": "IX_PageTags_Label_PageInternalId", "tableName": "PageTags", "origin": "explicit" },

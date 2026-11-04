@@ -21,10 +21,13 @@ public sealed class SchemaV2NotebookSinkTests
         var destination = directory.GetPath("restored.mnote");
         var metadata = new[]
         {
-            new CurrentNotebookMetadataRecord("Name", "sink"),
+            new CurrentNotebookMetadataRecord("Author", string.Empty),
+            new CurrentNotebookMetadataRecord("CreateTime", null),
+            new CurrentNotebookMetadataRecord("Description", string.Empty),
             new CurrentNotebookMetadataRecord("NullValue", null),
-            new CurrentNotebookMetadataRecord("Title", "Sink notebook"),
-            new CurrentNotebookMetadataRecord("Version", "2")
+            new CurrentNotebookMetadataRecord("ReadOnly", "False"),
+            new CurrentNotebookMetadataRecord("Tag", string.Empty),
+            new CurrentNotebookMetadataRecord("Title", "Sink notebook")
         };
         var pages = new[]
         {
@@ -46,7 +49,7 @@ public sealed class SchemaV2NotebookSinkTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Validation.IsValid, Is.True);
-            Assert.That(result.Fingerprint.MetadataCount, Is.EqualTo(4));
+            Assert.That(result.Fingerprint.MetadataCount, Is.EqualTo(7));
             Assert.That(result.Fingerprint.PageCount, Is.EqualTo(1));
             Assert.That(File.Exists(destination), Is.True);
             Assert.That(SqliteDatabaseFiles.Enumerate(destination).Skip(1), Has.None.Matches<string>(File.Exists));
@@ -95,9 +98,12 @@ public sealed class SchemaV2NotebookSinkTests
         var transfer = new CurrentNotebookTransfer(
             new[]
             {
-                new CurrentNotebookMetadataRecord("Name", "invalid"),
-                new CurrentNotebookMetadataRecord("Title", "Invalid"),
-                new CurrentNotebookMetadataRecord("Version", "2")
+                new CurrentNotebookMetadataRecord("Author", string.Empty),
+                new CurrentNotebookMetadataRecord("CreateTime", null),
+                new CurrentNotebookMetadataRecord("Description", string.Empty),
+                new CurrentNotebookMetadataRecord("ReadOnly", "False"),
+                new CurrentNotebookMetadataRecord("Tag", string.Empty),
+                new CurrentNotebookMetadataRecord("Title", "Invalid")
             },
             ToAsync(new[]
             {
@@ -117,6 +123,28 @@ public sealed class SchemaV2NotebookSinkTests
                 transfer,
                 Array.Empty<string>()),
             Throws.InstanceOf<SqliteException>());
+        Assert.That(Directory.GetFileSystemEntries(directory.Path), Is.Empty);
+    }
+
+    /// <summary>Verifies retired metadata is rejected before private output is created.</summary>
+    [Test]
+    public void PublishAsync_WithRetiredMetadata_LeavesNoOutput()
+    {
+        using var directory = new TemporaryDirectory();
+        var destination = directory.GetPath("retired.mnote");
+        var metadata = ValidMetadata()
+            .Append(new CurrentNotebookMetadataRecord("Version", "2"))
+            .ToArray();
+
+        Assert.That(
+            async () => await SchemaV2NotebookSink.PublishAsync(
+                destination,
+                new CurrentNotebookTransfer(
+                    metadata,
+                    ToAsync(Array.Empty<CurrentNotebookPageRecord>())),
+                Array.Empty<string>()),
+            Throws.TypeOf<InvalidDataException>()
+                .With.Message.Contains("retired"));
         Assert.That(Directory.GetFileSystemEntries(directory.Path), Is.Empty);
     }
 
@@ -174,9 +202,12 @@ public sealed class SchemaV2NotebookSinkTests
     private static IReadOnlyList<CurrentNotebookMetadataRecord> ValidMetadata() =>
         new[]
         {
-            new CurrentNotebookMetadataRecord("Name", "sink"),
-            new CurrentNotebookMetadataRecord("Title", "Sink"),
-            new CurrentNotebookMetadataRecord("Version", "2")
+            new CurrentNotebookMetadataRecord("Author", string.Empty),
+            new CurrentNotebookMetadataRecord("CreateTime", null),
+            new CurrentNotebookMetadataRecord("Description", string.Empty),
+            new CurrentNotebookMetadataRecord("ReadOnly", "False"),
+            new CurrentNotebookMetadataRecord("Tag", string.Empty),
+            new CurrentNotebookMetadataRecord("Title", "Sink")
         };
 
     private static async IAsyncEnumerable<CurrentNotebookPageRecord> CancelingPages(

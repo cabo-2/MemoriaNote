@@ -44,6 +44,13 @@ internal static class SchemaV2NotebookSink
 
         var fullDestinationPath = Path.GetFullPath(destinationPath);
         ValidatePathConflicts(fullDestinationPath, sourcePaths);
+        var metadataIssues = SchemaV2MetadataContract.ValidateTransferMetadata(transfer.Metadata);
+        if (metadataIssues.Count > 0)
+        {
+            throw new InvalidDataException(
+                "The Schema V2 transfer metadata is invalid: " +
+                string.Join(" ", metadataIssues));
+        }
         using var output = PendingSqliteOutput.Create(fullDestinationPath);
         var expected = await LoadAsync(output.StagingPath, transfer, cancellationToken)
             .ConfigureAwait(false);

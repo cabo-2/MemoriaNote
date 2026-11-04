@@ -17,34 +17,33 @@ public sealed class SchemaV2DatabaseValidatorTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("valid.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "valid", "Valid");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Valid");
 
         var result = await SchemaV2DatabaseValidator.ValidateAsync(databasePath);
 
         AssertValid(result);
     }
 
-    /// <summary>Verifies identity failures remain separate from schema validity.</summary>
+    /// <summary>Verifies retired metadata is a value failure rather than an identity failure.</summary>
     [Test]
-    public async Task ValidateAsync_ConflictingIdentity_ReportsIdentityLayer()
+    public async Task ValidateAsync_RetiredMetadata_ReportsAuthoritativeValueLayer()
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("identity.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "identity", "Identity");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Identity");
         await ExecuteAsync(
             databasePath,
-            "UPDATE Metadata SET Value = '3' WHERE Key = 'Version';");
+            "INSERT INTO Metadata(Key, Value) VALUES ('Version', '3');");
 
         var result = await SchemaV2DatabaseValidator.ValidateAsync(databasePath);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.IsValid, Is.False);
-            Assert.That(result.Identity.Issues, Has.Some.Contains("Metadata.Version differs"));
+            Assert.That(result.Identity.IsValid, Is.True);
             Assert.That(result.Schema.IsValid, Is.True);
             Assert.That(result.Integrity.IsValid, Is.True);
             Assert.That(result.AuthoritativeValues.Issues,
-                Has.Some.Contains("Metadata key 'Version' differs"));
+                Has.Some.Contains("Retired metadata key 'Version' is present"));
         }
     }
 
@@ -54,7 +53,7 @@ public sealed class SchemaV2DatabaseValidatorTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("schema.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "schema", "Schema");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Schema");
         await ExecuteAsync(databasePath, "DROP INDEX IX_Pages_Name;");
 
         var recognition = await SqliteNotebookFormatRecognizer.RecognizeAsync(databasePath);
@@ -77,7 +76,7 @@ public sealed class SchemaV2DatabaseValidatorTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("trigger.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "trigger", "Trigger");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Trigger");
         await ExecuteAsync(
             databasePath,
             """
@@ -108,7 +107,7 @@ public sealed class SchemaV2DatabaseValidatorTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("trigger-target.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "trigger-target", "Trigger target");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Trigger target");
         await ExecuteAsync(
             databasePath,
             """
@@ -133,7 +132,7 @@ public sealed class SchemaV2DatabaseValidatorTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("trigram-tokenizer.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "trigram", "Trigram");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Trigram");
         await ExecuteAsync(
             databasePath,
             """
@@ -158,7 +157,7 @@ public sealed class SchemaV2DatabaseValidatorTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("metadata-shape.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "metadata", "Metadata");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Metadata");
         await ExecuteAsync(
             databasePath,
             "DROP TABLE Metadata; CREATE TABLE Metadata (Other TEXT NULL);");
@@ -167,8 +166,7 @@ public sealed class SchemaV2DatabaseValidatorTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.Identity.Issues,
-                Has.Some.Contains("Metadata.Version must be present"));
+            Assert.That(result.Identity.IsValid, Is.True);
             Assert.That(result.Schema.Issues, Has.Some.Contains("Metadata columns differ"));
             Assert.That(result.AuthoritativeValues.WasEvaluated, Is.False);
         }
@@ -180,7 +178,7 @@ public sealed class SchemaV2DatabaseValidatorTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("foreign-key.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "foreign-key", "Foreign key");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Foreign key");
         await ExecuteAsync(
             databasePath,
             """
@@ -206,11 +204,13 @@ public sealed class SchemaV2DatabaseValidatorTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("values.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "values", "Values");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Values");
         await ExecuteAsync(
             databasePath,
             """
-            UPDATE Metadata SET Value = NULL WHERE Key = 'Name';
+            UPDATE Metadata SET Value = NULL WHERE Key = 'Title';
+            UPDATE Metadata SET Value = 'true' WHERE Key = 'ReadOnly';
+            UPDATE Metadata SET Value = '20261301120000' WHERE Key = 'CreateTime';
             INSERT INTO Pages(
                 PageId, Name, CreateTime, UpdateTime, Revision, Tags, Text)
             VALUES (
@@ -231,7 +231,11 @@ public sealed class SchemaV2DatabaseValidatorTests
             Assert.That(result.Schema.IsValid, Is.True);
             Assert.That(result.Integrity.IsValid, Is.True);
             Assert.That(result.AuthoritativeValues.Issues,
-                Has.Some.Contains("Required metadata key 'Name' has a null value"));
+                Has.Some.Contains("Required metadata key 'Title' has a null value"));
+            Assert.That(result.AuthoritativeValues.Issues,
+                Has.Some.Contains("Metadata key 'ReadOnly' has an invalid value"));
+            Assert.That(result.AuthoritativeValues.Issues,
+                Has.Some.Contains("Metadata key 'CreateTime' has an invalid value"));
             Assert.That(result.AuthoritativeValues.Issues,
                 Has.Some.Contains("control character in Name"));
             Assert.That(result.AuthoritativeValues.Issues,
@@ -250,7 +254,7 @@ public sealed class SchemaV2DatabaseValidatorTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("derived.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "derived", "Derived");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Derived");
         await ExecuteAsync(
             databasePath,
             """
@@ -300,7 +304,7 @@ public sealed class SchemaV2DatabaseValidatorTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("authoritative.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "authoritative", "Authoritative");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Authoritative");
         await ExecuteAsync(
             databasePath,
             """
@@ -341,7 +345,7 @@ public sealed class SchemaV2DatabaseValidatorTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("unchanged.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "unchanged", "Unchanged");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Unchanged");
         var beforeBytes = await File.ReadAllBytesAsync(databasePath);
         var beforeFiles = Directory.GetFileSystemEntries(directory.Path);
 
@@ -361,7 +365,7 @@ public sealed class SchemaV2DatabaseValidatorTests
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("cancelled.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "cancelled", "Cancelled");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Cancelled");
         var beforeBytes = await File.ReadAllBytesAsync(databasePath);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();

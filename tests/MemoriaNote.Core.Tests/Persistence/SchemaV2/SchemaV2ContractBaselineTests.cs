@@ -33,6 +33,9 @@ public sealed class SchemaV2ContractBaselineTests
                 SchemaV2BaselineProvenance.DualIndexSchemaAmendment,
                 Is.EqualTo("ECLI-1120a"));
             Assert.That(
+                SchemaV2BaselineProvenance.MetadataContractAmendment,
+                Is.EqualTo("ECLI-1145a"));
+            Assert.That(
                 SchemaV2BaselineProvenance.InitialCanonicalDdlSha256,
                 Is.EqualTo("e641601efd21623b774b292aed3fe3b64aa1b14c6318de798d0d24e535140ef7"));
             Assert.That(
@@ -73,16 +76,14 @@ public sealed class SchemaV2ContractBaselineTests
             Assert.That(SchemaV2Format.SchemaId, Is.EqualTo("schema-v2"));
             Assert.That(
                 root.GetProperty("observationContractVersion").GetInt32(),
-                Is.EqualTo(2));
+                Is.EqualTo(3));
             Assert.That(
                 root.GetProperty("applicationId").GetInt32(),
                 Is.EqualTo(SchemaV2Format.ApplicationId));
             Assert.That(
                 root.GetProperty("userVersion").GetInt32(),
                 Is.EqualTo(SchemaV2Format.UserVersion));
-            Assert.That(
-                root.GetProperty("persistedNotebookFormatVersion").GetString(),
-                Is.EqualTo(SchemaV2Format.MetadataVersion));
+            Assert.That(root.TryGetProperty("persistedNotebookFormatVersion", out _), Is.False);
             Assert.That(
                 root.GetProperty("allowsUnknownMetadataKeys").GetBoolean(),
                 Is.True);
@@ -112,6 +113,22 @@ public sealed class SchemaV2ContractBaselineTests
             Assert.That(
                 fts5Indexes["FtsIndexTrigram"].IndexedColumns,
                 Is.EqualTo(new[] { "Name", "Text" }));
+            Assert.That(
+                root.GetProperty("metadataKeys")
+                    .EnumerateArray()
+                    .Select(item => item.GetProperty("name").GetString()),
+                Is.EqualTo(new[]
+                {
+                    "Author",
+                    "CreateTime",
+                    "Description",
+                    "ReadOnly",
+                    "Tag",
+                    "Title"
+                }));
+            Assert.That(
+                ReadStringArray(root.GetProperty("retiredMetadataKeys")),
+                Is.EqualTo(new[] { "Name", "Version" }));
         }
     }
 

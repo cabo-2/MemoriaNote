@@ -12,14 +12,20 @@ internal interface IDatabaseExpectedContract
     IReadOnlyList<string> ImplementationObjects { get; }
     bool AllowsUnknownMetadataKeys { get; }
     IReadOnlyList<MetadataKeyContract> MetadataKeys { get; }
+    IReadOnlyList<string> RetiredMetadataKeys { get; }
     IReadOnlyList<SchemaObjectContract> SchemaObjects { get; }
     IReadOnlyList<TableObservation> Tables { get; }
     IReadOnlyList<MigrationEntryObservation> AppliedMigrations { get; }
     IReadOnlyList<Fts5Contract> Fts5Indexes { get; }
 }
 
-/// <summary>Defines one known metadata key and any fixed value.</summary>
-internal sealed record MetadataKeyContract(string Name, bool Required, string FixedValue);
+/// <summary>Defines one known metadata key and its stored-value constraints.</summary>
+internal sealed record MetadataKeyContract(
+    string Name,
+    bool Required,
+    bool AllowsNull,
+    string FixedValue,
+    IReadOnlyList<string> AllowedValues);
 
 /// <summary>Defines one expected schema object without depending on raw SQL formatting.</summary>
 internal sealed record SchemaObjectContract(

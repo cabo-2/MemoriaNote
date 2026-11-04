@@ -1,4 +1,7 @@
 using System.IO.Compression;
+using System.Security.Cryptography;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using MemoriaNote.Archive;
 using MemoriaNote.Core.Tests.Infrastructure;
 using MemoriaNote.Persistence;
@@ -290,6 +293,25 @@ public sealed class ArchiveV1ContentModel2ServiceTests
 
     private static MemoryStream CreateFixtureArchive()
     {
+        var metadata = JsonSerializer.SerializeToUtf8Bytes(new Dictionary<string, string?>[]
+        {
+            new() { ["key"] = "Author", ["value"] = "Example Author" },
+            new() { ["key"] = "CreateTime", ["value"] = null },
+            new() { ["key"] = "Description", ["value"] = "Archive v1 / content model v2 example" },
+            new() { ["key"] = "ReadOnly", ["value"] = "False" },
+            new() { ["key"] = "Tag", ["value"] = string.Empty },
+            new() { ["key"] = "Title", ["value"] = "CM2 example" },
+            new() { ["key"] = "X-Empty", ["value"] = string.Empty },
+            new() { ["key"] = "X-Unknown", ["value"] = "preserved" }
+        });
+        var manifestPath = Path.Combine(FixtureDirectory, "manifest.json");
+        var manifest = JsonNode.Parse(File.ReadAllBytes(manifestPath))!.AsObject();
+        var descriptor = manifest["dataSets"]!["metadata"]!.AsObject();
+        descriptor["recordCount"] = 8;
+        descriptor["uncompressedByteLength"] = metadata.LongLength;
+        descriptor["sha256"] = Convert.ToHexString(SHA256.HashData(metadata)).ToLowerInvariant();
+        var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest);
+
         var output = new MemoryStream();
         using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
         {
@@ -297,8 +319,15 @@ public sealed class ArchiveV1ContentModel2ServiceTests
             {
                 var entry = archive.CreateEntry(name, CompressionLevel.NoCompression);
                 using var destination = entry.Open();
-                using var input = File.OpenRead(Path.Combine(FixtureDirectory, name));
-                input.CopyTo(destination);
+                if (name == "manifest.json")
+                    destination.Write(manifestBytes);
+                else if (name == "metadata.json")
+                    destination.Write(metadata);
+                else
+                {
+                    using var input = File.OpenRead(Path.Combine(FixtureDirectory, name));
+                    input.CopyTo(destination);
+                }
             }
         }
         output.Position = 0;

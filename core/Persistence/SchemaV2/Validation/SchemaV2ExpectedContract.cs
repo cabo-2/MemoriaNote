@@ -10,7 +10,6 @@ namespace MemoriaNote.Persistence.SchemaV2.Validation;
 /// <summary>Defines the machine-readable expectations for Schema V2.</summary>
 internal sealed record SchemaV2ExpectedContract(
     int ObservationContractVersion,
-    string PersistedNotebookFormatVersion,
     int ApplicationId,
     int UserVersion,
     IReadOnlyList<string> AuthoritativeTables,
@@ -18,6 +17,7 @@ internal sealed record SchemaV2ExpectedContract(
     IReadOnlyList<string> ImplementationObjects,
     bool AllowsUnknownMetadataKeys,
     IReadOnlyList<MetadataKeyContract> MetadataKeys,
+    IReadOnlyList<string> RetiredMetadataKeys,
     IReadOnlyList<SchemaObjectContract> SchemaObjects,
     IReadOnlyList<TableObservation> Tables,
     IReadOnlyList<MigrationEntryObservation> AppliedMigrations,
