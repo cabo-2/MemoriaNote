@@ -1,23 +1,31 @@
 [
   {
-    "key": "Description",
-    "value": "Archive v1 / content model v2 example"
+    "key": "Author",
+    "value": "Example Author"
   },
   {
-    "key": "Name",
-    "value": "cm2-example"
+    "key": "CreateTime",
+    "value": "20261101123456"
+  },
+  {
+    "key": "Description",
+    "value": "Archive v1 / content model v2 example"
   },
   {
     "key": "NullableValue",
     "value": null
   },
   {
-    "key": "Title",
-    "value": "CM2 例"
+    "key": "ReadOnly",
+    "value": "False"
   },
   {
-    "key": "Version",
-    "value": "2"
+    "key": "Tag",
+    "value": ""
+  },
+  {
+    "key": "Title",
+    "value": "CM2 例"
   },
   {
     "key": "X-Empty",

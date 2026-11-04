@@ -1,18 +1,30 @@
 [
   {
-    "key": "Name",
-    "value": "first"
+    "key": "Author",
+    "value": "Invalid fixture"
   },
   {
-    "key": "Name",
-    "value": "second"
+    "key": "CreateTime",
+    "value": null
+  },
+  {
+    "key": "Description",
+    "value": "Duplicate managed key"
+  },
+  {
+    "key": "ReadOnly",
+    "value": "False"
+  },
+  {
+    "key": "Tag",
+    "value": ""
   },
   {
     "key": "Title",
-    "value": "Duplicate metadata key"
+    "value": "first"
   },
   {
-    "key": "Version",
-    "value": "2"
+    "key": "Title",
+    "value": "second"
   }
 ]

@@ -1,0 +1,30 @@
+[
+  {
+    "key": "Author",
+    "value": "Invalid fixture"
+  },
+  {
+    "key": "CreateTime",
+    "value": null
+  },
+  {
+    "key": "Description",
+    "value": "Retired key"
+  },
+  {
+    "key": "Name",
+    "value": "retired"
+  },
+  {
+    "key": "ReadOnly",
+    "value": "False"
+  },
+  {
+    "key": "Tag",
+    "value": ""
+  },
+  {
+    "key": "Title",
+    "value": "Retired Name"
+  }
+]

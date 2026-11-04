@@ -8,7 +8,7 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Core.Tests.Archive;
 
-/// <summary>Locks the content model 2 codec to the ECLI-1130a reference bytes.</summary>
+/// <summary>Verifies content model 2 codec behavior independently of the amended reference bytes.</summary>
 [TestFixture]
 [Category("Functional")]
 public sealed class ArchiveV1ContentModel2CodecTests
@@ -20,13 +20,20 @@ public sealed class ArchiveV1ContentModel2CodecTests
         "v1-content-model-v2",
         "examples");
 
-    /// <summary>Verifies pre-amendment fixtures are not reinterpreted as the current CM2 contract.</summary>
-    [TestCase("empty")]
-    [TestCase("single-page")]
-    [TestCase("full-field")]
-    public async Task PreAmendmentCompatibilityFixture_IsRejected(string fixture)
+    /// <summary>Verifies pre-amendment metadata is not reinterpreted as the current CM2 contract.</summary>
+    [Test]
+    public async Task PreAmendmentMetadata_IsRejectedWithoutCanonicalFixture()
     {
-        await using var archive = CreateFixtureArchive("compatibility", fixture);
+        var metadata = Encoding.UTF8.GetBytes(
+            """
+            [
+              { "key": "Name", "value": "pre-amendment" },
+              { "key": "Title", "value": "Pre-amendment" },
+              { "key": "Version", "value": "2" }
+            ]
+            """);
+        var pages = ReadBytes("compatibility/empty/pages.ndjson");
+        await using var archive = CreateArchive(CreateManifest(metadata, pages), metadata, pages);
         var sink = new RecordingSink();
 
         var report = await new ArchiveV1ContentModel2Reader().ReadAsync(
@@ -51,7 +58,7 @@ public sealed class ArchiveV1ContentModel2CodecTests
         var metadata = CurrentMetadata();
         var pages = ReadPages("compatibility/full-field/pages.ndjson");
         var request = new ArchiveV1ContentModel2WriteRequest(
-            new ArchiveV1Creator("MemoriaNote.Tests", "ecli-1130a"),
+            new ArchiveV1Creator("MemoriaNote.Tests", "ecli-1145b"),
             new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero),
             metadata,
             ToAsync(pages));
@@ -111,6 +118,12 @@ public sealed class ArchiveV1ContentModel2CodecTests
     [TestCase("manifest-mixed-source-version.json", "manifest", ArchiveV1IssueCode.UnsupportedVersion)]
     [TestCase("manifest-unsupported-content-model-version.json", "manifest", ArchiveV1IssueCode.UnsupportedVersion)]
     [TestCase("metadata-duplicate-key.json", "metadata", ArchiveV1IssueCode.DuplicateMetadataKey)]
+    [TestCase("metadata-invalid-create-time.json", "metadata", ArchiveV1IssueCode.InvalidPropertyValue)]
+    [TestCase("metadata-invalid-read-only.json", "metadata", ArchiveV1IssueCode.InvalidPropertyValue)]
+    [TestCase("metadata-missing-managed-key.json", "metadata", ArchiveV1IssueCode.MissingMetadataKey)]
+    [TestCase("metadata-null-managed-value.json", "metadata", ArchiveV1IssueCode.InvalidPropertyValue)]
+    [TestCase("metadata-retired-name.json", "metadata", ArchiveV1IssueCode.InvalidPropertyValue)]
+    [TestCase("metadata-retired-version.json", "metadata", ArchiveV1IssueCode.InvalidPropertyValue)]
     [TestCase("page-invalid-timestamp.ndjson", "pages", ArchiveV1IssueCode.InvalidPropertyValue)]
     [TestCase("page-missing-text.ndjson", "pages", ArchiveV1IssueCode.MissingProperty)]
     [TestCase("page-noncanonical-page-id.ndjson", "pages", ArchiveV1IssueCode.InvalidPropertyValue)]

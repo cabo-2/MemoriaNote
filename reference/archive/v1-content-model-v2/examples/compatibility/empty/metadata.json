@@ -1,14 +1,26 @@
 [
   {
-    "key": "Name",
-    "value": "cm2-empty"
+    "key": "Author",
+    "value": ""
+  },
+  {
+    "key": "CreateTime",
+    "value": null
+  },
+  {
+    "key": "Description",
+    "value": ""
+  },
+  {
+    "key": "ReadOnly",
+    "value": "False"
+  },
+  {
+    "key": "Tag",
+    "value": ""
   },
   {
     "key": "Title",
-    "value": "Empty notebook"
-  },
-  {
-    "key": "Version",
-    "value": "2"
+    "value": ""
   }
 ]

@@ -5,15 +5,15 @@
   "sourceNotebookFormatVersion": "2",
   "createdBy": {
     "application": "MemoriaNote.Tests",
-    "version": "ecli-1130a"
+    "version": "ecli-1145b"
   },
-  "createdAtUtc": "2026-11-01T00:00:00.0000000Z",
+  "createdAtUtc": "2026-11-04T00:00:00.0000000Z",
   "dataSets": {
     "metadata": {
       "entry": "metadata.json",
-      "recordCount": 4,
-      "uncompressedByteLength": 222,
-      "sha256": "7f1ca3ee7d6c45eb7ffa415feed23c689f0b2c62b0b59e521df2e49084057225"
+      "recordCount": 7,
+      "uncompressedByteLength": 408,
+      "sha256": "99724d839d52444059da1e69e332f8e971e8bb3b811b580c60000dfb07474e41"
     },
     "pages": {
       "entry": "pages.ndjson",

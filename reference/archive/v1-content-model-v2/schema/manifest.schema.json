@@ -24,7 +24,8 @@
       "const": 2
     },
     "sourceNotebookFormatVersion": {
-      "const": "2"
+      "const": "2",
+      "description": "Notebook format version recognized from the source schema identity, not from a metadata row."
     },
     "createdBy": {
       "$ref": "#/$defs/createdBy"
