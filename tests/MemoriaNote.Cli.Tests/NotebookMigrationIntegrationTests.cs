@@ -1,3 +1,4 @@
+using MemoriaNote.Archive;
 using MemoriaNote.Cli.Tests.Infrastructure;
 using Microsoft.Data.Sqlite;
 using NUnit.Framework;
@@ -180,6 +181,98 @@ public sealed class NotebookMigrationIntegrationTests
         }
     }
 
+    /// <summary>Verifies CM1 page errors use the public partial-success contract.</summary>
+    [Test]
+    public async Task Migrate_Cm1PageErrors_ReturnsPartialExitCodeAndReport()
+    {
+        using var harness = new CliInProcessHarness();
+        var source = Path.Combine(harness.WorkingDirectory, "source.mnarchive");
+        await CreateCm1ArchiveAsync(
+            source,
+            new[]
+            {
+                Cm1Page(1, "11111111-1111-4111-8111-111111111111", "Valid", 1),
+                Cm1Page(
+                    2,
+                    "22222222-2222-4222-8222-222222222222",
+                    "Invalid",
+                    2,
+                    createTime: "2026-01-02 00:00:00",
+                    updateTime: "2026-01-01 00:00:00")
+            });
+        var destination = Path.Combine(harness.WorkingDirectory, "partial.mnote");
+
+        var result = await harness.RunAsync(
+            "notebooks",
+            "migrate",
+            source,
+            "--output",
+            destination);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Partial));
+            Assert.That(result.StandardError, Is.Empty);
+            Assert.That(result.StandardOutput, Does.Contain(
+                "ERROR update-before-create"));
+            Assert.That(result.StandardOutput, Does.Contain(
+                "Migration completed with page errors"));
+            Assert.That(result.StandardOutput, Does.Contain(
+                "source-pages=2, migrated=1, skipped=1"));
+            Assert.That(File.Exists(destination), Is.True);
+            Assert.That(ReadPageCount(destination), Is.EqualTo(1));
+        }
+    }
+
+    /// <summary>Verifies CM1 issue filtering and the unconditional summary contract.</summary>
+    [TestCase("error", false, false)]
+    [TestCase("warning", true, false)]
+    [TestCase("info", true, true)]
+    public async Task Migrate_Cm1ReportLevel_FiltersIssuesAndWritesSummary(
+        string reportLevel,
+        bool includesWarning,
+        bool includesInfo)
+    {
+        using var harness = new CliInProcessHarness();
+        var source = Path.Combine(harness.WorkingDirectory, "source.mnarchive");
+        await CreateCm1ArchiveAsync(
+            source,
+            new[]
+            {
+                Cm1Page(1, "11111111-1111-4111-8111-111111111111", "Memo", 1),
+                Cm1Page(2, "22222222-2222-4222-8222-222222222222", "Memo", 2)
+            });
+
+        var result = await harness.RunAsync(
+            "notebooks",
+            "migrate",
+            source,
+            "--output",
+            Path.Combine(harness.WorkingDirectory, "dry-run.mnote"),
+            "--dry-run",
+            "--report-level",
+            reportLevel);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero, result.StandardError);
+            Assert.That(
+                result.StandardOutput.Contains(
+                    "WARNING duplicate-name-renamed",
+                    StringComparison.Ordinal),
+                Is.EqualTo(includesWarning));
+            Assert.That(
+                result.StandardOutput.Contains(
+                    "INFO indexes-dropped",
+                    StringComparison.Ordinal),
+                Is.EqualTo(includesInfo));
+            Assert.That(result.StandardOutput, Does.Contain("Migration validated"));
+            Assert.That(result.StandardOutput, Does.Contain(
+                "source-pages=2, migrated=2, skipped=0, renamed=1"));
+            Assert.That(result.StandardError, Is.Empty);
+        }
+    }
+
     /// <summary>Verifies dry-run validates the output path but creates no database.</summary>
     [Test]
     public async Task Migrate_DryRun_CreatesNoOutput()
@@ -268,6 +361,58 @@ public sealed class NotebookMigrationIntegrationTests
         var created = await harness.RunAsync("create", name);
         Assert.That(created.ExitCode, Is.Zero, created.StandardError);
         return Path.Combine(harness.WorkingDirectory, name);
+    }
+
+    private static async Task CreateCm1ArchiveAsync(
+        string path,
+        IReadOnlyList<ArchiveV1PageRow> pages)
+    {
+        var request = new ArchiveV1WriteRequest(
+            "1",
+            new ArchiveV1Creator("MemoriaNote.Tests", "ecli-1145e"),
+            new DateTimeOffset(2026, 11, 5, 0, 0, 0, TimeSpan.Zero),
+            new[]
+            {
+                new ArchiveV1MetadataRow("Name", "cm1"),
+                new ArchiveV1MetadataRow("Title", "CM1"),
+                new ArchiveV1MetadataRow("Version", "1")
+            },
+            ToAsync(pages));
+        await using var output = new FileStream(
+            path,
+            FileMode.CreateNew,
+            FileAccess.Write,
+            FileShare.None);
+        await new ArchiveV1Writer().WriteAsync(output, request, CancellationToken.None);
+    }
+
+    private static ArchiveV1PageRow Cm1Page(
+        int rowId,
+        string pageId,
+        string name,
+        int index,
+        string createTime = "2026-01-01 00:00:00",
+        string updateTime = "2026-01-01 00:00:00") =>
+        new(
+            rowId,
+            pageId,
+            name,
+            index,
+            "{}",
+            "T",
+            createTime,
+            updateTime,
+            0,
+            "body");
+
+    private static async IAsyncEnumerable<ArchiveV1PageRow> ToAsync(
+        IEnumerable<ArchiveV1PageRow> pages)
+    {
+        foreach (var page in pages)
+        {
+            yield return page;
+            await Task.Yield();
+        }
     }
 
     private static void InsertPage(
