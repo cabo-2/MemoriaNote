@@ -146,6 +146,9 @@ public static class NotebookMigrationIssueCode
 
     /// <summary>Timestamp fractions were padded to seven digits.</summary>
     public const string TimestampsCanonicalized = "timestamps-canonicalized";
+
+    /// <summary>Unknown legacy metadata keys were intentionally omitted.</summary>
+    public const string UnknownMetadataDropped = "unknown-metadata-dropped";
 }
 
 /// <summary>Defines stable reasons that further classify migration issues.</summary>
@@ -167,7 +170,7 @@ public static class NotebookMigrationIssueReason
     public const string ScalarLimitExceeded = "scalar-limit-exceeded";
 }
 
-/// <summary>Describes one safe migration report entry without page body content.</summary>
+/// <summary>Describes one safe migration report entry without private source values.</summary>
 public sealed record NotebookMigrationIssue(
     string Code,
     NotebookMigrationIssueSeverity Severity,
@@ -180,7 +183,14 @@ public sealed record NotebookMigrationIssue(
     long? Count = null,
     string Reason = null,
     long? Actual = null,
-    long? Limit = null);
+    long? Limit = null,
+    IReadOnlyList<string> MetadataKeys = null)
+{
+    /// <summary>Gets the ordinal legacy metadata keys for an aggregate issue.</summary>
+    public IReadOnlyList<string> MetadataKeys { get; init; } = MetadataKeys is null
+        ? null
+        : Array.AsReadOnly(MetadataKeys.ToArray());
+}
 
 /// <summary>Counts classified legacy ContentType values.</summary>
 public sealed record NotebookMigrationContentTypeCounts(

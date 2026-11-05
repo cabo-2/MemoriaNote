@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.NotebookMigration;
@@ -107,6 +108,8 @@ internal sealed class NotebookMigrationCommandHandler
                 detail += " actual=" + issue.Actual.Value.ToString(CultureInfo.InvariantCulture);
             if (issue.Limit.HasValue)
                 detail += " limit=" + issue.Limit.Value.ToString(CultureInfo.InvariantCulture);
+            if (issue.MetadataKeys is not null)
+                detail += " keys=" + JsonSerializer.Serialize(issue.MetadataKeys);
             _output.WriteLine($"{issue.Severity.ToString().ToUpperInvariant()} {issue.Code}{detail}");
         }
 
