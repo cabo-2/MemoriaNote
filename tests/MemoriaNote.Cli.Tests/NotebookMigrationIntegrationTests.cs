@@ -41,6 +41,46 @@ public sealed class NotebookMigrationIntegrationTests
         }
     }
 
+    /// <summary>Verifies unknown metadata reports keys but never stored values.</summary>
+    [Test]
+    public async Task Migrate_UnknownMetadata_WritesOneValueFreeWarning()
+    {
+        using var harness = new CliInProcessHarness();
+        var source = await CreateLegacySourceAsync(harness, "legacy.mnote");
+        SetMetadata(source, "zeta-extension", "private-zeta-value");
+        SetMetadata(source, "Alpha-extension", "private-alpha-value");
+        var destination = Path.Combine(harness.WorkingDirectory, "migrated.mnote");
+
+        var result = await harness.RunAsync(
+            "notebooks",
+            "migrate",
+            source,
+            "--output",
+            destination);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero, result.StandardError);
+            Assert.That(result.StandardError, Is.Empty);
+            Assert.That(result.StandardOutput, Does.Contain(
+                "WARNING unknown-metadata-dropped field=\"metadata\" count=2 " +
+                "keys=[\"Alpha-extension\",\"zeta-extension\"]"));
+            Assert.That(result.StandardOutput, Does.Not.Contain("private-alpha-value"));
+            Assert.That(result.StandardOutput, Does.Not.Contain("private-zeta-value"));
+            Assert.That(
+                ReadMetadataKeys(destination),
+                Is.EqualTo(new[]
+                {
+                    "Author",
+                    "CreateTime",
+                    "Description",
+                    "ReadOnly",
+                    "Tag",
+                    "Title"
+                }));
+        }
+    }
+
     /// <summary>Verifies the error report level hides warnings while retaining the summary.</summary>
     [Test]
     public async Task Migrate_ErrorReportLevel_HidesWarnings()
@@ -266,5 +306,29 @@ public sealed class NotebookMigrationIntegrationTests
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT COUNT(*) FROM Pages;";
         return (long)command.ExecuteScalar()!;
+    }
+
+    private static void SetMetadata(string databasePath, string key, string value)
+    {
+        using var connection = new SqliteConnection("Data Source=" + databasePath);
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "INSERT INTO Metadata(Key, Value) VALUES($key, $value);";
+        command.Parameters.AddWithValue("$key", key);
+        command.Parameters.AddWithValue("$value", value);
+        command.ExecuteNonQuery();
+    }
+
+    private static IReadOnlyList<string> ReadMetadataKeys(string databasePath)
+    {
+        using var connection = new SqliteConnection("Data Source=" + databasePath);
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Key FROM Metadata ORDER BY Key COLLATE BINARY;";
+        using var reader = command.ExecuteReader();
+        var keys = new List<string>();
+        while (reader.Read())
+            keys.Add(reader.GetString(0));
+        return keys;
     }
 }

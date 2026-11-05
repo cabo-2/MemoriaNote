@@ -100,7 +100,8 @@ internal static class LegacyMigrationPlanner
         MigrationResolution resolution,
         CancellationToken cancellationToken)
     {
-        var metadata = MapMetadata(source.Metadata);
+        var metadataMapping = MapMetadata(source.Metadata);
+        var metadata = metadataMapping.Metadata;
         var issues = new List<NotebookMigrationIssue>();
         var candidates = new List<Candidate>();
         var seenPageIds = new HashSet<string>(StringComparer.Ordinal);
@@ -312,7 +313,7 @@ internal static class LegacyMigrationPlanner
                 candidate.UpdateTime,
                 candidate.Tags));
         counts.MigratedPages = decisions.Count;
-        AddAggregateIssues(issues, counts);
+        AddAggregateIssues(issues, counts, metadataMapping.DroppedUnknownKeys);
         return new LegacyMigrationPlan(
             metadata,
             decisions,
@@ -320,7 +321,7 @@ internal static class LegacyMigrationPlanner
             issues.AsReadOnly());
     }
 
-    private static IReadOnlyList<CurrentNotebookMetadataRecord> MapMetadata(
+    private static MetadataMapping MapMetadata(
         IReadOnlyList<LegacyMetadataRecord> source)
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -343,35 +344,61 @@ internal static class LegacyMigrationPlanner
                 "The legacy metadata does not satisfy the schema v1 source contract.");
         }
 
-        var readOnly = values.TryGetValue("ReadOnly", out var readOnlyValue) &&
-                       readOnlyValue is not null
-            ? bool.Parse(readOnlyValue).ToString()
-            : bool.FalseString;
-        var createTime = values.TryGetValue("CreateTime", out var createTimeValue)
+        var readOnly = bool.FalseString;
+        if (values.TryGetValue(SchemaV2MetadataContract.ReadOnlyKey, out var readOnlyValue) &&
+            readOnlyValue is not null)
+        {
+            if (!bool.TryParse(readOnlyValue, out var parsedReadOnly))
+            {
+                throw new LegacySourceException(
+                    NotebookMigrationErrorCode.InvalidSource,
+                    "The legacy metadata contains an invalid ReadOnly value.");
+            }
+            readOnly = parsedReadOnly.ToString();
+        }
+
+        var createTime = values.TryGetValue(
+            SchemaV2MetadataContract.CreateTimeKey,
+            out var createTimeValue)
             ? createTimeValue
             : null;
-
-        return new[]
+        if (createTime is not null && !SchemaV2MetadataContract.IsValidCreateTime(createTime))
         {
-            new CurrentNotebookMetadataRecord(
-                SchemaV2MetadataContract.AuthorKey,
-                ValueOrEmpty(values, SchemaV2MetadataContract.AuthorKey)),
-            new CurrentNotebookMetadataRecord(
-                SchemaV2MetadataContract.CreateTimeKey,
-                createTime),
-            new CurrentNotebookMetadataRecord(
-                SchemaV2MetadataContract.DescriptionKey,
-                ValueOrEmpty(values, SchemaV2MetadataContract.DescriptionKey)),
-            new CurrentNotebookMetadataRecord(
-                SchemaV2MetadataContract.ReadOnlyKey,
-                readOnly),
-            new CurrentNotebookMetadataRecord(
-                SchemaV2MetadataContract.TagKey,
-                ValueOrEmpty(values, SchemaV2MetadataContract.TagKey)),
-            new CurrentNotebookMetadataRecord(
-                SchemaV2MetadataContract.TitleKey,
-                title ?? string.Empty)
-        };
+            throw new LegacySourceException(
+                NotebookMigrationErrorCode.InvalidSource,
+                "The legacy metadata contains an invalid CreateTime value.");
+        }
+
+        var unknownKeys = values.Keys
+            .Where(key =>
+                !SchemaV2MetadataContract.IsApplicationManagedKey(key) &&
+                !SchemaV2MetadataContract.IsRetiredKey(key))
+            .OrderBy(key => key, StringComparer.Ordinal)
+            .ToArray();
+
+        return new MetadataMapping(
+            new[]
+            {
+                new CurrentNotebookMetadataRecord(
+                    SchemaV2MetadataContract.AuthorKey,
+                    ValueOrEmpty(values, SchemaV2MetadataContract.AuthorKey)),
+                new CurrentNotebookMetadataRecord(
+                    SchemaV2MetadataContract.CreateTimeKey,
+                    createTime),
+                new CurrentNotebookMetadataRecord(
+                    SchemaV2MetadataContract.DescriptionKey,
+                    ValueOrEmpty(values, SchemaV2MetadataContract.DescriptionKey)),
+                new CurrentNotebookMetadataRecord(
+                    SchemaV2MetadataContract.ReadOnlyKey,
+                    readOnly),
+                new CurrentNotebookMetadataRecord(
+                    SchemaV2MetadataContract.TagKey,
+                    ValueOrEmpty(values, SchemaV2MetadataContract.TagKey)),
+                new CurrentNotebookMetadataRecord(
+                    SchemaV2MetadataContract.TitleKey,
+                    title ?? string.Empty)
+            },
+            Array.AsReadOnly(unknownKeys));
     }
 
     private static string ValueOrEmpty(
@@ -577,8 +604,19 @@ internal static class LegacyMigrationPlanner
 
     private static void AddAggregateIssues(
         ICollection<NotebookMigrationIssue> issues,
-        MutableCounts counts)
+        MutableCounts counts,
+        IReadOnlyList<string> droppedUnknownMetadataKeys)
     {
+        if (droppedUnknownMetadataKeys.Count > 0)
+        {
+            issues.Add(new NotebookMigrationIssue(
+                NotebookMigrationIssueCode.UnknownMetadataDropped,
+                NotebookMigrationIssueSeverity.Warning,
+                NotebookMigrationChangeKind.Dropped,
+                Field: "metadata",
+                Count: droppedUnknownMetadataKeys.Count,
+                MetadataKeys: droppedUnknownMetadataKeys));
+        }
         if (counts.NullTexts > 0)
         {
             issues.Add(new NotebookMigrationIssue(
@@ -625,6 +663,10 @@ internal static class LegacyMigrationPlanner
                 Count: counts.CanonicalizedTimestamps));
         }
     }
+
+    private sealed record MetadataMapping(
+        IReadOnlyList<CurrentNotebookMetadataRecord> Metadata,
+        IReadOnlyList<string> DroppedUnknownKeys);
 
     private sealed class Candidate
     {

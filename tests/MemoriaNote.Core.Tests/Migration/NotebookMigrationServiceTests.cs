@@ -240,6 +240,147 @@ public sealed class NotebookMigrationServiceTests
         }
     }
 
+    /// <summary>Verifies legacy metadata is allowlisted identically for live and CM1 sources.</summary>
+    [Test]
+    public async Task LiveNotebookAndCm1Archive_MetadataAllowlistProducesSameReport()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("metadata-pair", "Metadata pair");
+        SetMetadata(database.DatabasePath, "Name", null);
+        SetMetadata(database.DatabasePath, "Title", null);
+        RemoveMetadata(database.DatabasePath, "Description");
+        SetMetadata(database.DatabasePath, "Author", null);
+        SetMetadata(database.DatabasePath, "ReadOnly", null);
+        RemoveMetadata(database.DatabasePath, "Tag");
+        RemoveMetadata(database.DatabasePath, "CreateTime");
+        SetMetadata(database.DatabasePath, "zeta-extension", "do-not-report-zeta-value");
+        SetMetadata(database.DatabasePath, "Alpha-extension", "do-not-report-alpha-value");
+        SetMetadata(database.DatabasePath, "middle-extension", null);
+
+        var archive = Path.Combine(database.DirectoryPath, "metadata-source.mnarchive");
+        using var temporaryFiles = new TemporaryFileStore(
+            Path.Combine(database.DirectoryPath, "metadata-archive-temp"));
+        var backup = new ArchiveV1BackupService(
+            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance),
+            temporaryFiles,
+            new FixedClock(new DateTimeOffset(2026, 11, 5, 0, 0, 0, TimeSpan.Zero)),
+            new ArchiveV1Creator("MemoriaNote.Tests", "1.0.0"));
+        var backupResult = await backup.BackupAsync(
+            new ArchiveV1FileBackupRequest(database.DatabasePath, archive),
+            CancellationToken.None);
+        Assert.That(backupResult.IsSuccess, Is.True);
+
+        var liveOutput = Path.Combine(database.DirectoryPath, "metadata-live.mnote");
+        var archiveOutput = Path.Combine(database.DirectoryPath, "metadata-archive.mnote");
+        var service = new NotebookMigrationService();
+        var live = await service.MigrateAsync(
+            new NotebookMigrationRequest(database.DatabasePath, liveOutput),
+            CancellationToken.None);
+        var archived = await service.MigrateAsync(
+            new NotebookMigrationRequest(archive, archiveOutput),
+            CancellationToken.None);
+
+        var expectedMetadata = new (string Key, string? Value)[]
+        {
+            ("Author", string.Empty),
+            ("CreateTime", null),
+            ("Description", string.Empty),
+            ("ReadOnly", bool.FalseString),
+            ("Tag", string.Empty),
+            ("Title", string.Empty)
+        };
+        var expectedUnknownKeys = new[]
+        {
+            "Alpha-extension",
+            "middle-extension",
+            "zeta-extension"
+        };
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(live.IsSuccess, Is.True, live.Error?.ToString());
+            Assert.That(archived.IsSuccess, Is.True, archived.Error?.ToString());
+            Assert.That(ReadMetadata(liveOutput), Is.EqualTo(expectedMetadata));
+            Assert.That(ReadMetadata(archiveOutput), Is.EqualTo(expectedMetadata));
+            Assert.That(live.Report.LogicalFingerprint, Is.EqualTo(
+                archived.Report.LogicalFingerprint));
+            Assert.That(live.Report.Counts, Is.EqualTo(archived.Report.Counts));
+            Assert.That(live.Report.Issues, Has.Count.EqualTo(1));
+            Assert.That(archived.Report.Issues, Has.Count.EqualTo(1));
+        }
+
+        var liveIssue = live.Report.Issues.Single();
+        var archivedIssue = archived.Report.Issues.Single();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(liveIssue.Code, Is.EqualTo(
+                NotebookMigrationIssueCode.UnknownMetadataDropped));
+            Assert.That(liveIssue.Severity, Is.EqualTo(
+                NotebookMigrationIssueSeverity.Warning));
+            Assert.That(liveIssue.ChangeKind, Is.EqualTo(
+                NotebookMigrationChangeKind.Dropped));
+            Assert.That(liveIssue.Field, Is.EqualTo("metadata"));
+            Assert.That(liveIssue.Count, Is.EqualTo(3));
+            Assert.That(liveIssue.MetadataKeys, Is.EqualTo(expectedUnknownKeys));
+            Assert.That(archivedIssue.Code, Is.EqualTo(liveIssue.Code));
+            Assert.That(archivedIssue.Severity, Is.EqualTo(liveIssue.Severity));
+            Assert.That(archivedIssue.ChangeKind, Is.EqualTo(liveIssue.ChangeKind));
+            Assert.That(archivedIssue.Field, Is.EqualTo(liveIssue.Field));
+            Assert.That(archivedIssue.Count, Is.EqualTo(liveIssue.Count));
+            Assert.That(archivedIssue.MetadataKeys, Is.EqualTo(liveIssue.MetadataKeys));
+        }
+    }
+
+    /// <summary>Verifies valid legacy metadata values are canonicalized or preserved.</summary>
+    [Test]
+    public async Task LiveNotebook_ValidKnownMetadata_IsMappedWithoutIssues()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("known-metadata", "Known metadata");
+        SetMetadata(database.DatabasePath, "ReadOnly", "tRuE");
+        SetMetadata(database.DatabasePath, "CreateTime", "20261105123456");
+        var destination = Path.Combine(database.DirectoryPath, "known-metadata.mnote");
+
+        var result = await new NotebookMigrationService().MigrateAsync(
+            new NotebookMigrationRequest(database.DatabasePath, destination),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.ToString());
+            Assert.That(result.Report.Issues, Is.Empty);
+            Assert.That(
+                ReadMetadata(destination),
+                Has.Some.EqualTo(("ReadOnly", bool.TrueString)));
+            Assert.That(
+                ReadMetadata(destination),
+                Has.Some.EqualTo(("CreateTime", "20261105123456")));
+        }
+    }
+
+    /// <summary>Verifies invalid known legacy metadata prevents output publication.</summary>
+    [TestCase("ReadOnly", "not-a-boolean")]
+    [TestCase("CreateTime", "2026-11-05")]
+    public async Task LiveNotebook_InvalidKnownMetadata_IsRejected(
+        string key,
+        string value)
+    {
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("invalid-metadata", "Invalid metadata");
+        SetMetadata(database.DatabasePath, key, value);
+        var destination = Path.Combine(database.DirectoryPath, "invalid-metadata.mnote");
+
+        var result = await new NotebookMigrationService().MigrateAsync(
+            new NotebookMigrationRequest(database.DatabasePath, destination),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Error, Is.EqualTo(NotebookMigrationErrorCode.InvalidSource));
+            Assert.That(File.Exists(destination), Is.False);
+        }
+    }
+
     /// <summary>Verifies explicit resolution can recover invalid names, tags, and erased pages.</summary>
     [Test]
     public async Task Resolution_RepairsPageLocalValuesAndApprovesErasedExclusion()
@@ -422,6 +563,48 @@ public sealed class NotebookMigrationServiceTests
         while (reader.Read())
             values.Add(reader.GetString(0));
         return values;
+    }
+
+    private static IReadOnlyList<(string Key, string? Value)> ReadMetadata(
+        string databasePath)
+    {
+        using var connection = new SqliteConnection("Data Source=" + databasePath);
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Key, Value FROM Metadata ORDER BY Key COLLATE BINARY;";
+        using var reader = command.ExecuteReader();
+        var values = new List<(string Key, string? Value)>();
+        while (reader.Read())
+        {
+            values.Add((
+                reader.GetString(0),
+                reader.IsDBNull(1) ? null : reader.GetString(1)));
+        }
+        return values;
+    }
+
+    private static void SetMetadata(
+        string databasePath,
+        string key,
+        string? value)
+    {
+        using var connection = new SqliteConnection("Data Source=" + databasePath);
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "INSERT OR REPLACE INTO Metadata(Key, Value) VALUES($key, $value);";
+        command.Parameters.AddWithValue("$key", key);
+        command.Parameters.AddWithValue("$value", (object?)value ?? DBNull.Value);
+        command.ExecuteNonQuery();
+    }
+
+    private static void RemoveMetadata(string databasePath, string key)
+    {
+        using var connection = new SqliteConnection("Data Source=" + databasePath);
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM Metadata WHERE Key = $key;";
+        command.Parameters.AddWithValue("$key", key);
+        command.ExecuteNonQuery();
     }
 
     private static string Hash(string path)
