@@ -27,6 +27,8 @@ public sealed class PublicApiApprovalTests
         "NotebookOperationResult`1",
         "NotebookPage",
         "NotebookPageCreateRequest",
+        "NotebookPageQueryRequest",
+        "NotebookPageQuerySort",
         "NotebookPageReplaceRequest",
         "NotebookPageSummary"
     };

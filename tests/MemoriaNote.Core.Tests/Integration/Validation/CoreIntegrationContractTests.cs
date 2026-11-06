@@ -27,7 +27,7 @@ public sealed class CoreIntegrationContractTests
             Assert.That(descriptor.PackageId, Is.EqualTo(CoreIntegrationContract.PackageId));
             Assert.That(
                 descriptor.PackageVersion,
-                Does.Match("^0\\.2\\.1-ecli1125\\.g[0-9a-f]{12}$"));
+                Does.Match("^0\\.2\\.1-ecli1150a\\.g[0-9a-f]{12}$"));
             Assert.That(descriptor.AssemblyInformationalVersion, Does.StartWith("0.2.1-dev+"));
             Assert.That(descriptor.SourceCommit, Is.EqualTo(currentCommit));
             Assert.That(descriptor.SourceCommit, Does.Match("^[0-9a-f]{40}$"));

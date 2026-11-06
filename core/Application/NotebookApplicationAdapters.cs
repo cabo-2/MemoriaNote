@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Domain;
+using MemoriaNote.Domain.Queries;
 using MemoriaNote.Domain.Repositories;
 using MemoriaNote.Persistence;
 using MemoriaNote.Persistence.Repositories;
@@ -196,6 +197,69 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
             cancellationToken);
     }
 
+    public Task<NotebookOperationResult<IReadOnlyList<NotebookPageSummary>>> QuerySummariesAsync(
+        NotebookPageQueryRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        _lifetime.ThrowIfDisposed();
+        if (!Enum.IsDefined(request.Sort))
+        {
+            return Task.FromResult(NotebookOperationResult<
+                IReadOnlyList<NotebookPageSummary>>.Failed(
+                    NotebookFailureFactory.Validation(
+                        "page.query.invalid_sort",
+                        "The page query sort is not supported.")));
+        }
+        if (request.Limit <= 0)
+        {
+            return Task.FromResult(NotebookOperationResult<
+                IReadOnlyList<NotebookPageSummary>>.Failed(
+                    NotebookFailureFactory.Validation(
+                        "page.query.invalid_limit",
+                        "A page query limit must be greater than zero.")));
+        }
+
+        MemoriaNoteGlob pattern;
+        if (request.Pattern is null)
+        {
+            pattern = MemoriaNoteGlob.MatchAll;
+        }
+        else if (!MemoriaNoteGlobParser.TryParse(
+                     request.Pattern,
+                     out var parsed,
+                     out var parseError))
+        {
+            return Task.FromResult(NotebookOperationResult<
+                IReadOnlyList<NotebookPageSummary>>.Failed(
+                    GlobFailure(parseError)));
+        }
+        else
+        {
+            pattern = parsed!;
+        }
+
+        var query = new RepositoryPageQuery(
+            pattern,
+            request.Sort switch
+            {
+                NotebookPageQuerySort.Name => RepositoryPageQuerySort.Name,
+                NotebookPageQuerySort.Updated => RepositoryPageQuerySort.Updated,
+                NotebookPageQuerySort.Created => RepositoryPageQuerySort.Created,
+                _ => throw new ArgumentOutOfRangeException(nameof(request))
+            },
+            request.Reverse,
+            request.Limit);
+        return NotebookOperationExecutor.ExecuteAsync<IReadOnlyList<NotebookPageSummary>>(
+            async () => (await _reader.QuerySummariesAsync(
+                    _notebookId,
+                    query,
+                    cancellationToken)
+                .ConfigureAwait(false)).Select(Map).ToArray(),
+            "page.query",
+            cancellationToken);
+    }
+
     public async Task<NotebookOperationResult<NotebookPage>> CreateAsync(
         NotebookPageCreateRequest request,
         CancellationToken cancellationToken = default)
@@ -360,6 +424,21 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
         page.CreateTimeUtc,
         page.UpdateTimeUtc,
         page.Revision);
+
+    private static NotebookFailure GlobFailure(MemoriaNoteGlobParseError error) =>
+        error switch
+        {
+            MemoriaNoteGlobParseError.Empty => NotebookFailureFactory.Validation(
+                "page.query.empty_pattern",
+                "A page-name pattern must not be empty."),
+            MemoriaNoteGlobParseError.SourceTooLong => NotebookFailureFactory.Validation(
+                "page.query.pattern_too_long",
+                $"A page-name pattern must contain at most " +
+                $"{MemoriaNoteGlob.MaximumSourceScalarCount} Unicode scalars."),
+            _ => NotebookFailureFactory.Validation(
+                "page.query.invalid_pattern",
+                "The page-name pattern is not valid MemoriaNote glob syntax.")
+        };
 }
 
 internal static class NotebookOperationExecutor

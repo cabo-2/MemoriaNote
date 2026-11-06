@@ -9,6 +9,7 @@ public interface MemoriaNote.Application.INotebookPageApplication
   method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookPage>> ReplaceAsync(MemoriaNote.Domain.PageId pageId, long expectedRevision, MemoriaNote.Application.NotebookPageReplaceRequest request, System.Threading.CancellationToken cancellationToken = default)
   method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookPage>> ResolveByIdPrefixAsync(string pageIdPrefix, System.Threading.CancellationToken cancellationToken = default)
   method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<System.Collections.Generic.IReadOnlyList<MemoriaNote.Application.NotebookPageSummary>>> ListSummariesAsync(int skipCount, int takeCount, System.Threading.CancellationToken cancellationToken = default)
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<System.Collections.Generic.IReadOnlyList<MemoriaNote.Application.NotebookPageSummary>>> QuerySummariesAsync(MemoriaNote.Application.NotebookPageQueryRequest request, System.Threading.CancellationToken cancellationToken = default)
   method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<bool>> DeleteAsync(MemoriaNote.Domain.PageId pageId, long expectedRevision, System.Threading.CancellationToken cancellationToken = default)
   method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<int>> CountAsync(System.Threading.CancellationToken cancellationToken = default)
 
@@ -77,6 +78,18 @@ public sealed class MemoriaNote.Application.NotebookPageCreateRequest
   property System.Collections.Generic.IReadOnlyList<string> Tags { get; }
   property string Name { get; }
   property string Text { get; }
+
+public sealed class MemoriaNote.Application.NotebookPageQueryRequest
+  constructor (string pattern = default, MemoriaNote.Application.NotebookPageQuerySort sort = Name, bool reverse = false, int? limit = default)
+  property MemoriaNote.Application.NotebookPageQuerySort Sort { get; }
+  property bool Reverse { get; }
+  property int? Limit { get; }
+  property string Pattern { get; }
+
+public enum MemoriaNote.Application.NotebookPageQuerySort
+  value Created = 2
+  value Name = 0
+  value Updated = 1
 
 public sealed class MemoriaNote.Application.NotebookPageReplaceRequest
   constructor (string name, string text, System.Collections.Generic.IReadOnlyList<string> tags)

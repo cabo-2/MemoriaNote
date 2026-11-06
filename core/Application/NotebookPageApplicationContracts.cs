@@ -94,6 +94,55 @@ public sealed class NotebookPageSummary
     public long Revision { get; }
 }
 
+/// <summary>Identifies the primary ordering of a page-name query.</summary>
+public enum NotebookPageQuerySort
+{
+    /// <summary>Orders by binary page name.</summary>
+    Name,
+
+    /// <summary>Orders by last-update time, newest first by default.</summary>
+    Updated,
+
+    /// <summary>Orders by creation time, newest first by default.</summary>
+    Created
+}
+
+/// <summary>Describes a storage-independent page-name query.</summary>
+public sealed class NotebookPageQueryRequest
+{
+    /// <summary>Initializes a page-name query.</summary>
+    /// <param name="pattern">
+    /// The optional MemoriaNote glob matched against the complete page name, or
+    /// <see langword="null"/> to match every page.
+    /// </param>
+    /// <param name="sort">The primary ordering to apply.</param>
+    /// <param name="reverse">Whether to reverse every ordering key.</param>
+    /// <param name="limit">The optional positive maximum result count.</param>
+    public NotebookPageQueryRequest(
+        string? pattern = null,
+        NotebookPageQuerySort sort = NotebookPageQuerySort.Name,
+        bool reverse = false,
+        int? limit = null)
+    {
+        Pattern = pattern;
+        Sort = sort;
+        Reverse = reverse;
+        Limit = limit;
+    }
+
+    /// <summary>Gets the optional MemoriaNote glob.</summary>
+    public string? Pattern { get; }
+
+    /// <summary>Gets the primary ordering.</summary>
+    public NotebookPageQuerySort Sort { get; }
+
+    /// <summary>Gets whether every ordering key is reversed.</summary>
+    public bool Reverse { get; }
+
+    /// <summary>Gets the optional maximum result count.</summary>
+    public int? Limit { get; }
+}
+
 /// <summary>Contains the authoritative values for a new page.</summary>
 public sealed class NotebookPageCreateRequest
 {
@@ -178,6 +227,11 @@ public interface INotebookPageApplication
     Task<NotebookOperationResult<IReadOnlyList<NotebookPageSummary>>> ListSummariesAsync(
         int skipCount,
         int takeCount,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Queries body-free summaries by a MemoriaNote page-name glob.</summary>
+    Task<NotebookOperationResult<IReadOnlyList<NotebookPageSummary>>> QuerySummariesAsync(
+        NotebookPageQueryRequest request,
         CancellationToken cancellationToken = default);
 
     /// <summary>Creates a page using production Page ID and timestamp generation.</summary>

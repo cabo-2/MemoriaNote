@@ -170,6 +170,20 @@ public sealed class ExternalPackageConsumerTests
         if (!page.IsSuccess)
             return 12;
 
+        var query = await session.Pages.QuerySummariesAsync(
+            new NotebookPageQueryRequest(
+                "p*",
+                NotebookPageQuerySort.Name,
+                reverse: false,
+                limit: 1));
+        if (!query.IsSuccess ||
+            query.Value is null ||
+            query.Value.Count != 1 ||
+            query.Value[0].PageId != page.Value!.PageId)
+        {
+            return 13;
+        }
+
         var validation = NotebookValidation.CreateSession(session);
         var check = await validation.CheckAsync(
         [
@@ -178,7 +192,7 @@ public sealed class ExternalPackageConsumerTests
             DerivedDataKind.Fts5Trigram
         ]);
         if (!check.IsSuccess || check.Value is null || !check.Value.IsValid)
-            return 13;
+            return 14;
 
         var descriptor = CoreIntegrationContract.GetDescriptor();
         Console.WriteLine(
