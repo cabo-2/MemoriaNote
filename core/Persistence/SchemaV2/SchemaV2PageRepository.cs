@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Domain;
@@ -169,6 +170,61 @@ internal sealed class SchemaV2PageRepository :
         return summaries.AsReadOnly();
     }
 
+    public async Task<IReadOnlyList<RepositoryPageSummary>> QuerySummariesAsync(
+        NotebookId notebookId,
+        RepositoryPageQuery query,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(notebookId);
+        ArgumentNullException.ThrowIfNull(query);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var compiledPattern = query.Pattern.IsMatchAll
+            ? null
+            : SqliteGlobPatternCompiler.Compile(query.Pattern);
+
+        await using var connection = await SqliteConnectionFactory.OpenAsync(
+                notebookId.Locator,
+                SqliteOpenMode.ReadOnly,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        var statement = new StringBuilder(
+            "SELECT PageId, Name, CreateTime, UpdateTime, Revision FROM Pages");
+        if (compiledPattern is not null)
+        {
+            statement.Append(" WHERE Name GLOB $pattern");
+            command.Parameters.AddWithValue("$pattern", compiledPattern);
+        }
+
+        statement.Append(" ORDER BY ");
+        statement.Append(OrderBy(query.Sort, query.Reverse));
+        if (query.Limit is not null)
+        {
+            statement.Append(" LIMIT $limit");
+            command.Parameters.AddWithValue("$limit", query.Limit.Value);
+        }
+        statement.Append(';');
+        command.CommandText = statement.ToString();
+
+        await using var reader = await command
+            .ExecuteReaderAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var summaries = new List<RepositoryPageSummary>();
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            summaries.Add(new RepositoryPageSummary(
+                notebookId,
+                PageId.FromUuid(reader.GetString(0)),
+                reader.GetString(1),
+                SchemaV2PageValueCodec.ParseTimestamp(reader.GetString(2)),
+                SchemaV2PageValueCodec.ParseTimestamp(reader.GetString(3)),
+                reader.GetInt64(4)));
+        }
+
+        return summaries.AsReadOnly();
+    }
+
     public async Task<RepositoryPageWriteResult> CreateAsync(
         NotebookId notebookId,
         RepositoryPageCreateRequest request,
@@ -234,6 +290,24 @@ internal sealed class SchemaV2PageRepository :
         await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         return RepositoryPageWriteResult.Succeeded(page);
     }
+
+    private static string OrderBy(RepositoryPageQuerySort sort, bool reverse) =>
+        (sort, reverse) switch
+        {
+            (RepositoryPageQuerySort.Name, false) =>
+                "Name COLLATE BINARY ASC, PageId COLLATE BINARY ASC",
+            (RepositoryPageQuerySort.Name, true) =>
+                "Name COLLATE BINARY DESC, PageId COLLATE BINARY DESC",
+            (RepositoryPageQuerySort.Updated, false) =>
+                "UpdateTime DESC, Name COLLATE BINARY ASC, PageId COLLATE BINARY ASC",
+            (RepositoryPageQuerySort.Updated, true) =>
+                "UpdateTime ASC, Name COLLATE BINARY DESC, PageId COLLATE BINARY DESC",
+            (RepositoryPageQuerySort.Created, false) =>
+                "CreateTime DESC, Name COLLATE BINARY ASC, PageId COLLATE BINARY ASC",
+            (RepositoryPageQuerySort.Created, true) =>
+                "CreateTime ASC, Name COLLATE BINARY DESC, PageId COLLATE BINARY DESC",
+            _ => throw new ArgumentOutOfRangeException(nameof(sort))
+        };
 
     public async Task<RepositoryPageWriteResult> UpdateAsync(
         NotebookId notebookId,

@@ -92,6 +92,11 @@ internal interface INotebookPageReader
         int skipCount,
         int takeCount,
         CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<RepositoryPageSummary>> QuerySummariesAsync(
+        NotebookId notebookId,
+        RepositoryPageQuery query,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>Creates, replaces, and deletes authoritative operational page rows.</summary>

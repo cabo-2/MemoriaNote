@@ -1,5 +1,6 @@
 using MemoriaNote.Core.Tests.Infrastructure;
 using MemoriaNote.Domain;
+using MemoriaNote.Domain.Queries;
 using MemoriaNote.Domain.Repositories;
 using MemoriaNote.Persistence;
 using MemoriaNote.Persistence.Repositories;
@@ -256,6 +257,138 @@ public sealed class SchemaV2PageRepositoryTests
             Is.EqualTo(new[] { "alpha", "bravo" }));
     }
 
+    /// <summary>Verifies title glob matching uses SQLite scalar and literal semantics.</summary>
+    [Test]
+    public async Task QuerySummariesAsync_FiltersMemoriaNoteGlobAndBindsPattern()
+    {
+        using var database = await TestDatabase.CreateAsync("glob-query");
+        await database.InsertPageAsync(
+            "00000000-0000-0000-0000-000000000001",
+            "Alpha",
+            "body");
+        await database.InsertPageAsync(
+            "00000000-0000-0000-0000-000000000002",
+            "project-😀",
+            "body");
+        await database.InsertPageAsync(
+            "00000000-0000-0000-0000-000000000003",
+            "project-ab",
+            "body");
+        await database.InsertPageAsync(
+            "00000000-0000-0000-0000-000000000004",
+            "draft-*",
+            "body");
+        var repository = new SchemaV2PageRepository(
+            new FixedClock(DateTimeOffset.Parse("2026-10-30T03:00:00Z")));
+
+        async Task<string[]> QueryAsync(string source)
+        {
+            Assert.That(
+                MemoriaNoteGlobParser.TryParse(source, out var pattern, out var error),
+                Is.True,
+                error.ToString());
+            var result = await repository.QuerySummariesAsync(
+                database.NotebookId,
+                new RepositoryPageQuery(
+                    pattern!,
+                    RepositoryPageQuerySort.Name,
+                    reverse: false,
+                    limit: null),
+                CancellationToken.None);
+            return result.Select(page => page.Name).ToArray();
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(await QueryAsync("project-*"),
+                Is.EqualTo(new[] { "project-ab", "project-😀" }));
+            Assert.That(await QueryAsync("project-?"),
+                Is.EqualTo(new[] { "project-😀" }));
+            Assert.That(await QueryAsync("[A-Z]*"), Is.EqualTo(new[] { "Alpha" }));
+            Assert.That(await QueryAsync("[^a-z]*"), Is.EqualTo(new[] { "Alpha" }));
+            Assert.That(await QueryAsync("draft-\\*"), Is.EqualTo(new[] { "draft-*" }));
+            Assert.That(await QueryAsync("*' OR 1=1 --"), Is.Empty);
+        }
+    }
+
+    /// <summary>Verifies every sort key, complete reversal, and post-sort limit.</summary>
+    [Test]
+    public async Task QuerySummariesAsync_SortsReversesAndLimitsDeterministically()
+    {
+        using var database = await TestDatabase.CreateAsync("sorted-query");
+        await database.InsertPageAsync(
+            "00000000-0000-0000-0000-000000000003",
+            "charlie",
+            "body",
+            "2026-10-30 01:00:00.0000000",
+            "2026-10-30 03:00:00.0000000");
+        await database.InsertPageAsync(
+            "00000000-0000-0000-0000-000000000001",
+            "Alpha",
+            "body",
+            "2026-10-30 03:00:00.0000000",
+            "2026-10-30 01:00:00.0000000");
+        await database.InsertPageAsync(
+            "00000000-0000-0000-0000-000000000002",
+            "bravo",
+            "body",
+            "2026-10-30 02:00:00.0000000",
+            "2026-10-30 02:00:00.0000000");
+        await database.InsertPageAsync(
+            "00000000-0000-0000-0000-000000000004",
+            "delta",
+            "body",
+            "2026-10-30 02:00:00.0000000",
+            "2026-10-30 02:00:00.0000000");
+        var repository = new SchemaV2PageRepository(
+            new FixedClock(DateTimeOffset.Parse("2026-10-30T03:00:00Z")));
+
+        async Task<string[]> QueryAsync(
+            RepositoryPageQuerySort sort,
+            bool reverse,
+            int? limit = null)
+        {
+            var result = await repository.QuerySummariesAsync(
+                database.NotebookId,
+                new RepositoryPageQuery(
+                    MemoriaNoteGlob.MatchAll,
+                    sort,
+                    reverse,
+                    limit),
+                CancellationToken.None);
+            return result.Select(page => page.Name).ToArray();
+        }
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(await QueryAsync(RepositoryPageQuerySort.Name, false),
+                Is.EqualTo(new[] { "Alpha", "bravo", "charlie", "delta" }));
+            Assert.That(await QueryAsync(RepositoryPageQuerySort.Name, true),
+                Is.EqualTo(new[] { "delta", "charlie", "bravo", "Alpha" }));
+            Assert.That(await QueryAsync(RepositoryPageQuerySort.Updated, false),
+                Is.EqualTo(new[] { "charlie", "bravo", "delta", "Alpha" }));
+            Assert.That(await QueryAsync(RepositoryPageQuerySort.Updated, true),
+                Is.EqualTo(new[] { "Alpha", "delta", "bravo", "charlie" }));
+            Assert.That(await QueryAsync(RepositoryPageQuerySort.Created, false),
+                Is.EqualTo(new[] { "Alpha", "bravo", "delta", "charlie" }));
+            Assert.That(await QueryAsync(RepositoryPageQuerySort.Created, true, limit: 2),
+                Is.EqualTo(new[] { "charlie", "delta" }));
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Assert.That(
+            async () => await repository.QuerySummariesAsync(
+                database.NotebookId,
+                new RepositoryPageQuery(
+                    MemoriaNoteGlob.MatchAll,
+                    RepositoryPageQuerySort.Name,
+                    reverse: false,
+                    limit: null),
+                cancellation.Token),
+            Throws.InstanceOf<OperationCanceledException>());
+    }
+
     /// <summary>Verifies trigger failure rolls back authoritative and earlier derived writes.</summary>
     [Test]
     public async Task Create_WhenOneFtsIndexIsMissing_RollsBackEntireWrite()
@@ -342,7 +475,12 @@ public sealed class SchemaV2PageRepositoryTests
             return new TestDatabase(directoryPath, databasePath);
         }
 
-        internal async Task InsertPageAsync(string pageId, string name, string text)
+        internal async Task InsertPageAsync(
+            string pageId,
+            string name,
+            string text,
+            string createTime = "2026-10-30 00:00:00.0000000",
+            string updateTime = "2026-10-30 00:00:00.0000000")
         {
             await using var connection = await SqliteConnectionFactory.OpenAsync(
                 DatabasePath,
@@ -353,12 +491,14 @@ public sealed class SchemaV2PageRepositoryTests
                     PageId, Name, CreateTime, UpdateTime, Revision, Tags, Text)
                 VALUES (
                     $pageId, $name,
-                    '2026-10-30 00:00:00.0000000',
-                    '2026-10-30 00:00:00.0000000',
+                    $createTime,
+                    $updateTime,
                     1, '[]', $text);
                 """;
             command.Parameters.AddWithValue("$pageId", pageId);
             command.Parameters.AddWithValue("$name", name);
+            command.Parameters.AddWithValue("$createTime", createTime);
+            command.Parameters.AddWithValue("$updateTime", updateTime);
             command.Parameters.AddWithValue("$text", text);
             await command.ExecuteNonQueryAsync();
         }

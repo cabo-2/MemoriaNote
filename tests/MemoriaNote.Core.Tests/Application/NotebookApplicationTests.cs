@@ -103,6 +103,53 @@ public sealed class NotebookApplicationTests
                 Is.EqualTo(new[] { "renamed", "second" }));
             Assert.That(await session.Pages.CountAsync(), Has.Property("Value").EqualTo(2));
 
+            var titleQuery = await session.Pages.QuerySummariesAsync(
+                new NotebookPageQueryRequest(
+                    "r*",
+                    NotebookPageQuerySort.Name,
+                    reverse: true,
+                    limit: 1));
+            Assert.That(titleQuery.IsSuccess, Is.True);
+            Assert.That(
+                titleQuery.Value!.Select(summary => summary.Name),
+                Is.EqualTo(new[] { "renamed" }));
+
+            var omittedPattern = await session.Pages.QuerySummariesAsync(
+                new NotebookPageQueryRequest());
+            var explicitMatchAll = await session.Pages.QuerySummariesAsync(
+                new NotebookPageQueryRequest("*"));
+            Assert.That(
+                explicitMatchAll.Value!.Select(summary => summary.PageId),
+                Is.EqualTo(omittedPattern.Value!.Select(summary => summary.PageId)));
+
+            AssertFailure(
+                await session.Pages.QuerySummariesAsync(
+                    new NotebookPageQueryRequest(string.Empty)),
+                NotebookFailureCategory.Validation,
+                "page.query.empty_pattern");
+            AssertFailure(
+                await session.Pages.QuerySummariesAsync(
+                    new NotebookPageQueryRequest("[z-a]")),
+                NotebookFailureCategory.Validation,
+                "page.query.invalid_pattern");
+            AssertFailure(
+                await session.Pages.QuerySummariesAsync(
+                    new NotebookPageQueryRequest(limit: 0)),
+                NotebookFailureCategory.Validation,
+                "page.query.invalid_limit");
+            AssertFailure(
+                await session.Pages.QuerySummariesAsync(
+                    new NotebookPageQueryRequest(
+                        sort: (NotebookPageQuerySort)999)),
+                NotebookFailureCategory.Validation,
+                "page.query.invalid_sort");
+            AssertFailure(
+                await session.Pages.QuerySummariesAsync(
+                    new NotebookPageQueryRequest(
+                        new string('a', 513))),
+                NotebookFailureCategory.Validation,
+                "page.query.pattern_too_long");
+
             var deleted = await session.Pages.DeleteAsync(
                 replaced.Value.PageId,
                 replaced.Value.Revision);
