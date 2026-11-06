@@ -49,6 +49,9 @@ public sealed class ExternalPackageConsumerTests
             Path.Combine(consumer, "ExternalConsumer.csproj"),
             ProjectSource(descriptor.PackageVersion));
         await File.WriteAllTextAsync(
+            Path.Combine(consumer, "NuGet.Config"),
+            NuGetConfigSource(feed));
+        await File.WriteAllTextAsync(
             Path.Combine(consumer, "Program.cs"),
             ProgramSource());
 
@@ -57,10 +60,8 @@ public sealed class ExternalPackageConsumerTests
             "dotnet",
             "restore",
             "ExternalConsumer.csproj",
-            "--source",
-            feed,
-            "--source",
-            "https://api.nuget.org/v3/index.json",
+            "--configfile",
+            "NuGet.Config",
             "--ignore-failed-sources");
         var execution = await RunAsync(
             consumer,
@@ -134,6 +135,22 @@ public sealed class ExternalPackageConsumerTests
           </ItemGroup>
         </Project>
         """;
+
+    private static string NuGetConfigSource(string feed) => new XDocument(
+        new XElement(
+            "configuration",
+            new XElement(
+                "packageSources",
+                new XElement("clear"),
+                new XElement(
+                    "add",
+                    new XAttribute("key", "test-feed"),
+                    new XAttribute("value", feed)),
+                new XElement(
+                    "add",
+                    new XAttribute("key", "nuget.org"),
+                    new XAttribute("value", "https://api.nuget.org/v3/index.json")))))
+        .ToString(SaveOptions.DisableFormatting);
 
     private static string ProgramSource() => """
         using MemoriaNote.Application;
