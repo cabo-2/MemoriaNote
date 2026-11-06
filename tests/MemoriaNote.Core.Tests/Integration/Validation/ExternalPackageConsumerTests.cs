@@ -12,6 +12,12 @@ namespace MemoriaNote.Core.Tests.Integration.Validation;
 [NonParallelizable]
 public sealed class ExternalPackageConsumerTests
 {
+#if DEBUG
+    private const string BuildConfiguration = "Debug";
+#else
+    private const string BuildConfiguration = "Release";
+#endif
+
     /// <summary>Builds a package, restores it in a temporary project, and runs a small workflow.</summary>
     [Test]
     public async Task ExactPackage_RestoresAndRunsWithoutFriendAccess()
@@ -31,7 +37,7 @@ public sealed class ExternalPackageConsumerTests
             Path.Combine(repositoryRoot, "core", "MemoriaNote.Core.csproj"),
             "--no-build",
             "--configuration",
-            "Debug",
+            BuildConfiguration,
             "--output",
             feed,
             $"-p:MemoriaNoteFullCommitId={descriptor.SourceCommit}",
