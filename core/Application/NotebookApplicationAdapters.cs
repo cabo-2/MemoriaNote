@@ -412,6 +412,9 @@ internal static class NotebookFailureFactory
                 NotebookFailureCategory.AccessOrBusy,
                 $"{operationCode}.access_failure",
                 "The notebook could not be accessed."),
+            NotebookStorageFailureKind.Constraint => Validation(
+                $"{operationCode}.invalid_data",
+                "The operation contains conflicting or invalid logical data."),
             NotebookStorageFailureKind.Unexpected => new NotebookFailure(
                 NotebookFailureCategory.UnexpectedStorage,
                 $"{operationCode}.storage_failure",

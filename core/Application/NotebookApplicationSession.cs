@@ -37,6 +37,8 @@ public sealed class NotebookApplicationSession : IAsyncDisposable
     /// <summary>Gets notebook page operations.</summary>
     public INotebookPageApplication Pages { get; }
 
+    internal NotebookSessionLifetime Lifetime => _lifetime;
+
     /// <summary>Ends the logical session and prevents further operations.</summary>
     /// <returns>A completed asynchronous disposal operation.</returns>
     public ValueTask DisposeAsync()

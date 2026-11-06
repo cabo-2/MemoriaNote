@@ -19,6 +19,9 @@ public enum NotebookFailureCategory
     /// <summary>The notebook format or its validated content cannot be used.</summary>
     Format,
 
+    /// <summary>A derived-data selection or maintenance prerequisite is invalid.</summary>
+    DerivedData,
+
     /// <summary>The operation could not access the notebook or it was busy.</summary>
     AccessOrBusy,
 
