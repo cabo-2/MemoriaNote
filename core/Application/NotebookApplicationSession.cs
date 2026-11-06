@@ -23,6 +23,7 @@ public sealed class NotebookApplicationSession : IAsyncDisposable
             _lifetime);
         Pages = new NotebookPageApplicationAdapter(
             notebook.NotebookId,
+            provider.MetadataReader,
             provider.PageReader,
             provider.PageWriter,
             _lifetime);

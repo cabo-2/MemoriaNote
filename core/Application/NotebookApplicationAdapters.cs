@@ -79,17 +79,20 @@ internal sealed class NotebookMetadataApplicationAdapter : INotebookMetadataAppl
 internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
 {
     private readonly NotebookId _notebookId;
+    private readonly INotebookMetadataReader _metadataReader;
     private readonly INotebookPageReader _reader;
     private readonly INotebookPageWriter _writer;
     private readonly NotebookSessionLifetime _lifetime;
 
     internal NotebookPageApplicationAdapter(
         NotebookId notebookId,
+        INotebookMetadataReader metadataReader,
         INotebookPageReader reader,
         INotebookPageWriter writer,
         NotebookSessionLifetime lifetime)
     {
         _notebookId = notebookId;
+        _metadataReader = metadataReader;
         _reader = reader;
         _writer = writer;
         _lifetime = lifetime;
@@ -199,6 +202,9 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
     {
         ArgumentNullException.ThrowIfNull(request);
         _lifetime.ThrowIfDisposed();
+        var writeFailure = await CheckWritableAsync(cancellationToken).ConfigureAwait(false);
+        if (writeFailure is not null)
+            return NotebookOperationResult<NotebookPage>.Failed(writeFailure);
         var result = await NotebookOperationExecutor.ExecuteAsync(
                 () => _writer.CreateAsync(
                     _notebookId,
@@ -219,6 +225,9 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
         ArgumentNullException.ThrowIfNull(pageId);
         ArgumentNullException.ThrowIfNull(request);
         _lifetime.ThrowIfDisposed();
+        var writeFailure = await CheckWritableAsync(cancellationToken).ConfigureAwait(false);
+        if (writeFailure is not null)
+            return NotebookOperationResult<NotebookPage>.Failed(writeFailure);
         var result = await NotebookOperationExecutor.ExecuteAsync(
                 () => _writer.UpdateAsync(
                     _notebookId,
@@ -239,6 +248,9 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
     {
         ArgumentNullException.ThrowIfNull(pageId);
         _lifetime.ThrowIfDisposed();
+        var writeFailure = await CheckWritableAsync(cancellationToken).ConfigureAwait(false);
+        if (writeFailure is not null)
+            return NotebookOperationResult<bool>.Failed(writeFailure);
         var result = await NotebookOperationExecutor.ExecuteAsync(
                 () => _writer.DeleteAsync(
                     _notebookId,
@@ -285,6 +297,25 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
         }
 
         return NotebookOperationResult<NotebookPage>.Succeeded(Map(result.Value));
+    }
+
+    private async Task<NotebookFailure?> CheckWritableAsync(
+        CancellationToken cancellationToken)
+    {
+        var metadata = await NotebookOperationExecutor.ExecuteAsync(
+                () => _metadataReader.LoadAsync(_notebookId, cancellationToken),
+                "page.read_metadata",
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!metadata.IsSuccess)
+            return metadata.Failure;
+
+        return metadata.Value!.Values.TryGetValue("ReadOnly", out var value) &&
+               string.Equals(value, bool.TrueString, StringComparison.Ordinal)
+            ? NotebookFailureFactory.Conflict(
+                "notebook.read_only",
+                "The notebook is read-only.")
+            : null;
     }
 
     private static NotebookOperationResult<NotebookPage> MapWrite(

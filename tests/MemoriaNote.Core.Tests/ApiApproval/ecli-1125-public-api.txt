@@ -1,0 +1,159 @@
+public interface MemoriaNote.Application.INotebookMetadataApplication
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookMetadataSnapshot>> GetAsync(System.Threading.CancellationToken cancellationToken = default)
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookMetadataSnapshot>> UpdateAsync(MemoriaNote.Application.NotebookMetadataChangeSet request, System.Threading.CancellationToken cancellationToken = default)
+
+public interface MemoriaNote.Application.INotebookPageApplication
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookPage>> CreateAsync(MemoriaNote.Application.NotebookPageCreateRequest request, System.Threading.CancellationToken cancellationToken = default)
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookPage>> GetByIdAsync(MemoriaNote.Domain.PageId pageId, System.Threading.CancellationToken cancellationToken = default)
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookPage>> GetByNameAsync(string name, System.Threading.CancellationToken cancellationToken = default)
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookPage>> ReplaceAsync(MemoriaNote.Domain.PageId pageId, long expectedRevision, MemoriaNote.Application.NotebookPageReplaceRequest request, System.Threading.CancellationToken cancellationToken = default)
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookPage>> ResolveByIdPrefixAsync(string pageIdPrefix, System.Threading.CancellationToken cancellationToken = default)
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<System.Collections.Generic.IReadOnlyList<MemoriaNote.Application.NotebookPageSummary>>> ListSummariesAsync(int skipCount, int takeCount, System.Threading.CancellationToken cancellationToken = default)
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<bool>> DeleteAsync(MemoriaNote.Domain.PageId pageId, long expectedRevision, System.Threading.CancellationToken cancellationToken = default)
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<int>> CountAsync(System.Threading.CancellationToken cancellationToken = default)
+
+public static class MemoriaNote.Application.NotebookApplication
+  method static System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookApplicationSession>> CreateAsync(MemoriaNote.Application.NotebookCreateRequest request, System.Threading.CancellationToken cancellationToken = default)
+  method static System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookApplicationSession>> OpenAsync(MemoriaNote.Application.NotebookOpenRequest request, System.Threading.CancellationToken cancellationToken = default)
+
+public sealed class MemoriaNote.Application.NotebookApplicationSession
+  method System.Threading.Tasks.ValueTask DisposeAsync()
+  property MemoriaNote.Application.INotebookMetadataApplication Metadata { get; }
+  property MemoriaNote.Application.INotebookPageApplication Pages { get; }
+  property MemoriaNote.Application.NotebookDescriptor Notebook { get; }
+
+public sealed class MemoriaNote.Application.NotebookCreateRequest
+  constructor (string databasePath, string title)
+  property string DatabasePath { get; }
+  property string Title { get; }
+
+public sealed class MemoriaNote.Application.NotebookDescriptor
+  property MemoriaNote.Domain.NotebookId NotebookId { get; }
+  property int FormatVersion { get; }
+
+public sealed class MemoriaNote.Application.NotebookFailure
+  property MemoriaNote.Application.NotebookFailureCategory Category { get; }
+  property string Code { get; }
+  property string Message { get; }
+
+public enum MemoriaNote.Application.NotebookFailureCategory
+  value AccessOrBusy = 5
+  value Conflict = 2
+  value DerivedData = 4
+  value Format = 3
+  value NotFound = 1
+  value UnexpectedStorage = 6
+  value Validation = 0
+
+public sealed class MemoriaNote.Application.NotebookMetadataChangeSet
+  constructor (System.Collections.Generic.IReadOnlyDictionary<string, string> changes)
+  property System.Collections.Generic.IReadOnlyDictionary<string, string> Changes { get; }
+
+public sealed class MemoriaNote.Application.NotebookMetadataSnapshot
+  property MemoriaNote.Domain.NotebookId NotebookId { get; }
+  property System.Collections.Generic.IReadOnlyDictionary<string, string> Values { get; }
+
+public sealed class MemoriaNote.Application.NotebookOpenRequest
+  constructor (string databasePath)
+  property string DatabasePath { get; }
+
+public sealed class MemoriaNote.Application.NotebookOperationResult<T>
+  property MemoriaNote.Application.NotebookFailure Failure { get; }
+  property T Value { get; }
+  property bool IsSuccess { get; }
+
+public sealed class MemoriaNote.Application.NotebookPage
+  property MemoriaNote.Domain.NotebookId NotebookId { get; }
+  property MemoriaNote.Domain.PageId PageId { get; }
+  property System.Collections.Generic.IReadOnlyList<string> Tags { get; }
+  property System.DateTimeOffset CreateTimeUtc { get; }
+  property System.DateTimeOffset UpdateTimeUtc { get; }
+  property long Revision { get; }
+  property string Name { get; }
+  property string Text { get; }
+
+public sealed class MemoriaNote.Application.NotebookPageCreateRequest
+  constructor (string name, string text, System.Collections.Generic.IReadOnlyList<string> tags)
+  property System.Collections.Generic.IReadOnlyList<string> Tags { get; }
+  property string Name { get; }
+  property string Text { get; }
+
+public sealed class MemoriaNote.Application.NotebookPageReplaceRequest
+  constructor (string name, string text, System.Collections.Generic.IReadOnlyList<string> tags)
+  property System.Collections.Generic.IReadOnlyList<string> Tags { get; }
+  property string Name { get; }
+  property string Text { get; }
+
+public sealed class MemoriaNote.Application.NotebookPageSummary
+  property MemoriaNote.Domain.NotebookId NotebookId { get; }
+  property MemoriaNote.Domain.PageId PageId { get; }
+  property System.DateTimeOffset CreateTimeUtc { get; }
+  property System.DateTimeOffset UpdateTimeUtc { get; }
+  property long Revision { get; }
+  property string Name { get; }
+
+public static class MemoriaNote.Integration.Validation.CoreIntegrationContract
+  field int Revision = 1
+  field string PackageId = "MemoriaNote.Core"
+  method static MemoriaNote.Integration.Validation.CoreIntegrationDescriptor GetDescriptor()
+
+public sealed class MemoriaNote.Integration.Validation.CoreIntegrationDescriptor
+  property System.Collections.Generic.IReadOnlyList<MemoriaNote.Integration.Validation.DerivedDataKind> DerivedDataCandidates { get; }
+  property int ContractRevision { get; }
+  property int NotebookFormatVersion { get; }
+  property string AssemblyInformationalVersion { get; }
+  property string PackageId { get; }
+  property string PackageVersion { get; }
+  property string SourceCommit { get; }
+  property string TargetFramework { get; }
+
+public sealed class MemoriaNote.Integration.Validation.DerivedDataCheckReport
+  property System.Collections.Generic.IReadOnlyList<MemoriaNote.Integration.Validation.DerivedDataIssue> Issues { get; }
+  property System.Collections.Generic.IReadOnlyList<MemoriaNote.Integration.Validation.DerivedDataKind> Selected { get; }
+  property bool IsValid { get; }
+
+public sealed class MemoriaNote.Integration.Validation.DerivedDataIssue
+  property MemoriaNote.Integration.Validation.DerivedDataIssueKind Kind { get; }
+  property MemoriaNote.Integration.Validation.DerivedDataKind DerivedData { get; }
+  property long? RowCount { get; }
+  property string Message { get; }
+
+public enum MemoriaNote.Integration.Validation.DerivedDataIssueKind
+  value ContentMismatch = 2
+  value MissingRows = 0
+  value UnexpectedRows = 1
+
+public enum MemoriaNote.Integration.Validation.DerivedDataKind
+  value Fts5Trigram = 2
+  value Fts5Unicode61 = 1
+  value PageTags = 0
+
+public sealed class MemoriaNote.Integration.Validation.DerivedDataRebuildReport
+  property MemoriaNote.Integration.Validation.DerivedDataCheckReport Validation { get; }
+  property bool WasCommitted { get; }
+
+public sealed class MemoriaNote.Integration.Validation.DeterministicNotebookPage
+  constructor (MemoriaNote.Domain.PageId pageId, string name, System.DateTimeOffset createTimeUtc, System.DateTimeOffset updateTimeUtc, long revision, System.Collections.Generic.IReadOnlyList<string> tags, string text)
+  property MemoriaNote.Domain.PageId PageId { get; }
+  property System.Collections.Generic.IReadOnlyList<string> Tags { get; }
+  property System.DateTimeOffset CreateTimeUtc { get; }
+  property System.DateTimeOffset UpdateTimeUtc { get; }
+  property long Revision { get; }
+  property string Name { get; }
+  property string Text { get; }
+
+public sealed class MemoriaNote.Integration.Validation.DeterministicNotebookPublicationRequest
+  constructor (string destinationPath, System.Collections.Generic.IReadOnlyDictionary<string, string> metadata, System.Collections.Generic.IAsyncEnumerable<MemoriaNote.Integration.Validation.DeterministicNotebookPage> pages)
+  property System.Collections.Generic.IAsyncEnumerable<MemoriaNote.Integration.Validation.DeterministicNotebookPage> Pages { get; }
+  property System.Collections.Generic.IReadOnlyDictionary<string, string> Metadata { get; }
+  property string DestinationPath { get; }
+
+public static class MemoriaNote.Integration.Validation.DeterministicNotebookPublisher
+  method static System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookDescriptor>> PublishAsync(MemoriaNote.Integration.Validation.DeterministicNotebookPublicationRequest request, System.Threading.CancellationToken cancellationToken = default)
+
+public static class MemoriaNote.Integration.Validation.NotebookValidation
+  method static MemoriaNote.Integration.Validation.NotebookValidationSession CreateSession(MemoriaNote.Application.NotebookApplicationSession applicationSession)
+
+public sealed class MemoriaNote.Integration.Validation.NotebookValidationSession
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Integration.Validation.DerivedDataCheckReport>> CheckAsync(System.Collections.Generic.IReadOnlyCollection<MemoriaNote.Integration.Validation.DerivedDataKind> selection, System.Threading.CancellationToken cancellationToken = default)
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Integration.Validation.DerivedDataRebuildReport>> RebuildAsync(System.Collections.Generic.IReadOnlyCollection<MemoriaNote.Integration.Validation.DerivedDataKind> selection, System.Threading.CancellationToken cancellationToken = default)

@@ -218,6 +218,31 @@ public sealed class NotebookApplicationTests
             Throws.TypeOf<ObjectDisposedException>());
     }
 
+    /// <summary>Verifies the Application surface rejects page mutations for read-only notebooks.</summary>
+    [Test]
+    public async Task PageMutation_WhenMetadataIsReadOnly_IsRejected()
+    {
+        using var directory = new TemporaryDirectory();
+        var result = await NotebookApplication.CreateAsync(
+            new NotebookCreateRequest(directory.GetPath("read-only.mnote"), "Read-only"));
+        await using var session = result.Value!;
+        var metadata = await session.Metadata.UpdateAsync(
+            new NotebookMetadataChangeSet(new Dictionary<string, string?>
+            {
+                ["ReadOnly"] = "True"
+            }));
+
+        var create = await session.Pages.CreateAsync(
+            new NotebookPageCreateRequest("blocked", "body", []));
+
+        Assert.That(metadata.IsSuccess, Is.True);
+        AssertFailure(
+            create,
+            NotebookFailureCategory.Conflict,
+            "notebook.read_only");
+        Assert.That((await session.Pages.CountAsync()).Value, Is.Zero);
+    }
+
     private static async Task ExecuteAsync(string databasePath, string commandText)
     {
         await using var connection = await SqliteConnectionFactory.OpenAsync(

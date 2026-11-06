@@ -2,6 +2,16 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <PackageId>MemoriaNote.Core</PackageId>
+    <IsPackable>true</IsPackable>
+    <Authors>Memoria Note contributors</Authors>
+    <Description>First-party Memoria Note Core application and validation integration surfaces.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageTags>memoria-note;core;integration-contract-v1</PackageTags>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/cabo-2/MemoriaNote</RepositoryUrl>
+    <MemoriaNoteIntegrationContractRevision>1</MemoriaNoteIntegrationContractRevision>
   </PropertyGroup>
 
   <ItemGroup>
@@ -31,5 +41,50 @@
     <EmbeddedResource Include="Persistence/SchemaV2/Contracts/schema-v2.expected.json"
                       LogicalName="MemoriaNote.Persistence.SchemaV2.Contracts.schema-v2.expected.json" />
   </ItemGroup>
+
+  <Target
+    Name="ResolveMemoriaNoteCorePackageIdentity"
+    BeforeTargets="BeforeCompile;GenerateNuspec">
+    <Exec
+      Command="git rev-parse HEAD"
+      ConsoleToMSBuild="true"
+      IgnoreExitCode="true"
+      StandardOutputImportance="Low"
+      StandardErrorImportance="Low"
+      WorkingDirectory="$(MSBuildThisFileDirectory)"
+      Condition="'$(MemoriaNoteFullCommitId)' == ''">
+      <Output TaskParameter="ConsoleOutput" PropertyName="MemoriaNoteFullCommitId" />
+    </Exec>
+
+    <PropertyGroup>
+      <MemoriaNoteFullCommitId>$([System.String]::Copy('$(MemoriaNoteFullCommitId)').Trim().ToLowerInvariant())</MemoriaNoteFullCommitId>
+      <MemoriaNoteShortPackageCommit Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$(MemoriaNoteFullCommitId)', '^[0-9a-f]{40}$'))">$([System.String]::Copy('$(MemoriaNoteFullCommitId)').Substring(0, 12))</MemoriaNoteShortPackageCommit>
+      <MemoriaNotePackageVersion Condition="'$(MemoriaNotePackageVersion)' == ''">$(MemoriaNoteProductVersion)-ecli1125.g$(MemoriaNoteShortPackageCommit)</MemoriaNotePackageVersion>
+      <PackageVersion>$(MemoriaNotePackageVersion)</PackageVersion>
+      <RepositoryCommit>$(MemoriaNoteFullCommitId)</RepositoryCommit>
+      <_MemoriaNoteIdentitySource>$(IntermediateOutputPath)MemoriaNote.Core.Identity.g.cs</_MemoriaNoteIdentitySource>
+    </PropertyGroup>
+
+    <Error
+      Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(MemoriaNoteFullCommitId)', '^[0-9a-f]{40}$'))"
+      Text="Core builds require a full Git commit ID. Build from a Git checkout or set MemoriaNoteFullCommitId explicitly." />
+    <Error
+      Condition="'$(MemoriaNotePackageVersion)' == ''"
+      Text="Core builds require a unique package version." />
+
+    <ItemGroup>
+      <_MemoriaNoteIdentityLine Include="#nullable enable" />
+      <_MemoriaNoteIdentityLine Include="[assembly: System.Reflection.AssemblyMetadataAttribute(&quot;MemoriaNote.PackageId&quot;, &quot;$(PackageId)&quot;)]" />
+      <_MemoriaNoteIdentityLine Include="[assembly: System.Reflection.AssemblyMetadataAttribute(&quot;MemoriaNote.PackageVersion&quot;, &quot;$(MemoriaNotePackageVersion)&quot;)]" />
+      <_MemoriaNoteIdentityLine Include="[assembly: System.Reflection.AssemblyMetadataAttribute(&quot;MemoriaNote.SourceCommit&quot;, &quot;$(MemoriaNoteFullCommitId)&quot;)]" />
+      <_MemoriaNoteIdentityLine Include="[assembly: System.Reflection.AssemblyMetadataAttribute(&quot;MemoriaNote.IntegrationContractRevision&quot;, &quot;$(MemoriaNoteIntegrationContractRevision)&quot;)]" />
+      <Compile Include="$(_MemoriaNoteIdentitySource)" />
+    </ItemGroup>
+    <WriteLinesToFile
+      File="$(_MemoriaNoteIdentitySource)"
+      Lines="@(_MemoriaNoteIdentityLine)"
+      Overwrite="true"
+      Encoding="UTF-8" />
+  </Target>
 
 </Project>
