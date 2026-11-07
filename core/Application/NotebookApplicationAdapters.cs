@@ -263,7 +263,7 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
             cancellationToken);
     }
 
-    public async Task<NotebookOperationResult<NotebookBodySearchResult>> SearchBodyAsync(
+    public async Task<NotebookOperationResult<NotebookBodySearchSession>> StartBodySearchAsync(
         NotebookBodySearchRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -271,14 +271,14 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
         _lifetime.ThrowIfDisposed();
         if (!Enum.IsDefined(request.Sort))
         {
-            return NotebookOperationResult<NotebookBodySearchResult>.Failed(
+            return NotebookOperationResult<NotebookBodySearchSession>.Failed(
                 NotebookFailureFactory.Validation(
                     "page.search.invalid_sort",
                     "The body-search sort is not supported."));
         }
         if (request.Limit is <= 0 or > NotebookBodySearchRequest.MaximumLimit)
         {
-            return NotebookOperationResult<NotebookBodySearchResult>.Failed(
+            return NotebookOperationResult<NotebookBodySearchSession>.Failed(
                 NotebookFailureFactory.Validation(
                     "page.search.invalid_limit",
                     $"A body-search limit must be between 1 and " +
@@ -288,7 +288,7 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
             request.Timeout > TimeSpan.FromSeconds(
                 NotebookBodySearchRequest.MaximumTimeoutSeconds))
         {
-            return NotebookOperationResult<NotebookBodySearchResult>.Failed(
+            return NotebookOperationResult<NotebookBodySearchSession>.Failed(
                 NotebookFailureFactory.Validation(
                     "page.search.invalid_timeout",
                     $"A body-search timeout must be greater than zero and at most " +
@@ -299,7 +299,7 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
                 out var parsed,
                 out var parseError))
         {
-            return NotebookOperationResult<NotebookBodySearchResult>.Failed(
+            return NotebookOperationResult<NotebookBodySearchSession>.Failed(
                 BodySearchFailure(parseError));
         }
 
@@ -313,11 +313,12 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
             },
             request.Limit,
             request.IncludeSnippet);
-        return await NotebookOperationExecutor.ExecuteWithTimeoutAsync(
-                async effectiveCancellationToken => Map(await _bodySearchReader
-                    .SearchAsync(_notebookId, query, effectiveCancellationToken)
-                    .ConfigureAwait(false)),
-                "page.search",
+        return await NotebookBodySearchSession.StartAsync(
+                effectiveCancellationToken => _bodySearchReader.StartAsync(
+                    _notebookId,
+                    query,
+                    effectiveCancellationToken),
+                _lifetime,
                 request.Timeout,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -488,21 +489,6 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
         page.UpdateTimeUtc,
         page.Revision);
 
-    private static NotebookBodySearchResult Map(RepositoryBodySearchResult result) => new(
-        result.Hits.Select(hit => new NotebookBodySearchHit(
-            hit.NotebookId,
-            hit.PageId,
-            hit.Name,
-            hit.UpdateTimeUtc,
-            hit.Snippet is null
-                ? null
-                : new NotebookBodySearchSnippet(
-                    hit.Snippet.Text,
-                    hit.Snippet.Matches.Select(match => new NotebookBodySearchMatch(
-                        match.Start,
-                        match.Length)).ToArray()))).ToArray(),
-        result.HasMore);
-
     private static NotebookFailure BodySearchFailure(BodySearchQueryParseError error) =>
         error switch
         {
@@ -566,38 +552,6 @@ internal static class NotebookOperationExecutor
         }
     }
 
-    internal static async Task<NotebookOperationResult<T>> ExecuteWithTimeoutAsync<T>(
-        Func<CancellationToken, Task<T>> operation,
-        string operationCode,
-        TimeSpan timeout,
-        CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(operation);
-        if (timeout <= TimeSpan.Zero)
-            throw new ArgumentOutOfRangeException(nameof(timeout));
-
-        cancellationToken.ThrowIfCancellationRequested();
-        using var timeoutCancellation = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken);
-        timeoutCancellation.CancelAfter(timeout);
-        try
-        {
-            return await ExecuteAsync(
-                    () => operation(timeoutCancellation.Token),
-                    operationCode,
-                    timeoutCancellation.Token)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (
-            !cancellationToken.IsCancellationRequested &&
-            timeoutCancellation.IsCancellationRequested)
-        {
-            return NotebookOperationResult<T>.Failed(
-                NotebookFailureFactory.Timeout(
-                    $"{operationCode}.timeout",
-                    "The operation exceeded its execution time limit."));
-        }
-    }
 }
 
 internal static class NotebookFailureFactory

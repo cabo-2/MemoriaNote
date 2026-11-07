@@ -15,7 +15,7 @@ public sealed class SchemaV2BodySearchRepositoryTests
 {
     /// <summary>Verifies literal AND matching does not interpret SQL or search operators.</summary>
     [Test]
-    public async Task SearchAsync_LiteralKeywords_AreBoundAsParameters()
+    public async Task StartAsync_LiteralKeywords_AreBoundAsParameters()
     {
         using var database = await TestDatabase.CreateAsync("literal-scan");
         await database.InsertPageAsync(
@@ -54,7 +54,7 @@ public sealed class SchemaV2BodySearchRepositoryTests
 
     /// <summary>Verifies both sorts, Page ID ties, limit, and hasMore are deterministic.</summary>
     [Test]
-    public async Task SearchAsync_SortsLimitsAndReportsHasMore()
+    public async Task Cursor_ReadAsync_StreamsSortsLimitsAndReportsHasMore()
     {
         using var database = await TestDatabase.CreateAsync("bounded-scan");
         await database.InsertPageAsync(
@@ -80,14 +80,16 @@ public sealed class SchemaV2BodySearchRepositoryTests
             "marker",
             RepositoryBodySearchSort.Name,
             limit: 2,
-            includeSnippet: false);
+            includeSnippet: false,
+            batchSize: 1);
         var byUpdated = await SearchAsync(
             repository,
             database,
             "marker",
             RepositoryBodySearchSort.Updated,
             limit: 3,
-            includeSnippet: false);
+            includeSnippet: false,
+            batchSize: 2);
 
         using (Assert.EnterMultipleScope())
         {
@@ -95,15 +97,17 @@ public sealed class SchemaV2BodySearchRepositoryTests
                 Is.EqualTo(new[] { "alpha", "bravo" }));
             Assert.That(byName.HasMore, Is.True);
             Assert.That(byName.Hits, Has.All.Property("Snippet").Null);
+            Assert.That(byName.BatchSizes, Is.EqualTo(new[] { 1, 1 }));
             Assert.That(byUpdated.Hits.Select(hit => hit.Name),
                 Is.EqualTo(new[] { "alpha", "zulu", "bravo" }));
             Assert.That(byUpdated.HasMore, Is.False);
+            Assert.That(byUpdated.BatchSizes, Is.EqualTo(new[] { 2, 1 }));
         }
     }
 
     /// <summary>Verifies Scan snippets are sanitized and expose only structured UTF-16 spans.</summary>
     [Test]
-    public async Task SearchAsync_WithSnippet_ReturnsSanitizedTextAndMatches()
+    public async Task Cursor_ReadAsync_WithSnippet_ReturnsSanitizedTextAndMatches()
     {
         using var database = await TestDatabase.CreateAsync("scan-snippet");
         await database.InsertPageAsync(
@@ -126,7 +130,7 @@ public sealed class SchemaV2BodySearchRepositoryTests
 
     /// <summary>Verifies pre-cancellation is propagated before database access.</summary>
     [Test]
-    public async Task SearchAsync_PreCanceled_ThrowsCancellation()
+    public async Task StartAsync_PreCanceled_ThrowsCancellation()
     {
         using var database = await TestDatabase.CreateAsync("canceled-scan");
         var repository = new SchemaV2BodySearchRepository();
@@ -135,23 +139,39 @@ public sealed class SchemaV2BodySearchRepositoryTests
         cancellation.Cancel();
 
         Assert.That(
-            async () => await repository.SearchAsync(
+            async () => await repository.StartAsync(
                 database.NotebookId,
                 query,
                 cancellation.Token),
             Throws.InstanceOf<OperationCanceledException>());
     }
 
-    private static Task<RepositoryBodySearchResult> SearchAsync(
+    private static async Task<SearchResult> SearchAsync(
         SchemaV2BodySearchRepository repository,
         TestDatabase database,
         string source,
         RepositoryBodySearchSort sort = RepositoryBodySearchSort.Name,
         int limit = 20,
-        bool includeSnippet = true) => repository.SearchAsync(
+        bool includeSnippet = true,
+        int batchSize = 20)
+    {
+        await using var cursor = await repository.StartAsync(
             database.NotebookId,
             Parse(source, sort, limit, includeSnippet),
             CancellationToken.None);
+        var hits = new List<RepositoryBodySearchHit>();
+        var batchSizes = new List<int>();
+        RepositoryBodySearchBatch batch;
+        do
+        {
+            batch = await cursor.ReadAsync(batchSize, CancellationToken.None);
+            hits.AddRange(batch.Hits);
+            batchSizes.Add(batch.Hits.Count);
+        }
+        while (!batch.IsCompleted);
+
+        return new SearchResult(hits, batchSizes, batch.HasMore);
+    }
 
     private static RepositoryBodySearchQuery Parse(
         string source,
@@ -165,6 +185,11 @@ public sealed class SchemaV2BodySearchRepositoryTests
             error.ToString());
         return new RepositoryBodySearchQuery(query!, sort, limit, includeSnippet);
     }
+
+    private sealed record SearchResult(
+        IReadOnlyList<RepositoryBodySearchHit> Hits,
+        IReadOnlyList<int> BatchSizes,
+        bool HasMore);
 
     private sealed class TestDatabase : IDisposable
     {

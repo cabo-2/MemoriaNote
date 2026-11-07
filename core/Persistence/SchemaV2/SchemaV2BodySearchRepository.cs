@@ -1,7 +1,6 @@
 #nullable enable
 
 using System;
-using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,7 +15,7 @@ namespace MemoriaNote.Persistence.SchemaV2;
 /// <summary>Searches authoritative Schema V2 page bodies with literal SQLite scans.</summary>
 internal sealed class SchemaV2BodySearchRepository : INotebookBodySearchReader
 {
-    public async Task<RepositoryBodySearchResult> SearchAsync(
+    public async Task<INotebookBodySearchCursor> StartAsync(
         NotebookId notebookId,
         RepositoryBodySearchQuery query,
         CancellationToken cancellationToken)
@@ -25,52 +24,53 @@ internal sealed class SchemaV2BodySearchRepository : INotebookBodySearchReader
         ArgumentNullException.ThrowIfNull(query);
         cancellationToken.ThrowIfCancellationRequested();
 
-        await using var connection = await SqliteConnectionFactory.OpenAsync(
-                notebookId.Locator,
-                SqliteOpenMode.ReadOnly,
-                cancellationToken)
-            .ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        var statement = new StringBuilder(query.IncludeSnippet
-            ? "SELECT PageId, Name, UpdateTime, Text FROM Pages WHERE "
-            : "SELECT PageId, Name, UpdateTime FROM Pages WHERE ");
-        for (var index = 0; index < query.Query.Keywords.Count; index++)
+        SqliteConnection? connection = null;
+        SqliteCommand? command = null;
+        SqliteDataReader? reader = null;
+        try
         {
-            if (index > 0)
-                statement.Append(" AND ");
-            var parameterName = $"$keyword{index}";
-            statement.Append("instr(Text, ").Append(parameterName).Append(") > 0");
-            command.Parameters.AddWithValue(parameterName, query.Query.Keywords[index]);
-        }
-        statement.Append(" ORDER BY ").Append(OrderBy(query.Sort));
-        statement.Append(" LIMIT $fetchCount;");
-        command.Parameters.AddWithValue("$fetchCount", query.Limit + 1);
-        command.CommandText = statement.ToString();
-
-        await using var reader = await command
-            .ExecuteReaderAsync(cancellationToken)
-            .ConfigureAwait(false);
-        var hits = new List<RepositoryBodySearchHit>(query.Limit);
-        var hasMore = false;
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            if (hits.Count == query.Limit)
+            connection = await SqliteConnectionFactory.OpenAsync(
+                    notebookId.Locator,
+                    SqliteOpenMode.ReadOnly,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            command = connection.CreateCommand();
+            var statement = new StringBuilder(query.IncludeSnippet
+                ? "SELECT PageId, Name, UpdateTime, Text FROM Pages WHERE "
+                : "SELECT PageId, Name, UpdateTime FROM Pages WHERE ");
+            for (var index = 0; index < query.Query.Keywords.Count; index++)
             {
-                hasMore = true;
-                break;
+                if (index > 0)
+                    statement.Append(" AND ");
+                var parameterName = $"$keyword{index}";
+                statement.Append("instr(Text, ").Append(parameterName).Append(") > 0");
+                command.Parameters.AddWithValue(parameterName, query.Query.Keywords[index]);
             }
+            statement.Append(" ORDER BY ").Append(OrderBy(query.Sort));
+            statement.Append(" LIMIT $fetchCount;");
+            command.Parameters.AddWithValue("$fetchCount", query.Limit + 1);
+            command.CommandText = statement.ToString();
 
-            hits.Add(new RepositoryBodySearchHit(
+            reader = await command
+                .ExecuteReaderAsync(cancellationToken)
+                .ConfigureAwait(false);
+            return new SchemaV2BodySearchCursor(
                 notebookId,
-                PageId.FromUuid(reader.GetString(0)),
-                reader.GetString(1),
-                SchemaV2PageValueCodec.ParseTimestamp(reader.GetString(2)),
-                query.IncludeSnippet
-                    ? BodySearchSnippetBuilder.Build(reader.GetString(3), query.Query.Keywords)
-                    : null));
+                query,
+                connection,
+                command,
+                reader);
         }
-
-        return new RepositoryBodySearchResult(hits.AsReadOnly(), hasMore);
+        catch
+        {
+            if (reader is not null)
+                await reader.DisposeAsync().ConfigureAwait(false);
+            if (command is not null)
+                await command.DisposeAsync().ConfigureAwait(false);
+            if (connection is not null)
+                await connection.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
     }
 
     private static string OrderBy(RepositoryBodySearchSort sort) => sort switch

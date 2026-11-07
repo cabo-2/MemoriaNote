@@ -47,19 +47,25 @@ internal sealed record RepositoryBodySearchHit(
     DateTimeOffset UpdateTimeUtc,
     BodySearchSnippet? Snippet);
 
-internal sealed class RepositoryBodySearchResult
+internal sealed class RepositoryBodySearchBatch
 {
     private readonly IReadOnlyList<RepositoryBodySearchHit> _hits;
 
-    internal RepositoryBodySearchResult(
+    internal RepositoryBodySearchBatch(
         IReadOnlyList<RepositoryBodySearchHit> hits,
+        bool isCompleted,
         bool hasMore)
     {
+        if (hasMore && !isCompleted)
+            throw new ArgumentException("An incomplete batch cannot report additional matches.");
         _hits = new ReadOnlyCollection<RepositoryBodySearchHit>([.. hits]);
+        IsCompleted = isCompleted;
         HasMore = hasMore;
     }
 
     internal IReadOnlyList<RepositoryBodySearchHit> Hits => _hits;
+
+    internal bool IsCompleted { get; }
 
     internal bool HasMore { get; }
 }

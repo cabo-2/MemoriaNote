@@ -150,53 +150,61 @@ public sealed class NotebookApplicationTests
                 NotebookFailureCategory.Validation,
                 "page.query.pattern_too_long");
 
-            var bodySearch = await session.Pages.SearchBodyAsync(
+            var bodySearch = await session.Pages.StartBodySearchAsync(
                 new NotebookBodySearchRequest(
                     "updated body",
                     NotebookBodySearchSort.Name));
             Assert.That(bodySearch.IsSuccess, Is.True);
+            await using var bodySearchSession = bodySearch.Value!;
+            var bodySearchBatch = await bodySearchSession.ReadAsync(1);
             using (Assert.EnterMultipleScope())
             {
-                Assert.That(bodySearch.Value!.Hits.Select(hit => hit.Name),
+                Assert.That(bodySearchBatch.Value!.Hits.Select(hit => hit.Name),
                     Is.EqualTo(new[] { "renamed" }));
-                Assert.That(bodySearch.Value.HasMore, Is.False);
-                Assert.That(bodySearch.Value.Hits.Single().PageId,
+                Assert.That(bodySearchBatch.Value.IsCompleted, Is.True);
+                Assert.That(bodySearchBatch.Value.HasMore, Is.False);
+                Assert.That(bodySearchBatch.Value.Hits.Single().PageId,
                     Is.EqualTo(replaced.Value.PageId));
-                Assert.That(bodySearch.Value.Hits.Single().Snippet!.Text,
+                Assert.That(bodySearchBatch.Value.Hits.Single().Snippet!.Text,
                     Is.EqualTo("updated body"));
                 Assert.That(
-                    bodySearch.Value.Hits.Single().Snippet!.Matches
+                    bodySearchBatch.Value.Hits.Single().Snippet!.Matches
                         .Select(match => (match.Start, match.Length)),
                     Is.EqualTo(new[] { (0, 7), (8, 4) }));
             }
 
-            var bodySearchWithoutSnippet = await session.Pages.SearchBodyAsync(
+            var bodySearchWithoutSnippet = await session.Pages.StartBodySearchAsync(
                 new NotebookBodySearchRequest(
                     "body",
                     NotebookBodySearchSort.Updated,
                     limit: 1,
                     includeSnippet: false));
+            await using var bodySearchWithoutSnippetSession = bodySearchWithoutSnippet.Value!;
+            var bodySearchWithoutSnippetBatch =
+                await bodySearchWithoutSnippetSession.ReadAsync();
             using (Assert.EnterMultipleScope())
             {
-                Assert.That(bodySearchWithoutSnippet.Value!.Hits, Has.Count.EqualTo(1));
-                Assert.That(bodySearchWithoutSnippet.Value.HasMore, Is.True);
-                Assert.That(bodySearchWithoutSnippet.Value.Hits.Single().Snippet, Is.Null);
+                Assert.That(bodySearchWithoutSnippetBatch.Value!.Hits, Has.Count.EqualTo(1));
+                Assert.That(bodySearchWithoutSnippetBatch.Value.HasMore, Is.True);
+                Assert.That(
+                    bodySearchWithoutSnippetBatch.Value.Hits.Single().Snippet,
+                    Is.Null);
             }
 
             AssertFailure(
-                await session.Pages.SearchBodyAsync(
+                await session.Pages.StartBodySearchAsync(
                     new NotebookBodySearchRequest("   ", NotebookBodySearchSort.Name)),
                 NotebookFailureCategory.Validation,
                 "page.search.empty_query");
             AssertFailure(
-                await session.Pages.SearchBodyAsync(
+                await session.Pages.StartBodySearchAsync(
                     new NotebookBodySearchRequest(
                         "body",
                         (NotebookBodySearchSort)999)),
                 NotebookFailureCategory.Validation,
                 "page.search.invalid_sort");
             AssertFailure(
-                await session.Pages.SearchBodyAsync(
+                await session.Pages.StartBodySearchAsync(
                     new NotebookBodySearchRequest(
                         "body",
                         NotebookBodySearchSort.Name,
@@ -204,7 +212,7 @@ public sealed class NotebookApplicationTests
                 NotebookFailureCategory.Validation,
                 "page.search.invalid_limit");
             AssertFailure(
-                await session.Pages.SearchBodyAsync(
+                await session.Pages.StartBodySearchAsync(
                     new NotebookBodySearchRequest(
                         "body",
                         NotebookBodySearchSort.Name,
@@ -212,7 +220,7 @@ public sealed class NotebookApplicationTests
                 NotebookFailureCategory.Validation,
                 "page.search.invalid_timeout");
             AssertFailure(
-                await session.Pages.SearchBodyAsync(
+                await session.Pages.StartBodySearchAsync(
                     new NotebookBodySearchRequest(
                         new string(
                             'a',
@@ -283,19 +291,23 @@ public sealed class NotebookApplicationTests
 
         Assert.That(result.IsSuccess, Is.True);
         await using var session = result.Value!;
-        var scan = await session.Pages.SearchBodyAsync(
+        var scan = await session.Pages.StartBodySearchAsync(
             new NotebookBodySearchRequest("body", NotebookBodySearchSort.Name));
+        await using var scanSession = scan.Value!;
+        var scanBatch = await scanSession.ReadAsync();
         using (Assert.EnterMultipleScope())
         {
             Assert.That((await session.Pages.CountAsync()).Value, Is.EqualTo(1));
             Assert.That(scan.IsSuccess, Is.True);
-            Assert.That(scan.Value!.Hits.Select(hit => hit.Name), Is.EqualTo(new[] { "page" }));
+            Assert.That(
+                scanBatch.Value!.Hits.Select(hit => hit.Name),
+                Is.EqualTo(new[] { "page" }));
         }
     }
 
     /// <summary>Verifies body search propagates caller cancellation and classifies storage access.</summary>
     [Test]
-    public async Task SearchBodyAsync_ClassifiesCancellationAndStorageFailure()
+    public async Task StartBodySearchAsync_ClassifiesCancellationAndStorageFailure()
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("search-failure.mnote");
@@ -309,11 +321,11 @@ public sealed class NotebookApplicationTests
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         Assert.That(
-            async () => await session.Pages.SearchBodyAsync(request, cancellation.Token),
+            async () => await session.Pages.StartBodySearchAsync(request, cancellation.Token),
             Throws.InstanceOf<OperationCanceledException>());
 
         File.Move(databasePath, directory.GetPath("moved.mnote"));
-        var inaccessible = await session.Pages.SearchBodyAsync(request);
+        var inaccessible = await session.Pages.StartBodySearchAsync(request);
 
         AssertFailure(
             inaccessible,

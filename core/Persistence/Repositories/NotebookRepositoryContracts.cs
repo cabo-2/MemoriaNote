@@ -104,9 +104,17 @@ internal interface INotebookPageReader
 /// <summary>Searches authoritative page bodies without exposing provider syntax.</summary>
 internal interface INotebookBodySearchReader
 {
-    Task<RepositoryBodySearchResult> SearchAsync(
+    Task<INotebookBodySearchCursor> StartAsync(
         NotebookId notebookId,
         RepositoryBodySearchQuery query,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>Reads bounded body-search batches from one provider query.</summary>
+internal interface INotebookBodySearchCursor : IAsyncDisposable
+{
+    ValueTask<RepositoryBodySearchBatch> ReadAsync(
+        int maximumCount,
         CancellationToken cancellationToken);
 }
 

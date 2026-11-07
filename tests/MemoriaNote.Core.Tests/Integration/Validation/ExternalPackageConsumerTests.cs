@@ -60,6 +60,8 @@ public sealed class ExternalPackageConsumerTests
             "dotnet",
             "restore",
             "ExternalConsumer.csproj",
+            "--packages",
+            directory.GetPath("packages"),
             "--configfile",
             "NuGet.Config",
             "--ignore-failed-sources");
@@ -184,7 +186,7 @@ public sealed class ExternalPackageConsumerTests
             return 13;
         }
 
-        var search = await session.Pages.SearchBodyAsync(
+        var search = await session.Pages.StartBodySearchAsync(
             new NotebookBodySearchRequest(
                 "body",
                 NotebookBodySearchSort.Name,
@@ -193,12 +195,16 @@ public sealed class ExternalPackageConsumerTests
         {
             return 15;
         }
-        var searchValue = search.Value;
-        if (searchValue.Hits.Count != 1 ||
-            searchValue.Hits[0].PageId != page.Value!.PageId ||
-            searchValue.Hits[0].Snippet is null ||
-            searchValue.Hits[0].Snippet!.Matches.Count != 1 ||
-            searchValue.HasMore)
+        await using var searchSession = search.Value;
+        var searchBatch = await searchSession.ReadAsync(1);
+        if (!searchBatch.IsSuccess ||
+            searchBatch.Value is null ||
+            searchBatch.Value.Hits.Count != 1 ||
+            searchBatch.Value.Hits[0].PageId != page.Value!.PageId ||
+            searchBatch.Value.Hits[0].Snippet is null ||
+            searchBatch.Value.Hits[0].Snippet!.Matches.Count != 1 ||
+            !searchBatch.Value.IsCompleted ||
+            searchBatch.Value.HasMore)
         {
             return 16;
         }

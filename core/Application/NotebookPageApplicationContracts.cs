@@ -284,21 +284,29 @@ public sealed class NotebookBodySearchHit
     public NotebookBodySearchSnippet? Snippet { get; }
 }
 
-/// <summary>Contains one bounded body-search result set.</summary>
-public sealed class NotebookBodySearchResult
+/// <summary>Contains one incrementally read body-search batch.</summary>
+public sealed class NotebookBodySearchBatch
 {
-    internal NotebookBodySearchResult(
+    internal NotebookBodySearchBatch(
         IReadOnlyList<NotebookBodySearchHit> hits,
+        bool isCompleted,
         bool hasMore)
     {
         Hits = Array.AsReadOnly([.. hits]);
+        IsCompleted = isCompleted;
         HasMore = hasMore;
     }
 
     /// <summary>Gets the ordered search hits.</summary>
     public IReadOnlyList<NotebookBodySearchHit> Hits { get; }
 
-    /// <summary>Gets whether at least one additional hit exists.</summary>
+    /// <summary>Gets whether the single provider query has reached its terminal state.</summary>
+    public bool IsCompleted { get; }
+
+    /// <summary>
+    /// Gets whether at least one hit exists beyond the request limit.
+    /// This value is false until <see cref="IsCompleted"/> is true.
+    /// </summary>
     public bool HasMore { get; }
 }
 
@@ -393,8 +401,8 @@ public interface INotebookPageApplication
         NotebookPageQueryRequest request,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Searches authoritative page bodies for every literal query keyword.</summary>
-    Task<NotebookOperationResult<NotebookBodySearchResult>> SearchBodyAsync(
+    /// <summary>Starts one streaming search of authoritative page bodies.</summary>
+    Task<NotebookOperationResult<NotebookBodySearchSession>> StartBodySearchAsync(
         NotebookBodySearchRequest request,
         CancellationToken cancellationToken = default);
 
