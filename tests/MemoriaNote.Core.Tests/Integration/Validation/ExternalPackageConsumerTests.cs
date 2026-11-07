@@ -184,6 +184,25 @@ public sealed class ExternalPackageConsumerTests
             return 13;
         }
 
+        var search = await session.Pages.SearchBodyAsync(
+            new NotebookBodySearchRequest(
+                "body",
+                NotebookBodySearchSort.Name,
+                limit: 1));
+        if (!search.IsSuccess || search.Value is null)
+        {
+            return 15;
+        }
+        var searchValue = search.Value;
+        if (searchValue.Hits.Count != 1 ||
+            searchValue.Hits[0].PageId != page.Value!.PageId ||
+            searchValue.Hits[0].Snippet is null ||
+            searchValue.Hits[0].Snippet!.Matches.Count != 1 ||
+            searchValue.HasMore)
+        {
+            return 16;
+        }
+
         var validation = NotebookValidation.CreateSession(session);
         var check = await validation.CheckAsync(
         [

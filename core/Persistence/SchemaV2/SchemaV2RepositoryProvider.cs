@@ -13,6 +13,7 @@ internal sealed class SchemaV2RepositoryProvider : IWritableNotebookRepositoryPr
 
     private readonly SchemaV2MetadataRepository _metadataRepository = new();
     private readonly SchemaV2PageRepository _pageRepository;
+    private readonly SchemaV2BodySearchRepository _bodySearchRepository = new();
 
     internal SchemaV2RepositoryProvider(IClock clock)
     {
@@ -27,6 +28,8 @@ internal sealed class SchemaV2RepositoryProvider : IWritableNotebookRepositoryPr
     public INotebookMetadataWriter MetadataWriter => _metadataRepository;
 
     public INotebookPageReader PageReader => _pageRepository;
+
+    public INotebookBodySearchReader BodySearchReader => _bodySearchRepository;
 
     public INotebookPageWriter PageWriter => _pageRepository;
 }

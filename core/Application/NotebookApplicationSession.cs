@@ -25,6 +25,7 @@ public sealed class NotebookApplicationSession : IAsyncDisposable
             notebook.NotebookId,
             provider.MetadataReader,
             provider.PageReader,
+            provider.BodySearchReader,
             provider.PageWriter,
             _lifetime);
     }
