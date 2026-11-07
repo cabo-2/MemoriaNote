@@ -263,7 +263,7 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
             cancellationToken);
     }
 
-    public Task<NotebookOperationResult<NotebookBodySearchResult>> SearchBodyAsync(
+    public async Task<NotebookOperationResult<NotebookBodySearchResult>> SearchBodyAsync(
         NotebookBodySearchRequest request,
         CancellationToken cancellationToken = default)
     {
@@ -271,26 +271,36 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
         _lifetime.ThrowIfDisposed();
         if (!Enum.IsDefined(request.Sort))
         {
-            return Task.FromResult(NotebookOperationResult<NotebookBodySearchResult>.Failed(
+            return NotebookOperationResult<NotebookBodySearchResult>.Failed(
                 NotebookFailureFactory.Validation(
                     "page.search.invalid_sort",
-                    "The body-search sort is not supported.")));
+                    "The body-search sort is not supported."));
         }
         if (request.Limit is <= 0 or > NotebookBodySearchRequest.MaximumLimit)
         {
-            return Task.FromResult(NotebookOperationResult<NotebookBodySearchResult>.Failed(
+            return NotebookOperationResult<NotebookBodySearchResult>.Failed(
                 NotebookFailureFactory.Validation(
                     "page.search.invalid_limit",
                     $"A body-search limit must be between 1 and " +
-                    $"{NotebookBodySearchRequest.MaximumLimit}.")));
+                    $"{NotebookBodySearchRequest.MaximumLimit}."));
+        }
+        if (request.Timeout <= TimeSpan.Zero ||
+            request.Timeout > TimeSpan.FromSeconds(
+                NotebookBodySearchRequest.MaximumTimeoutSeconds))
+        {
+            return NotebookOperationResult<NotebookBodySearchResult>.Failed(
+                NotebookFailureFactory.Validation(
+                    "page.search.invalid_timeout",
+                    $"A body-search timeout must be greater than zero and at most " +
+                    $"{NotebookBodySearchRequest.MaximumTimeoutSeconds} seconds."));
         }
         if (!BodySearchQueryParser.TryParse(
                 request.Query,
                 out var parsed,
                 out var parseError))
         {
-            return Task.FromResult(NotebookOperationResult<NotebookBodySearchResult>.Failed(
-                BodySearchFailure(parseError)));
+            return NotebookOperationResult<NotebookBodySearchResult>.Failed(
+                BodySearchFailure(parseError));
         }
 
         var query = new RepositoryBodySearchQuery(
@@ -303,12 +313,14 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
             },
             request.Limit,
             request.IncludeSnippet);
-        return NotebookOperationExecutor.ExecuteAsync(
-            async () => Map(await _bodySearchReader
-                .SearchAsync(_notebookId, query, cancellationToken)
-                .ConfigureAwait(false)),
-            "page.search",
-            cancellationToken);
+        return await NotebookOperationExecutor.ExecuteWithTimeoutAsync(
+                async effectiveCancellationToken => Map(await _bodySearchReader
+                    .SearchAsync(_notebookId, query, effectiveCancellationToken)
+                    .ConfigureAwait(false)),
+                "page.search",
+                request.Timeout,
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     public async Task<NotebookOperationResult<NotebookPage>> CreateAsync(
@@ -553,6 +565,39 @@ internal static class NotebookOperationExecutor
                 NotebookFailureFactory.FromException(exception, operationCode));
         }
     }
+
+    internal static async Task<NotebookOperationResult<T>> ExecuteWithTimeoutAsync<T>(
+        Func<CancellationToken, Task<T>> operation,
+        string operationCode,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        if (timeout <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(timeout));
+
+        cancellationToken.ThrowIfCancellationRequested();
+        using var timeoutCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken);
+        timeoutCancellation.CancelAfter(timeout);
+        try
+        {
+            return await ExecuteAsync(
+                    () => operation(timeoutCancellation.Token),
+                    operationCode,
+                    timeoutCancellation.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (
+            !cancellationToken.IsCancellationRequested &&
+            timeoutCancellation.IsCancellationRequested)
+        {
+            return NotebookOperationResult<T>.Failed(
+                NotebookFailureFactory.Timeout(
+                    $"{operationCode}.timeout",
+                    "The operation exceeded its execution time limit."));
+        }
+    }
 }
 
 internal static class NotebookFailureFactory
@@ -568,6 +613,9 @@ internal static class NotebookFailureFactory
 
     internal static NotebookFailure Format(string code, string message) =>
         new(NotebookFailureCategory.Format, code, message);
+
+    internal static NotebookFailure Timeout(string code, string message) =>
+        new(NotebookFailureCategory.Timeout, code, message);
 
     internal static bool IsClassifiable(Exception exception) =>
         exception is ArgumentException or InvalidDataException or IOException or

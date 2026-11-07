@@ -171,6 +171,12 @@ public sealed class NotebookBodySearchRequest
     /// <summary>The largest accepted query length in Unicode scalars.</summary>
     public const int MaximumQueryScalarCount = 1024;
 
+    /// <summary>The default search execution time limit in seconds.</summary>
+    public const int DefaultTimeoutSeconds = 30;
+
+    /// <summary>The largest accepted search execution time limit in seconds.</summary>
+    public const int MaximumTimeoutSeconds = 600;
+
     /// <summary>Initializes an authoritative-body search request.</summary>
     /// <param name="query">
     /// The query split on Unicode whitespace into literal keywords joined by logical AND.
@@ -178,16 +184,21 @@ public sealed class NotebookBodySearchRequest
     /// <param name="sort">The deterministic ordering to apply.</param>
     /// <param name="limit">The positive maximum number of hits to return.</param>
     /// <param name="includeSnippet">Whether each hit should include a structured snippet.</param>
+    /// <param name="timeout">
+    /// The positive execution time limit, or null to use <see cref="DefaultTimeoutSeconds"/>.
+    /// </param>
     public NotebookBodySearchRequest(
         string query,
         NotebookBodySearchSort sort,
         int limit = DefaultLimit,
-        bool includeSnippet = true)
+        bool includeSnippet = true,
+        TimeSpan? timeout = null)
     {
         Query = query ?? throw new ArgumentNullException(nameof(query));
         Sort = sort;
         Limit = limit;
         IncludeSnippet = includeSnippet;
+        Timeout = timeout ?? TimeSpan.FromSeconds(DefaultTimeoutSeconds);
     }
 
     /// <summary>Gets the unparsed query text.</summary>
@@ -201,6 +212,9 @@ public sealed class NotebookBodySearchRequest
 
     /// <summary>Gets whether each hit should include a structured snippet.</summary>
     public bool IncludeSnippet { get; }
+
+    /// <summary>Gets the application-level execution time limit.</summary>
+    public TimeSpan Timeout { get; }
 }
 
 /// <summary>Identifies one matched range in sanitized snippet text.</summary>

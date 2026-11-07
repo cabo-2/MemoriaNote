@@ -206,6 +206,14 @@ public sealed class NotebookApplicationTests
             AssertFailure(
                 await session.Pages.SearchBodyAsync(
                     new NotebookBodySearchRequest(
+                        "body",
+                        NotebookBodySearchSort.Name,
+                        timeout: TimeSpan.Zero)),
+                NotebookFailureCategory.Validation,
+                "page.search.invalid_timeout");
+            AssertFailure(
+                await session.Pages.SearchBodyAsync(
+                    new NotebookBodySearchRequest(
                         new string(
                             'a',
                             NotebookBodySearchRequest.MaximumKeywordScalarCount + 1),

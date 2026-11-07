@@ -26,7 +26,10 @@ public enum NotebookFailureCategory
     AccessOrBusy,
 
     /// <summary>An unclassified storage failure prevented the operation.</summary>
-    UnexpectedStorage
+    UnexpectedStorage,
+
+    /// <summary>The operation exceeded its application-level execution time limit.</summary>
+    Timeout
 }
 
 /// <summary>Describes a predictable application-surface failure without provider details.</summary>

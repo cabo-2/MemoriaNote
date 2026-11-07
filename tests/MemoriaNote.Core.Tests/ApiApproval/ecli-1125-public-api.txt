@@ -36,13 +36,16 @@ public sealed class MemoriaNote.Application.NotebookBodySearchMatch
   property int Start { get; }
 
 public sealed class MemoriaNote.Application.NotebookBodySearchRequest
-  constructor (string query, MemoriaNote.Application.NotebookBodySearchSort sort, int limit = 20, bool includeSnippet = true)
+  constructor (string query, MemoriaNote.Application.NotebookBodySearchSort sort, int limit = 20, bool includeSnippet = true, System.TimeSpan? timeout = default)
   field int DefaultLimit = 20
+  field int DefaultTimeoutSeconds = 30
   field int MaximumKeywordCount = 16
   field int MaximumKeywordScalarCount = 128
   field int MaximumLimit = 1000
   field int MaximumQueryScalarCount = 1024
+  field int MaximumTimeoutSeconds = 600
   property MemoriaNote.Application.NotebookBodySearchSort Sort { get; }
+  property System.TimeSpan Timeout { get; }
   property bool IncludeSnippet { get; }
   property int Limit { get; }
   property string Query { get; }
@@ -79,6 +82,7 @@ public enum MemoriaNote.Application.NotebookFailureCategory
   value DerivedData = 4
   value Format = 3
   value NotFound = 1
+  value Timeout = 7
   value UnexpectedStorage = 6
   value Validation = 0
 
