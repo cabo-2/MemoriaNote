@@ -37,6 +37,8 @@ internal interface INotebookRepositoryProvider
     INotebookMetadataReader MetadataReader { get; }
 
     INotebookPageReader PageReader { get; }
+
+    INotebookBodySearchReader BodySearchReader { get; }
 }
 
 /// <summary>Supplies read and write ports for one operational notebook format.</summary>
@@ -96,6 +98,23 @@ internal interface INotebookPageReader
     Task<IReadOnlyList<RepositoryPageSummary>> QuerySummariesAsync(
         NotebookId notebookId,
         RepositoryPageQuery query,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>Searches authoritative page bodies without exposing provider syntax.</summary>
+internal interface INotebookBodySearchReader
+{
+    Task<INotebookBodySearchCursor> StartAsync(
+        NotebookId notebookId,
+        RepositoryBodySearchQuery query,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>Reads bounded body-search batches from one provider query.</summary>
+internal interface INotebookBodySearchCursor : IAsyncDisposable
+{
+    ValueTask<RepositoryBodySearchBatch> ReadAsync(
+        int maximumCount,
         CancellationToken cancellationToken);
 }
 

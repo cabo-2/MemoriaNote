@@ -143,6 +143,173 @@ public sealed class NotebookPageQueryRequest
     public int? Limit { get; }
 }
 
+/// <summary>Identifies one deterministic body-search ordering.</summary>
+public enum NotebookBodySearchSort
+{
+    /// <summary>Orders by binary page name and then by Page ID.</summary>
+    Name,
+
+    /// <summary>Orders by last-update time, newest first, and then by Page ID.</summary>
+    Updated
+}
+
+/// <summary>Describes a storage-independent search of authoritative page bodies.</summary>
+public sealed class NotebookBodySearchRequest
+{
+    /// <summary>The default maximum number of hits returned by one search.</summary>
+    public const int DefaultLimit = 20;
+
+    /// <summary>The largest accepted result limit.</summary>
+    public const int MaximumLimit = 1000;
+
+    /// <summary>The largest accepted number of distinct keywords.</summary>
+    public const int MaximumKeywordCount = 16;
+
+    /// <summary>The largest accepted keyword length in Unicode scalars.</summary>
+    public const int MaximumKeywordScalarCount = 128;
+
+    /// <summary>The largest accepted query length in Unicode scalars.</summary>
+    public const int MaximumQueryScalarCount = 1024;
+
+    /// <summary>The default search execution time limit in seconds.</summary>
+    public const int DefaultTimeoutSeconds = 30;
+
+    /// <summary>The largest accepted search execution time limit in seconds.</summary>
+    public const int MaximumTimeoutSeconds = 600;
+
+    /// <summary>Initializes an authoritative-body search request.</summary>
+    /// <param name="query">
+    /// The query split on Unicode whitespace into literal keywords joined by logical AND.
+    /// </param>
+    /// <param name="sort">The deterministic ordering to apply.</param>
+    /// <param name="limit">The positive maximum number of hits to return.</param>
+    /// <param name="includeSnippet">Whether each hit should include a structured snippet.</param>
+    /// <param name="timeout">
+    /// The positive execution time limit, or null to use <see cref="DefaultTimeoutSeconds"/>.
+    /// </param>
+    public NotebookBodySearchRequest(
+        string query,
+        NotebookBodySearchSort sort,
+        int limit = DefaultLimit,
+        bool includeSnippet = true,
+        TimeSpan? timeout = null)
+    {
+        Query = query ?? throw new ArgumentNullException(nameof(query));
+        Sort = sort;
+        Limit = limit;
+        IncludeSnippet = includeSnippet;
+        Timeout = timeout ?? TimeSpan.FromSeconds(DefaultTimeoutSeconds);
+    }
+
+    /// <summary>Gets the unparsed query text.</summary>
+    public string Query { get; }
+
+    /// <summary>Gets the deterministic result ordering.</summary>
+    public NotebookBodySearchSort Sort { get; }
+
+    /// <summary>Gets the maximum number of hits to return.</summary>
+    public int Limit { get; }
+
+    /// <summary>Gets whether each hit should include a structured snippet.</summary>
+    public bool IncludeSnippet { get; }
+
+    /// <summary>Gets the application-level execution time limit.</summary>
+    public TimeSpan Timeout { get; }
+}
+
+/// <summary>Identifies one matched range in sanitized snippet text.</summary>
+public sealed class NotebookBodySearchMatch
+{
+    internal NotebookBodySearchMatch(int start, int length)
+    {
+        Start = start;
+        Length = length;
+    }
+
+    /// <summary>Gets the zero-based UTF-16 start offset in the snippet text.</summary>
+    public int Start { get; }
+
+    /// <summary>Gets the positive UTF-16 length in the snippet text.</summary>
+    public int Length { get; }
+}
+
+/// <summary>Contains sanitized snippet text and its visible match ranges.</summary>
+public sealed class NotebookBodySearchSnippet
+{
+    internal NotebookBodySearchSnippet(
+        string text,
+        IReadOnlyList<NotebookBodySearchMatch> matches)
+    {
+        Text = text;
+        Matches = Array.AsReadOnly([.. matches]);
+    }
+
+    /// <summary>Gets the sanitized plain text.</summary>
+    public string Text { get; }
+
+    /// <summary>Gets ordered, non-overlapping UTF-16 match ranges.</summary>
+    public IReadOnlyList<NotebookBodySearchMatch> Matches { get; }
+}
+
+/// <summary>Represents one authoritative-body search hit.</summary>
+public sealed class NotebookBodySearchHit
+{
+    internal NotebookBodySearchHit(
+        NotebookId notebookId,
+        PageId pageId,
+        string name,
+        DateTimeOffset updateTimeUtc,
+        NotebookBodySearchSnippet? snippet)
+    {
+        NotebookId = notebookId;
+        PageId = pageId;
+        Name = name;
+        UpdateTimeUtc = updateTimeUtc;
+        Snippet = snippet;
+    }
+
+    /// <summary>Gets the owning notebook identifier.</summary>
+    public NotebookId NotebookId { get; }
+
+    /// <summary>Gets the stable page identifier.</summary>
+    public PageId PageId { get; }
+
+    /// <summary>Gets the page name.</summary>
+    public string Name { get; }
+
+    /// <summary>Gets the UTC last-update timestamp.</summary>
+    public DateTimeOffset UpdateTimeUtc { get; }
+
+    /// <summary>Gets the structured snippet, or null when snippet generation was disabled.</summary>
+    public NotebookBodySearchSnippet? Snippet { get; }
+}
+
+/// <summary>Contains one incrementally read body-search batch.</summary>
+public sealed class NotebookBodySearchBatch
+{
+    internal NotebookBodySearchBatch(
+        IReadOnlyList<NotebookBodySearchHit> hits,
+        bool isCompleted,
+        bool hasMore)
+    {
+        Hits = Array.AsReadOnly([.. hits]);
+        IsCompleted = isCompleted;
+        HasMore = hasMore;
+    }
+
+    /// <summary>Gets the ordered search hits.</summary>
+    public IReadOnlyList<NotebookBodySearchHit> Hits { get; }
+
+    /// <summary>Gets whether the single provider query has reached its terminal state.</summary>
+    public bool IsCompleted { get; }
+
+    /// <summary>
+    /// Gets whether at least one hit exists beyond the request limit.
+    /// This value is false until <see cref="IsCompleted"/> is true.
+    /// </summary>
+    public bool HasMore { get; }
+}
+
 /// <summary>Contains the authoritative values for a new page.</summary>
 public sealed class NotebookPageCreateRequest
 {
@@ -232,6 +399,11 @@ public interface INotebookPageApplication
     /// <summary>Queries body-free summaries by a MemoriaNote page-name glob.</summary>
     Task<NotebookOperationResult<IReadOnlyList<NotebookPageSummary>>> QuerySummariesAsync(
         NotebookPageQueryRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Starts one streaming search of authoritative page bodies.</summary>
+    Task<NotebookOperationResult<NotebookBodySearchSession>> StartBodySearchAsync(
+        NotebookBodySearchRequest request,
         CancellationToken cancellationToken = default);
 
     /// <summary>Creates a page using production Page ID and timestamp generation.</summary>

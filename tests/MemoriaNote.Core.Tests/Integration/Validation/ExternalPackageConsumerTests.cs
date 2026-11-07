@@ -60,6 +60,8 @@ public sealed class ExternalPackageConsumerTests
             "dotnet",
             "restore",
             "ExternalConsumer.csproj",
+            "--packages",
+            directory.GetPath("packages"),
             "--configfile",
             "NuGet.Config",
             "--ignore-failed-sources");
@@ -182,6 +184,29 @@ public sealed class ExternalPackageConsumerTests
             query.Value[0].PageId != page.Value!.PageId)
         {
             return 13;
+        }
+
+        var search = await session.Pages.StartBodySearchAsync(
+            new NotebookBodySearchRequest(
+                "body",
+                NotebookBodySearchSort.Name,
+                limit: 1));
+        if (!search.IsSuccess || search.Value is null)
+        {
+            return 15;
+        }
+        await using var searchSession = search.Value;
+        var searchBatch = await searchSession.ReadAsync(1);
+        if (!searchBatch.IsSuccess ||
+            searchBatch.Value is null ||
+            searchBatch.Value.Hits.Count != 1 ||
+            searchBatch.Value.Hits[0].PageId != page.Value!.PageId ||
+            searchBatch.Value.Hits[0].Snippet is null ||
+            searchBatch.Value.Hits[0].Snippet!.Matches.Count != 1 ||
+            !searchBatch.Value.IsCompleted ||
+            searchBatch.Value.HasMore)
+        {
+            return 16;
         }
 
         var validation = NotebookValidation.CreateSession(session);

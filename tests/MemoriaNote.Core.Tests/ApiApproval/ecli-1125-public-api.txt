@@ -3,6 +3,7 @@ public interface MemoriaNote.Application.INotebookMetadataApplication
   method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookMetadataSnapshot>> UpdateAsync(MemoriaNote.Application.NotebookMetadataChangeSet request, System.Threading.CancellationToken cancellationToken = default)
 
 public interface MemoriaNote.Application.INotebookPageApplication
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookBodySearchSession>> StartBodySearchAsync(MemoriaNote.Application.NotebookBodySearchRequest request, System.Threading.CancellationToken cancellationToken = default)
   method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookPage>> CreateAsync(MemoriaNote.Application.NotebookPageCreateRequest request, System.Threading.CancellationToken cancellationToken = default)
   method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookPage>> GetByIdAsync(MemoriaNote.Domain.PageId pageId, System.Threading.CancellationToken cancellationToken = default)
   method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookPage>> GetByNameAsync(string name, System.Threading.CancellationToken cancellationToken = default)
@@ -22,6 +23,51 @@ public sealed class MemoriaNote.Application.NotebookApplicationSession
   property MemoriaNote.Application.INotebookMetadataApplication Metadata { get; }
   property MemoriaNote.Application.INotebookPageApplication Pages { get; }
   property MemoriaNote.Application.NotebookDescriptor Notebook { get; }
+
+public sealed class MemoriaNote.Application.NotebookBodySearchBatch
+  property System.Collections.Generic.IReadOnlyList<MemoriaNote.Application.NotebookBodySearchHit> Hits { get; }
+  property bool HasMore { get; }
+  property bool IsCompleted { get; }
+
+public sealed class MemoriaNote.Application.NotebookBodySearchHit
+  property MemoriaNote.Application.NotebookBodySearchSnippet Snippet { get; }
+  property MemoriaNote.Domain.NotebookId NotebookId { get; }
+  property MemoriaNote.Domain.PageId PageId { get; }
+  property System.DateTimeOffset UpdateTimeUtc { get; }
+  property string Name { get; }
+
+public sealed class MemoriaNote.Application.NotebookBodySearchMatch
+  property int Length { get; }
+  property int Start { get; }
+
+public sealed class MemoriaNote.Application.NotebookBodySearchRequest
+  constructor (string query, MemoriaNote.Application.NotebookBodySearchSort sort, int limit = 20, bool includeSnippet = true, System.TimeSpan? timeout = default)
+  field int DefaultLimit = 20
+  field int DefaultTimeoutSeconds = 30
+  field int MaximumKeywordCount = 16
+  field int MaximumKeywordScalarCount = 128
+  field int MaximumLimit = 1000
+  field int MaximumQueryScalarCount = 1024
+  field int MaximumTimeoutSeconds = 600
+  property MemoriaNote.Application.NotebookBodySearchSort Sort { get; }
+  property System.TimeSpan Timeout { get; }
+  property bool IncludeSnippet { get; }
+  property int Limit { get; }
+  property string Query { get; }
+
+public sealed class MemoriaNote.Application.NotebookBodySearchSession
+  field int DefaultBatchSize = 20
+  field int MaximumBatchSize = 1000
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookBodySearchBatch>> ReadAsync(int maximumCount = 20, System.Threading.CancellationToken cancellationToken = default)
+  method System.Threading.Tasks.ValueTask DisposeAsync()
+
+public sealed class MemoriaNote.Application.NotebookBodySearchSnippet
+  property System.Collections.Generic.IReadOnlyList<MemoriaNote.Application.NotebookBodySearchMatch> Matches { get; }
+  property string Text { get; }
+
+public enum MemoriaNote.Application.NotebookBodySearchSort
+  value Name = 0
+  value Updated = 1
 
 public sealed class MemoriaNote.Application.NotebookCreateRequest
   constructor (string databasePath, string title)
@@ -43,6 +89,7 @@ public enum MemoriaNote.Application.NotebookFailureCategory
   value DerivedData = 4
   value Format = 3
   value NotFound = 1
+  value Timeout = 7
   value UnexpectedStorage = 6
   value Validation = 0
 
