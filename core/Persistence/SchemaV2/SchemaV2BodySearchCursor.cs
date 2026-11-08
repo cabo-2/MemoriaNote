@@ -4,39 +4,42 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using MemoriaNote.Domain;
-using MemoriaNote.Domain.Queries;
 using MemoriaNote.Domain.Repositories;
 using MemoriaNote.Persistence.Repositories;
 using Microsoft.Data.Sqlite;
 
 namespace MemoriaNote.Persistence.SchemaV2;
 
-/// <summary>Owns one active SQLite statement for an authoritative-body Scan.</summary>
+/// <summary>Owns one active SQLite statement for a streaming body search.</summary>
 internal sealed class SchemaV2BodySearchCursor : INotebookBodySearchCursor
 {
-    private readonly NotebookId _notebookId;
-    private readonly RepositoryBodySearchQuery _query;
+    private readonly int _limit;
     private readonly SqliteConnection _connection;
     private readonly SqliteCommand _command;
     private readonly SqliteDataReader _reader;
+    private readonly Func<SqliteDataReader, RepositoryBodySearchHit> _readHit;
+    private readonly Func<Exception, Exception?>? _translateFailure;
     private RepositoryBodySearchHit? _bufferedHit;
     private int _deliveredCount;
     private bool _isCompleted;
     private bool _isDisposed;
 
     internal SchemaV2BodySearchCursor(
-        NotebookId notebookId,
-        RepositoryBodySearchQuery query,
+        int limit,
         SqliteConnection connection,
         SqliteCommand command,
-        SqliteDataReader reader)
+        SqliteDataReader reader,
+        Func<SqliteDataReader, RepositoryBodySearchHit> readHit,
+        Func<Exception, Exception?>? translateFailure = null)
     {
-        _notebookId = notebookId ?? throw new ArgumentNullException(nameof(notebookId));
-        _query = query ?? throw new ArgumentNullException(nameof(query));
+        if (limit <= 0)
+            throw new ArgumentOutOfRangeException(nameof(limit));
+        _limit = limit;
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         _command = command ?? throw new ArgumentNullException(nameof(command));
         _reader = reader ?? throw new ArgumentNullException(nameof(reader));
+        _readHit = readHit ?? throw new ArgumentNullException(nameof(readHit));
+        _translateFailure = translateFailure;
     }
 
     public async ValueTask<RepositoryBodySearchBatch> ReadAsync(
@@ -51,9 +54,9 @@ internal sealed class SchemaV2BodySearchCursor : INotebookBodySearchCursor
         cancellationToken.ThrowIfCancellationRequested();
 
         var hits = new List<RepositoryBodySearchHit>(
-            Math.Min(maximumCount, _query.Limit - _deliveredCount));
+            Math.Min(maximumCount, _limit - _deliveredCount));
         var reachedEnd = false;
-        while (hits.Count < maximumCount && _deliveredCount < _query.Limit)
+        while (hits.Count < maximumCount && _deliveredCount < _limit)
         {
             var hit = await TakeNextAsync(cancellationToken).ConfigureAwait(false);
             if (hit is null)
@@ -67,7 +70,7 @@ internal sealed class SchemaV2BodySearchCursor : INotebookBodySearchCursor
         }
 
         var hasMore = false;
-        if (_deliveredCount == _query.Limit)
+        if (_deliveredCount == _limit)
         {
             hasMore = await TakeNextAsync(cancellationToken).ConfigureAwait(false) is not null;
             _isCompleted = true;
@@ -112,18 +115,18 @@ internal sealed class SchemaV2BodySearchCursor : INotebookBodySearchCursor
     private async ValueTask<RepositoryBodySearchHit?> ReadNextAsync(
         CancellationToken cancellationToken)
     {
-        if (!await _reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-            return null;
-
-        return new RepositoryBodySearchHit(
-            _notebookId,
-            PageId.FromUuid(_reader.GetString(0)),
-            _reader.GetString(1),
-            SchemaV2PageValueCodec.ParseTimestamp(_reader.GetString(2)),
-            _query.IncludeSnippet
-                ? BodySearchSnippetBuilder.Build(
-                    _reader.GetString(3),
-                    _query.Query.Keywords)
-                : null);
+        try
+        {
+            if (!await _reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                return null;
+            return _readHit(_reader);
+        }
+        catch (Exception exception) when (_translateFailure is not null)
+        {
+            var translated = _translateFailure(exception);
+            if (translated is null)
+                throw;
+            throw translated;
+        }
     }
 }

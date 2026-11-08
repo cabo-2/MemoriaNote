@@ -40,8 +40,8 @@ internal static class BodySearchSnippetBuilder
         if (firstMatch == int.MaxValue)
             throw new InvalidDataException("A search hit does not contain a query keyword.");
 
-        var boundaries = ReadScalarBoundaries(text);
-        var firstMatchScalar = FindBoundaryIndex(boundaries, firstMatch);
+        var boundaries = BodySearchSnippetText.ReadScalarBoundaries(text);
+        var firstMatchScalar = BodySearchSnippetText.FindBoundaryIndex(boundaries, firstMatch);
         var startScalar = Math.Max(0, firstMatchScalar - ContextBeforeMatchScalarCount);
         var endScalar = Math.Min(boundaries.Count - 1, startScalar + MaximumScalarCount);
         startScalar = Math.Max(0, endScalar - MaximumScalarCount);
@@ -54,43 +54,8 @@ internal static class BodySearchSnippetBuilder
             throw new InvalidDataException("A search snippet does not contain a complete match.");
 
         return new BodySearchSnippet(
-            Sanitize(rawText),
+            BodySearchSnippetText.Sanitize(rawText),
             matches.AsReadOnly());
-    }
-
-    private static List<int> ReadScalarBoundaries(string text)
-    {
-        var boundaries = new List<int> { 0 };
-        var offset = 0;
-        while (offset < text.Length)
-        {
-            var status = Rune.DecodeFromUtf16(
-                text.AsSpan(offset),
-                out _,
-                out var consumed);
-            if (status != OperationStatus.Done)
-                consumed = 1;
-            offset += consumed;
-            boundaries.Add(offset);
-        }
-        return boundaries;
-    }
-
-    private static int FindBoundaryIndex(IReadOnlyList<int> boundaries, int offset)
-    {
-        var low = 0;
-        var high = boundaries.Count - 1;
-        while (low <= high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (boundaries[middle] == offset)
-                return middle;
-            if (boundaries[middle] < offset)
-                low = middle + 1;
-            else
-                high = middle - 1;
-        }
-        return Math.Max(0, high);
     }
 
     private static List<BodySearchMatch> FindAndMergeMatches(
@@ -142,8 +107,61 @@ internal static class BodySearchSnippetBuilder
         return merged;
     }
 
-    private static string Sanitize(string text)
+}
+
+/// <summary>Provides scalar-safe operations shared by body-search snippet implementations.</summary>
+internal static class BodySearchSnippetText
+{
+    internal static List<int> ReadScalarBoundaries(string text)
     {
+        ArgumentNullException.ThrowIfNull(text);
+        var boundaries = new List<int> { 0 };
+        var offset = 0;
+        while (offset < text.Length)
+        {
+            var status = Rune.DecodeFromUtf16(
+                text.AsSpan(offset),
+                out _,
+                out var consumed);
+            if (status != OperationStatus.Done)
+                consumed = 1;
+            offset += consumed;
+            boundaries.Add(offset);
+        }
+        return boundaries;
+    }
+
+    internal static int FindBoundaryIndex(IReadOnlyList<int> boundaries, int offset)
+    {
+        ArgumentNullException.ThrowIfNull(boundaries);
+        var low = 0;
+        var high = boundaries.Count - 1;
+        while (low <= high)
+        {
+            var middle = low + ((high - low) / 2);
+            if (boundaries[middle] == offset)
+                return middle;
+            if (boundaries[middle] < offset)
+                low = middle + 1;
+            else
+                high = middle - 1;
+        }
+        return Math.Max(0, high);
+    }
+
+    internal static bool IsScalarBoundary(string text, int offset)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        if (offset < 0 || offset > text.Length)
+            return false;
+        return offset == 0 || offset == text.Length ||
+               !char.IsLowSurrogate(text[offset]) ||
+               !char.IsHighSurrogate(text[offset - 1]);
+    }
+
+    internal static string Sanitize(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
         var result = new StringBuilder(text.Length);
         var remaining = text.AsSpan();
         while (!remaining.IsEmpty)

@@ -568,17 +568,28 @@ internal static class NotebookFailureFactory
     internal static NotebookFailure Format(string code, string message) =>
         new(NotebookFailureCategory.Format, code, message);
 
+    internal static NotebookFailure DerivedData(string code, string message) =>
+        new(NotebookFailureCategory.DerivedData, code, message);
+
     internal static NotebookFailure Timeout(string code, string message) =>
         new(NotebookFailureCategory.Timeout, code, message);
 
     internal static bool IsClassifiable(Exception exception) =>
         exception is ArgumentException or InvalidDataException or IOException or
+        NotebookBodySearchIndexException or
         UnauthorizedAccessException || NotebookStorageFailureClassifier.CanClassify(exception);
 
     internal static NotebookFailure FromException(Exception exception, string operationCode)
     {
         return exception switch
         {
+            NotebookBodySearchValidationException => Validation(
+                $"{operationCode}.keyword_too_short",
+                "Trigram body search requires every keyword to contain at least " +
+                "three Unicode scalars."),
+            NotebookBodySearchIndexException => DerivedData(
+                $"{operationCode}.index_invalid",
+                "The selected body-search index is missing or invalid."),
             ArgumentException => Validation(
                 $"{operationCode}.invalid_value",
                 "The operation contains an invalid value."),

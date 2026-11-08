@@ -10,7 +10,8 @@ namespace MemoriaNote.Domain.Repositories;
 internal enum RepositoryBodySearchSort
 {
     Name,
-    Updated
+    Updated,
+    Relevance
 }
 
 internal sealed class RepositoryBodySearchQuery

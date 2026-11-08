@@ -59,7 +59,7 @@
     <PropertyGroup>
       <MemoriaNoteFullCommitId>$([System.String]::Copy('$(MemoriaNoteFullCommitId)').Trim().ToLowerInvariant())</MemoriaNoteFullCommitId>
       <MemoriaNoteShortPackageCommit Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$(MemoriaNoteFullCommitId)', '^[0-9a-f]{40}$'))">$([System.String]::Copy('$(MemoriaNoteFullCommitId)').Substring(0, 12))</MemoriaNoteShortPackageCommit>
-      <MemoriaNotePackageVersion Condition="'$(MemoriaNotePackageVersion)' == ''">$(MemoriaNoteProductVersion)-ecli1160a.g$(MemoriaNoteShortPackageCommit)</MemoriaNotePackageVersion>
+      <MemoriaNotePackageVersion Condition="'$(MemoriaNotePackageVersion)' == ''">$(MemoriaNoteProductVersion)-ecli1160b.g$(MemoriaNoteShortPackageCommit)</MemoriaNotePackageVersion>
       <PackageVersion>$(MemoriaNotePackageVersion)</PackageVersion>
       <RepositoryCommit>$(MemoriaNoteFullCommitId)</RepositoryCommit>
       <_MemoriaNoteIdentitySource>$(IntermediateOutputPath)MemoriaNote.Core.Identity.g.cs</_MemoriaNoteIdentitySource>
