@@ -55,11 +55,20 @@ internal sealed class SchemaV2BodySearchRepository : INotebookBodySearchReader
                 .ExecuteReaderAsync(cancellationToken)
                 .ConfigureAwait(false);
             return new SchemaV2BodySearchCursor(
-                notebookId,
-                query,
+                query.Limit,
                 connection,
                 command,
-                reader);
+                reader,
+                activeReader => new RepositoryBodySearchHit(
+                    notebookId,
+                    PageId.FromUuid(activeReader.GetString(0)),
+                    activeReader.GetString(1),
+                    SchemaV2PageValueCodec.ParseTimestamp(activeReader.GetString(2)),
+                    query.IncludeSnippet
+                        ? BodySearchSnippetBuilder.Build(
+                            activeReader.GetString(3),
+                            query.Query.Keywords)
+                        : null));
         }
         catch
         {
