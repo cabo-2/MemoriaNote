@@ -276,50 +276,20 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
                     "page.search.invalid_sort",
                     "The body-search sort is not supported."));
         }
-        if (request.Limit is <= 0 or > NotebookBodySearchRequest.MaximumLimit)
-        {
-            return NotebookOperationResult<NotebookBodySearchSession>.Failed(
-                NotebookFailureFactory.Validation(
-                    "page.search.invalid_limit",
-                    $"A body-search limit must be between 1 and " +
-                    $"{NotebookBodySearchRequest.MaximumLimit}."));
-        }
-        if (request.Timeout <= TimeSpan.Zero ||
-            request.Timeout > TimeSpan.FromSeconds(
-                NotebookBodySearchRequest.MaximumTimeoutSeconds))
-        {
-            return NotebookOperationResult<NotebookBodySearchSession>.Failed(
-                NotebookFailureFactory.Validation(
-                    "page.search.invalid_timeout",
-                    $"A body-search timeout must be greater than zero and at most " +
-                    $"{NotebookBodySearchRequest.MaximumTimeoutSeconds} seconds."));
-        }
-        if (!BodySearchQueryParser.TryParse(
+        return await NotebookBodySearchOperation.StartAsync(
+                _notebookId,
+                _bodySearchReader,
                 request.Query,
-                out var parsed,
-                out var parseError))
-        {
-            return NotebookOperationResult<NotebookBodySearchSession>.Failed(
-                BodySearchFailure(parseError));
-        }
-
-        var query = new RepositoryBodySearchQuery(
-            parsed!,
-            request.Sort switch
-            {
-                NotebookBodySearchSort.Name => RepositoryBodySearchSort.Name,
-                NotebookBodySearchSort.Updated => RepositoryBodySearchSort.Updated,
-                _ => throw new ArgumentOutOfRangeException(nameof(request))
-            },
-            request.Limit,
-            request.IncludeSnippet);
-        return await NotebookBodySearchSession.StartAsync(
-                effectiveCancellationToken => _bodySearchReader.StartAsync(
-                    _notebookId,
-                    query,
-                    effectiveCancellationToken),
-                _lifetime,
+                request.Sort switch
+                {
+                    NotebookBodySearchSort.Name => RepositoryBodySearchSort.Name,
+                    NotebookBodySearchSort.Updated => RepositoryBodySearchSort.Updated,
+                    _ => throw new ArgumentOutOfRangeException(nameof(request))
+                },
+                request.Limit,
+                request.IncludeSnippet,
                 request.Timeout,
+                _lifetime,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -488,29 +458,6 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
         page.CreateTimeUtc,
         page.UpdateTimeUtc,
         page.Revision);
-
-    private static NotebookFailure BodySearchFailure(BodySearchQueryParseError error) =>
-        error switch
-        {
-            BodySearchQueryParseError.Empty => NotebookFailureFactory.Validation(
-                "page.search.empty_query",
-                "A body-search query must contain at least one keyword."),
-            BodySearchQueryParseError.QueryTooLong => NotebookFailureFactory.Validation(
-                "page.search.query_too_long",
-                $"A body-search query must contain at most " +
-                $"{NotebookBodySearchRequest.MaximumQueryScalarCount} Unicode scalars."),
-            BodySearchQueryParseError.KeywordTooLong => NotebookFailureFactory.Validation(
-                "page.search.keyword_too_long",
-                $"A body-search keyword must contain at most " +
-                $"{NotebookBodySearchRequest.MaximumKeywordScalarCount} Unicode scalars."),
-            BodySearchQueryParseError.TooManyKeywords => NotebookFailureFactory.Validation(
-                "page.search.too_many_keywords",
-                $"A body-search query must contain at most " +
-                $"{NotebookBodySearchRequest.MaximumKeywordCount} distinct keywords."),
-            _ => NotebookFailureFactory.Validation(
-                "page.search.invalid_query",
-                "The body-search query contains invalid Unicode or a control character.")
-        };
 
     private static NotebookFailure GlobFailure(MemoriaNoteGlobParseError error) =>
         error switch

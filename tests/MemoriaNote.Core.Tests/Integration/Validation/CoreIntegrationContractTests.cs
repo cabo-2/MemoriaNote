@@ -22,18 +22,20 @@ public sealed class CoreIntegrationContractTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(CoreIntegrationContract.Revision, Is.EqualTo(1));
+            Assert.That(CoreIntegrationContract.Revision, Is.EqualTo(2));
+            Assert.That(CoreIntegrationContract.BodySearchConformanceCorpusRevision, Is.EqualTo(1));
             Assert.That(CoreIntegrationContract.PackageId, Is.EqualTo("MemoriaNote.Core"));
             Assert.That(descriptor.PackageId, Is.EqualTo(CoreIntegrationContract.PackageId));
             Assert.That(
                 descriptor.PackageVersion,
-                Does.Match("^0\\.2\\.1-ecli1160b\\.g[0-9a-f]{12}$"));
+                Does.Match("^0\\.2\\.1-ecli1160c\\.g[0-9a-f]{12}$"));
             Assert.That(descriptor.AssemblyInformationalVersion, Does.StartWith("0.2.1-dev+"));
             Assert.That(descriptor.SourceCommit, Is.EqualTo(currentCommit));
             Assert.That(descriptor.SourceCommit, Does.Match("^[0-9a-f]{40}$"));
             Assert.That(descriptor.TargetFramework, Is.EqualTo(".NETCoreApp,Version=v10.0"));
-            Assert.That(descriptor.ContractRevision, Is.EqualTo(1));
+            Assert.That(descriptor.ContractRevision, Is.EqualTo(2));
             Assert.That(descriptor.NotebookFormatVersion, Is.EqualTo(2));
+            Assert.That(descriptor.BodySearchConformanceCorpusRevision, Is.EqualTo(1));
             Assert.That(
                 descriptor.DerivedDataCandidates,
                 Is.EqualTo(new[]
@@ -41,6 +43,14 @@ public sealed class CoreIntegrationContractTests
                     DerivedDataKind.PageTags,
                     DerivedDataKind.Fts5Unicode61,
                     DerivedDataKind.Fts5Trigram
+                }));
+            Assert.That(
+                descriptor.BodySearchCandidates,
+                Is.EqualTo(new[]
+                {
+                    BodySearchCandidate.Scan,
+                    BodySearchCandidate.Fts5Unicode61,
+                    BodySearchCandidate.Fts5Trigram
                 }));
         }
     }

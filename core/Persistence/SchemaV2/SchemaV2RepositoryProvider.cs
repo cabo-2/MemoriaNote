@@ -29,7 +29,11 @@ internal sealed class SchemaV2RepositoryProvider : IWritableNotebookRepositoryPr
     {
         _pageRepository = new SchemaV2PageRepository(
             clock ?? throw new ArgumentNullException(nameof(clock)));
-        _bodySearchRepository = bodySearchCandidate switch
+        _bodySearchRepository = CreateBodySearchReader(bodySearchCandidate);
+    }
+
+    internal static INotebookBodySearchReader CreateBodySearchReader(
+        SchemaV2BodySearchCandidate bodySearchCandidate) => bodySearchCandidate switch
         {
             SchemaV2BodySearchCandidate.Scan => new SchemaV2BodySearchRepository(),
             SchemaV2BodySearchCandidate.FtsUnicode61 => new SchemaV2FtsBodySearchRepository(
@@ -38,7 +42,6 @@ internal sealed class SchemaV2RepositoryProvider : IWritableNotebookRepositoryPr
                 SchemaV2FtsBodySearchKind.Trigram),
             _ => throw new ArgumentOutOfRangeException(nameof(bodySearchCandidate))
         };
-    }
 
     public NotebookRepositoryDescriptor Descriptor => SchemaDescriptor;
 

@@ -111,7 +111,7 @@ public sealed class ExternalPackageConsumerTests
                 Is.EqualTo(descriptor.SourceCommit));
             Assert.That(
                 (string?)metadata.Element(ns + "tags"),
-                Does.Contain("integration-contract-v1"));
+                Does.Contain("integration-contract-v2"));
             Assert.That(dependencies, Has.None.EqualTo("mn"));
             Assert.That(dependencies, Has.None.Contains("SchemaLab"));
             Assert.That(
@@ -218,6 +218,35 @@ public sealed class ExternalPackageConsumerTests
         ]);
         if (!check.IsSuccess || check.Value is null || !check.Value.IsValid)
             return 14;
+
+        var searchValidation = NotebookSearchValidation.CreateSession(session);
+        foreach (var candidate in new[]
+                 {
+                     BodySearchCandidate.Scan,
+                     BodySearchCandidate.Fts5Unicode61,
+                     BodySearchCandidate.Fts5Trigram
+                 })
+        {
+            var candidateSearch = await searchValidation.StartAsync(
+                new BodySearchValidationRequest(
+                    candidate,
+                    "body",
+                    BodySearchValidationSort.Name,
+                    limit: 1));
+            if (!candidateSearch.IsSuccess || candidateSearch.Value is null)
+                return 17;
+            await using var candidateSession = candidateSearch.Value;
+            var candidateBatch = await candidateSession.ReadAsync(1);
+            if (!candidateBatch.IsSuccess ||
+                candidateBatch.Value is null ||
+                candidateBatch.Value.Hits.Count != 1 ||
+                candidateBatch.Value.Hits[0].PageId != page.Value!.PageId ||
+                !candidateBatch.Value.IsCompleted ||
+                candidateBatch.Value.HasMore)
+            {
+                return 18;
+            }
+        }
 
         var descriptor = CoreIntegrationContract.GetDescriptor();
         Console.WriteLine(
