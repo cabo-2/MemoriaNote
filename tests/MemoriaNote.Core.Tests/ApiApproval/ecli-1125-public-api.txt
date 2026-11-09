@@ -152,13 +152,35 @@ public sealed class MemoriaNote.Application.NotebookPageSummary
   property long Revision { get; }
   property string Name { get; }
 
+public enum MemoriaNote.Integration.Validation.BodySearchCandidate
+  value Fts5Trigram = 2
+  value Fts5Unicode61 = 1
+  value Scan = 0
+
+public sealed class MemoriaNote.Integration.Validation.BodySearchValidationRequest
+  constructor (MemoriaNote.Integration.Validation.BodySearchCandidate candidate, string query, MemoriaNote.Integration.Validation.BodySearchValidationSort sort, int limit = 20, bool includeSnippet = true, System.TimeSpan? timeout = default)
+  property MemoriaNote.Integration.Validation.BodySearchCandidate Candidate { get; }
+  property MemoriaNote.Integration.Validation.BodySearchValidationSort Sort { get; }
+  property System.TimeSpan Timeout { get; }
+  property bool IncludeSnippet { get; }
+  property int Limit { get; }
+  property string Query { get; }
+
+public enum MemoriaNote.Integration.Validation.BodySearchValidationSort
+  value Name = 0
+  value Relevance = 2
+  value Updated = 1
+
 public static class MemoriaNote.Integration.Validation.CoreIntegrationContract
-  field int Revision = 1
+  field int BodySearchConformanceCorpusRevision = 1
+  field int Revision = 2
   field string PackageId = "MemoriaNote.Core"
   method static MemoriaNote.Integration.Validation.CoreIntegrationDescriptor GetDescriptor()
 
 public sealed class MemoriaNote.Integration.Validation.CoreIntegrationDescriptor
+  property System.Collections.Generic.IReadOnlyList<MemoriaNote.Integration.Validation.BodySearchCandidate> BodySearchCandidates { get; }
   property System.Collections.Generic.IReadOnlyList<MemoriaNote.Integration.Validation.DerivedDataKind> DerivedDataCandidates { get; }
+  property int BodySearchConformanceCorpusRevision { get; }
   property int ContractRevision { get; }
   property int NotebookFormatVersion { get; }
   property string AssemblyInformationalVersion { get; }
@@ -210,6 +232,12 @@ public sealed class MemoriaNote.Integration.Validation.DeterministicNotebookPubl
 
 public static class MemoriaNote.Integration.Validation.DeterministicNotebookPublisher
   method static System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookDescriptor>> PublishAsync(MemoriaNote.Integration.Validation.DeterministicNotebookPublicationRequest request, System.Threading.CancellationToken cancellationToken = default)
+
+public static class MemoriaNote.Integration.Validation.NotebookSearchValidation
+  method static MemoriaNote.Integration.Validation.NotebookSearchValidationSession CreateSession(MemoriaNote.Application.NotebookApplicationSession applicationSession)
+
+public sealed class MemoriaNote.Integration.Validation.NotebookSearchValidationSession
+  method System.Threading.Tasks.Task<MemoriaNote.Application.NotebookOperationResult<MemoriaNote.Application.NotebookBodySearchSession>> StartAsync(MemoriaNote.Integration.Validation.BodySearchValidationRequest request, System.Threading.CancellationToken cancellationToken = default)
 
 public static class MemoriaNote.Integration.Validation.NotebookValidation
   method static MemoriaNote.Integration.Validation.NotebookValidationSession CreateSession(MemoriaNote.Application.NotebookApplicationSession applicationSession)

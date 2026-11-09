@@ -8,11 +8,14 @@ using System.Runtime.Versioning;
 
 namespace MemoriaNote.Integration.Validation;
 
-/// <summary>Identifies revision 1 of the first-party Core validation integration contract.</summary>
+/// <summary>Identifies revision 2 of the first-party Core validation integration contract.</summary>
 public static class CoreIntegrationContract
 {
     /// <summary>The current validation integration contract revision.</summary>
-    public const int Revision = 1;
+    public const int Revision = 2;
+
+    /// <summary>The deterministic body-search conformance corpus revision.</summary>
+    public const int BodySearchConformanceCorpusRevision = 1;
 
     /// <summary>The NuGet package identity that carries this contract.</summary>
     public const string PackageId = "MemoriaNote.Core";
@@ -40,10 +43,16 @@ public static class CoreIntegrationContract
             targetFramework,
             Revision,
             notebookFormatVersion: 2,
+            BodySearchConformanceCorpusRevision,
             [
                 DerivedDataKind.PageTags,
                 DerivedDataKind.Fts5Unicode61,
                 DerivedDataKind.Fts5Trigram
+            ],
+            [
+                BodySearchCandidate.Scan,
+                BodySearchCandidate.Fts5Unicode61,
+                BodySearchCandidate.Fts5Trigram
             ]);
     }
 
@@ -68,7 +77,9 @@ public sealed class CoreIntegrationDescriptor
         string targetFramework,
         int contractRevision,
         int notebookFormatVersion,
-        IReadOnlyList<DerivedDataKind> derivedDataCandidates)
+        int bodySearchConformanceCorpusRevision,
+        IReadOnlyList<DerivedDataKind> derivedDataCandidates,
+        IReadOnlyList<BodySearchCandidate> bodySearchCandidates)
     {
         PackageId = packageId;
         PackageVersion = packageVersion;
@@ -77,7 +88,9 @@ public sealed class CoreIntegrationDescriptor
         TargetFramework = targetFramework;
         ContractRevision = contractRevision;
         NotebookFormatVersion = notebookFormatVersion;
+        BodySearchConformanceCorpusRevision = bodySearchConformanceCorpusRevision;
         DerivedDataCandidates = Array.AsReadOnly([.. derivedDataCandidates]);
+        BodySearchCandidates = Array.AsReadOnly([.. bodySearchCandidates]);
     }
 
     /// <summary>Gets the package ID.</summary>
@@ -101,6 +114,12 @@ public sealed class CoreIntegrationDescriptor
     /// <summary>Gets the canonical notebook format version produced by this package.</summary>
     public int NotebookFormatVersion { get; }
 
+    /// <summary>Gets the deterministic body-search conformance corpus revision.</summary>
+    public int BodySearchConformanceCorpusRevision { get; }
+
     /// <summary>Gets the explicit derived-data candidates in this contract revision.</summary>
     public IReadOnlyList<DerivedDataKind> DerivedDataCandidates { get; }
+
+    /// <summary>Gets the explicit body-search candidates in this contract revision.</summary>
+    public IReadOnlyList<BodySearchCandidate> BodySearchCandidates { get; }
 }
