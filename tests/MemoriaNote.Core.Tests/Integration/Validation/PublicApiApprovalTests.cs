@@ -26,6 +26,7 @@ public sealed class PublicApiApprovalTests
         "NotebookOpenRequest",
         "NotebookOperationResult`1",
         "NotebookBodySearchBatch",
+        "NotebookBodySearchCaseSensitivity",
         "NotebookBodySearchHit",
         "NotebookBodySearchMatch",
         "NotebookBodySearchRequest",

@@ -45,13 +45,16 @@ public sealed class BodySearchValidationRequest
     /// <param name="timeout">
     /// The positive execution time limit, or null to use the application default.
     /// </param>
+    /// <param name="caseSensitivity">The ordinal case comparison to use.</param>
     public BodySearchValidationRequest(
         BodySearchCandidate candidate,
         string query,
         BodySearchValidationSort sort,
         int limit = NotebookBodySearchRequest.DefaultLimit,
         bool includeSnippet = true,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        NotebookBodySearchCaseSensitivity caseSensitivity =
+            NotebookBodySearchCaseSensitivity.Insensitive)
     {
         Candidate = candidate;
         Query = query ?? throw new ArgumentNullException(nameof(query));
@@ -60,6 +63,7 @@ public sealed class BodySearchValidationRequest
         IncludeSnippet = includeSnippet;
         Timeout = timeout ?? TimeSpan.FromSeconds(
             NotebookBodySearchRequest.DefaultTimeoutSeconds);
+        CaseSensitivity = caseSensitivity;
     }
 
     /// <summary>Gets the fixed candidate to execute.</summary>
@@ -79,4 +83,7 @@ public sealed class BodySearchValidationRequest
 
     /// <summary>Gets the execution time limit.</summary>
     public TimeSpan Timeout { get; }
+
+    /// <summary>Gets the ordinal case comparison used by the search.</summary>
+    public NotebookBodySearchCaseSensitivity CaseSensitivity { get; }
 }

@@ -65,6 +65,13 @@ public sealed class NotebookSearchValidationSession
                     "page.search.invalid_sort",
                     "The body-search sort is not supported."));
         }
+        if (!Enum.IsDefined(request.CaseSensitivity))
+        {
+            return NotebookOperationResult<NotebookBodySearchSession>.Failed(
+                InvalidSelection(
+                    "page.search.invalid_case_sensitivity",
+                    "The body-search case sensitivity is not supported."));
+        }
         if (request.Candidate == BodySearchCandidate.Scan &&
             request.Sort == BodySearchValidationSort.Relevance)
         {
@@ -81,6 +88,14 @@ public sealed class NotebookSearchValidationSession
                 Map(request.Sort),
                 request.Limit,
                 request.IncludeSnippet,
+                request.CaseSensitivity switch
+                {
+                    NotebookBodySearchCaseSensitivity.Insensitive =>
+                        RepositoryBodySearchCaseSensitivity.Insensitive,
+                    NotebookBodySearchCaseSensitivity.Sensitive =>
+                        RepositoryBodySearchCaseSensitivity.Sensitive,
+                    _ => throw new ArgumentOutOfRangeException(nameof(request))
+                },
                 request.Timeout,
                 _applicationSession.Lifetime,
                 cancellationToken)

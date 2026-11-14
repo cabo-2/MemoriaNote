@@ -12,6 +12,19 @@ namespace MemoriaNote.Core.Tests.Application;
 [Category("Functional")]
 public sealed class NotebookApplicationTests
 {
+    /// <summary>Verifies body-search requests default to ordinal case-insensitive matching.</summary>
+    [Test]
+    public void BodySearchRequest_DefaultsToCaseInsensitive()
+    {
+        var request = new NotebookBodySearchRequest(
+            "microsoft",
+            NotebookBodySearchSort.Name);
+
+        Assert.That(
+            request.CaseSensitivity,
+            Is.EqualTo(NotebookBodySearchCaseSensitivity.Insensitive));
+    }
+
     /// <summary>Verifies create, metadata, page CRUD, and reopen through only public operations.</summary>
     [Test]
     public async Task ApplicationSurface_ExecutesCanonicalNotebookWorkflow()
@@ -203,6 +216,14 @@ public sealed class NotebookApplicationTests
                         (NotebookBodySearchSort)999)),
                 NotebookFailureCategory.Validation,
                 "page.search.invalid_sort");
+            AssertFailure(
+                await session.Pages.StartBodySearchAsync(
+                    new NotebookBodySearchRequest(
+                        "body",
+                        NotebookBodySearchSort.Name,
+                        caseSensitivity: (NotebookBodySearchCaseSensitivity)999)),
+                NotebookFailureCategory.Validation,
+                "page.search.invalid_case_sensitivity");
             AssertFailure(
                 await session.Pages.StartBodySearchAsync(
                     new NotebookBodySearchRequest(

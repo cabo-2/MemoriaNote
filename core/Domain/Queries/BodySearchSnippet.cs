@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using MemoriaNote.Domain.Repositories;
 
 namespace MemoriaNote.Domain.Queries;
 
@@ -23,17 +24,25 @@ internal static class BodySearchSnippetBuilder
 
     internal static BodySearchSnippet Build(
         string text,
-        IReadOnlyList<string> keywords)
+        IReadOnlyList<string> keywords,
+        RepositoryBodySearchCaseSensitivity caseSensitivity)
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(keywords);
         if (keywords.Count == 0)
             throw new ArgumentException("At least one keyword is required.", nameof(keywords));
+        var comparison = caseSensitivity switch
+        {
+            RepositoryBodySearchCaseSensitivity.Insensitive =>
+                StringComparison.OrdinalIgnoreCase,
+            RepositoryBodySearchCaseSensitivity.Sensitive => StringComparison.Ordinal,
+            _ => throw new ArgumentOutOfRangeException(nameof(caseSensitivity))
+        };
 
         var firstMatch = int.MaxValue;
         foreach (var keyword in keywords)
         {
-            var position = text.IndexOf(keyword, StringComparison.Ordinal);
+            var position = text.IndexOf(keyword, comparison);
             if (position >= 0 && position < firstMatch)
                 firstMatch = position;
         }
@@ -49,7 +58,7 @@ internal static class BodySearchSnippetBuilder
         var windowStart = boundaries[startScalar];
         var windowEnd = boundaries[endScalar];
         var rawText = text.Substring(windowStart, windowEnd - windowStart);
-        var matches = FindAndMergeMatches(rawText, keywords);
+        var matches = FindAndMergeMatches(rawText, keywords, comparison);
         if (matches.Count == 0)
             throw new InvalidDataException("A search snippet does not contain a complete match.");
 
@@ -60,7 +69,8 @@ internal static class BodySearchSnippetBuilder
 
     private static List<BodySearchMatch> FindAndMergeMatches(
         string text,
-        IReadOnlyList<string> keywords)
+        IReadOnlyList<string> keywords,
+        StringComparison comparison)
     {
         var matches = new List<BodySearchMatch>();
         foreach (var keyword in keywords)
@@ -68,7 +78,7 @@ internal static class BodySearchSnippetBuilder
             var searchFrom = 0;
             while (searchFrom <= text.Length - keyword.Length)
             {
-                var start = text.IndexOf(keyword, searchFrom, StringComparison.Ordinal);
+                var start = text.IndexOf(keyword, searchFrom, comparison);
                 if (start < 0)
                     break;
                 matches.Add(new BodySearchMatch(start, keyword.Length));

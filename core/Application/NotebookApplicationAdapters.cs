@@ -276,6 +276,13 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
                     "page.search.invalid_sort",
                     "The body-search sort is not supported."));
         }
+        if (!Enum.IsDefined(request.CaseSensitivity))
+        {
+            return NotebookOperationResult<NotebookBodySearchSession>.Failed(
+                NotebookFailureFactory.Validation(
+                    "page.search.invalid_case_sensitivity",
+                    "The body-search case sensitivity is not supported."));
+        }
         return await NotebookBodySearchOperation.StartAsync(
                 _notebookId,
                 _bodySearchReader,
@@ -288,6 +295,14 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
                 },
                 request.Limit,
                 request.IncludeSnippet,
+                request.CaseSensitivity switch
+                {
+                    NotebookBodySearchCaseSensitivity.Insensitive =>
+                        RepositoryBodySearchCaseSensitivity.Insensitive,
+                    NotebookBodySearchCaseSensitivity.Sensitive =>
+                        RepositoryBodySearchCaseSensitivity.Sensitive,
+                    _ => throw new ArgumentOutOfRangeException(nameof(request))
+                },
                 request.Timeout,
                 _lifetime,
                 cancellationToken)
@@ -530,6 +545,10 @@ internal static class NotebookFailureFactory
     {
         return exception switch
         {
+            NotebookBodySearchCaseSensitivityException => Validation(
+                $"{operationCode}.unsupported_case_sensitivity",
+                "The selected body-search candidate does not support " +
+                "case-sensitive matching."),
             NotebookBodySearchValidationException => Validation(
                 $"{operationCode}.keyword_too_short",
                 "Trigram body search requires every keyword to contain at least " +

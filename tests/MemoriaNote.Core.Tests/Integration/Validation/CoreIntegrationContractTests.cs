@@ -22,20 +22,20 @@ public sealed class CoreIntegrationContractTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(CoreIntegrationContract.Revision, Is.EqualTo(2));
-            Assert.That(CoreIntegrationContract.BodySearchConformanceCorpusRevision, Is.EqualTo(1));
+            Assert.That(CoreIntegrationContract.Revision, Is.EqualTo(3));
+            Assert.That(CoreIntegrationContract.BodySearchConformanceCorpusRevision, Is.EqualTo(2));
             Assert.That(CoreIntegrationContract.PackageId, Is.EqualTo("MemoriaNote.Core"));
             Assert.That(descriptor.PackageId, Is.EqualTo(CoreIntegrationContract.PackageId));
             Assert.That(
                 descriptor.PackageVersion,
-                Does.Match("^0\\.2\\.1-ecli1160c\\.g[0-9a-f]{12}$"));
+                Does.Match("^0\\.2\\.1-ecli1160e\\.g[0-9a-f]{12}$"));
             Assert.That(descriptor.AssemblyInformationalVersion, Does.StartWith("0.2.1-dev+"));
             Assert.That(descriptor.SourceCommit, Is.EqualTo(currentCommit));
             Assert.That(descriptor.SourceCommit, Does.Match("^[0-9a-f]{40}$"));
             Assert.That(descriptor.TargetFramework, Is.EqualTo(".NETCoreApp,Version=v10.0"));
-            Assert.That(descriptor.ContractRevision, Is.EqualTo(2));
+            Assert.That(descriptor.ContractRevision, Is.EqualTo(3));
             Assert.That(descriptor.NotebookFormatVersion, Is.EqualTo(2));
-            Assert.That(descriptor.BodySearchConformanceCorpusRevision, Is.EqualTo(1));
+            Assert.That(descriptor.BodySearchConformanceCorpusRevision, Is.EqualTo(2));
             Assert.That(
                 descriptor.DerivedDataCandidates,
                 Is.EqualTo(new[]
