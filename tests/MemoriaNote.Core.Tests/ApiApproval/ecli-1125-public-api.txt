@@ -29,6 +29,10 @@ public sealed class MemoriaNote.Application.NotebookBodySearchBatch
   property bool HasMore { get; }
   property bool IsCompleted { get; }
 
+public enum MemoriaNote.Application.NotebookBodySearchCaseSensitivity
+  value Insensitive = 0
+  value Sensitive = 1
+
 public sealed class MemoriaNote.Application.NotebookBodySearchHit
   property MemoriaNote.Application.NotebookBodySearchSnippet Snippet { get; }
   property MemoriaNote.Domain.NotebookId NotebookId { get; }
@@ -41,7 +45,7 @@ public sealed class MemoriaNote.Application.NotebookBodySearchMatch
   property int Start { get; }
 
 public sealed class MemoriaNote.Application.NotebookBodySearchRequest
-  constructor (string query, MemoriaNote.Application.NotebookBodySearchSort sort, int limit = 20, bool includeSnippet = true, System.TimeSpan? timeout = default)
+  constructor (string query, MemoriaNote.Application.NotebookBodySearchSort sort, int limit = 20, bool includeSnippet = true, System.TimeSpan? timeout = default, MemoriaNote.Application.NotebookBodySearchCaseSensitivity caseSensitivity = Insensitive)
   field int DefaultLimit = 20
   field int DefaultTimeoutSeconds = 30
   field int MaximumKeywordCount = 16
@@ -49,6 +53,7 @@ public sealed class MemoriaNote.Application.NotebookBodySearchRequest
   field int MaximumLimit = 1000
   field int MaximumQueryScalarCount = 1024
   field int MaximumTimeoutSeconds = 600
+  property MemoriaNote.Application.NotebookBodySearchCaseSensitivity CaseSensitivity { get; }
   property MemoriaNote.Application.NotebookBodySearchSort Sort { get; }
   property System.TimeSpan Timeout { get; }
   property bool IncludeSnippet { get; }
@@ -158,7 +163,8 @@ public enum MemoriaNote.Integration.Validation.BodySearchCandidate
   value Scan = 0
 
 public sealed class MemoriaNote.Integration.Validation.BodySearchValidationRequest
-  constructor (MemoriaNote.Integration.Validation.BodySearchCandidate candidate, string query, MemoriaNote.Integration.Validation.BodySearchValidationSort sort, int limit = 20, bool includeSnippet = true, System.TimeSpan? timeout = default)
+  constructor (MemoriaNote.Integration.Validation.BodySearchCandidate candidate, string query, MemoriaNote.Integration.Validation.BodySearchValidationSort sort, int limit = 20, bool includeSnippet = true, System.TimeSpan? timeout = default, MemoriaNote.Application.NotebookBodySearchCaseSensitivity caseSensitivity = Insensitive)
+  property MemoriaNote.Application.NotebookBodySearchCaseSensitivity CaseSensitivity { get; }
   property MemoriaNote.Integration.Validation.BodySearchCandidate Candidate { get; }
   property MemoriaNote.Integration.Validation.BodySearchValidationSort Sort { get; }
   property System.TimeSpan Timeout { get; }
@@ -172,8 +178,8 @@ public enum MemoriaNote.Integration.Validation.BodySearchValidationSort
   value Updated = 1
 
 public static class MemoriaNote.Integration.Validation.CoreIntegrationContract
-  field int BodySearchConformanceCorpusRevision = 1
-  field int Revision = 2
+  field int BodySearchConformanceCorpusRevision = 2
+  field int Revision = 3
   field string PackageId = "MemoriaNote.Core"
   method static MemoriaNote.Integration.Validation.CoreIntegrationDescriptor GetDescriptor()
 

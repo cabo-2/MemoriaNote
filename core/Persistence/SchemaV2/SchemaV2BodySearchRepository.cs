@@ -15,6 +15,9 @@ namespace MemoriaNote.Persistence.SchemaV2;
 /// <summary>Searches authoritative Schema V2 page bodies with literal SQLite scans.</summary>
 internal sealed class SchemaV2BodySearchRepository : INotebookBodySearchReader
 {
+    private const string OrdinalIgnoreCaseContainsFunction =
+        "mn_contains_ordinal_ignore_case";
+
     public async Task<INotebookBodySearchCursor> StartAsync(
         NotebookId notebookId,
         RepositoryBodySearchQuery query,
@@ -34,6 +37,15 @@ internal sealed class SchemaV2BodySearchRepository : INotebookBodySearchReader
                     SqliteOpenMode.ReadOnly,
                     cancellationToken)
                 .ConfigureAwait(false);
+            if (query.CaseSensitivity == RepositoryBodySearchCaseSensitivity.Insensitive)
+            {
+                connection.CreateFunction<string, string, bool>(
+                    OrdinalIgnoreCaseContainsFunction,
+                    static (text, keyword) => text.Contains(
+                        keyword,
+                        StringComparison.OrdinalIgnoreCase),
+                    isDeterministic: true);
+            }
             command = connection.CreateCommand();
             var statement = new StringBuilder(query.IncludeSnippet
                 ? "SELECT PageId, Name, UpdateTime, Text FROM Pages WHERE "
@@ -43,7 +55,19 @@ internal sealed class SchemaV2BodySearchRepository : INotebookBodySearchReader
                 if (index > 0)
                     statement.Append(" AND ");
                 var parameterName = $"$keyword{index}";
-                statement.Append("instr(Text, ").Append(parameterName).Append(") > 0");
+                if (query.CaseSensitivity == RepositoryBodySearchCaseSensitivity.Insensitive)
+                {
+                    statement.Append(OrdinalIgnoreCaseContainsFunction)
+                        .Append("(Text, ")
+                        .Append(parameterName)
+                        .Append(')');
+                }
+                else
+                {
+                    statement.Append("instr(Text, ")
+                        .Append(parameterName)
+                        .Append(") > 0");
+                }
                 command.Parameters.AddWithValue(parameterName, query.Query.Keywords[index]);
             }
             statement.Append(" ORDER BY ").Append(OrderBy(query.Sort));
@@ -67,7 +91,8 @@ internal sealed class SchemaV2BodySearchRepository : INotebookBodySearchReader
                     query.IncludeSnippet
                         ? BodySearchSnippetBuilder.Build(
                             activeReader.GetString(3),
-                            query.Query.Keywords)
+                            query.Query.Keywords,
+                            query.CaseSensitivity)
                         : null));
         }
         catch

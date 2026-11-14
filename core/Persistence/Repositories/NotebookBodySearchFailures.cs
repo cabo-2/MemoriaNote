@@ -13,6 +13,15 @@ internal sealed class NotebookBodySearchValidationException : ArgumentException
     }
 }
 
+/// <summary>Reports an unsupported body-search case comparison.</summary>
+internal sealed class NotebookBodySearchCaseSensitivityException : ArgumentException
+{
+    internal NotebookBodySearchCaseSensitivityException()
+        : base("The selected body-search candidate does not support case-sensitive matching.")
+    {
+    }
+}
+
 /// <summary>Reports that a selected derived body-search index cannot be used.</summary>
 internal sealed class NotebookBodySearchIndexException : Exception
 {

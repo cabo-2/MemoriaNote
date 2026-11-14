@@ -8,7 +8,7 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Core.Tests.Integration.Validation;
 
-/// <summary>Verifies the revision 1 body-search conformance corpus through public validation APIs.</summary>
+/// <summary>Verifies the revision 2 body-search conformance corpus through public validation APIs.</summary>
 [TestFixture]
 [Category("Functional")]
 public sealed class NotebookSearchValidationTests
@@ -86,9 +86,90 @@ public sealed class NotebookSearchValidationTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(CoreIntegrationContract.BodySearchConformanceCorpusRevision, Is.EqualTo(1));
+            Assert.That(CoreIntegrationContract.BodySearchConformanceCorpusRevision, Is.EqualTo(2));
             Assert.That(await File.ReadAllBytesAsync(notebook.DatabasePath), Is.EqualTo(beforeBytes));
             Assert.That(Directory.GetFileSystemEntries(notebook.DirectoryPath), Is.EqualTo(beforeFiles));
+        }
+    }
+
+    /// <summary>Verifies Scan case modes share literal, normalization, snippet, and session contracts.</summary>
+    [Test]
+    public async Task ScanCaseSensitivity_UsesOrdinalComparisonWithoutNormalization()
+    {
+        using var notebook = await CreateCorpusAsync();
+        var opened = await NotebookApplication.OpenAsync(
+            new NotebookOpenRequest(notebook.DatabasePath));
+        await using var application = opened.Value!;
+        var validation = NotebookSearchValidation.CreateSession(application);
+
+        var insensitive = await SearchAsync(
+            validation,
+            new BodySearchValidationRequest(
+                BodySearchCandidate.Scan,
+                "microsoft ångström",
+                BodySearchValidationSort.Name));
+        var sensitiveMiss = await SearchAsync(
+            validation,
+            new BodySearchValidationRequest(
+                BodySearchCandidate.Scan,
+                "microsoft",
+                BodySearchValidationSort.Name,
+                caseSensitivity: NotebookBodySearchCaseSensitivity.Sensitive));
+        var sensitiveHit = await SearchAsync(
+            validation,
+            new BodySearchValidationRequest(
+                BodySearchCandidate.Scan,
+                "Microsoft",
+                BodySearchValidationSort.Name,
+                caseSensitivity: NotebookBodySearchCaseSensitivity.Sensitive));
+        var normalization = await SearchAsync(
+            validation,
+            new BodySearchValidationRequest(
+                BodySearchCandidate.Scan,
+                "résumé",
+                BodySearchValidationSort.Name));
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                insensitive.Hits.Select(hit => hit.Name),
+                Is.EqualTo(new[] { "case" }));
+            Assert.That(sensitiveMiss.Hits, Is.Empty);
+            Assert.That(
+                sensitiveHit.Hits.Select(hit => hit.Name),
+                Is.EqualTo(new[] { "case" }));
+            Assert.That(normalization.Hits, Is.Empty);
+            Assert.That(
+                insensitive.Hits.Single().Snippet!.Matches.Select(
+                    match => (match.Start, match.Length)),
+                Is.EqualTo(new[] { (0, 9), (10, 8) }));
+        }
+    }
+
+    /// <summary>Verifies FTS candidates reject sensitive matching without falling back to Scan.</summary>
+    [Test]
+    public async Task FtsCandidates_SensitiveCaseComparison_ReturnsUnsupportedFailure()
+    {
+        using var notebook = await CreateCorpusAsync();
+        var opened = await NotebookApplication.OpenAsync(
+            new NotebookOpenRequest(notebook.DatabasePath));
+        await using var application = opened.Value!;
+        var validation = NotebookSearchValidation.CreateSession(application);
+
+        foreach (var candidate in new[]
+                 {
+                     BodySearchCandidate.Fts5Unicode61,
+                     BodySearchCandidate.Fts5Trigram
+                 })
+        {
+            var result = await validation.StartAsync(
+                new BodySearchValidationRequest(
+                    candidate,
+                    "microsoft",
+                    BodySearchValidationSort.Name,
+                    caseSensitivity: NotebookBodySearchCaseSensitivity.Sensitive));
+
+            AssertFailure(result, "page.search.unsupported_case_sensitivity");
         }
     }
 
@@ -173,7 +254,7 @@ public sealed class NotebookSearchValidationTests
 
     /// <summary>Verifies unknown closed-selector values are rejected before storage access.</summary>
     [Test]
-    public async Task InvalidSelectorAndSort_ReturnClassifiedFailures()
+    public async Task InvalidSelectorSortAndCase_ReturnClassifiedFailures()
     {
         using var notebook = await CreateCorpusAsync();
         var opened = await NotebookApplication.OpenAsync(
@@ -191,9 +272,16 @@ public sealed class NotebookSearchValidationTests
                 BodySearchCandidate.Scan,
                 "marker",
                 (BodySearchValidationSort)99));
+        var caseSensitivity = await validation.StartAsync(
+            new BodySearchValidationRequest(
+                BodySearchCandidate.Scan,
+                "marker",
+                BodySearchValidationSort.Name,
+                caseSensitivity: (NotebookBodySearchCaseSensitivity)99));
 
         AssertFailure(candidate, "page.search.invalid_candidate");
         AssertFailure(sort, "page.search.invalid_sort");
+        AssertFailure(caseSensitivity, "page.search.invalid_case_sensitivity");
     }
 
     /// <summary>Verifies selected-index failures remain classified and never fall back.</summary>
@@ -284,7 +372,7 @@ public sealed class NotebookSearchValidationTests
     private static async Task<CorpusNotebook> CreateCorpusAsync()
     {
         var directory = new TemporaryDirectory();
-        var databasePath = directory.GetPath("body-search-conformance-v1.mnote");
+        var databasePath = directory.GetPath("body-search-conformance-v2.mnote");
         var timestamp = new DateTimeOffset(2026, 11, 9, 0, 0, 0, TimeSpan.Zero);
         var pages = new[]
         {
@@ -295,7 +383,11 @@ public sealed class NotebookSearchValidationTests
             Page("00000000-0000-4000-8000-000000000003", "operators", timestamp,
                 "AND OR NOT NEAR \"quoted\""),
             Page("00000000-0000-4000-8000-000000000004", "short", timestamp,
-                "日 ab")
+                "日 ab"),
+            Page("00000000-0000-4000-8000-000000000005", "case", timestamp,
+                "Microsoft ÅNGSTRÖM"),
+            Page("00000000-0000-4000-8000-000000000006", "normalization", timestamp,
+                "re\u0301sume\u0301")
         };
         var metadata = new Dictionary<string, string?>
         {
@@ -304,7 +396,7 @@ public sealed class NotebookSearchValidationTests
             ["Description"] = string.Empty,
             ["ReadOnly"] = bool.FalseString,
             ["Tag"] = string.Empty,
-            ["Title"] = "Body search conformance v1"
+            ["Title"] = "Body search conformance v2"
         };
         var published = await DeterministicNotebookPublisher.PublishAsync(
             new DeterministicNotebookPublicationRequest(

@@ -8,14 +8,14 @@ using System.Runtime.Versioning;
 
 namespace MemoriaNote.Integration.Validation;
 
-/// <summary>Identifies revision 2 of the first-party Core validation integration contract.</summary>
+/// <summary>Identifies revision 3 of the first-party Core validation integration contract.</summary>
 public static class CoreIntegrationContract
 {
     /// <summary>The current validation integration contract revision.</summary>
-    public const int Revision = 2;
+    public const int Revision = 3;
 
     /// <summary>The deterministic body-search conformance corpus revision.</summary>
-    public const int BodySearchConformanceCorpusRevision = 1;
+    public const int BodySearchConformanceCorpusRevision = 2;
 
     /// <summary>The NuGet package identity that carries this contract.</summary>
     public const string PackageId = "MemoriaNote.Core";

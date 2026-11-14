@@ -404,7 +404,12 @@ public sealed class SchemaV2FtsBodySearchRepositoryTests
             BodySearchQueryParser.TryParse(source, out var query, out var error),
             Is.True,
             error.ToString());
-        return new RepositoryBodySearchQuery(query!, sort, limit, includeSnippet: true);
+        return new RepositoryBodySearchQuery(
+            query!,
+            sort,
+            limit,
+            includeSnippet: true,
+            RepositoryBodySearchCaseSensitivity.Insensitive);
     }
 
     private static SchemaV2BodySearchCandidate Candidate(string name) => name switch

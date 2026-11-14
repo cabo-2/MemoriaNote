@@ -153,6 +153,16 @@ public enum NotebookBodySearchSort
     Updated
 }
 
+/// <summary>Identifies the ordinal case comparison used by a body search.</summary>
+public enum NotebookBodySearchCaseSensitivity
+{
+    /// <summary>Matches text using culture-independent ordinal case folding.</summary>
+    Insensitive,
+
+    /// <summary>Matches text using ordinal case-sensitive comparison.</summary>
+    Sensitive
+}
+
 /// <summary>Describes a storage-independent search of authoritative page bodies.</summary>
 public sealed class NotebookBodySearchRequest
 {
@@ -187,18 +197,22 @@ public sealed class NotebookBodySearchRequest
     /// <param name="timeout">
     /// The positive execution time limit, or null to use <see cref="DefaultTimeoutSeconds"/>.
     /// </param>
+    /// <param name="caseSensitivity">The ordinal case comparison to use.</param>
     public NotebookBodySearchRequest(
         string query,
         NotebookBodySearchSort sort,
         int limit = DefaultLimit,
         bool includeSnippet = true,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        NotebookBodySearchCaseSensitivity caseSensitivity =
+            NotebookBodySearchCaseSensitivity.Insensitive)
     {
         Query = query ?? throw new ArgumentNullException(nameof(query));
         Sort = sort;
         Limit = limit;
         IncludeSnippet = includeSnippet;
         Timeout = timeout ?? TimeSpan.FromSeconds(DefaultTimeoutSeconds);
+        CaseSensitivity = caseSensitivity;
     }
 
     /// <summary>Gets the unparsed query text.</summary>
@@ -215,6 +229,9 @@ public sealed class NotebookBodySearchRequest
 
     /// <summary>Gets the application-level execution time limit.</summary>
     public TimeSpan Timeout { get; }
+
+    /// <summary>Gets the ordinal case comparison used by the search.</summary>
+    public NotebookBodySearchCaseSensitivity CaseSensitivity { get; }
 }
 
 /// <summary>Identifies one matched range in sanitized snippet text.</summary>

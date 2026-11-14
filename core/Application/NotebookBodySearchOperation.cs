@@ -20,6 +20,7 @@ internal static class NotebookBodySearchOperation
         RepositoryBodySearchSort sort,
         int limit,
         bool includeSnippet,
+        RepositoryBodySearchCaseSensitivity caseSensitivity,
         TimeSpan timeout,
         NotebookSessionLifetime lifetime,
         CancellationToken cancellationToken)
@@ -61,7 +62,8 @@ internal static class NotebookBodySearchOperation
             parsed!,
             sort,
             limit,
-            includeSnippet);
+            includeSnippet,
+            caseSensitivity);
         return await NotebookBodySearchSession.StartAsync(
                 effectiveCancellationToken => bodySearchReader.StartAsync(
                     notebookId,

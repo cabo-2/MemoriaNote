@@ -52,6 +52,101 @@ public sealed class SchemaV2BodySearchRepositoryTests
         Assert.That(withoutIndex.Hits.Select(hit => hit.Name), Is.EqualTo(new[] { "both" }));
     }
 
+    /// <summary>Verifies the default comparison folds ordinal case without normalizing text.</summary>
+    [Test]
+    public async Task StartAsync_DefaultCaseComparison_IsOrdinalIgnoreCase()
+    {
+        using var database = await TestDatabase.CreateAsync("case-insensitive-scan");
+        await database.InsertPageAsync(
+            "00000000-0000-0000-0000-000000000001",
+            "ascii",
+            "Microsoft AND literal % _ \"");
+        await database.InsertPageAsync(
+            "00000000-0000-0000-0000-000000000002",
+            "non-ascii",
+            "ÅNGSTRÖM");
+        await database.InsertPageAsync(
+            "00000000-0000-0000-0000-000000000003",
+            "composed",
+            "CAFÉ");
+        await database.InsertPageAsync(
+            "00000000-0000-0000-0000-000000000004",
+            "decomposed",
+            "CAFE\u0301");
+        var repository = new SchemaV2BodySearchRepository();
+
+        var ascii = await SearchAsync(repository, database, "microsoft and % _ \"");
+        var nonAscii = await SearchAsync(repository, database, "ångström");
+        var normalization = await SearchAsync(repository, database, "café");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(ascii.Hits.Select(hit => hit.Name), Is.EqualTo(new[] { "ascii" }));
+            Assert.That(
+                nonAscii.Hits.Select(hit => hit.Name),
+                Is.EqualTo(new[] { "non-ascii" }));
+            Assert.That(
+                normalization.Hits.Select(hit => hit.Name),
+                Is.EqualTo(new[] { "composed" }));
+        }
+    }
+
+    /// <summary>Verifies explicit sensitive searches retain the existing ordinal literal behavior.</summary>
+    [Test]
+    public async Task StartAsync_SensitiveCaseComparison_UsesSqliteInstr()
+    {
+        using var database = await TestDatabase.CreateAsync("case-sensitive-scan");
+        await database.InsertPageAsync(
+            "00000000-0000-0000-0000-000000000001",
+            "page",
+            "Microsoft microsoft");
+        var repository = new SchemaV2BodySearchRepository();
+
+        var lower = await SearchAsync(
+            repository,
+            database,
+            "microsoft",
+            caseSensitivity: RepositoryBodySearchCaseSensitivity.Sensitive);
+        var upper = await SearchAsync(
+            repository,
+            database,
+            "MICROSOFT",
+            caseSensitivity: RepositoryBodySearchCaseSensitivity.Sensitive);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(lower.Hits.Select(hit => hit.Name), Is.EqualTo(new[] { "page" }));
+            Assert.That(upper.Hits, Is.Empty);
+            Assert.That(
+                lower.Hits.Single().Snippet!.Matches.Select(
+                    match => (match.Start, match.Length)),
+                Is.EqualTo(new[] { (10, 9) }));
+        }
+    }
+
+    /// <summary>Verifies insensitive snippets include every case variant selected by the predicate.</summary>
+    [Test]
+    public async Task StartAsync_InsensitiveSnippet_UsesPredicateComparison()
+    {
+        using var database = await TestDatabase.CreateAsync("case-snippet-scan");
+        await database.InsertPageAsync(
+            "00000000-0000-0000-0000-000000000001",
+            "page",
+            "before MICROSOFT and Microsoft after");
+        var repository = new SchemaV2BodySearchRepository();
+
+        var result = await SearchAsync(repository, database, "microsoft");
+
+        var snippet = result.Hits.Single().Snippet!;
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(snippet.Text, Is.EqualTo("before MICROSOFT and Microsoft after"));
+            Assert.That(
+                snippet.Matches.Select(match => (match.Start, match.Length)),
+                Is.EqualTo(new[] { (7, 9), (21, 9) }));
+        }
+    }
+
     /// <summary>Verifies both sorts, Page ID ties, limit, and hasMore are deterministic.</summary>
     [Test]
     public async Task Cursor_ReadAsync_StreamsSortsLimitsAndReportsHasMore()
@@ -60,12 +155,12 @@ public sealed class SchemaV2BodySearchRepositoryTests
         await database.InsertPageAsync(
             "00000000-0000-0000-0000-000000000003",
             "zulu",
-            "marker",
+            "MARKER",
             updateTime: "2026-11-07 03:00:00.0000000");
         await database.InsertPageAsync(
             "00000000-0000-0000-0000-000000000001",
             "alpha",
-            "marker",
+            "Marker",
             updateTime: "2026-11-07 03:00:00.0000000");
         await database.InsertPageAsync(
             "00000000-0000-0000-0000-000000000002",
@@ -153,11 +248,13 @@ public sealed class SchemaV2BodySearchRepositoryTests
         RepositoryBodySearchSort sort = RepositoryBodySearchSort.Name,
         int limit = 20,
         bool includeSnippet = true,
-        int batchSize = 20)
+        int batchSize = 20,
+        RepositoryBodySearchCaseSensitivity caseSensitivity =
+            RepositoryBodySearchCaseSensitivity.Insensitive)
     {
         await using var cursor = await repository.StartAsync(
             database.NotebookId,
-            Parse(source, sort, limit, includeSnippet),
+            Parse(source, sort, limit, includeSnippet, caseSensitivity),
             CancellationToken.None);
         var hits = new List<RepositoryBodySearchHit>();
         var batchSizes = new List<int>();
@@ -177,13 +274,20 @@ public sealed class SchemaV2BodySearchRepositoryTests
         string source,
         RepositoryBodySearchSort sort,
         int limit,
-        bool includeSnippet)
+        bool includeSnippet,
+        RepositoryBodySearchCaseSensitivity caseSensitivity =
+            RepositoryBodySearchCaseSensitivity.Insensitive)
     {
         Assert.That(
             BodySearchQueryParser.TryParse(source, out var query, out var error),
             Is.True,
             error.ToString());
-        return new RepositoryBodySearchQuery(query!, sort, limit, includeSnippet);
+        return new RepositoryBodySearchQuery(
+            query!,
+            sort,
+            limit,
+            includeSnippet,
+            caseSensitivity);
     }
 
     private sealed record SearchResult(

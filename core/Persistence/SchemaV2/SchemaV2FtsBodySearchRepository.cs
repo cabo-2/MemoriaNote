@@ -40,7 +40,7 @@ internal sealed class SchemaV2FtsBodySearchRepository : INotebookBodySearchReade
         ArgumentNullException.ThrowIfNull(notebookId);
         ArgumentNullException.ThrowIfNull(query);
         cancellationToken.ThrowIfCancellationRequested();
-        ValidateQuery(query.Query);
+        ValidateQuery(query);
 
         var tableName = TableName(_kind);
         var startMarker = $"\uFDD0mn-start-{Guid.NewGuid():N}\uFDD1";
@@ -138,10 +138,13 @@ internal sealed class SchemaV2FtsBodySearchRepository : INotebookBodySearchReade
         }
     }
 
-    private void ValidateQuery(BodySearchQuery query)
+    private void ValidateQuery(RepositoryBodySearchQuery query)
     {
+        if (query.CaseSensitivity == RepositoryBodySearchCaseSensitivity.Sensitive)
+            throw new NotebookBodySearchCaseSensitivityException();
+
         if (_kind == SchemaV2FtsBodySearchKind.Trigram &&
-            query.Keywords.Any(keyword => keyword.EnumerateRunes().Count() < 3))
+            query.Query.Keywords.Any(keyword => keyword.EnumerateRunes().Count() < 3))
         {
             throw new NotebookBodySearchValidationException(
                 "Trigram body-search keywords must contain at least three Unicode scalars.");

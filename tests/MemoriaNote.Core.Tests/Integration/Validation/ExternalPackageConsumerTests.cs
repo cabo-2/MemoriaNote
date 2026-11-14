@@ -111,7 +111,7 @@ public sealed class ExternalPackageConsumerTests
                 Is.EqualTo(descriptor.SourceCommit));
             Assert.That(
                 (string?)metadata.Element(ns + "tags"),
-                Does.Contain("integration-contract-v2"));
+                Does.Contain("integration-contract-v3"));
             Assert.That(dependencies, Has.None.EqualTo("mn"));
             Assert.That(dependencies, Has.None.Contains("SchemaLab"));
             Assert.That(
@@ -168,7 +168,7 @@ public sealed class ExternalPackageConsumerTests
 
         await using var session = created.Value;
         var page = await session.Pages.CreateAsync(
-            new NotebookPageCreateRequest("page", "body", ["tag"]));
+            new NotebookPageCreateRequest("page", "Microsoft body", ["tag"]));
         if (!page.IsSuccess)
             return 12;
 
@@ -188,7 +188,7 @@ public sealed class ExternalPackageConsumerTests
 
         var search = await session.Pages.StartBodySearchAsync(
             new NotebookBodySearchRequest(
-                "body",
+                "microsoft",
                 NotebookBodySearchSort.Name,
                 limit: 1));
         if (!search.IsSuccess || search.Value is null)
@@ -207,6 +207,24 @@ public sealed class ExternalPackageConsumerTests
             searchBatch.Value.HasMore)
         {
             return 16;
+        }
+
+        var sensitiveSearch = await session.Pages.StartBodySearchAsync(
+            new NotebookBodySearchRequest(
+                "microsoft",
+                NotebookBodySearchSort.Name,
+                caseSensitivity: NotebookBodySearchCaseSensitivity.Sensitive));
+        if (!sensitiveSearch.IsSuccess || sensitiveSearch.Value is null)
+            return 19;
+        await using var sensitiveSession = sensitiveSearch.Value;
+        var sensitiveBatch = await sensitiveSession.ReadAsync(1);
+        if (!sensitiveBatch.IsSuccess ||
+            sensitiveBatch.Value is null ||
+            sensitiveBatch.Value.Hits.Count != 0 ||
+            !sensitiveBatch.Value.IsCompleted ||
+            sensitiveBatch.Value.HasMore)
+        {
+            return 20;
         }
 
         var validation = NotebookValidation.CreateSession(session);
@@ -245,6 +263,26 @@ public sealed class ExternalPackageConsumerTests
                 candidateBatch.Value.HasMore)
             {
                 return 18;
+            }
+        }
+
+
+        foreach (var candidate in new[]
+                 {
+                     BodySearchCandidate.Fts5Unicode61,
+                     BodySearchCandidate.Fts5Trigram
+                 })
+        {
+            var unsupported = await searchValidation.StartAsync(
+                new BodySearchValidationRequest(
+                    candidate,
+                    "body",
+                    BodySearchValidationSort.Name,
+                    caseSensitivity: NotebookBodySearchCaseSensitivity.Sensitive));
+            if (unsupported.IsSuccess ||
+                unsupported.Failure?.Code != "page.search.unsupported_case_sensitivity")
+            {
+                return 21;
             }
         }
 

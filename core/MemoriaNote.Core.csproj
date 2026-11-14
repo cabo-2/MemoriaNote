@@ -8,10 +8,10 @@
     <Description>First-party Memoria Note Core application and validation integration surfaces.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <PackageTags>memoria-note;core;integration-contract-v2</PackageTags>
+    <PackageTags>memoria-note;core;integration-contract-v3</PackageTags>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/cabo-2/MemoriaNote</RepositoryUrl>
-    <MemoriaNoteIntegrationContractRevision>2</MemoriaNoteIntegrationContractRevision>
+    <MemoriaNoteIntegrationContractRevision>3</MemoriaNoteIntegrationContractRevision>
   </PropertyGroup>
 
   <ItemGroup>
@@ -59,7 +59,7 @@
     <PropertyGroup>
       <MemoriaNoteFullCommitId>$([System.String]::Copy('$(MemoriaNoteFullCommitId)').Trim().ToLowerInvariant())</MemoriaNoteFullCommitId>
       <MemoriaNoteShortPackageCommit Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$(MemoriaNoteFullCommitId)', '^[0-9a-f]{40}$'))">$([System.String]::Copy('$(MemoriaNoteFullCommitId)').Substring(0, 12))</MemoriaNoteShortPackageCommit>
-      <MemoriaNotePackageVersion Condition="'$(MemoriaNotePackageVersion)' == ''">$(MemoriaNoteProductVersion)-ecli1160c.g$(MemoriaNoteShortPackageCommit)</MemoriaNotePackageVersion>
+      <MemoriaNotePackageVersion Condition="'$(MemoriaNotePackageVersion)' == ''">$(MemoriaNoteProductVersion)-ecli1160e.g$(MemoriaNoteShortPackageCommit)</MemoriaNotePackageVersion>
       <PackageVersion>$(MemoriaNotePackageVersion)</PackageVersion>
       <RepositoryCommit>$(MemoriaNoteFullCommitId)</RepositoryCommit>
       <_MemoriaNoteIdentitySource>$(IntermediateOutputPath)MemoriaNote.Core.Identity.g.cs</_MemoriaNoteIdentitySource>

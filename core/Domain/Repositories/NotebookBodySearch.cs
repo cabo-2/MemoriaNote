@@ -14,22 +14,32 @@ internal enum RepositoryBodySearchSort
     Relevance
 }
 
+internal enum RepositoryBodySearchCaseSensitivity
+{
+    Insensitive,
+    Sensitive
+}
+
 internal sealed class RepositoryBodySearchQuery
 {
     internal RepositoryBodySearchQuery(
         BodySearchQuery query,
         RepositoryBodySearchSort sort,
         int limit,
-        bool includeSnippet)
+        bool includeSnippet,
+        RepositoryBodySearchCaseSensitivity caseSensitivity)
     {
         Query = query ?? throw new ArgumentNullException(nameof(query));
         if (!Enum.IsDefined(sort))
             throw new ArgumentOutOfRangeException(nameof(sort));
         if (limit is <= 0 or > MemoriaNote.Application.NotebookBodySearchRequest.MaximumLimit)
             throw new ArgumentOutOfRangeException(nameof(limit));
+        if (!Enum.IsDefined(caseSensitivity))
+            throw new ArgumentOutOfRangeException(nameof(caseSensitivity));
         Sort = sort;
         Limit = limit;
         IncludeSnippet = includeSnippet;
+        CaseSensitivity = caseSensitivity;
     }
 
     internal BodySearchQuery Query { get; }
@@ -39,6 +49,8 @@ internal sealed class RepositoryBodySearchQuery
     internal int Limit { get; }
 
     internal bool IncludeSnippet { get; }
+
+    internal RepositoryBodySearchCaseSensitivity CaseSensitivity { get; }
 }
 
 internal sealed record RepositoryBodySearchHit(
