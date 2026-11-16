@@ -70,85 +70,35 @@ public sealed class SchemaV2DatabaseValidatorTests
         }
     }
 
-    /// <summary>Verifies trigger semantics are checked beyond the object inventory.</summary>
+    /// <summary>Verifies comparison FTS objects are rejected by the release schema contract.</summary>
     [Test]
-    public async Task ValidateAsync_BroadFtsUpdateTrigger_ReportsRequiredSqlDifference()
+    public async Task ValidateAsync_WithComparisonFtsObjects_ReportsSchemaLayer()
     {
         using var directory = new TemporaryDirectory();
-        var databasePath = directory.GetPath("trigger.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Trigger");
+        var databasePath = directory.GetPath("unexpected-fts.mnote");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Unexpected FTS");
         await ExecuteAsync(
             databasePath,
             """
-            DROP TRIGGER Pages_FtsUpdate;
-            CREATE TRIGGER Pages_FtsUpdate
-            AFTER UPDATE ON Pages
-            BEGIN
-                INSERT INTO FtsIndexUnicode61(FtsIndexUnicode61, rowid, Name, Text)
-                    VALUES('delete', old.InternalId, old.Name, old.Text);
-                INSERT INTO FtsIndexUnicode61(rowid, Name, Text)
-                    VALUES(new.InternalId, new.Name, new.Text);
-                INSERT INTO FtsIndexTrigram(FtsIndexTrigram, rowid, Name, Text)
-                    VALUES('delete', old.InternalId, old.Name, old.Text);
-                INSERT INTO FtsIndexTrigram(rowid, Name, Text)
-                    VALUES(new.InternalId, new.Name, new.Text);
-            END;
-            """);
-
-        var result = await SchemaV2DatabaseValidator.ValidateAsync(databasePath);
-
-        Assert.That(result.Schema.Issues,
-            Has.Some.Contains("AFTER UPDATE OF Name, Text"));
-    }
-
-    /// <summary>Verifies every FTS synchronization target is part of the trigger contract.</summary>
-    [Test]
-    public async Task ValidateAsync_InsertTriggerMissingTrigram_ReportsSchemaLayer()
-    {
-        using var directory = new TemporaryDirectory();
-        var databasePath = directory.GetPath("trigger-target.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Trigger target");
-        await ExecuteAsync(
-            databasePath,
-            """
-            DROP TRIGGER Pages_FtsInsert;
+            CREATE VIRTUAL TABLE FtsIndexUnicode61 USING fts5(Text);
             CREATE TRIGGER Pages_FtsInsert
             AFTER INSERT ON Pages
             BEGIN
-                INSERT INTO FtsIndexUnicode61(rowid, Name, Text)
-                    VALUES(new.InternalId, new.Name, new.Text);
+                INSERT INTO FtsIndexUnicode61(rowid, Text)
+                    VALUES(new.InternalId, new.Text);
             END;
             """);
 
         var result = await SchemaV2DatabaseValidator.ValidateAsync(databasePath);
 
-        Assert.That(result.Schema.Issues,
-            Has.Some.Contains("INSERT INTO FtsIndexTrigram"));
-    }
-
-    /// <summary>Verifies each FTS5 tokenizer remains part of the schema contract.</summary>
-    [Test]
-    public async Task ValidateAsync_TrigramTableWithWrongTokenizer_ReportsSchemaLayer()
-    {
-        using var directory = new TemporaryDirectory();
-        var databasePath = directory.GetPath("trigram-tokenizer.mnote");
-        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Trigram");
-        await ExecuteAsync(
-            databasePath,
-            """
-            DROP TABLE FtsIndexTrigram;
-            CREATE VIRTUAL TABLE FtsIndexTrigram USING fts5(
-                Name,
-                Text,
-                content='Pages',
-                content_rowid='InternalId',
-                tokenize='unicode61');
-            """);
-
-        var result = await SchemaV2DatabaseValidator.ValidateAsync(databasePath);
-
-        Assert.That(result.Schema.Issues,
-            Has.Some.Contains("FTS5 tokenizer does not match 'tokenize='trigram''"));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Schema.Issues, Has.Some.Contains("FtsIndexUnicode61"));
+            Assert.That(result.Schema.Issues, Has.Some.Contains("FtsIndexUnicode61_data"));
+            Assert.That(result.Schema.Issues, Has.Some.Contains("Pages_FtsInsert"));
+            Assert.That(result.AuthoritativeValues.WasEvaluated, Is.False);
+            Assert.That(result.DerivedData.WasEvaluated, Is.False);
+        }
     }
 
     /// <summary>Verifies malformed authoritative table shape is reported rather than queried blindly.</summary>
@@ -271,7 +221,6 @@ public sealed class SchemaV2DatabaseValidatorTests
             DELETE FROM PageTags WHERE Label = 'expected';
             INSERT INTO PageTags(PageInternalId, Label)
                 SELECT InternalId, 'unexpected' FROM Pages;
-            INSERT INTO FtsIndexTrigram(FtsIndexTrigram) VALUES('delete-all');
             """);
 
         var result = await SchemaV2DatabaseValidator.ValidateAsync(databasePath);
@@ -291,10 +240,6 @@ public sealed class SchemaV2DatabaseValidatorTests
                 issue => issue is not null &&
                          issue.Index == SchemaV2DerivedIndexKind.PageTags &&
                          issue.Kind == SchemaV2DerivedDataIssueKind.UnexpectedRows));
-            Assert.That(result.DerivedData.Issues, Has.Some.Matches<SchemaV2DerivedDataIssue>(
-                issue => issue is not null &&
-                         issue.Index == SchemaV2DerivedIndexKind.FtsTrigram &&
-                         issue.Kind == SchemaV2DerivedDataIssueKind.ContentMismatch));
         }
     }
 

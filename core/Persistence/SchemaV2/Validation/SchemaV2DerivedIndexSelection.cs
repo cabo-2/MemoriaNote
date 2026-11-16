@@ -7,8 +7,5 @@ namespace MemoriaNote.Persistence.SchemaV2.Validation;
 internal enum SchemaV2DerivedIndexSelection
 {
     None = 0,
-    PageTags = 1,
-    FtsUnicode61 = 2,
-    FtsTrigram = 4,
-    All = PageTags | FtsUnicode61 | FtsTrigram
+    PageTags = 1
 }

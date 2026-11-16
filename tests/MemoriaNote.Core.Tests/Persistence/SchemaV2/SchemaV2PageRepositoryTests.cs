@@ -37,9 +37,9 @@ public sealed class SchemaV2PageRepositoryTests
         }
     }
 
-    /// <summary>Verifies CRUD updates authoritative data and both derived index kinds.</summary>
+    /// <summary>Verifies CRUD updates authoritative data and PageTags.</summary>
     [Test]
-    public async Task Crud_MaintainsRevisionTagsAndFtsIndexes()
+    public async Task Crud_MaintainsRevisionAndPageTags()
     {
         using var database = await TestDatabase.CreateAsync("crud");
         var clock = new FixedClock(
@@ -65,10 +65,6 @@ public sealed class SchemaV2PageRepositoryTests
             Assert.That(created.Page.UpdateTimeUtc, Is.EqualTo(clock.UtcNow));
             Assert.That(await database.ReadTagsAsync(created.Page.PageId),
                 Is.EqualTo(new[] { "alpha", "日本語" }));
-            Assert.That(await database.CountMatchesAsync("FtsIndexUnicode61", "searchable"),
-                Is.EqualTo(1));
-            Assert.That(await database.CountMatchesAsync("FtsIndexTrigram", "searchable"),
-                Is.EqualTo(1));
         }
 
         clock.UtcNow = clock.UtcNow.AddMinutes(1);
@@ -93,14 +89,6 @@ public sealed class SchemaV2PageRepositoryTests
             Assert.That(updated.Page.Tags, Is.EqualTo(new[] { "reviewed" }));
             Assert.That(await database.ReadTagsAsync(updated.Page.PageId),
                 Is.EqualTo(new[] { "reviewed" }));
-            Assert.That(await database.CountMatchesAsync("FtsIndexUnicode61", "searchable"),
-                Is.Zero);
-            Assert.That(await database.CountMatchesAsync("FtsIndexTrigram", "searchable"),
-                Is.Zero);
-            Assert.That(await database.CountMatchesAsync("FtsIndexUnicode61", "updated"),
-                Is.EqualTo(1));
-            Assert.That(await database.CountMatchesAsync("FtsIndexTrigram", "updated"),
-                Is.EqualTo(1));
         }
 
         var deleted = await repository.DeleteAsync(
@@ -115,10 +103,6 @@ public sealed class SchemaV2PageRepositoryTests
             Assert.That(await repository.CountAsync(database.NotebookId, CancellationToken.None),
                 Is.Zero);
             Assert.That(await database.ReadTagsAsync(updated.Page.PageId), Is.Empty);
-            Assert.That(await database.CountMatchesAsync("FtsIndexUnicode61", "updated"),
-                Is.Zero);
-            Assert.That(await database.CountMatchesAsync("FtsIndexTrigram", "updated"),
-                Is.Zero);
         }
     }
 
@@ -389,12 +373,12 @@ public sealed class SchemaV2PageRepositoryTests
             Throws.InstanceOf<OperationCanceledException>());
     }
 
-    /// <summary>Verifies trigger failure rolls back authoritative and earlier derived writes.</summary>
+    /// <summary>Verifies PageTags trigger failure rolls back the authoritative write.</summary>
     [Test]
-    public async Task Create_WhenOneFtsIndexIsMissing_RollsBackEntireWrite()
+    public async Task Create_WhenPageTagsIsMissing_RollsBackEntireWrite()
     {
         using var database = await TestDatabase.CreateAsync("rollback");
-        await database.ExecuteAsync("DROP TABLE FtsIndexTrigram;");
+        await database.ExecuteAsync("DROP TABLE PageTags;");
         var repository = new SchemaV2PageRepository(
             new FixedClock(DateTimeOffset.Parse("2026-10-30T04:00:00Z")));
 
@@ -408,9 +392,6 @@ public sealed class SchemaV2PageRepositoryTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(await repository.CountAsync(database.NotebookId, CancellationToken.None),
-                Is.Zero);
-            Assert.That(await database.CountRowsAsync("PageTags"), Is.Zero);
-            Assert.That(await database.CountMatchesAsync("FtsIndexUnicode61", "rollback"),
                 Is.Zero);
         }
     }
@@ -532,27 +513,6 @@ public sealed class SchemaV2PageRepositoryTests
             while (await reader.ReadAsync())
                 tags.Add(reader.GetString(0));
             return tags.AsReadOnly();
-        }
-
-        internal async Task<long> CountRowsAsync(string table)
-        {
-            await using var connection = await SqliteConnectionFactory.OpenAsync(
-                DatabasePath,
-                SqliteOpenMode.ReadOnly);
-            await using var command = connection.CreateCommand();
-            command.CommandText = $"SELECT COUNT(*) FROM {table};";
-            return (long)(await command.ExecuteScalarAsync())!;
-        }
-
-        internal async Task<long> CountMatchesAsync(string table, string query)
-        {
-            await using var connection = await SqliteConnectionFactory.OpenAsync(
-                DatabasePath,
-                SqliteOpenMode.ReadOnly);
-            await using var command = connection.CreateCommand();
-            command.CommandText = $"SELECT COUNT(*) FROM {table} WHERE {table} MATCH $query;";
-            command.Parameters.AddWithValue("$query", query);
-            return (long)(await command.ExecuteScalarAsync())!;
         }
 
         public void Dispose()

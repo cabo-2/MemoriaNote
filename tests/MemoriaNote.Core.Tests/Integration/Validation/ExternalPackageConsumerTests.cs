@@ -111,7 +111,7 @@ public sealed class ExternalPackageConsumerTests
                 Is.EqualTo(descriptor.SourceCommit));
             Assert.That(
                 (string?)metadata.Element(ns + "tags"),
-                Does.Contain("integration-contract-v3"));
+                Does.Contain("integration-contract-v4"));
             Assert.That(dependencies, Has.None.EqualTo("mn"));
             Assert.That(dependencies, Has.None.Contains("SchemaLab"));
             Assert.That(
@@ -228,63 +228,9 @@ public sealed class ExternalPackageConsumerTests
         }
 
         var validation = NotebookValidation.CreateSession(session);
-        var check = await validation.CheckAsync(
-        [
-            DerivedDataKind.PageTags,
-            DerivedDataKind.Fts5Unicode61,
-            DerivedDataKind.Fts5Trigram
-        ]);
+        var check = await validation.CheckAsync([DerivedDataKind.PageTags]);
         if (!check.IsSuccess || check.Value is null || !check.Value.IsValid)
             return 14;
-
-        var searchValidation = NotebookSearchValidation.CreateSession(session);
-        foreach (var candidate in new[]
-                 {
-                     BodySearchCandidate.Scan,
-                     BodySearchCandidate.Fts5Unicode61,
-                     BodySearchCandidate.Fts5Trigram
-                 })
-        {
-            var candidateSearch = await searchValidation.StartAsync(
-                new BodySearchValidationRequest(
-                    candidate,
-                    "body",
-                    BodySearchValidationSort.Name,
-                    limit: 1));
-            if (!candidateSearch.IsSuccess || candidateSearch.Value is null)
-                return 17;
-            await using var candidateSession = candidateSearch.Value;
-            var candidateBatch = await candidateSession.ReadAsync(1);
-            if (!candidateBatch.IsSuccess ||
-                candidateBatch.Value is null ||
-                candidateBatch.Value.Hits.Count != 1 ||
-                candidateBatch.Value.Hits[0].PageId != page.Value!.PageId ||
-                !candidateBatch.Value.IsCompleted ||
-                candidateBatch.Value.HasMore)
-            {
-                return 18;
-            }
-        }
-
-
-        foreach (var candidate in new[]
-                 {
-                     BodySearchCandidate.Fts5Unicode61,
-                     BodySearchCandidate.Fts5Trigram
-                 })
-        {
-            var unsupported = await searchValidation.StartAsync(
-                new BodySearchValidationRequest(
-                    candidate,
-                    "body",
-                    BodySearchValidationSort.Name,
-                    caseSensitivity: NotebookBodySearchCaseSensitivity.Sensitive));
-            if (unsupported.IsSuccess ||
-                unsupported.Failure?.Code != "page.search.unsupported_case_sensitivity")
-            {
-                return 21;
-            }
-        }
 
         var descriptor = CoreIntegrationContract.GetDescriptor();
         Console.WriteLine(

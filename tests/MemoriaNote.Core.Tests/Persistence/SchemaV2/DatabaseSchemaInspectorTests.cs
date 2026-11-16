@@ -9,9 +9,9 @@ namespace MemoriaNote.Core.Tests.Persistence.SchemaV2;
 [Category("Functional")]
 public sealed class DatabaseSchemaInspectorTests
 {
-    /// <summary>Verifies explicit, generated, and SQLite-owned objects are classified.</summary>
+    /// <summary>Verifies release objects exclude FTS and retain SQLite-owned classification.</summary>
     [Test]
-    public async Task InspectAsync_RecordsIdentityAndClassifiesGeneratedObjects()
+    public async Task InspectAsync_RecordsIdentityAndReleaseObjects()
     {
         using var directory = new TemporaryDirectory();
         var databasePath = directory.GetPath("observed.mnote");
@@ -24,21 +24,11 @@ public sealed class DatabaseSchemaInspectorTests
             Assert.That(observation.ApplicationId, Is.EqualTo(SchemaV2Format.ApplicationId));
             Assert.That(observation.UserVersion, Is.EqualTo(SchemaV2Format.UserVersion));
             Assert.That(
-                observation.SchemaObjects.Single(candidate =>
-                    candidate.Name == "FtsIndexUnicode61").Origin,
-                Is.EqualTo("explicit"));
-            Assert.That(
-                observation.SchemaObjects.Single(candidate =>
-                    candidate.Name == "FtsIndexUnicode61_data").Origin,
-                Is.EqualTo("fts5-shadow"));
-            Assert.That(
-                observation.SchemaObjects.Single(candidate =>
-                    candidate.Name == "FtsIndexTrigram").Origin,
-                Is.EqualTo("explicit"));
-            Assert.That(
-                observation.SchemaObjects.Single(candidate =>
-                    candidate.Name == "FtsIndexTrigram_data").Origin,
-                Is.EqualTo("fts5-shadow"));
+                observation.SchemaObjects,
+                Has.None.Matches<SchemaObjectObservation>(candidate =>
+                    candidate is not null &&
+                    (candidate.Name.Contains("Fts", StringComparison.OrdinalIgnoreCase) ||
+                     candidate.Origin == "fts5-shadow")));
             Assert.That(
                 observation.SchemaObjects.Single(candidate => candidate.Name == "sqlite_sequence").Origin,
                 Is.EqualTo("sqlite-internal"));

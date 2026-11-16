@@ -24,20 +24,12 @@ public sealed class NotebookValidationTests
         await using var application = created.Value!;
         await application.Pages.CreateAsync(
             new NotebookPageCreateRequest("page", "searchable body", ["tag"]));
-        await ExecuteAsync(
-            databasePath,
-            "DELETE FROM PageTags; " +
-            "INSERT INTO FtsIndexUnicode61(FtsIndexUnicode61) VALUES('delete-all'); " +
-            "INSERT INTO FtsIndexTrigram(FtsIndexTrigram) VALUES('delete-all');");
+        await ExecuteAsync(databasePath, "DELETE FROM PageTags;");
         var beforeBytes = await File.ReadAllBytesAsync(databasePath);
         var beforeFiles = Directory.GetFileSystemEntries(directory.Path);
         var validation = NotebookValidation.CreateSession(application);
 
-        var selected = new[]
-        {
-            DerivedDataKind.Fts5Unicode61,
-            DerivedDataKind.PageTags
-        };
+        var selected = new[] { DerivedDataKind.PageTags };
         var check = await validation.CheckAsync(selected);
 
         Assert.That(check.IsSuccess, Is.True);
@@ -46,34 +38,21 @@ public sealed class NotebookValidationTests
             Assert.That(check.Value!.IsValid, Is.False);
             Assert.That(
                 check.Value.Selected,
-                Is.EqualTo(new[]
-                {
-                    DerivedDataKind.PageTags,
-                    DerivedDataKind.Fts5Unicode61
-                }));
+                Is.EqualTo(new[] { DerivedDataKind.PageTags }));
             Assert.That(
                 check.Value.Issues.Select(issue => issue.DerivedData),
-                Is.EqualTo(new[]
-                {
-                    DerivedDataKind.PageTags,
-                    DerivedDataKind.Fts5Unicode61
-                }));
+                Is.EqualTo(new[] { DerivedDataKind.PageTags }));
             Assert.That(await File.ReadAllBytesAsync(databasePath), Is.EqualTo(beforeBytes));
             Assert.That(Directory.GetFileSystemEntries(directory.Path), Is.EqualTo(beforeFiles));
         }
 
         var rebuilt = await validation.RebuildAsync(selected);
         var selectedAfter = await validation.CheckAsync(selected);
-        var trigramAfter = await validation.CheckAsync([DerivedDataKind.Fts5Trigram]);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(rebuilt.Value!.WasCommitted, Is.True);
             Assert.That(rebuilt.Value.Validation.IsValid, Is.True);
             Assert.That(selectedAfter.Value!.IsValid, Is.True);
-            Assert.That(trigramAfter.Value!.IsValid, Is.False);
-            Assert.That(
-                trigramAfter.Value.Issues.Single().DerivedData,
-                Is.EqualTo(DerivedDataKind.Fts5Trigram));
         }
     }
 
@@ -104,9 +83,9 @@ public sealed class NotebookValidationTests
             new NotebookCreateRequest(databasePath, "Schema defect"));
         await using var application = created.Value!;
         var validation = NotebookValidation.CreateSession(application);
-        await ExecuteAsync(databasePath, "DROP TABLE FtsIndexTrigram;");
+        await ExecuteAsync(databasePath, "DROP TABLE PageTags;");
 
-        var result = await validation.RebuildAsync([DerivedDataKind.Fts5Trigram]);
+        var result = await validation.RebuildAsync([DerivedDataKind.PageTags]);
 
         AssertFailure(result, "derived.prerequisite_invalid");
     }

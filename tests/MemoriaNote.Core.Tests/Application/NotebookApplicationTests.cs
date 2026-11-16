@@ -304,8 +304,8 @@ public sealed class NotebookApplicationTests
             databasePath,
             "INSERT INTO Pages(PageId, Name, CreateTime, UpdateTime, Revision, Tags, Text) " +
             "VALUES ('11111111-1111-1111-1111-111111111111', 'page', " +
-            "'2026-11-01 00:00:00.0000000', '2026-11-01 00:00:00.0000000', 1, '[]', 'body'); " +
-            "DELETE FROM FtsIndexUnicode61;");
+            "'2026-11-01 00:00:00.0000000', '2026-11-01 00:00:00.0000000', 1, " +
+            "'[\"tag\"]', 'body'); DELETE FROM PageTags;");
 
         var result = await NotebookApplication.OpenAsync(
             new NotebookOpenRequest(databasePath));
