@@ -1,6 +1,5 @@
 using System.IO.Compression;
 using MemoriaNote.Cli.Tests.Infrastructure;
-using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
@@ -63,14 +62,11 @@ public sealed class NotebookRestoreIntegrationTests
             "restored");
 
         var destinationPath = Path.Combine(destinationWorkspace, "restored.mnote");
-        var factory = CreateDatabaseFactory();
-        var sourceMetadata = await new SqliteNotebookMetadataRepository(factory)
-            .LoadAsync(sourcePath, CancellationToken.None);
-        var restoredMetadata = await new SqliteNotebookMetadataRepository(factory)
-            .LoadAsync(destinationPath, CancellationToken.None);
-        var sourcePages = await new SqlitePageRepository(factory)
+        var sourceMetadata = await SchemaV2TestNotebook.GetMetadataAsync(sourcePath);
+        var restoredMetadata = await SchemaV2TestNotebook.GetMetadataAsync(destinationPath);
+        var sourcePages = await new SchemaV2TestPageRepository()
             .ListPageSummariesAsync(sourcePath, 0, 100, CancellationToken.None);
-        var restoredPages = await new SqlitePageRepository(factory)
+        var restoredPages = await new SchemaV2TestPageRepository()
             .ListPageSummariesAsync(destinationPath, 0, 100, CancellationToken.None);
 
         using (Assert.EnterMultipleScope())
@@ -83,7 +79,9 @@ public sealed class NotebookRestoreIntegrationTests
             Assert.That(result.StandardOutput, Does.Match(@"metadata=\d+, pages=2\.\r?\n$"));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(File.Exists(destinationPath), Is.True);
-            Assert.That(restoredMetadata.Metadata.Name, Is.EqualTo(sourceMetadata.Metadata.Name));
+            Assert.That(restoredMetadata.Values, Is.EqualTo(sourceMetadata.Values));
+            Assert.That(restoredMetadata.Values.ContainsKey("Name"), Is.False);
+            Assert.That(restoredMetadata.Values.ContainsKey("Version"), Is.False);
             Assert.That(
                 restoredPages.Select(page => page.PageId),
                 Is.EqualTo(sourcePages.Select(page => page.PageId)));
@@ -279,7 +277,7 @@ public sealed class NotebookRestoreIntegrationTests
         var notebookPath = Path.Combine(
             harness.WorkingDirectory,
             notebookName + ".mnote");
-        var repository = new SqlitePageRepository(CreateDatabaseFactory());
+        var repository = new SchemaV2TestPageRepository();
         for (var index = 1; index <= pageCount; index++)
         {
             await repository.CreatePageAsync(
@@ -300,8 +298,4 @@ public sealed class NotebookRestoreIntegrationTests
         return notebookPath;
     }
 
-    static SqliteNotebookDbContextFactory CreateDatabaseFactory()
-    {
-        return new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-    }
 }

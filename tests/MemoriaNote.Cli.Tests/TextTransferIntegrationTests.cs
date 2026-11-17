@@ -40,8 +40,7 @@ public sealed class TextTransferIntegrationTests
         Assert.That(importResult.StandardOutput, Does.Contain("Import completed:"));
         Assert.That(importResult.StandardOutput, Does.Contain("created=2"));
 
-        var repository = new SqlitePageRepository(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
+        var repository = new SchemaV2TestPageRepository();
         var notebookPath = Path.Combine(harness.WorkingDirectory, "transfer.mnote");
         var importedRoot = await repository.FindPageAsync(
             notebookPath,

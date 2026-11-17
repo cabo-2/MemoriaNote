@@ -1,5 +1,4 @@
 using MemoriaNote.Cli.Tests.Infrastructure;
-using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
@@ -23,7 +22,7 @@ public sealed class NotebookMetadataIntegrationTests
             Assert.That(result.ExitCode, Is.Zero);
             Assert.That(result.StandardOutput, Does.Contain("Usage: mn notebooks metadata"));
             Assert.That(result.StandardOutput, Does.Contain("--notebook <notebook>"));
-            Assert.That(result.StandardOutput, Does.Contain("--name <value>"));
+            Assert.That(result.StandardOutput, Does.Not.Contain("--name <value>"));
             Assert.That(result.StandardOutput, Does.Contain("--title <value>"));
             Assert.That(result.StandardOutput, Does.Contain("--description <value>"));
             Assert.That(result.StandardOutput, Does.Contain("--author <value>"));
@@ -40,15 +39,15 @@ public sealed class NotebookMetadataIntegrationTests
     {
         using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "selected");
-        var repository = CreateMetadataRepository();
-        await repository.UpdateAsync(
+        await SchemaV2TestNotebook.UpdateMetadataAsync(
             notebookPath,
-            new NotebookMetadataPatch()
-                .SetDescription("first\nsecond")
-                .SetAuthor("Author\\Name")
-                .SetTag("planning")
-                .SetCreateTime(new DateTime(2026, 1, 2, 3, 4, 5)),
-            CancellationToken.None);
+            new Dictionary<string, string?>
+            {
+                ["Description"] = "first\nsecond",
+                ["Author"] = "Author\\Name",
+                ["Tag"] = "planning",
+                ["CreateTime"] = "20260102030405"
+            });
 
         var result = await harness.RunAsync("notebooks", "metadata");
 
@@ -56,19 +55,18 @@ public sealed class NotebookMetadataIntegrationTests
         {
             Assert.That(result.ExitCode, Is.Zero, result.StandardError);
             Assert.That(result.StandardOutput, Does.Contain("Notebook: selected.mnote"));
-            Assert.That(result.StandardOutput, Does.Contain("Name: selected"));
             Assert.That(result.StandardOutput, Does.Contain("Title: selected"));
             Assert.That(result.StandardOutput, Does.Contain("Description: first\\nsecond"));
             Assert.That(result.StandardOutput, Does.Contain("Author: Author\\\\Name"));
             Assert.That(result.StandardOutput, Does.Contain("Tag: planning"));
             Assert.That(result.StandardOutput, Does.Contain("Read-only: false"));
-            Assert.That(result.StandardOutput, Does.Contain("Version: 1"));
+            Assert.That(result.StandardOutput, Does.Contain("Format: 2"));
             Assert.That(result.StandardOutput, Does.Contain("Created: 2026-01-02T03:04:05"));
             Assert.That(result.StandardError, Is.Empty);
         }
     }
 
-    /// <summary>Verifies display names may duplicate without changing file selection.</summary>
+    /// <summary>Verifies titles may duplicate without changing file selection.</summary>
     [Test]
     public async Task Metadata_DuplicateDisplayNames_AreAllowedWithoutChangingCurrent()
     {
@@ -81,27 +79,26 @@ public sealed class NotebookMetadataIntegrationTests
         var first = await harness.RunAsync(
             "notebooks",
             "metadata",
-            "--name",
+            "--title",
             "shared-name");
         var second = await harness.RunAsync(
             "notebooks",
             "metadata",
             "--notebook",
             "explicit",
-            "--name",
+            "--title",
             "shared-name");
         var status = await harness.RunAsync("status");
-        var repository = CreateMetadataRepository();
-        var current = await repository.LoadAsync(currentPath, CancellationToken.None);
-        var explicitNotebook = await repository.LoadAsync(explicitPath, CancellationToken.None);
+        var current = await SchemaV2TestNotebook.GetMetadataAsync(currentPath);
+        var explicitNotebook = await SchemaV2TestNotebook.GetMetadataAsync(explicitPath);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(first.ExitCode, Is.Zero, first.StandardError);
             Assert.That(second.ExitCode, Is.Zero, second.StandardError);
             Assert.That(second.StandardOutput, Does.Contain("notebook=explicit.mnote"));
-            Assert.That(current.Metadata.Name, Is.EqualTo("shared-name"));
-            Assert.That(explicitNotebook.Metadata.Name, Is.EqualTo("shared-name"));
+            Assert.That(current.Values["Title"], Is.EqualTo("shared-name"));
+            Assert.That(explicitNotebook.Values["Title"], Is.EqualTo("shared-name"));
             Assert.That(File.Exists(currentPath), Is.True);
             Assert.That(File.Exists(explicitPath), Is.True);
             Assert.That(status.StandardOutput, Does.Contain("current.mnote"));
@@ -125,16 +122,14 @@ public sealed class NotebookMetadataIntegrationTests
                 "-"
             },
             input);
-        var loaded = await CreateMetadataRepository().LoadAsync(
-            notebookPath,
-            CancellationToken.None);
+        var loaded = await SchemaV2TestNotebook.GetMetadataAsync(notebookPath);
         var displayed = await harness.RunAsync("notebooks", "metadata");
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.ExitCode, Is.Zero, result.StandardError);
             Assert.That(result.StandardOutput, Does.Contain("field=description"));
-            Assert.That(loaded.Metadata.Description, Is.EqualTo("first\r\nsecond\tvalue"));
+            Assert.That(loaded.Values["Description"], Is.EqualTo("first\r\nsecond\tvalue"));
             Assert.That(
                 displayed.StandardOutput,
                 Does.Contain("Description: first\\r\\nsecond\\tvalue"));
@@ -151,21 +146,19 @@ public sealed class NotebookMetadataIntegrationTests
         var result = await harness.RunAsync(
             "notebooks",
             "metadata",
-            "--name",
-            "changed-name",
             "--title",
-            "Changed title");
-        var loaded = await CreateMetadataRepository().LoadAsync(
-            notebookPath,
-            CancellationToken.None);
+            "Changed title",
+            "--description",
+            "Changed description");
+        var loaded = await SchemaV2TestNotebook.GetMetadataAsync(notebookPath);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(result.StandardOutput, Is.Empty);
             Assert.That(result.StandardError, Does.Contain("only one metadata update option"));
-            Assert.That(loaded.Metadata.Name, Is.EqualTo("multiple"));
-            Assert.That(loaded.Metadata.Title, Is.EqualTo("multiple"));
+            Assert.That(loaded.Values["Title"], Is.EqualTo("multiple"));
+            Assert.That(loaded.Values["Description"], Is.Empty);
         }
     }
 
@@ -175,28 +168,26 @@ public sealed class NotebookMetadataIntegrationTests
     {
         using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "empty");
-        var repository = CreateMetadataRepository();
-        await repository.UpdateAsync(
+        await SchemaV2TestNotebook.UpdateMetadataAsync(
             notebookPath,
-            new NotebookMetadataPatch().SetAuthor("existing"),
-            CancellationToken.None);
+            new Dictionary<string, string?> { ["Author"] = "existing" });
 
         var result = await harness.RunAsync(
             "notebooks",
             "metadata",
             "--author",
             string.Empty);
-        var loaded = await repository.LoadAsync(notebookPath, CancellationToken.None);
+        var loaded = await SchemaV2TestNotebook.GetMetadataAsync(notebookPath);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.ExitCode, Is.Zero, result.StandardError);
             Assert.That(result.StandardOutput, Does.Contain("field=author"));
-            Assert.That(loaded.Metadata.Author, Is.EqualTo(string.Empty));
+            Assert.That(loaded.Values["Author"], Is.EqualTo(string.Empty));
         }
     }
 
-    /// <summary>Verifies field-specific controls reject names but allow descriptions.</summary>
+    /// <summary>Verifies the retired name option is rejected while descriptions remain editable.</summary>
     [Test]
     public async Task Metadata_ControlCharacters_ApplyFieldSpecificRules()
     {
@@ -204,22 +195,20 @@ public sealed class NotebookMetadataIntegrationTests
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "controls");
 
         var rejected = await harness.RunAsync(
-            new[] { "notebooks", "metadata", "--name", "-" },
-            "invalid\nname");
+            new[] { "notebooks", "metadata", "--name", "retired" },
+            string.Empty);
         var accepted = await harness.RunAsync(
             new[] { "notebooks", "metadata", "--description", "-" },
             "valid\ntext");
-        var loaded = await CreateMetadataRepository().LoadAsync(
-            notebookPath,
-            CancellationToken.None);
+        var loaded = await SchemaV2TestNotebook.GetMetadataAsync(notebookPath);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(rejected.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
-            Assert.That(rejected.StandardError, Does.Contain("control character"));
+            Assert.That(rejected.StandardError, Does.Contain("Unrecognized option '--name'"));
             Assert.That(accepted.ExitCode, Is.Zero, accepted.StandardError);
-            Assert.That(loaded.Metadata.Name, Is.EqualTo("controls"));
-            Assert.That(loaded.Metadata.Description, Is.EqualTo("valid\ntext"));
+            Assert.That(loaded.Values.ContainsKey("Name"), Is.False);
+            Assert.That(loaded.Values["Description"], Is.EqualTo("valid\ntext"));
         }
     }
 
@@ -245,9 +234,7 @@ public sealed class NotebookMetadataIntegrationTests
             "metadata",
             "--read-only",
             "false");
-        var loaded = await CreateMetadataRepository().LoadAsync(
-            notebookPath,
-            CancellationToken.None);
+        var loaded = await SchemaV2TestNotebook.GetMetadataAsync(notebookPath);
 
         using (Assert.EnterMultipleScope())
         {
@@ -256,7 +243,7 @@ public sealed class NotebookMetadataIntegrationTests
             Assert.That(unchanged.ExitCode, Is.Zero, unchanged.StandardError);
             Assert.That(unchanged.StandardOutput, Does.Contain("Metadata unchanged"));
             Assert.That(disabled.ExitCode, Is.Zero, disabled.StandardError);
-            Assert.That(loaded.Metadata.ReadOnly, Is.False);
+            Assert.That(loaded.Values["ReadOnly"], Is.EqualTo("False"));
         }
     }
 
@@ -271,9 +258,4 @@ public sealed class NotebookMetadataIntegrationTests
         return Path.Combine(harness.WorkingDirectory, name + ".mnote");
     }
 
-    static SqliteNotebookMetadataRepository CreateMetadataRepository()
-    {
-        return new SqliteNotebookMetadataRepository(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
-    }
 }

@@ -30,7 +30,7 @@ public sealed class RawStandardOutputProcessTests
             TimeSpan.FromSeconds(30));
 
         using var archive = new MemoryStream(result.StandardOutputBytes, writable: false);
-        var report = await new ArchiveV1Reader().ValidateAsync(
+        var report = await new ArchiveV1ContentModel2Reader().ValidateAsync(
             archive,
             CancellationToken.None);
         using (Assert.EnterMultipleScope())
@@ -81,8 +81,7 @@ public sealed class RawStandardOutputProcessTests
 
     static async Task AddPagesAsync(string notebookPath, int count)
     {
-        var repository = new SqlitePageRepository(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
+        var repository = new SchemaV2TestPageRepository();
         for (var index = 1; index <= count; index++)
         {
             await repository.CreatePageAsync(

@@ -57,7 +57,7 @@ public sealed class PageRenameIntegrationTests
         }
     }
 
-    /// <summary>Verifies a Page ID disambiguates legacy duplicate names.</summary>
+    /// <summary>Verifies a Page ID selects one schema-v2 page for rename.</summary>
     [Test]
     public async Task Rename_ByPageId_DisambiguatesDuplicateSourceNames()
     {
@@ -68,7 +68,7 @@ public sealed class PageRenameIntegrationTests
         var repository = CreateRepository();
         var first = await repository.CreatePageAsync(
             notebookPath,
-            "Daily",
+            "Other Daily",
             "first",
             null!,
             CancellationToken.None);
@@ -79,10 +79,6 @@ public sealed class PageRenameIntegrationTests
             null!,
             CancellationToken.None);
 
-        var ambiguous = await harness.RunAsync(
-            "rename",
-            "Daily",
-            "Archive");
         var explicitResult = await harness.RunAsync(
             "rename",
             "--id",
@@ -91,9 +87,6 @@ public sealed class PageRenameIntegrationTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(ambiguous.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
-            Assert.That(ambiguous.StandardOutput, Is.Empty);
-            Assert.That(ambiguous.StandardError, Does.Contain("--id"));
             Assert.That(explicitResult.ExitCode, Is.Zero);
             Assert.That(
                 (await repository.FindPageAsync(
@@ -146,9 +139,9 @@ public sealed class PageRenameIntegrationTests
             Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
             Assert.That(result.StandardOutput, Is.Empty);
             Assert.That(result.StandardError, Does.Contain("already exists"));
-            Assert.That(unchangedName.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
-            Assert.That(unchangedName.StandardOutput, Is.Empty);
-            Assert.That(unchangedName.StandardError, Does.Contain("already exists"));
+            Assert.That(unchangedName.ExitCode, Is.Zero);
+            Assert.That(unchangedName.StandardOutput, Does.Contain("Renamed page"));
+            Assert.That(unchangedName.StandardError, Is.Empty);
             Assert.That(
                 (await repository.FindPageAsync(
                     notebookPath,
@@ -244,9 +237,8 @@ public sealed class PageRenameIntegrationTests
         }
     }
 
-    static SqlitePageRepository CreateRepository()
+    static SchemaV2TestPageRepository CreateRepository()
     {
-        return new SqlitePageRepository(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
+        return new SchemaV2TestPageRepository();
     }
 }

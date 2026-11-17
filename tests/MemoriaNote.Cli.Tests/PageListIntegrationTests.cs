@@ -90,7 +90,7 @@ public sealed class PageListIntegrationTests
             Assert.That(result.StandardOutput, Does.Contain("UPDATED-UTC"));
             Assert.That(result.StandardOutput, Does.Contain("PAGE-ID"));
             Assert.That(result.StandardOutput, Does.Contain(page.Guid.ToString("D")));
-            Assert.That(result.StandardOutput, Does.Contain("{\"Dir\":\"projects\"}"));
+            Assert.That(result.StandardOutput, Does.Contain("{}"));
             Assert.That(result.StandardOutput, Does.EndWith(
                 "Meeting - Project A" + Environment.NewLine));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
@@ -151,10 +151,9 @@ public sealed class PageListIntegrationTests
         }
     }
 
-    static SqlitePageRepository CreateRepository()
+    static SchemaV2TestPageRepository CreateRepository()
     {
-        return new SqlitePageRepository(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
+        return new SchemaV2TestPageRepository();
     }
 
     static string[] GetOutputLines(string output)

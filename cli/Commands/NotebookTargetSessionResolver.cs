@@ -47,33 +47,26 @@ namespace MemoriaNote.Cli
             : base(message, innerException)
         {
         }
+
+        internal NotebookTargetValidationException(string message)
+            : base(message)
+        {
+        }
     }
 
     internal sealed class NotebookTargetSessionResolver : INotebookTargetSessionResolver
     {
         readonly INotebookFormatValidator _formatValidator;
         readonly IWorkspaceConfigurationStore _workspaceConfigurationStore;
-        readonly IPageRepository _pageRepository;
-        readonly IPageSearchRepository _pageSearchRepository;
-        readonly INotebookMetadataRepository _metadataRepository;
 
         internal NotebookTargetSessionResolver(
             INotebookFormatValidator formatValidator,
-            IWorkspaceConfigurationStore workspaceConfigurationStore,
-            IPageRepository pageRepository,
-            IPageSearchRepository pageSearchRepository,
-            INotebookMetadataRepository metadataRepository)
+            IWorkspaceConfigurationStore workspaceConfigurationStore)
         {
             _formatValidator = formatValidator ??
                 throw new ArgumentNullException(nameof(formatValidator));
             _workspaceConfigurationStore = workspaceConfigurationStore ??
                 throw new ArgumentNullException(nameof(workspaceConfigurationStore));
-            _pageRepository = pageRepository ??
-                throw new ArgumentNullException(nameof(pageRepository));
-            _pageSearchRepository = pageSearchRepository ??
-                throw new ArgumentNullException(nameof(pageSearchRepository));
-            _metadataRepository = metadataRepository ??
-                throw new ArgumentNullException(nameof(metadataRepository));
         }
 
         public async Task<ApplicationSession> ResolveAsync(
@@ -110,20 +103,50 @@ namespace MemoriaNote.Cli
             {
                 throw new NotebookTargetValidationException(
                     $"Notebook {CliMessage.Quote(Path.GetFileName(notebookPath))} is not " +
-                    "a valid current-format notebook.",
+                    $"a valid current-format notebook. {exception.Message}",
                     exception);
             }
 
-            var notebook = new Notebook(
-                notebookPath,
-                _pageRepository,
-                _pageSearchRepository,
-                _metadataRepository);
+            var opened = await NotebookApplication.OpenAsync(
+                    new NotebookOpenRequest(notebookPath),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!opened.IsSuccess)
+                throw ToResolutionException(notebookPath, opened.Failure);
+
+            var notebook = new Notebook { DatabasePath = notebookPath };
             var workspace = new Workspace(
                 Path.GetFileName(workspacePath),
                 new[] { notebook },
                 notebook);
-            return ApplicationComposition.Compose(workspace);
+            return new ApplicationSession(
+                workspace,
+                new SchemaV2ApplicationServiceAdapter(opened.Value));
+        }
+
+        static Exception ToResolutionException(
+            string notebookPath,
+            NotebookFailure failure)
+        {
+            var fileName = Path.GetFileName(notebookPath);
+            return failure.Category switch
+            {
+                NotebookFailureCategory.NotFound => new NotebookTargetNotFoundException(
+                    $"The notebook file does not exist: {CliMessage.Quote(fileName)}."),
+                NotebookFailureCategory.Format when failure.Code == "format.legacy" =>
+                    new NotebookTargetValidationException(
+                        $"Notebook {CliMessage.Quote(fileName)} uses schema v1. " +
+                        "Run 'mn notebooks migrate' to create a schema v2 notebook."),
+                NotebookFailureCategory.Format => new NotebookTargetValidationException(
+                    $"Notebook {CliMessage.Quote(fileName)} is not a valid " +
+                    $"current-format notebook. {failure.Message}"),
+                NotebookFailureCategory.Validation => new NotebookTargetValidationException(
+                    failure.Message),
+                NotebookFailureCategory.AccessOrBusy or
+                    NotebookFailureCategory.UnexpectedStorage => new IOException(
+                        failure.Message),
+                _ => new InvalidOperationException(failure.Message)
+            };
         }
 
         static string ResolveExplicitNotebookPath(

@@ -356,8 +356,7 @@ public sealed class UserConfigurationIntegrationTests
 
     static async Task<Page?> FindPageAsync(CliInProcessHarness harness, string name)
     {
-        var repository = new SqlitePageRepository(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
+        var repository = new SchemaV2TestPageRepository();
         return (await repository.ListPagesByHeadingAsync(
             Path.Combine(harness.WorkingDirectory, "work.mnote"),
             name,
@@ -369,8 +368,7 @@ public sealed class UserConfigurationIntegrationTests
         string name,
         string text)
     {
-        var repository = new SqlitePageRepository(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
+        var repository = new SchemaV2TestPageRepository();
         await repository.CreatePageAsync(
             Path.Combine(harness.WorkingDirectory, "work.mnote"),
             name,

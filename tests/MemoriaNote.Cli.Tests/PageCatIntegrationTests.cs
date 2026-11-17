@@ -54,7 +54,7 @@ public sealed class PageCatIntegrationTests
         }
     }
 
-    /// <summary>Verifies duplicate names conflict and a complete Page ID disambiguates them.</summary>
+    /// <summary>Verifies a complete Page ID selects its page independently of the page name.</summary>
     [Test]
     public async Task Cat_DuplicateName_RequiresPageId()
     {
@@ -69,14 +69,14 @@ public sealed class PageCatIntegrationTests
             "first body",
             null!,
             CancellationToken.None);
-        await repository.CreatePageAsync(
+        var second = await repository.CreatePageAsync(
             notebookPath,
-            "Daily",
+            "Other Daily",
             "second body",
             null!,
             CancellationToken.None);
 
-        var ambiguous = await harness.RunAsync("cat", "Daily");
+        var byName = await harness.RunAsync("cat", "Other Daily");
         var explicitResult = await harness.RunAsync(
             "cat",
             "--id",
@@ -84,9 +84,9 @@ public sealed class PageCatIntegrationTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(ambiguous.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
-            Assert.That(ambiguous.StandardOutput, Is.Empty);
-            Assert.That(ambiguous.StandardError, Does.Contain("--id"));
+            Assert.That(byName.ExitCode, Is.Zero);
+            Assert.That(byName.StandardOutput, Is.EqualTo("second body"));
+            Assert.That(second.Guid, Is.Not.EqualTo(first.Guid));
             Assert.That(explicitResult.ExitCode, Is.Zero);
             Assert.That(explicitResult.StandardOutput, Is.EqualTo("first body"));
             Assert.That(explicitResult.StandardError, Is.Empty);
@@ -101,16 +101,16 @@ public sealed class PageCatIntegrationTests
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
-        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        using (var context = factory.CreateDbContext(notebookPath))
-        {
-            var first = Page.Create("First", "first");
-            first.Guid = Guid.Parse("abcd0000-0000-0000-0000-000000000001");
-            var second = Page.Create("Second", "second");
-            second.Guid = Guid.Parse("abcd0000-0000-0000-0000-000000000002");
-            context.Pages.AddRange(first, second);
-            await context.SaveChangesAsync();
-        }
+        await SchemaV2TestNotebook.InsertPageAsync(
+            notebookPath,
+            Guid.Parse("abcd0000-0000-0000-0000-000000000001"),
+            "First",
+            "first");
+        await SchemaV2TestNotebook.InsertPageAsync(
+            notebookPath,
+            Guid.Parse("abcd0000-0000-0000-0000-000000000002"),
+            "Second",
+            "second");
 
         var result = await harness.RunAsync("cat", "--id", "ABCD");
 
@@ -200,9 +200,8 @@ public sealed class PageCatIntegrationTests
         }
     }
 
-    static SqlitePageRepository CreateRepository()
+    static SchemaV2TestPageRepository CreateRepository()
     {
-        return new SqlitePageRepository(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
+        return new SchemaV2TestPageRepository();
     }
 }

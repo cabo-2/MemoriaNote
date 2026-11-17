@@ -68,6 +68,31 @@ public sealed class NotebookTargetIntegrationTests
         }
     }
 
+    /// <summary>Verifies normal commands refuse schema v1 with explicit migration guidance.</summary>
+    [Test]
+    public async Task Ls_WithSchemaV1Notebook_RequiresExplicitMigration()
+    {
+        using var harness = new CliInProcessHarness();
+        var path = Path.Combine(harness.WorkingDirectory, "legacy.mnote");
+        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        var metadata = new SqliteNotebookMetadataRepository(factory);
+        await new SqliteNotebookMigrator(factory, metadata).CreateAsync(
+            "legacy",
+            "legacy",
+            path,
+            CancellationToken.None);
+
+        var result = await harness.RunAsync("ls", "--notebook", "legacy");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.StandardError, Does.Contain("schema v1"));
+            Assert.That(result.StandardError, Does.Contain("mn notebooks migrate"));
+        }
+    }
+
     /// <summary>Verifies an explicit notebook selects one target from multiple candidates.</summary>
     [Test]
     public async Task New_WithExplicitNotebook_CreatesPageOnlyInThatNotebook()
@@ -315,9 +340,8 @@ public sealed class NotebookTargetIntegrationTests
         return Path.GetFullPath(relativePath, harness.WorkingDirectory);
     }
 
-    static SqlitePageRepository CreatePageRepository()
+    static SchemaV2TestPageRepository CreatePageRepository()
     {
-        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        return new SqlitePageRepository(factory);
+        return new SchemaV2TestPageRepository();
     }
 }

@@ -1,5 +1,6 @@
 using MemoriaNote.Cli.Tests.Infrastructure;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
@@ -14,9 +15,14 @@ public sealed class NotebookMigrationProcessTests
     public async Task Migrate_ProcessBoundary_PublishesSchemaV2Notebook()
     {
         using var harness = new CliProcessHarness();
-        var created = await harness.RunAsync("create", "legacy.mnote");
-        Assert.That(created.ExitCode, Is.Zero, created.StandardError);
         var source = Path.Combine(harness.WorkingDirectory, "legacy.mnote");
+        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        var metadata = new SqliteNotebookMetadataRepository(factory);
+        await new SqliteNotebookMigrator(factory, metadata).CreateAsync(
+            "legacy",
+            "legacy",
+            source,
+            CancellationToken.None);
         using (var connection = new SqliteConnection("Data Source=" + source))
         {
             connection.Open();

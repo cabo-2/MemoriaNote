@@ -16,9 +16,8 @@ public sealed class NotebookMetadataCommandHandlerTests
         var result = await fixture.Handler.ExecuteAsync(
             null,
             null,
-            "name",
             "title",
-            null,
+            "description",
             null,
             null,
             null,
@@ -45,9 +44,8 @@ public sealed class NotebookMetadataCommandHandlerTests
         var result = await fixture.Handler.ExecuteAsync(
             null,
             null,
+            null,
             "-",
-            null,
-            null,
             null,
             null,
             null,
@@ -73,7 +71,6 @@ public sealed class NotebookMetadataCommandHandlerTests
         var fixture = CreateFixture(isInteractive: false);
 
         var result = await fixture.Handler.ExecuteAsync(
-            null,
             null,
             null,
             null,
@@ -113,7 +110,6 @@ public sealed class NotebookMetadataCommandHandlerTests
         var handler = new NotebookMetadataCommandHandler(
             executor,
             resolver,
-            new RejectingMetadataService(),
             input,
             output);
         return new Fixture(
@@ -144,23 +140,6 @@ public sealed class NotebookMetadataCommandHandlerTests
         {
             ReadToEndCount++;
             return Task.FromResult(string.Empty);
-        }
-    }
-
-    sealed class RejectingMetadataService : INotebookMetadataService
-    {
-        public Task<NotebookMetadataResult> GetAsync(
-            NotebookId notebookId,
-            CancellationToken token)
-        {
-            throw new InvalidOperationException("The metadata service should not be called.");
-        }
-
-        public Task<NotebookMetadataUpdateResult> UpdateAsync(
-            NotebookMetadataUpdateRequest request,
-            CancellationToken token)
-        {
-            throw new InvalidOperationException("The metadata service should not be called.");
         }
     }
 

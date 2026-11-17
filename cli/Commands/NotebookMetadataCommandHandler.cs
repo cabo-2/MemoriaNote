@@ -14,22 +14,18 @@ namespace MemoriaNote.Cli
     {
         readonly CliCommandExecutor _executor;
         readonly INotebookTargetSessionResolver _targetResolver;
-        readonly INotebookMetadataService _metadataService;
         readonly ICommandInput _input;
         readonly ICommandOutput _output;
 
         internal NotebookMetadataCommandHandler(
             CliCommandExecutor executor,
             INotebookTargetSessionResolver targetResolver,
-            INotebookMetadataService metadataService,
             ICommandInput input,
             ICommandOutput output)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
             _targetResolver = targetResolver ??
                 throw new ArgumentNullException(nameof(targetResolver));
-            _metadataService = metadataService ??
-                throw new ArgumentNullException(nameof(metadataService));
             _input = input ?? throw new ArgumentNullException(nameof(input));
             _output = output ?? throw new ArgumentNullException(nameof(output));
         }
@@ -37,7 +33,6 @@ namespace MemoriaNote.Cli
         internal Task<int> ExecuteAsync(
             string workspaceOption,
             string notebookOption,
-            string name,
             string title,
             string description,
             string author,
@@ -48,7 +43,6 @@ namespace MemoriaNote.Cli
             return _executor.ExecuteAsync(async token =>
             {
                 var options = CreateSpecifiedOptions(
-                    name,
                     title,
                     description,
                     author,
@@ -84,22 +78,24 @@ namespace MemoriaNote.Cli
                         token)
                     .ConfigureAwait(false);
                 var notebookPath = session.Workspace.SelectedNotebook.DatabasePath;
-                var notebookId = NotebookId.FromDatabasePath(notebookPath);
                 var notebookFileName = Path.GetFileName(notebookPath);
+                if (session.ApplicationService is not ICurrentNotebookApplicationService current)
+                {
+                    throw new InvalidOperationException(
+                        "The resolved notebook does not expose current-format metadata.");
+                }
 
                 if (options.Length == 0)
                 {
-                    var loaded = await _metadataService
-                        .GetAsync(notebookId, token)
+                    var loaded = await current.Metadata
+                        .GetAsync(token)
                         .ConfigureAwait(false);
-                    if (loaded.HasIssues)
-                    {
-                        return CliCommandResult.Failure(
-                            CliErrorKind.Validation,
-                            "The notebook metadata is invalid.");
-                    }
-
-                    WriteMetadata(notebookFileName, loaded.Metadata);
+                    if (!loaded.IsSuccess)
+                        return NotebookApplicationFailureMapper.ToCliResult(loaded.Failure);
+                    WriteMetadata(
+                        notebookFileName,
+                        current.Notebook.FormatVersion,
+                        loaded.Value);
                     return CliCommandResult.Success();
                 }
 
@@ -111,22 +107,30 @@ namespace MemoriaNote.Cli
                     value = RemoveOneTerminalLineEnding(value);
                 }
 
-                var result = await _metadataService
+                var before = await current.Metadata
+                    .GetAsync(token)
+                    .ConfigureAwait(false);
+                if (!before.IsSuccess)
+                    return NotebookApplicationFailureMapper.ToCliResult(before.Failure);
+                var key = ToMetadataKey(option.Field);
+                if (option.Field == NotebookMetadataField.ReadOnly)
+                    value = bool.Parse(value).ToString();
+                var result = await current.Metadata
                     .UpdateAsync(
-                        new NotebookMetadataUpdateRequest(notebookId, option.Field, value),
+                        new NotebookMetadataChangeSet(
+                            new System.Collections.Generic.Dictionary<string, string>
+                            {
+                                [key] = value
+                            }),
                         token)
                     .ConfigureAwait(false);
                 if (!result.IsSuccess)
-                {
-                    return CliCommandResult.Failure(
-                        CliErrorKind.Validation,
-                        NotebookMetadataValidationMessageMapper.ToErrorMessage(
-                            result.Errors[0]));
-                }
+                    return NotebookApplicationFailureMapper.ToCliResult(result.Failure);
 
                 var fieldName = ToOptionName(option.Field);
+                before.Value.Values.TryGetValue(key, out var previousValue);
                 _output.WriteLine(
-                    result.Changed
+                    !string.Equals(previousValue, value, StringComparison.Ordinal)
                         ? $"Metadata updated: notebook={notebookFileName}, " +
                             $"field={fieldName}."
                         : $"Metadata unchanged: notebook={notebookFileName}, " +
@@ -135,27 +139,36 @@ namespace MemoriaNote.Cli
             }, cancellationToken);
         }
 
-        void WriteMetadata(string notebookFileName, NotebookMetadata metadata)
+        void WriteMetadata(
+            string notebookFileName,
+            int formatVersion,
+            NotebookMetadataSnapshot metadata)
         {
             _output.WriteLine($"Notebook: {Escape(notebookFileName)}");
-            _output.WriteLine($"Name: {Escape(metadata.Name)}");
-            _output.WriteLine($"Title: {Escape(metadata.Title)}");
-            _output.WriteLine($"Description: {Escape(metadata.Description)}");
-            _output.WriteLine($"Author: {Escape(metadata.Author)}");
-            _output.WriteLine($"Tag: {Escape(metadata.Tag)}");
-            _output.WriteLine($"Read-only: {metadata.ReadOnly.ToString().ToLowerInvariant()}");
-            _output.WriteLine($"Version: {Escape(metadata.Version)}");
+            _output.WriteLine($"Title: {Escape(Value(metadata, "Title"))}");
+            _output.WriteLine($"Description: {Escape(Value(metadata, "Description"))}");
+            _output.WriteLine($"Author: {Escape(Value(metadata, "Author"))}");
+            _output.WriteLine($"Tag: {Escape(Value(metadata, "Tag"))}");
+            _output.WriteLine(
+                $"Read-only: {Value(metadata, "ReadOnly").ToLowerInvariant()}");
+            _output.WriteLine(
+                $"Format: {formatVersion.ToString(CultureInfo.InvariantCulture)}");
+            var created = Value(metadata, "CreateTime");
             _output.WriteLine(
                 "Created: " +
-                (metadata.CreateTime == default
+                (string.IsNullOrEmpty(created)
                     ? "(unset)"
-                    : metadata.CreateTime.ToString(
-                        "yyyy-MM-dd'T'HH:mm:ss",
-                        CultureInfo.InvariantCulture)));
+                    : DateTime.ParseExact(
+                            created,
+                            "yyyyMMddhhmmss",
+                            CultureInfo.InvariantCulture,
+                            DateTimeStyles.None)
+                        .ToString(
+                            "yyyy-MM-dd'T'HH:mm:ss",
+                            CultureInfo.InvariantCulture)));
         }
 
         static MetadataOption[] CreateSpecifiedOptions(
-            string name,
             string title,
             string description,
             string author,
@@ -163,7 +176,6 @@ namespace MemoriaNote.Cli
             string readOnly)
         {
             var options = new System.Collections.Generic.List<MetadataOption>();
-            Add(options, NotebookMetadataField.Name, name);
             Add(options, NotebookMetadataField.Title, title);
             Add(options, NotebookMetadataField.Description, description);
             Add(options, NotebookMetadataField.Author, author);
@@ -234,7 +246,6 @@ namespace MemoriaNote.Cli
         {
             return field switch
             {
-                NotebookMetadataField.Name => "name",
                 NotebookMetadataField.Title => "title",
                 NotebookMetadataField.Description => "description",
                 NotebookMetadataField.Author => "author",
@@ -242,6 +253,26 @@ namespace MemoriaNote.Cli
                 NotebookMetadataField.ReadOnly => "read-only",
                 _ => throw new ArgumentOutOfRangeException(nameof(field))
             };
+        }
+
+        static string ToMetadataKey(NotebookMetadataField field)
+        {
+            return field switch
+            {
+                NotebookMetadataField.Title => "Title",
+                NotebookMetadataField.Description => "Description",
+                NotebookMetadataField.Author => "Author",
+                NotebookMetadataField.Tag => "Tag",
+                NotebookMetadataField.ReadOnly => "ReadOnly",
+                _ => throw new ArgumentOutOfRangeException(nameof(field))
+            };
+        }
+
+        static string Value(NotebookMetadataSnapshot snapshot, string key)
+        {
+            return snapshot.Values.TryGetValue(key, out var value)
+                ? value ?? string.Empty
+                : string.Empty;
         }
 
         readonly struct MetadataOption

@@ -1,6 +1,7 @@
 using MemoriaNote.Archive;
 using MemoriaNote.Cli.Tests.Infrastructure;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
@@ -358,9 +359,15 @@ public sealed class NotebookMigrationIntegrationTests
         CliInProcessHarness harness,
         string name)
     {
-        var created = await harness.RunAsync("create", name);
-        Assert.That(created.ExitCode, Is.Zero, created.StandardError);
-        return Path.Combine(harness.WorkingDirectory, name);
+        var path = Path.Combine(harness.WorkingDirectory, name);
+        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        var metadata = new SqliteNotebookMetadataRepository(factory);
+        await new SqliteNotebookMigrator(factory, metadata).CreateAsync(
+            Path.GetFileNameWithoutExtension(name),
+            Path.GetFileNameWithoutExtension(name),
+            path,
+            CancellationToken.None);
+        return path;
     }
 
     private static async Task CreateCm1ArchiveAsync(

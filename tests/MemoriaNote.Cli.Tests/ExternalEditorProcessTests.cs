@@ -27,8 +27,7 @@ public sealed class ExternalEditorProcessTests
         var result = await harness.RunAsync("new", "Roadmap");
 
         AssertSucceeded(result);
-        var repository = new SqlitePageRepository(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
+        var repository = new SchemaV2TestPageRepository();
         var page = (await repository.ListPagesByHeadingAsync(
             notebookPath,
             "Roadmap",

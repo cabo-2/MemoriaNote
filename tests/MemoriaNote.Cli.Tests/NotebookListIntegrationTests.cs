@@ -51,10 +51,9 @@ public sealed class NotebookListIntegrationTests
         await File.WriteAllTextAsync(
             Path.Combine(harness.WorkingDirectory, "broken.mnote"),
             "not sqlite");
-        await UpdateMetadataAsync(
-            harness,
-            "alpha.mnote",
-            new NotebookMetadataPatch().SetReadOnly(true));
+        await SchemaV2TestNotebook.UpdateMetadataAsync(
+            Path.Combine(harness.WorkingDirectory, "alpha.mnote"),
+            new Dictionary<string, string?> { ["ReadOnly"] = "True" });
         AssertSucceeded(await harness.RunAsync("use", "project"));
         var configurationPath = WorkspaceConfigurationPath(harness);
         var configurationBefore = await File.ReadAllBytesAsync(configurationPath);
@@ -93,10 +92,9 @@ public sealed class NotebookListIntegrationTests
         AssertSucceeded(await harness.RunAsync("create", "current"));
         AssertSucceeded(await harness.RunAsync("create", "future"));
         AssertSucceeded(await harness.RunAsync("use", "current"));
-        await UpdateMetadataAsync(
-            harness,
-            "future.mnote",
-            new NotebookMetadataPatch().SetVersion("2"));
+        await SchemaV2TestNotebook.SetUserVersionAsync(
+            Path.Combine(harness.WorkingDirectory, "future.mnote"),
+            3);
 
         var result = await harness.RunAsync("notebooks", "list", "--long");
         var lines = GetOutputLines(result.StandardOutput);
@@ -112,10 +110,10 @@ public sealed class NotebookListIntegrationTests
             Assert.That(lines[0], Does.EndWith("NOTEBOOK"));
             Assert.That(
                 lines[1],
-                Does.Match(@"^\*\s+ready\s+file\s+1\s+current\.mnote$"));
+                Does.Match(@"^\*\s+ready\s+file\s+2\s+current\.mnote$"));
             Assert.That(
                 lines[2],
-                Does.Match(@"^\s+unsupported\s+file\s+2\s+future\.mnote$"));
+                Does.Match(@"^\s+unsupported\s+file\s+3\s+future\.mnote$"));
             Assert.That(result.StandardError, Is.Empty);
         }
     }
@@ -233,7 +231,7 @@ public sealed class NotebookListIntegrationTests
             Assert.That(result.ExitCode, Is.Zero, result.StandardError);
             Assert.That(
                 lines.Single(line => line.EndsWith("alias.mnote", StringComparison.Ordinal)),
-                Does.Match(@"^\*\s+ready\s+symlink\s+1\s+alias\.mnote$"));
+                Does.Match(@"^\*\s+ready\s+symlink\s+2\s+alias\.mnote$"));
             Assert.That(
                 lines.Single(line => line.EndsWith("dangling.mnote", StringComparison.Ordinal)),
                 Does.Match(@"^\s+missing\s+symlink\s+-\s+dangling\.mnote$"));
@@ -269,19 +267,6 @@ public sealed class NotebookListIntegrationTests
             Assert.That(result.StandardError, Does.StartWith("Error:"));
             Assert.That(await File.ReadAllTextAsync(configurationPath), Is.EqualTo(configuration));
         }
-    }
-
-    static async Task UpdateMetadataAsync(
-        CliInProcessHarness harness,
-        string notebookFileName,
-        NotebookMetadataPatch patch)
-    {
-        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        var repository = new SqliteNotebookMetadataRepository(factory);
-        await repository.UpdateAsync(
-            Path.Combine(harness.WorkingDirectory, notebookFileName),
-            patch,
-            CancellationToken.None);
     }
 
     static async Task<Dictionary<string, byte[]>> ReadNotebookBytesAsync(

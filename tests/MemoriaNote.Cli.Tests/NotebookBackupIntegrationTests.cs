@@ -2,7 +2,6 @@ using System.IO.Compression;
 using System.Text.Json;
 using MemoriaNote.Archive;
 using MemoriaNote.Cli.Tests.Infrastructure;
-using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
@@ -180,11 +179,9 @@ public sealed class NotebookBackupIntegrationTests
     {
         using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "read-only");
-        var factory = CreateDatabaseFactory();
-        await new SqliteNotebookMetadataRepository(factory).UpdateAsync(
+        await SchemaV2TestNotebook.UpdateMetadataAsync(
             notebookPath,
-            new NotebookMetadataPatch().SetReadOnly(true),
-            CancellationToken.None);
+            new Dictionary<string, string?> { ["ReadOnly"] = "True" });
         var notebookBefore = await harness.ReadDatabaseBytesAsync(notebookPath);
 
         var result = await harness.RunAsync(
@@ -241,7 +238,7 @@ public sealed class NotebookBackupIntegrationTests
 
     static async Task AddPagesAsync(string notebookPath, int count)
     {
-        var repository = new SqlitePageRepository(CreateDatabaseFactory());
+        var repository = new SchemaV2TestPageRepository();
         for (var index = 1; index <= count; index++)
         {
             await repository.CreatePageAsync(
@@ -260,7 +257,9 @@ public sealed class NotebookBackupIntegrationTests
             FileMode.Open,
             FileAccess.Read,
             FileShare.Read);
-        return await new ArchiveV1Reader().ValidateAsync(stream, CancellationToken.None);
+        return await new ArchiveV1ContentModel2Reader().ValidateAsync(
+            stream,
+            CancellationToken.None);
     }
 
     static string ReadCreatorVersion(string archivePath)
@@ -274,11 +273,6 @@ public sealed class NotebookBackupIntegrationTests
             .GetProperty("createdBy")
             .GetProperty("version")
             .GetString()!;
-    }
-
-    static SqliteNotebookDbContextFactory CreateDatabaseFactory()
-    {
-        return new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
     }
 
     static string WorkspaceConfigurationPath(CliInProcessHarness harness)

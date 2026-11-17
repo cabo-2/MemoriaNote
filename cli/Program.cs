@@ -481,9 +481,6 @@ namespace MemoriaNote.Cli
                     Description = NotebookOptionDescription)]
                 public string Notebook { get; set; }
 
-                [Option("--name <value>", Description = "Set the notebook display name; use - for standard input")]
-                public string Name { get; set; }
-
                 [Option("--title <value>", Description = "Set the notebook display title; use - for standard input")]
                 public string Title { get; set; }
 
@@ -502,7 +499,6 @@ namespace MemoriaNote.Cli
                 protected ValidationResult OnValidate()
                 {
                     var updateCount = 0;
-                    if (Name != null) updateCount++;
                     if (Title != null) updateCount++;
                     if (Description != null) updateCount++;
                     if (Author != null) updateCount++;
@@ -530,7 +526,6 @@ namespace MemoriaNote.Cli
                     return CommandHandlers.NotebookMetadata.ExecuteAsync(
                         Parent?.WorkspacePath,
                         Notebook,
-                        Name,
                         Title,
                         Description,
                         Author,

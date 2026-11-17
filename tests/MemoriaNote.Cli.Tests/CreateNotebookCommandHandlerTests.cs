@@ -21,10 +21,10 @@ public sealed class CreateNotebookCommandHandlerTests
             output,
             new CliErrorMapper(),
             NullLogger<CliCommandExecutor>.Instance);
-        var migrator = new RecordingNotebookMigrator();
+        var migrator = new RecordingNotebookCreationService();
         var handler = new CreateNotebookCommandHandler(
             executor,
-            new CreateNotebookUseCase(migrator),
+            migrator,
             output);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
@@ -50,23 +50,17 @@ public sealed class CreateNotebookCommandHandlerTests
         }
     }
 
-    sealed class RecordingNotebookMigrator : INotebookMigrator
+    sealed class RecordingNotebookCreationService : INotebookCreationService
     {
         internal int CreateCallCount { get; private set; }
 
-        public Task<Notebook> CreateAsync(
-            string name,
-            string title,
+        public Task<NotebookOperationResult<NotebookApplicationSession>> CreateAsync(
             string databasePath,
+            string title,
             CancellationToken token)
         {
             CreateCallCount++;
             throw new InvalidOperationException("Persistence should not be invoked.");
-        }
-
-        public Task MigrateAsync(string databasePath, CancellationToken token)
-        {
-            throw new NotSupportedException();
         }
     }
 

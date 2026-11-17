@@ -49,7 +49,7 @@ public sealed class PageDeleteIntegrationTests
         }
     }
 
-    /// <summary>Verifies Page ID selects one page when legacy names are duplicated.</summary>
+    /// <summary>Verifies Page ID deletes only the selected schema-v2 page.</summary>
     [Test]
     public async Task Delete_ByPageId_DisambiguatesDuplicateNames()
     {
@@ -60,7 +60,7 @@ public sealed class PageDeleteIntegrationTests
         var repository = CreateRepository();
         var first = await repository.CreatePageAsync(
             notebookPath,
-            "Daily",
+            "Other Daily",
             "first",
             null!,
             CancellationToken.None);
@@ -71,7 +71,6 @@ public sealed class PageDeleteIntegrationTests
             null!,
             CancellationToken.None);
 
-        var ambiguous = await harness.RunAsync("delete", "Daily", "--force");
         var explicitResult = await harness.RunAsync(
             "delete",
             "--id",
@@ -80,8 +79,6 @@ public sealed class PageDeleteIntegrationTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(ambiguous.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
-            Assert.That(ambiguous.StandardError, Does.Contain("--id"));
             Assert.That(explicitResult.ExitCode, Is.Zero);
             Assert.That(
                 await repository.FindPageAsync(notebookPath, first.Guid, CancellationToken.None),
@@ -189,9 +186,8 @@ public sealed class PageDeleteIntegrationTests
         }
     }
 
-    static SqlitePageRepository CreateRepository()
+    static SchemaV2TestPageRepository CreateRepository()
     {
-        return new SqlitePageRepository(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
+        return new SchemaV2TestPageRepository();
     }
 }

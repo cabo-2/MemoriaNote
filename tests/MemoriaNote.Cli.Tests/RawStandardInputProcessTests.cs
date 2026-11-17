@@ -90,8 +90,7 @@ public sealed class RawStandardInputProcessTests
         var notebookPath = Path.Combine(
             harness.WorkingDirectory,
             notebookName + ".mnote");
-        var repository = new SqlitePageRepository(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
+        var repository = new SchemaV2TestPageRepository();
         for (var index = 1; index <= pageCount; index++)
         {
             await repository.CreatePageAsync(
