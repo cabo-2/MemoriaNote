@@ -769,14 +769,38 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("ls", Description = "List pages in stable page-name order")]
+        [Command(
+            "ls",
+            Description = "List pages or match page names with a MemoriaNote glob",
+            ExtendedHelpText =
+                "Patterns match the complete page name case-sensitively without " +
+                "Unicode normalization. Use *, ?, character classes such as " +
+                "[A-Z], negated classes [!0-9] or [^0-9], and backslash to " +
+                "escape a metacharacter. Quote patterns to prevent shell " +
+                "expansion, for example: mn ls 'project-*'.")]
         [HelpOption("--help")]
         class ListCommand : WorkspaceCommand
         {
+            [Argument(
+                0,
+                Name = "page-name-pattern",
+                Description = "Optional MemoriaNote glob matched against the complete page name")]
+            public (bool hasValue, string value) PageNamePattern { get; set; }
+
             [Option(
                 "--notebook <notebook>",
                 Description = NotebookOptionDescription)]
             public string Notebook { get; set; }
+
+            [Option(
+                "--sort <mode>",
+                Description = "Sort by name, updated, or created; default is name")]
+            public string Sort { get; set; }
+
+            [Option(
+                "-r|--reverse",
+                Description = "Reverse every key of the selected sort order")]
+            public bool Reverse { get; set; }
 
             [Option("--limit <count>", Description = "Return at most this many pages; must be positive")]
             public int? Limit { get; set; }
@@ -786,9 +810,15 @@ namespace MemoriaNote.Cli
 
             protected ValidationResult OnValidate()
             {
-                return Limit <= 0
-                    ? new ValidationResult("Limit must be greater than zero.")
-                    : ValidationResult.Success;
+                if (Limit <= 0)
+                    return new ValidationResult("Limit must be greater than zero.");
+                if (!PageListCommandParser.TryParseSort(Sort, out _))
+                {
+                    return new ValidationResult(
+                        "Sort must be name, updated, or created.");
+                }
+
+                return ValidationResult.Success;
             }
 
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
@@ -796,6 +826,9 @@ namespace MemoriaNote.Cli
                 return CommandHandlers.List.ExecuteAsync(
                     WorkspacePath,
                     Notebook,
+                    PageNamePattern.hasValue ? PageNamePattern.value : null,
+                    Sort,
+                    Reverse,
                     Limit,
                     Long,
                     cancellationToken);

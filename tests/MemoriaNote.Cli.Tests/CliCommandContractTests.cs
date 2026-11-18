@@ -13,6 +13,24 @@ namespace MemoriaNote.Cli.Tests;
 [TestFixture]
 public sealed class CliCommandContractTests
 {
+    /// <summary>Verifies every public ls sort token maps to the Core query contract.</summary>
+    [TestCase(null, NotebookPageQuerySort.Name)]
+    [TestCase("name", NotebookPageQuerySort.Name)]
+    [TestCase("updated", NotebookPageQuerySort.Updated)]
+    [TestCase("created", NotebookPageQuerySort.Created)]
+    public void ListSortParser_WithSupportedValue_ReturnsCoreSort(
+        string? value,
+        NotebookPageQuerySort expected)
+    {
+        var parsed = PageListCommandParser.TryParseSort(value, out var sort);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(parsed, Is.True);
+            Assert.That(sort, Is.EqualTo(expected));
+        }
+    }
+
     /// <summary>Verifies that edit resolves a unique page and uses the external editor.</summary>
     [Test]
     public async Task Edit_ResolvesUniqueTargetAndUsesExternalEditor()
@@ -94,14 +112,14 @@ public sealed class CliCommandContractTests
         }
     }
 
-    /// <summary>Verifies ls passes the explicit target and optional limit without configuration I/O.</summary>
+    /// <summary>Verifies ls passes its complete query without configuration I/O.</summary>
     [Test]
-    public async Task List_PassesTargetLimitAndFormatWithoutConfigurationAccess()
+    public async Task List_PassesTargetQueryAndFormatWithoutConfigurationAccess()
     {
         var fixture = CommandFixture.Create();
-        PageListRequest? request = null;
+        NotebookPageQueryRequest? request = null;
         CancellationToken applicationToken = default;
-        fixture.Application.ListPagesAsyncHandler = (value, token) =>
+        fixture.Application.QueryPagesAsyncHandler = (value, token) =>
         {
             request = value;
             applicationToken = token;
@@ -113,6 +131,9 @@ public sealed class CliCommandContractTests
         var result = await fixture.List.ExecuteAsync(
             "workspace",
             "notes.mnote",
+            "project-[A-Z]*",
+            "updated",
+            reverse: true,
             25,
             longFormat: true,
             cancellation.Token);
@@ -123,13 +144,15 @@ public sealed class CliCommandContractTests
             Assert.That(fixture.TargetResolver.WorkspaceOption, Is.EqualTo("workspace"));
             Assert.That(fixture.TargetResolver.NotebookOption, Is.EqualTo("notes.mnote"));
             Assert.That(request, Is.Not.Null);
-            Assert.That(request!.NotebookId, Is.EqualTo(fixture.NotebookId));
+            Assert.That(request!.Pattern, Is.EqualTo("project-[A-Z]*"));
+            Assert.That(request.Sort, Is.EqualTo(NotebookPageQuerySort.Updated));
+            Assert.That(request.Reverse, Is.True);
             Assert.That(request.Limit, Is.EqualTo(25));
             Assert.That(applicationToken, Is.EqualTo(cancellation.Token));
             Assert.That(fixture.EditorOptionsProvider.LoadCount, Is.Zero);
             Assert.That(fixture.Output.PageListCallCount, Is.EqualTo(1));
             Assert.That(fixture.Output.PageListLongFormat, Is.True);
-            Assert.That(fixture.Application.SearchAsyncCallCount, Is.Zero);
+            Assert.That(fixture.Application.ListPagesAsyncCallCount, Is.Zero);
             Assert.That(fixture.Output.StandardError, Is.Empty);
         }
     }
@@ -139,8 +162,8 @@ public sealed class CliCommandContractTests
     public async Task List_WithoutLimit_RequestsAllPages()
     {
         var fixture = CommandFixture.Create();
-        PageListRequest? request = null;
-        fixture.Application.ListPagesAsyncHandler = (value, _) =>
+        NotebookPageQueryRequest? request = null;
+        fixture.Application.QueryPagesAsyncHandler = (value, _) =>
         {
             request = value;
             return Task.FromResult<IReadOnlyList<PageSummary>>(Array.Empty<PageSummary>());
@@ -150,6 +173,9 @@ public sealed class CliCommandContractTests
             null,
             null,
             null,
+            null,
+            reverse: false,
+            null,
             longFormat: false,
             CancellationToken.None);
 
@@ -157,6 +183,9 @@ public sealed class CliCommandContractTests
         {
             Assert.That(result, Is.Zero);
             Assert.That(request, Is.Not.Null);
+            Assert.That(request!.Pattern, Is.Null);
+            Assert.That(request.Sort, Is.EqualTo(NotebookPageQuerySort.Name));
+            Assert.That(request.Reverse, Is.False);
             Assert.That(request!.Limit, Is.Null);
             Assert.That(fixture.Output.PageListLongFormat, Is.False);
         }
@@ -172,6 +201,9 @@ public sealed class CliCommandContractTests
         var result = await fixture.List.ExecuteAsync(
             null,
             null,
+            null,
+            null,
+            reverse: false,
             limit,
             longFormat: false,
             CancellationToken.None);
@@ -180,11 +212,41 @@ public sealed class CliCommandContractTests
         {
             Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(fixture.TargetResolver.ResolveCount, Is.Zero);
-            Assert.That(fixture.Application.ListPagesAsyncCallCount, Is.Zero);
+            Assert.That(fixture.Application.QueryPagesAsyncCallCount, Is.Zero);
             Assert.That(fixture.Output.PageListCallCount, Is.Zero);
             Assert.That(
                 fixture.Output.StandardError,
                 Is.EqualTo("Error: Limit must be greater than zero." + Environment.NewLine));
+        }
+    }
+
+    /// <summary>Verifies an invalid sort fails before resolving a notebook.</summary>
+    [Test]
+    public async Task List_WithInvalidSort_ReturnsValidationFailure()
+    {
+        var fixture = CommandFixture.Create();
+
+        var result = await fixture.List.ExecuteAsync(
+            null,
+            null,
+            null,
+            "relevance",
+            reverse: false,
+            limit: null,
+            longFormat: false,
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(fixture.TargetResolver.ResolveCount, Is.Zero);
+            Assert.That(fixture.Application.QueryPagesAsyncCallCount, Is.Zero);
+            Assert.That(fixture.Output.PageListCallCount, Is.Zero);
+            Assert.That(
+                fixture.Output.StandardError,
+                Is.EqualTo(
+                    "Error: Sort must be name, updated, or created." +
+                    Environment.NewLine));
         }
     }
 
@@ -193,12 +255,15 @@ public sealed class CliCommandContractTests
     public async Task List_WhenReadFails_UsesCommonStorageErrorMapping()
     {
         var fixture = CommandFixture.Create();
-        fixture.Application.ListPagesAsyncHandler = (_, _) =>
+        fixture.Application.QueryPagesAsyncHandler = (_, _) =>
             throw new IOException("database is unavailable");
 
         var result = await fixture.List.ExecuteAsync(
             null,
             null,
+            null,
+            null,
+            reverse: false,
             null,
             longFormat: false,
             CancellationToken.None);
@@ -224,7 +289,7 @@ public sealed class CliCommandContractTests
     {
         var fixture = CommandFixture.Create();
         using var cancellation = new CancellationTokenSource();
-        fixture.Application.ListPagesAsyncHandler = (_, token) =>
+        fixture.Application.QueryPagesAsyncHandler = (_, token) =>
         {
             cancellation.Cancel();
             return Task.FromCanceled<IReadOnlyList<PageSummary>>(token);
@@ -233,6 +298,9 @@ public sealed class CliCommandContractTests
         var result = await fixture.List.ExecuteAsync(
             null,
             null,
+            null,
+            null,
+            reverse: false,
             null,
             longFormat: false,
             cancellation.Token);

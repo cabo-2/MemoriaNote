@@ -8,6 +8,38 @@ using MemoriaNote.Cli.Editors;
 
 namespace MemoriaNote.Cli
 {
+    internal interface ICurrentPageQueryService
+    {
+        Task<IReadOnlyList<PageSummary>> QueryPagesAsync(
+            NotebookPageQueryRequest request,
+            CancellationToken cancellationToken);
+    }
+
+    internal static class PageListCommandParser
+    {
+        internal static bool TryParseSort(
+            string value,
+            out NotebookPageQuerySort sort)
+        {
+            switch (value)
+            {
+                case null:
+                case "name":
+                    sort = NotebookPageQuerySort.Name;
+                    return true;
+                case "updated":
+                    sort = NotebookPageQuerySort.Updated;
+                    return true;
+                case "created":
+                    sort = NotebookPageQuerySort.Created;
+                    return true;
+                default:
+                    sort = default;
+                    return false;
+            }
+        }
+    }
+
     internal sealed class EditCommandHandler
     {
         readonly CliCommandExecutor _executor;
@@ -354,6 +386,9 @@ namespace MemoriaNote.Cli
         internal Task<int> ExecuteAsync(
             string workspaceOption,
             string notebookOption,
+            string pageNamePattern,
+            string sort,
+            bool reverse,
             int? limit,
             bool longFormat,
             CancellationToken cancellationToken)
@@ -365,6 +400,12 @@ namespace MemoriaNote.Cli
                     return CliCommandResult.Failure(
                         CliErrorKind.Validation,
                         "Limit must be greater than zero.");
+                }
+                if (!PageListCommandParser.TryParseSort(sort, out var parsedSort))
+                {
+                    return CliCommandResult.Failure(
+                        CliErrorKind.Validation,
+                        "Sort must be name, updated, or created.");
                 }
 
                 var session = await _targetResolver.ResolveAsync(
@@ -378,12 +419,20 @@ namespace MemoriaNote.Cli
                         CliErrorKind.NotFound,
                         CliMessage.NoSelectedNotebook);
                 }
+                if (session.ApplicationService is not ICurrentPageQueryService current)
+                {
+                    throw new InvalidOperationException(
+                        "The resolved notebook does not expose current-format page queries.");
+                }
 
-                var pages = await session.ApplicationService.ListPagesAsync(
-                    new PageListRequest(
-                        NotebookId.FromDatabasePath(selectedNotebook.DatabasePath),
-                        limit),
-                    token);
+                var pages = await current.QueryPagesAsync(
+                        new NotebookPageQueryRequest(
+                            pageNamePattern,
+                            parsedSort,
+                            reverse,
+                            limit),
+                        token)
+                    .ConfigureAwait(false);
                 _output.WritePageList(pages, longFormat);
                 return CliCommandResult.Success();
             }, cancellationToken);

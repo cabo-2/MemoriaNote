@@ -1,6 +1,7 @@
 using MemoriaNote.Application;
 using MemoriaNote.Domain;
 using Microsoft.Data.Sqlite;
+using System.Globalization;
 
 namespace MemoriaNote.Cli.Tests.Infrastructure;
 
@@ -47,6 +48,34 @@ internal static class SchemaV2TestNotebook
         command.Parameters.AddWithValue("$time", "2026-01-01 00:00:00.0000000");
         command.Parameters.AddWithValue("$text", text);
         await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+    }
+
+    internal static async Task SetPageTimesAsync(
+        string databasePath,
+        string name,
+        DateTimeOffset createTimeUtc,
+        DateTimeOffset updateTimeUtc)
+    {
+        var connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = databasePath,
+            Mode = SqliteOpenMode.ReadWrite,
+            Pooling = false
+        }.ToString();
+        await using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE Pages
+            SET CreateTime = $createTime, UpdateTime = $updateTime
+            WHERE Name = $name;
+            """;
+        command.Parameters.AddWithValue("$name", name);
+        command.Parameters.AddWithValue("$createTime", FormatTime(createTimeUtc));
+        command.Parameters.AddWithValue("$updateTime", FormatTime(updateTimeUtc));
+        var changed = await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+        if (changed != 1)
+            throw new InvalidOperationException($"Expected one page named '{name}'.");
     }
 
     internal static async Task<NotebookPage?> FindByNameAsync(
@@ -158,4 +187,9 @@ internal static class SchemaV2TestNotebook
         command.CommandText = $"PRAGMA {name};";
         return Convert.ToInt32(await command.ExecuteScalarAsync().ConfigureAwait(false));
     }
+
+    private static string FormatTime(DateTimeOffset value) =>
+        value.UtcDateTime.ToString(
+            "yyyy-MM-dd HH:mm:ss.fffffff",
+            CultureInfo.InvariantCulture);
 }

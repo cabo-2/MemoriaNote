@@ -29,12 +29,19 @@ internal sealed class StubNotebookTargetSessionResolver : INotebookTargetSession
 }
 
 /// <summary>Provides configurable application behavior for CLI presentation tests.</summary>
-internal sealed class StubApplicationService : IMemoriaNoteApplicationService
+internal sealed class StubApplicationService :
+    IMemoriaNoteApplicationService,
+    ICurrentPageQueryService
 {
     internal Func<PageListRequest, CancellationToken, Task<IReadOnlyList<PageSummary>>> ListPagesAsyncHandler { get; set; } =
         (_, _) => Task.FromResult<IReadOnlyList<PageSummary>>(Array.Empty<PageSummary>());
 
     internal int ListPagesAsyncCallCount { get; private set; }
+
+    internal Func<NotebookPageQueryRequest, CancellationToken, Task<IReadOnlyList<PageSummary>>> QueryPagesAsyncHandler { get; set; } =
+        (_, _) => Task.FromResult<IReadOnlyList<PageSummary>>(Array.Empty<PageSummary>());
+
+    internal int QueryPagesAsyncCallCount { get; private set; }
 
     internal Func<PageTargetRequest, CancellationToken, Task<PageTargetResolution>> ResolvePageAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(
@@ -97,6 +104,14 @@ internal sealed class StubApplicationService : IMemoriaNoteApplicationService
     {
         ListPagesAsyncCallCount++;
         return ListPagesAsyncHandler(request, token);
+    }
+
+    public Task<IReadOnlyList<PageSummary>> QueryPagesAsync(
+        NotebookPageQueryRequest request,
+        CancellationToken token)
+    {
+        QueryPagesAsyncCallCount++;
+        return QueryPagesAsyncHandler(request, token);
     }
 
     public Task<PageTargetResolution> ResolvePageAsync(

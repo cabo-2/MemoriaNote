@@ -19,7 +19,8 @@ namespace MemoriaNote.Cli
 
     internal sealed class SchemaV2ApplicationServiceAdapter :
         IMemoriaNoteApplicationService,
-        ICurrentNotebookApplicationService
+        ICurrentNotebookApplicationService,
+        ICurrentPageQueryService
     {
         readonly NotebookApplicationSession _session;
         readonly PageValidationPolicy _validationPolicy = new PageValidationPolicy();
@@ -42,6 +43,16 @@ namespace MemoriaNote.Cli
             var result = await _session.Pages.QuerySummariesAsync(
                     new NotebookPageQueryRequest(limit: request.Limit),
                     token)
+                .ConfigureAwait(false);
+            return Require(result).Select(Map).ToArray();
+        }
+
+        public async Task<IReadOnlyList<PageSummary>> QueryPagesAsync(
+            NotebookPageQueryRequest request,
+            CancellationToken token)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+            var result = await _session.Pages.QuerySummariesAsync(request, token)
                 .ConfigureAwait(false);
             return Require(result).Select(Map).ToArray();
         }

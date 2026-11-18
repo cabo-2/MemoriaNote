@@ -112,6 +112,7 @@ public sealed class CliHelpContractTests
     [TestCase("cat", "Usage: mn cat [options] (<page-name> | --id <uuid-or-prefix>)")]
     [TestCase("rename", "mn rename [options] --id <uuid-or-prefix> <new-name>")]
     [TestCase("delete", "Usage: mn delete [options] (<page-name> | --id <uuid-or-prefix>)")]
+    [TestCase("ls", "Usage: mn ls [<page-name-pattern>] [options]")]
     public async Task Help_ForAlternativeInputs_StatesAcceptedSyntax(
         string commandPath,
         string expectedUsage)
