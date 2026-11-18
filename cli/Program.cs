@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
+using MemoriaNote.Application;
 
 namespace MemoriaNote.Cli
 {
@@ -20,6 +21,7 @@ namespace MemoriaNote.Cli
         typeof(ConfigCommand),
         typeof(CompletionCommand),
         typeof(ListCommand),
+        typeof(FindCommand),
         typeof(CatCommand),
         typeof(RenameCommand),
         typeof(DeleteCommand))]
@@ -831,6 +833,89 @@ namespace MemoriaNote.Cli
                     Reverse,
                     Limit,
                     Long,
+                    cancellationToken);
+            }
+        }
+
+        [Command(
+            "find",
+            Description = "Find pages whose bodies contain every literal keyword",
+            ExtendedHelpText =
+                "Keywords are split on Unicode whitespace and combined with literal " +
+                "AND. Operator-looking text such as AND, OR, *, and quotes is searched " +
+                "literally; shell quoting does not create a phrase. Searches are " +
+                "case-insensitive by default using ordinal comparison; use " +
+                "--case-sensitive for ordinal case-sensitive matching. One- and " +
+                "two-scalar keywords are accepted. Unicode normalization, diacritic " +
+                "removal, full-width or half-width conversion, kana conversion, and " +
+                "word boundaries are not applied. Matches in snippets are marked with " +
+                "[[ and ]]. Each result includes a complete Page ID that can be passed " +
+                "to commands such as 'mn cat --id <page-id>' or " +
+                "'mn edit --id <page-id>'.")]
+        [HelpOption("--help")]
+        class FindCommand : WorkspaceCommand
+        {
+            [Argument(
+                0,
+                Name = "keyword",
+                Description = "One or more literal body-search keywords")]
+            public string[] Keywords { get; set; }
+
+            [Option(
+                "--notebook <notebook>",
+                Description = NotebookOptionDescription)]
+            public string Notebook { get; set; }
+
+            [Option(
+                "--sort <mode>",
+                Description = "Sort by name or updated; default is name")]
+            public string Sort { get; set; }
+
+            [Option(
+                "--limit <count>",
+                Description = "Return at most this many results; default 20, maximum 1000")]
+            public int? Limit { get; set; }
+
+            [Option(
+                "--case-sensitive",
+                Description = "Use ordinal case-sensitive literal matching")]
+            public bool CaseSensitive { get; set; }
+
+            [Option(
+                "--no-snippet",
+                Description = "Omit the matched body snippet from each result")]
+            public bool NoSnippet { get; set; }
+
+            protected ValidationResult OnValidate()
+            {
+                if (Keywords == null || Keywords.Length == 0)
+                {
+                    return new ValidationResult(
+                        "At least one keyword is required. Use 'mn ls' to list pages " +
+                        "or match page names.");
+                }
+                if (Limit is <= 0 or > NotebookBodySearchRequest.MaximumLimit)
+                {
+                    return new ValidationResult(
+                        $"Limit must be between 1 and " +
+                        $"{NotebookBodySearchRequest.MaximumLimit}.");
+                }
+                if (!BodySearchCommandParser.TryParseSort(Sort, out _))
+                    return new ValidationResult("Sort must be name or updated.");
+
+                return ValidationResult.Success;
+            }
+
+            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+            {
+                return CommandHandlers.Find.ExecuteAsync(
+                    WorkspacePath,
+                    Notebook,
+                    Keywords,
+                    Sort,
+                    Limit,
+                    CaseSensitive,
+                    NoSnippet,
                     cancellationToken);
             }
         }

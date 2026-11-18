@@ -219,6 +219,10 @@ namespace MemoriaNote.Cli
                     executor,
                     notebookTargetResolver,
                     output),
+                new FindCommandHandler(
+                    executor,
+                    notebookTargetResolver,
+                    output),
                 new CatCommandHandler(
                     executor,
                     notebookTargetResolver,

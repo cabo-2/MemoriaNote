@@ -16,6 +16,8 @@ namespace MemoriaNote.Cli
 
         void WritePageList(IReadOnlyList<PageSummary> pages, bool longFormat);
 
+        void WriteBodySearchHits(IReadOnlyList<BodySearchCommandHit> hits);
+
         void WriteWorkspaceNotebookList(
             IReadOnlyList<WorkspaceNotebookListEntry> entries,
             bool longFormat);

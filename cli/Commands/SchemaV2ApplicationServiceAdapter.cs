@@ -20,7 +20,8 @@ namespace MemoriaNote.Cli
     internal sealed class SchemaV2ApplicationServiceAdapter :
         IMemoriaNoteApplicationService,
         ICurrentNotebookApplicationService,
-        ICurrentPageQueryService
+        ICurrentPageQueryService,
+        ICurrentBodySearchService
     {
         readonly NotebookApplicationSession _session;
         readonly PageValidationPolicy _validationPolicy = new PageValidationPolicy();
@@ -55,6 +56,21 @@ namespace MemoriaNote.Cli
             var result = await _session.Pages.QuerySummariesAsync(request, token)
                 .ConfigureAwait(false);
             return Require(result).Select(Map).ToArray();
+        }
+
+        public async Task<BodySearchCommandResult<ICurrentBodySearchSession>>
+            StartBodySearchAsync(
+                NotebookBodySearchRequest request,
+                CancellationToken token)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+            var result = await _session.Pages.StartBodySearchAsync(request, token)
+                .ConfigureAwait(false);
+            return result.IsSuccess
+                ? BodySearchCommandResult<ICurrentBodySearchSession>.Succeeded(
+                    new SchemaV2BodySearchSessionAdapter(result.Value!))
+                : BodySearchCommandResult<ICurrentBodySearchSession>.Failed(
+                    result.Failure!);
         }
 
         public async Task<PageTargetResolution> ResolvePageAsync(
@@ -377,6 +393,52 @@ namespace MemoriaNote.Cli
             page.CreateTimeUtc.UtcDateTime,
             page.UpdateTimeUtc.UtcDateTime,
             isErased: false);
+
+        sealed class SchemaV2BodySearchSessionAdapter : ICurrentBodySearchSession
+        {
+            readonly NotebookBodySearchSession _session;
+
+            internal SchemaV2BodySearchSessionAdapter(
+                NotebookBodySearchSession session)
+            {
+                _session = session ?? throw new ArgumentNullException(nameof(session));
+            }
+
+            public async Task<BodySearchCommandResult<BodySearchCommandBatch>> ReadAsync(
+                int maximumCount,
+                CancellationToken cancellationToken)
+            {
+                var result = await _session.ReadAsync(maximumCount, cancellationToken)
+                    .ConfigureAwait(false);
+                if (!result.IsSuccess)
+                {
+                    return BodySearchCommandResult<BodySearchCommandBatch>.Failed(
+                        result.Failure!);
+                }
+
+                var batch = result.Value!;
+                return BodySearchCommandResult<BodySearchCommandBatch>.Succeeded(
+                    new BodySearchCommandBatch(
+                        batch.Hits.Select(Map).ToArray(),
+                        batch.IsCompleted,
+                        batch.HasMore));
+            }
+
+            public ValueTask DisposeAsync() => _session.DisposeAsync();
+
+            static BodySearchCommandHit Map(NotebookBodySearchHit hit) =>
+                new BodySearchCommandHit(
+                    hit.PageId,
+                    hit.Name,
+                    hit.Snippet == null
+                        ? null
+                        : new BodySearchCommandSnippet(
+                            hit.Snippet.Text,
+                            hit.Snippet.Matches.Select(match =>
+                                new BodySearchCommandMatch(
+                                    match.Start,
+                                    match.Length)).ToArray()));
+        }
 
         static PageOperationResult OwnerNotFound() => PageOperationResult.Failed(
             PageOperationStatus.OwnerNotFound,

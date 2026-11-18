@@ -687,6 +687,10 @@ public sealed class PageCommandHandlerTests
         {
         }
 
+        public void WriteBodySearchHits(IReadOnlyList<BodySearchCommandHit> hits)
+        {
+        }
+
         public void WriteWorkspaceNotebookList(
             IReadOnlyList<WorkspaceNotebookListEntry> entries,
             bool longFormat)

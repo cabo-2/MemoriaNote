@@ -53,6 +53,19 @@ namespace MemoriaNote.Cli
                 WriteNamePageList(pages);
         }
 
+        public void WriteBodySearchHits(IReadOnlyList<BodySearchCommandHit> hits)
+        {
+            if (hits == null)
+                throw new ArgumentNullException(nameof(hits));
+
+            foreach (var hit in hits)
+            {
+                WriteLine($"{hit.PageId} {EscapeCell(hit.Name)}");
+                if (hit.Snippet != null)
+                    WriteLine($"  {FormatSnippet(hit.Snippet)}");
+            }
+        }
+
         public void WriteWorkspaceNotebookList(
             IReadOnlyList<WorkspaceNotebookListEntry> entries,
             bool longFormat)
@@ -207,6 +220,23 @@ namespace MemoriaNote.Cli
             foreach (var tag in tags)
                 ordered.Add(tag.Key, tag.Value);
             return JsonSerializer.Serialize(ordered);
+        }
+
+        static string FormatSnippet(BodySearchCommandSnippet snippet)
+        {
+            var buffer = new StringBuilder(snippet.Text.Length +
+                (snippet.Matches.Count * 4));
+            var position = 0;
+            foreach (var match in snippet.Matches)
+            {
+                buffer.Append(snippet.Text, position, match.Start - position);
+                buffer.Append("[[");
+                buffer.Append(snippet.Text, match.Start, match.Length);
+                buffer.Append("]]");
+                position = match.Start + match.Length;
+            }
+            buffer.Append(snippet.Text, position, snippet.Text.Length - position);
+            return buffer.ToString();
         }
 
         static string EscapeCell(string value)

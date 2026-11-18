@@ -108,6 +108,96 @@ public sealed class CommandOutputAdapterTests
         }
     }
 
+    /// <summary>Verifies body-search output uses full IDs, escaped names, and span markers.</summary>
+    [Test]
+    public void WriteBodySearchHits_WithSnippet_WritesReleaseLayout()
+    {
+        using var standardOutput = new StringWriter();
+        using var standardError = new StringWriter();
+        var output = new ConsoleCommandOutput(standardOutput, standardError);
+        var pageId = PageId.FromGuid(
+            Guid.Parse("01234567-89ab-cdef-0123-456789abcdef"));
+        var snippet = new BodySearchCommandSnippet(
+            "alpha 😀 beta alpha",
+            new[]
+            {
+                new BodySearchCommandMatch(0, 5),
+                new BodySearchCommandMatch(14, 5)
+            });
+
+        output.WriteBodySearchHits(new[]
+        {
+            new BodySearchCommandHit(
+                pageId,
+                "Meeting\nNotes\\draft",
+                snippet)
+        });
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                GetLines(standardOutput),
+                Is.EqualTo(new[]
+                {
+                    "01234567-89ab-cdef-0123-456789abcdef " +
+                        "Meeting\\nNotes\\\\draft",
+                    "  [[alpha]] 😀 beta [[alpha]]"
+                }));
+            Assert.That(standardError.ToString(), Is.Empty);
+        }
+    }
+
+    /// <summary>Verifies marker-looking text remains distinct from generated markers.</summary>
+    [Test]
+    public void WriteBodySearchHits_WithLiteralMarkers_PreservesSnippetText()
+    {
+        using var standardOutput = new StringWriter();
+        using var standardError = new StringWriter();
+        var output = new ConsoleCommandOutput(standardOutput, standardError);
+        var snippet = new BodySearchCommandSnippet(
+            "before [[alpha]] after",
+            new[] { new BodySearchCommandMatch(9, 5) });
+
+        output.WriteBodySearchHits(new[]
+        {
+            new BodySearchCommandHit(
+                PageId.FromGuid(Guid.NewGuid()),
+                "page",
+                snippet)
+        });
+
+        Assert.That(
+            GetLines(standardOutput)[1],
+            Is.EqualTo("  before [[[[alpha]]]] after"));
+        Assert.That(standardError.ToString(), Is.Empty);
+    }
+
+    /// <summary>Verifies no-snippet hits remain one line each.</summary>
+    [Test]
+    public void WriteBodySearchHits_WithoutSnippet_WritesOnlyIdentityLine()
+    {
+        using var standardOutput = new StringWriter();
+        using var standardError = new StringWriter();
+        var output = new ConsoleCommandOutput(standardOutput, standardError);
+
+        output.WriteBodySearchHits(new[]
+        {
+            new BodySearchCommandHit(
+                PageId.FromGuid(
+                    Guid.Parse("fedcba98-7654-3210-fedc-ba9876543210")),
+                "page",
+                null)
+        });
+
+        Assert.That(
+            GetLines(standardOutput),
+            Is.EqualTo(new[]
+            {
+                "fedcba98-7654-3210-fedc-ba9876543210 page"
+            }));
+        Assert.That(standardError.ToString(), Is.Empty);
+    }
+
     /// <summary>Verifies that the shared executor preserves fatal error mapping.</summary>
     [Test]
     public async Task Execute_UnexpectedExceptionWritesFatalErrorAndReturnsFailure()

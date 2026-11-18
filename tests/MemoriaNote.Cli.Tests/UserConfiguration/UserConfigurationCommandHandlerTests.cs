@@ -655,6 +655,12 @@ public sealed class UserConfigurationCommandHandlerTests
             throw new AssertionException("User configuration handlers must not write pages.");
         }
 
+        public void WriteBodySearchHits(IReadOnlyList<BodySearchCommandHit> hits)
+        {
+            throw new AssertionException(
+                "User configuration handlers must not write search hits.");
+        }
+
         public void WriteWorkspaceNotebookList(
             IReadOnlyList<WorkspaceNotebookListEntry> entries,
             bool longFormat)

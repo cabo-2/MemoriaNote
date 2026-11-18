@@ -103,7 +103,6 @@ public sealed class CliParserIntegrationTests
     [TestCase("import")]
     [TestCase("export")]
     [TestCase("list")]
-    [TestCase("find")]
     public async Task RemovedLegacyCommand_IsUnrecognizedWithoutCreatingConfiguration(
         string command)
     {

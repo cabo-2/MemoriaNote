@@ -31,7 +31,8 @@ internal sealed class StubNotebookTargetSessionResolver : INotebookTargetSession
 /// <summary>Provides configurable application behavior for CLI presentation tests.</summary>
 internal sealed class StubApplicationService :
     IMemoriaNoteApplicationService,
-    ICurrentPageQueryService
+    ICurrentPageQueryService,
+    ICurrentBodySearchService
 {
     internal Func<PageListRequest, CancellationToken, Task<IReadOnlyList<PageSummary>>> ListPagesAsyncHandler { get; set; } =
         (_, _) => Task.FromResult<IReadOnlyList<PageSummary>>(Array.Empty<PageSummary>());
@@ -42,6 +43,16 @@ internal sealed class StubApplicationService :
         (_, _) => Task.FromResult<IReadOnlyList<PageSummary>>(Array.Empty<PageSummary>());
 
     internal int QueryPagesAsyncCallCount { get; private set; }
+
+    internal Func<NotebookBodySearchRequest, CancellationToken,
+        Task<BodySearchCommandResult<ICurrentBodySearchSession>>>
+        StartBodySearchAsyncHandler { get; set; } = (_, _) =>
+            Task.FromResult(
+                BodySearchCommandResult<ICurrentBodySearchSession>.Failed(
+                    NotebookFailureCategory.UnexpectedStorage,
+                    "Body search was not configured."));
+
+    internal int StartBodySearchAsyncCallCount { get; private set; }
 
     internal Func<PageTargetRequest, CancellationToken, Task<PageTargetResolution>> ResolvePageAsyncHandler { get; set; } =
         (_, _) => Task.FromResult(
@@ -112,6 +123,15 @@ internal sealed class StubApplicationService :
     {
         QueryPagesAsyncCallCount++;
         return QueryPagesAsyncHandler(request, token);
+    }
+
+    public Task<BodySearchCommandResult<ICurrentBodySearchSession>>
+        StartBodySearchAsync(
+            NotebookBodySearchRequest request,
+            CancellationToken token)
+    {
+        StartBodySearchAsyncCallCount++;
+        return StartBodySearchAsyncHandler(request, token);
     }
 
     public Task<PageTargetResolution> ResolvePageAsync(
