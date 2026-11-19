@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using MemoriaNote.Archive;
 
 namespace MemoriaNote.Cli
@@ -40,6 +41,16 @@ namespace MemoriaNote.Cli
 
         static CliCommandResult MapValidationFailure(ArchiveV1OperationError error)
         {
+            if (error.ValidationReport?.Issues.Any(issue =>
+                    issue.Code == ArchiveV1IssueCode.LegacyContentModelUnsupported) == true)
+            {
+                return Failure(
+                    CliErrorKind.Validation,
+                    "Archive v1 content model 1 (CM1) cannot be restored directly. " +
+                    "Run 'mn notebooks migrate <archive> --output <notebook>' to " +
+                    "create a schema v2 notebook.");
+            }
+
             if (error.ValidationReport?.Classification ==
                 ArchiveV1Classification.LegacyArchiveCandidate)
             {

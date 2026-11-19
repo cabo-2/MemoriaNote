@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using MemoriaNote.Archive;
 using MemoriaNote.Cli.Tests.Infrastructure;
+using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
@@ -30,6 +31,8 @@ public sealed class NotebookBackupIntegrationTests
             Assert.That(result.StandardOutput, Does.Contain("--notebook <notebook>"));
             Assert.That(result.StandardOutput, Does.Contain("--workspace <directory>"));
             Assert.That(result.StandardOutput, Does.Contain("standard output"));
+            Assert.That(result.StandardOutput, Does.Contain("archive v1/CM2"));
+            Assert.That(result.StandardOutput, Does.Contain("schema v2 notebook"));
             Assert.That(result.StandardError, Is.Empty);
         }
     }
@@ -55,6 +58,7 @@ public sealed class NotebookBackupIntegrationTests
 
         var report = await ValidateFileAsync(archivePath);
         var creatorVersion = ReadCreatorVersion(archivePath);
+        var versionTuple = ReadVersionTuple(archivePath);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.ExitCode, Is.Zero, result.StandardError);
@@ -67,6 +71,7 @@ public sealed class NotebookBackupIntegrationTests
             Assert.That(
                 creatorVersion,
                 Is.EqualTo(CliProductVersion.InformationalVersion));
+            Assert.That(versionTuple, Is.EqualTo((1, 2, "2")));
             Assert.That(
                 await File.ReadAllBytesAsync(configurationPath),
                 Is.EqualTo(configurationBefore));
@@ -219,6 +224,39 @@ public sealed class NotebookBackupIntegrationTests
         }
     }
 
+    /// <summary>Verifies schema v1 is migration-only and cannot enter native backup.</summary>
+    [Test]
+    public async Task FileBackup_LegacyNotebook_ReturnsMigrationGuidance()
+    {
+        using var harness = new CliInProcessHarness();
+        var path = Path.Combine(harness.WorkingDirectory, "legacy.mnote");
+        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
+        var metadata = new SqliteNotebookMetadataRepository(factory);
+        await new SqliteNotebookMigrator(factory, metadata).CreateAsync(
+            "legacy",
+            "Legacy",
+            path,
+            CancellationToken.None);
+
+        var result = await harness.RunAsync(
+            "notebooks",
+            "backup",
+            "--notebook",
+            "legacy",
+            "legacy.zip");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.StandardError, Does.Contain("schema v1"));
+            Assert.That(result.StandardError, Does.Contain("mn notebooks migrate"));
+            Assert.That(
+                File.Exists(Path.Combine(harness.WorkingDirectory, "legacy.zip")),
+                Is.False);
+        }
+    }
+
     static async Task<string> CreateAndSelectNotebookAsync(
         CliInProcessHarness harness,
         string name)
@@ -273,6 +311,21 @@ public sealed class NotebookBackupIntegrationTests
             .GetProperty("createdBy")
             .GetProperty("version")
             .GetString()!;
+    }
+
+    static (int Archive, int Content, string Source) ReadVersionTuple(
+        string archivePath)
+    {
+        using var archive = ZipFile.OpenRead(archivePath);
+        var manifest = archive.GetEntry("manifest.json") ??
+            throw new InvalidDataException("The archive manifest is missing.");
+        using var stream = manifest.Open();
+        using var document = JsonDocument.Parse(stream);
+        var root = document.RootElement;
+        return (
+            root.GetProperty("archiveFormatVersion").GetInt32(),
+            root.GetProperty("contentModelVersion").GetInt32(),
+            root.GetProperty("sourceNotebookFormatVersion").GetString()!);
     }
 
     static string WorkspaceConfigurationPath(CliInProcessHarness harness)

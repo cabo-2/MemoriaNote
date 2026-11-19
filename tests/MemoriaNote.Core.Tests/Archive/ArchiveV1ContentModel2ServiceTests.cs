@@ -200,6 +200,65 @@ public sealed class ArchiveV1ContentModel2ServiceTests
         }
     }
 
+    /// <summary>Verifies cancellation while spooling input removes private restore state.</summary>
+    [Test]
+    public async Task StreamRestore_CancellationCleansSpoolAndOutput()
+    {
+        using var directory = new TemporaryDirectory();
+        using var temporaryFiles = new TemporaryFileStore(directory.GetPath("temp"));
+        var service = new ArchiveV1ContentModel2RestoreService(temporaryFiles);
+        var destination = directory.GetPath("canceled.mnote");
+        await using var fixture = CreateFixtureArchive();
+        using var cancellation = new CancellationTokenSource();
+        using var input = new CancelAfterReadStream(fixture.ToArray(), cancellation);
+
+        Assert.That(
+            async () => await service.RestoreAsync(
+                new ArchiveV1StreamRestoreRequest(input, destination),
+                cancellation.Token),
+            Throws.InstanceOf<OperationCanceledException>());
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(SqliteDatabaseFiles.AnyExists(destination), Is.False);
+            Assert.That(Directory.GetFiles(temporaryFiles.WorkingDirectory), Is.Empty);
+        }
+    }
+
+    /// <summary>Verifies cancellation while writing backup leaves no partial archive.</summary>
+    [Test]
+    public async Task FileBackup_CancellationCleansPrivateArchive()
+    {
+        using var directory = new TemporaryDirectory();
+        using var temporaryFiles = new TemporaryFileStore(directory.GetPath("temp"));
+        var restore = new ArchiveV1ContentModel2RestoreService(temporaryFiles);
+        var source = directory.GetPath("source.mnote");
+        var archive = directory.GetPath("canceled.mnarchive");
+        await using var fixture = CreateFixtureArchive();
+        Assert.That((await restore.RestoreAsync(
+            new ArchiveV1StreamRestoreRequest(fixture, source),
+            CancellationToken.None)).IsSuccess, Is.True);
+        using var cancellation = new CancellationTokenSource();
+        var backup = CreateBackupService(
+            temporaryFiles,
+            new CancelingClock(cancellation));
+
+        Assert.That(
+            async () => await backup.BackupAsync(
+                new ArchiveV1FileBackupRequest(source, archive),
+                cancellation.Token),
+            Throws.InstanceOf<OperationCanceledException>());
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(File.Exists(archive), Is.False);
+            Assert.That(
+                Directory.GetFiles(directory.Path),
+                Is.EqualTo(new[] { source }));
+            Assert.That(Directory.GetFiles(temporaryFiles.WorkingDirectory), Is.Empty);
+        }
+    }
+
     /// <summary>Verifies backup ignores damaged derived data and restore rebuilds it from authoritative values.</summary>
     [Test]
     public async Task Backup_DerivedMismatch_RestoresValidatedDerivedDataWithoutRepairingSource()
@@ -476,6 +535,56 @@ public sealed class ArchiveV1ContentModel2ServiceTests
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
+    private sealed class CancelAfterReadStream : Stream
+    {
+        private readonly MemoryStream _inner;
+        private readonly CancellationTokenSource _cancellation;
+        private bool _canceled;
+
+        internal CancelAfterReadStream(
+            byte[] bytes,
+            CancellationTokenSource cancellation)
+        {
+            _inner = new MemoryStream(bytes, writable: false);
+            _cancellation = cancellation;
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position
+        {
+            get => throw new NotSupportedException();
+            set => throw new NotSupportedException();
+        }
+        public override void Flush() => throw new NotSupportedException();
+        public override int Read(byte[] buffer, int offset, int count) =>
+            throw new NotSupportedException();
+        public override async ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            var read = await _inner.ReadAsync(buffer, cancellationToken);
+            if (!_canceled && read > 0)
+            {
+                _canceled = true;
+                _cancellation.Cancel();
+            }
+            return read;
+        }
+        public override long Seek(long offset, SeekOrigin origin) =>
+            throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) =>
+            throw new NotSupportedException();
+        protected override void Dispose(bool disposing)
+        {
+            _inner.Dispose();
+            base.Dispose(disposing);
+        }
+    }
+
     private sealed class BlockingClock : IClock, IDisposable
     {
         private readonly DateTimeOffset _utcNow;
@@ -506,6 +615,25 @@ public sealed class ArchiveV1ContentModel2ServiceTests
             _continue.Set();
             _read.Dispose();
             _continue.Dispose();
+        }
+    }
+
+    private sealed class CancelingClock : IClock
+    {
+        private readonly CancellationTokenSource _cancellation;
+
+        internal CancelingClock(CancellationTokenSource cancellation)
+        {
+            _cancellation = cancellation;
+        }
+
+        public DateTimeOffset UtcNow
+        {
+            get
+            {
+                _cancellation.Cancel();
+                return new DateTimeOffset(2026, 11, 19, 0, 0, 0, TimeSpan.Zero);
+            }
         }
     }
 }

@@ -230,8 +230,9 @@ namespace MemoriaNote.Cli
 
             [Command(
                 "backup",
-                Description = "Create a validated archive v1 backup",
+                Description = "Create a validated archive v1/CM2 backup",
                 ExtendedHelpText =
+                    "Backs up a schema v2 notebook as archive v1 content model 2. " +
                     "Omit <archive> or use - to write the archive to redirected " +
                     "standard output.")]
             [HelpOption("--help")]
@@ -262,8 +263,10 @@ namespace MemoriaNote.Cli
 
             [Command(
                 "restore",
-                Description = "Restore a validated archive v1 to a new notebook",
+                Description = "Restore a validated archive v1/CM2 to schema v2",
                 ExtendedHelpText =
+                    "Restores archive v1 content model 2 to a new schema v2 notebook. " +
+                    "Use 'mn notebooks migrate' for content model 1 archives. " +
                     "Omit <archive> or use - to read the archive from redirected " +
                     "standard input.")]
             [HelpOption("--help")]
@@ -307,7 +310,11 @@ namespace MemoriaNote.Cli
 
             [Command(
                 "migrate",
-                Description = "Migrate a schema v1 notebook or CM1 archive to schema v2")]
+                Description = "Migrate a schema v1 notebook or CM1 archive to schema v2",
+                ExtendedHelpText =
+                    "Creates a new schema v2 notebook without modifying the source, " +
+                    "an existing destination, or workspace selection. To select the " +
+                    "result, keep it in the workspace root and run 'mn use <notebook>'.")]
             [HelpOption("--help")]
             class NotebooksMigrateCommand
             {

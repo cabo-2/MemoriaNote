@@ -476,6 +476,30 @@ public sealed class NotebookMigrationServiceTests
         }
     }
 
+    /// <summary>Verifies caller cancellation preserves the rollback source and output path.</summary>
+    [Test]
+    public void PreCanceledMigration_PreservesSourceAndPublishesNothing()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("canceled", "Canceled");
+        var sourceHash = Hash(database.DatabasePath);
+        var destination = Path.Combine(database.DirectoryPath, "canceled.mnote");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        Assert.That(
+            async () => await new NotebookMigrationService().MigrateAsync(
+                new NotebookMigrationRequest(database.DatabasePath, destination),
+                cancellation.Token),
+            Throws.InstanceOf<OperationCanceledException>());
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(Hash(database.DatabasePath), Is.EqualTo(sourceHash));
+            Assert.That(SqliteDatabaseFiles.AnyExists(destination), Is.False);
+        }
+    }
+
     /// <summary>Verifies existing destinations are preserved before the source is migrated.</summary>
     [Test]
     public async Task ExistingDestination_IsPreserved()
