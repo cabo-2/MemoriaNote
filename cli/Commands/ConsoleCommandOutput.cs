@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
-using System.Text.Json;
 using MemoriaNote.Application;
 using MemoriaNote.Domain;
 
@@ -42,7 +41,7 @@ namespace MemoriaNote.Cli
             _standardError.WriteLine(value);
         }
 
-        public void WritePageList(IReadOnlyList<PageSummary> pages, bool longFormat)
+        public void WritePageList(IReadOnlyList<PageListItem> pages, bool longFormat)
         {
             if (pages == null)
                 throw new ArgumentNullException(nameof(pages));
@@ -79,7 +78,7 @@ namespace MemoriaNote.Cli
                 WriteShortWorkspaceNotebookList(entries);
         }
 
-        void WriteNamePageList(IReadOnlyList<PageSummary> pages)
+        void WriteNamePageList(IReadOnlyList<PageListItem> pages)
         {
             foreach (var page in pages)
                 WriteLine(EscapeCell(page.Name));
@@ -123,7 +122,7 @@ namespace MemoriaNote.Cli
             WriteRows(rows);
         }
 
-        void WriteLongPageList(IReadOnlyList<PageSummary> pages)
+        void WriteLongPageList(IReadOnlyList<PageListItem> pages)
         {
             if (pages.Count == 0)
                 return;
@@ -146,12 +145,12 @@ namespace MemoriaNote.Cli
             {
                 rows.Add(new[]
                 {
-                    page.Index.ToString(CultureInfo.InvariantCulture),
-                    EscapeCell(page.ContentType),
-                    FormatUtc(page.CreateTime),
-                    FormatUtc(page.UpdateTime),
-                    page.IsErased ? "true" : "false",
-                    FormatTags(page.Tags),
+                    "1",
+                    "T",
+                    FormatUtc(page.CreateTimeUtc.UtcDateTime),
+                    FormatUtc(page.UpdateTimeUtc.UtcDateTime),
+                    "false",
+                    "{}",
                     page.PageId.ToString(),
                     EscapeCell(page.Name)
                 });
@@ -212,14 +211,6 @@ namespace MemoriaNote.Cli
                 ? DateTime.SpecifyKind(value, DateTimeKind.Utc)
                 : value.ToUniversalTime();
             return utc.ToString("O", CultureInfo.InvariantCulture);
-        }
-
-        static string FormatTags(IReadOnlyDictionary<string, string> tags)
-        {
-            var ordered = new SortedDictionary<string, string>(StringComparer.Ordinal);
-            foreach (var tag in tags)
-                ordered.Add(tag.Key, tag.Value);
-            return JsonSerializer.Serialize(ordered);
         }
 
         static string FormatSnippet(BodySearchCommandSnippet snippet)

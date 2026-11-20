@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Domain;
-using MemoriaNote.Models;
 using MemoriaNote.Transfer;
 using Microsoft.Data.Sqlite;
 
@@ -31,7 +29,7 @@ public sealed class SchemaV2NotebookTransferRepository :
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Page>> ListPagesAsync(
+    public async Task<IReadOnlyList<TextPageExportItem>> ListPagesAsync(
         NotebookId notebookId,
         CancellationToken token)
     {
@@ -49,46 +47,15 @@ public sealed class SchemaV2NotebookTransferRepository :
             ORDER BY InternalId;
             """;
         await using var reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false);
-        var pages = new List<Page>();
+        var pages = new List<TextPageExportItem>();
         while (await reader.ReadAsync(token).ConfigureAwait(false))
         {
-            pages.Add(new Page
-            {
-                Guid = PageId.FromUuid(reader.GetString(0)).Value,
-                Name = reader.GetString(1),
-                Index = 1,
-                ContentType = "T",
-                CreateTime = SchemaV2PageValueCodec.ParseTimestamp(reader.GetString(2)).UtcDateTime,
-                UpdateTime = SchemaV2PageValueCodec.ParseTimestamp(reader.GetString(3)).UtcDateTime,
-                IsErased = false,
-                Text = reader.GetString(4)
-            });
+            pages.Add(new TextPageExportItem(
+                PageId.FromUuid(reader.GetString(0)),
+                reader.GetString(1),
+                reader.GetString(4)));
         }
         return pages.AsReadOnly();
-    }
-
-    /// <inheritdoc />
-    public async Task AddPagesAsync(
-        NotebookId notebookId,
-        IReadOnlyCollection<Page> pages,
-        CancellationToken token)
-    {
-        ArgumentNullException.ThrowIfNull(notebookId);
-        ArgumentNullException.ThrowIfNull(pages);
-        var items = pages.Select(page => new TextPageImportItem(page.Name, page.Text ?? string.Empty))
-            .ToArray();
-        var result = await ImportAsync(
-                notebookId,
-                items,
-                TextPageImportConflictPolicy.Fail,
-                dryRun: false,
-                token)
-            .ConfigureAwait(false);
-        if (!result.IsSuccess)
-        {
-            throw new InvalidOperationException(
-                $"Schema V2 page transfer failed: {result.ErrorCode}.");
-        }
     }
 
     /// <inheritdoc />

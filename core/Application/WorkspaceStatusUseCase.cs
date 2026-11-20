@@ -176,11 +176,11 @@ namespace MemoriaNote.Application
                     normalizedWorkspacePath,
                     virtualLocation,
                     currentNotebook,
-                    metadata.Metadata.ReadOnly
+                    metadata.IsReadOnly
                         ? WorkspaceStatusKind.ReadOnly
                         : WorkspaceStatusKind.Ready,
                     WorkspaceStatusSubject.Notebook,
-                    metadata.Metadata.ReadOnly
+                    metadata.IsReadOnly
                         ? "Read operations are available, but changes are not allowed."
                         : null);
             }

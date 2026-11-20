@@ -16,13 +16,8 @@ public sealed class NotebookMigrationProcessTests
     {
         using var harness = new CliProcessHarness();
         var source = Path.Combine(harness.WorkingDirectory, "legacy.mnote");
-        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        var metadata = new SqliteNotebookMetadataRepository(factory);
-        await new SqliteNotebookMigrator(factory, metadata).CreateAsync(
-            "legacy",
-            "legacy",
-            source,
-            CancellationToken.None);
+        using var legacy = new TemporaryNotebookDatabase();
+        legacy.CreateNotebook("legacy", "legacy", source);
         using (var connection = new SqliteConnection("Data Source=" + source))
         {
             connection.Open();

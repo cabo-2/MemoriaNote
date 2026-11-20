@@ -74,13 +74,8 @@ public sealed class NotebookTargetIntegrationTests
     {
         using var harness = new CliInProcessHarness();
         var path = Path.Combine(harness.WorkingDirectory, "legacy.mnote");
-        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        var metadata = new SqliteNotebookMetadataRepository(factory);
-        await new SqliteNotebookMigrator(factory, metadata).CreateAsync(
-            "legacy",
-            "legacy",
-            path,
-            CancellationToken.None);
+        using var legacy = new TemporaryNotebookDatabase();
+        legacy.CreateNotebook("legacy", "legacy", path);
 
         var result = await harness.RunAsync("ls", "--notebook", "legacy");
 

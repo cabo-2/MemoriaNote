@@ -82,7 +82,7 @@ public sealed class ProcessInheritanceTests
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
 
-    static async Task<Page?> FindPageAsync(CliProcessHarness harness, string name)
+    static async Task<SchemaV2TestPage?> FindPageAsync(CliProcessHarness harness, string name)
     {
         var repository = new SchemaV2TestPageRepository();
         return (await repository.ListPagesByHeadingAsync(

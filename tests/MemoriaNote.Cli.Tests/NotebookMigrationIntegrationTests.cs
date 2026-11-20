@@ -422,19 +422,17 @@ public sealed class NotebookMigrationIntegrationTests
         }
     }
 
-    private static async Task<string> CreateLegacySourceAsync(
+    private static Task<string> CreateLegacySourceAsync(
         CliInProcessHarness harness,
         string name)
     {
         var path = Path.Combine(harness.WorkingDirectory, name);
-        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        var metadata = new SqliteNotebookMetadataRepository(factory);
-        await new SqliteNotebookMigrator(factory, metadata).CreateAsync(
+        using var legacy = new TemporaryNotebookDatabase();
+        legacy.CreateNotebook(
             Path.GetFileNameWithoutExtension(name),
             Path.GetFileNameWithoutExtension(name),
-            path,
-            CancellationToken.None);
-        return path;
+            path);
+        return Task.FromResult(path);
     }
 
     private static async Task CreateCm1ArchiveAsync(

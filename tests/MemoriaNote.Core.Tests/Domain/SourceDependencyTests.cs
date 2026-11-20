@@ -37,8 +37,7 @@ public sealed class SourceDependencyTests
             .Concat(Directory.EnumerateFiles(
                 Path.Combine(coreDirectory, "Application"),
                 "*.cs",
-                SearchOption.AllDirectories))
-            .Append(Path.Combine(coreDirectory, "Workspace.cs"));
+                SearchOption.AllDirectories));
         var violations = sourceFiles
             .SelectMany(file => ForbiddenReferences
                 .Where(reference => File.ReadAllText(file).Contains(
@@ -52,6 +51,43 @@ public sealed class SourceDependencyTests
             violations,
             Is.Empty,
             () => string.Join(Environment.NewLine, violations));
+    }
+
+    /// <summary>Verifies production source, project files, and output do not depend on EF Core.</summary>
+    [Test]
+    public void ProductionProjects_DoNotReferenceEntityFrameworkCore()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var productionDirectories = new[]
+        {
+            Path.Combine(repositoryRoot, "core"),
+            Path.Combine(repositoryRoot, "cli")
+        };
+        var sourceViolations = productionDirectories
+            .SelectMany(directory => Directory.EnumerateFiles(
+                directory,
+                "*",
+                SearchOption.AllDirectories))
+            .Where(file => Path.GetExtension(file) is ".cs" or ".csproj")
+            .Where(file => !Path.GetRelativePath(repositoryRoot, file)
+                .Split(
+                    new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                    StringSplitOptions.RemoveEmptyEntries)
+                .Any(directory => directory is "bin" or "obj"))
+            .Where(file => File.ReadAllText(file).Contains(
+                "EntityFrameworkCore",
+                StringComparison.Ordinal))
+            .Select(file => Path.GetRelativePath(repositoryRoot, file))
+            .ToArray();
+        var assemblyViolations = typeof(NotebookApplication).Assembly
+            .GetReferencedAssemblies()
+            .Where(reference => reference.Name?.StartsWith(
+                "Microsoft.EntityFrameworkCore",
+                StringComparison.Ordinal) == true)
+            .Select(reference => reference.FullName)
+            .ToArray();
+
+        Assert.That(sourceViolations.Concat(assemblyViolations), Is.Empty);
     }
 
     /// <summary>

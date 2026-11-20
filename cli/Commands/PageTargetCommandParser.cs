@@ -1,5 +1,7 @@
 using MemoriaNote.Application;
 using MemoriaNote.Domain;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MemoriaNote.Cli
 {
@@ -59,28 +61,37 @@ namespace MemoriaNote.Cli
             return true;
         }
 
+        internal static Task<NotebookOperationResult<NotebookPage>> ResolveAsync(
+            INotebookPageApplication pages,
+            PageSelector selector,
+            CancellationToken cancellationToken)
+        {
+            return selector.IsName
+                ? pages.GetByNameAsync(selector.Name, cancellationToken)
+                : pages.ResolveByIdPrefixAsync(
+                    selector.PageIdPrefix,
+                    cancellationToken);
+        }
+
         internal static CliCommandResult ToResolutionFailure(
-            PageTargetResolutionStatus status,
+            NotebookFailure failure,
             PageSelector selector)
         {
-            return status switch
+            if (failure == null)
+                throw new System.ArgumentNullException(nameof(failure));
+
+            return failure.Code switch
             {
-                PageTargetResolutionStatus.OwnerNotFound => CliCommandResult.Failure(
-                    CliErrorKind.NotFound,
-                    "The target notebook was not found."),
-                PageTargetResolutionStatus.PageNotFound => CliCommandResult.Failure(
+                "page.not_found" => CliCommandResult.Failure(
                     CliErrorKind.NotFound,
                     selector.IsName
                         ? "No page matched the supplied name."
                         : "No page matched the supplied Page ID."),
-                PageTargetResolutionStatus.Conflict => CliCommandResult.Failure(
+                "page.ambiguous_id_prefix" => CliCommandResult.Failure(
                     CliErrorKind.Conflict,
-                    selector.IsName
-                        ? "More than one page matched the supplied name. " +
-                            "Use --id to select one."
-                        : "The Page ID prefix matched more than one page. " +
-                            "Specify more characters."),
-                _ => throw new System.ArgumentOutOfRangeException(nameof(status))
+                    "The Page ID prefix matched more than one page. " +
+                    "Specify more characters."),
+                _ => NotebookApplicationFailureMapper.ToCliResult(failure)
             };
         }
     }

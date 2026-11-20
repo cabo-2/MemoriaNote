@@ -354,7 +354,7 @@ public sealed class UserConfigurationIntegrationTests
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
 
-    static async Task<Page?> FindPageAsync(CliInProcessHarness harness, string name)
+    static async Task<SchemaV2TestPage?> FindPageAsync(CliInProcessHarness harness, string name)
     {
         var repository = new SchemaV2TestPageRepository();
         return (await repository.ListPagesByHeadingAsync(

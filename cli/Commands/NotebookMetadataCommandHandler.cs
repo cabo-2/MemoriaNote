@@ -6,10 +6,18 @@ using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Application;
 using MemoriaNote.Domain;
-using MemoriaNote.Models;
 
 namespace MemoriaNote.Cli
 {
+    internal enum NotebookMetadataField
+    {
+        Title,
+        Description,
+        Author,
+        Tag,
+        ReadOnly
+    }
+
     internal sealed class NotebookMetadataCommandHandler
     {
         readonly CliCommandExecutor _executor;
@@ -72,29 +80,23 @@ namespace MemoriaNote.Cli
                         "Redirect or pipe standard input when a metadata value is '-'.");
                 }
 
-                var session = await _targetResolver.ResolveAsync(
+                await using var session = await _targetResolver.ResolveAsync(
                         workspaceOption,
                         notebookOption,
                         token)
                     .ConfigureAwait(false);
-                var notebookPath = session.Workspace.SelectedNotebook.DatabasePath;
-                var notebookFileName = Path.GetFileName(notebookPath);
-                if (session.ApplicationService is not ICurrentNotebookApplicationService current)
-                {
-                    throw new InvalidOperationException(
-                        "The resolved notebook does not expose current-format metadata.");
-                }
+                var notebookFileName = Path.GetFileName(session.DatabasePath);
 
                 if (options.Length == 0)
                 {
-                    var loaded = await current.Metadata
+                    var loaded = await session.Metadata
                         .GetAsync(token)
                         .ConfigureAwait(false);
                     if (!loaded.IsSuccess)
                         return NotebookApplicationFailureMapper.ToCliResult(loaded.Failure);
                     WriteMetadata(
                         notebookFileName,
-                        current.Notebook.FormatVersion,
+                        session.Notebook.FormatVersion,
                         loaded.Value);
                     return CliCommandResult.Success();
                 }
@@ -107,7 +109,7 @@ namespace MemoriaNote.Cli
                     value = RemoveOneTerminalLineEnding(value);
                 }
 
-                var before = await current.Metadata
+                var before = await session.Metadata
                     .GetAsync(token)
                     .ConfigureAwait(false);
                 if (!before.IsSuccess)
@@ -115,7 +117,7 @@ namespace MemoriaNote.Cli
                 var key = ToMetadataKey(option.Field);
                 if (option.Field == NotebookMetadataField.ReadOnly)
                     value = bool.Parse(value).ToString();
-                var result = await current.Metadata
+                var result = await session.Metadata
                     .UpdateAsync(
                         new NotebookMetadataChangeSet(
                             new System.Collections.Generic.Dictionary<string, string>

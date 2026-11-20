@@ -1,11 +1,7 @@
 using System;
-using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using MemoriaNote.Models;
 using MemoriaNote.Persistence.SchemaV2;
 using MemoriaNote.Persistence.SchemaV2.Validation;
 
@@ -15,7 +11,7 @@ namespace MemoriaNote.Persistence;
 public sealed class SchemaV2NotebookFormatValidator : INotebookFormatValidator
 {
     /// <inheritdoc />
-    public async Task<NotebookMetadataResult> ValidateCurrentAsync(
+    public async Task<NotebookFormatValidation> ValidateCurrentAsync(
         string databasePath,
         CancellationToken token)
     {
@@ -64,49 +60,10 @@ public sealed class SchemaV2NotebookFormatValidator : INotebookFormatValidator
         var snapshot = await new SchemaV2MetadataRepository()
             .LoadAsync(notebookId, token)
             .ConfigureAwait(false);
-        return new NotebookMetadataResult(
-            Map(fullPath, snapshot.Values),
-            Array.Empty<MetadataIssue>());
-    }
-
-    private static NotebookMetadata Map(
-        string databasePath,
-        IReadOnlyDictionary<string, string> values)
-    {
-        var readOnly = values.TryGetValue(
+        var readOnly = snapshot.Values.TryGetValue(
                 SchemaV2MetadataContract.ReadOnlyKey,
                 out var readOnlyValue) &&
             string.Equals(readOnlyValue, bool.TrueString, StringComparison.Ordinal);
-        var createTime = values.TryGetValue(
-                SchemaV2MetadataContract.CreateTimeKey,
-                out var createTimeValue) &&
-            createTimeValue is not null
-                ? DateTime.ParseExact(
-                    createTimeValue,
-                    SchemaV2MetadataContract.TimestampFormat,
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.None)
-                : default;
-
-        return new NotebookMetadata(
-            databasePath,
-            Path.GetFileNameWithoutExtension(databasePath),
-            ValueOrEmpty(values, SchemaV2MetadataContract.TitleKey),
-            SchemaV2Format.UserVersion.ToString(CultureInfo.InvariantCulture),
-            ValueOrEmpty(values, SchemaV2MetadataContract.DescriptionKey),
-            ValueOrEmpty(values, SchemaV2MetadataContract.AuthorKey),
-            readOnly,
-            ValueOrEmpty(values, SchemaV2MetadataContract.TagKey),
-            createTime,
-            values
-                .Where(entry => entry.Value is not null)
-                .ToDictionary(
-                    entry => entry.Key,
-                    entry => entry.Value,
-                    StringComparer.Ordinal));
+        return new NotebookFormatValidation(SchemaV2Format.UserVersion, readOnly);
     }
-
-    private static string ValueOrEmpty(
-        IReadOnlyDictionary<string, string> values,
-        string key) => values.TryGetValue(key, out var value) ? value ?? string.Empty : string.Empty;
 }

@@ -55,21 +55,11 @@ public sealed class CommandOutputAdapterTests
         var output = new ConsoleCommandOutput(standardOutput, standardError);
         var pageId = PageId.FromGuid(
             Guid.Parse("550e8400-e29b-41d4-a716-446655440000"));
-        var page = new PageSummary(
-            NotebookId.FromDatabasePath(
-                Path.Combine(Path.GetTempPath(), "output-adapter.db")),
+        var page = new PageListItem(
             pageId,
             "Meeting - Project A",
-            2,
-            new Dictionary<string, string>
-            {
-                ["zeta"] = "last",
-                ["alpha"] = "first"
-            },
-            "T",
-            new DateTime(2026, 9, 18, 1, 20, 30, DateTimeKind.Utc),
-            new DateTime(2026, 9, 20, 4, 10, 0, DateTimeKind.Utc),
-            false);
+            new DateTimeOffset(2026, 9, 18, 1, 20, 30, TimeSpan.Zero),
+            new DateTimeOffset(2026, 9, 20, 4, 10, 0, TimeSpan.Zero));
 
         output.WritePageList(new[] { page }, longFormat: true);
 
@@ -80,10 +70,10 @@ public sealed class CommandOutputAdapterTests
             Assert.That(lines[0], Does.Contain("IDX"));
             Assert.That(lines[0], Does.Contain("PAGE-ID"));
             Assert.That(lines[0], Does.EndWith("NAME"));
-            Assert.That(lines[1], Does.StartWith("2"));
+            Assert.That(lines[1], Does.StartWith("1"));
             Assert.That(lines[1], Does.Contain("2026-09-18T01:20:30.0000000Z"));
             Assert.That(lines[1], Does.Contain("2026-09-20T04:10:00.0000000Z"));
-            Assert.That(lines[1], Does.Contain("{\"alpha\":\"first\",\"zeta\":\"last\"}"));
+            Assert.That(lines[1], Does.Contain("{}"));
             Assert.That(lines[1], Does.Contain(pageId.ToString()));
             Assert.That(lines[1], Does.EndWith("Meeting - Project A"));
             Assert.That(standardError.ToString(), Is.Empty);
@@ -99,7 +89,7 @@ public sealed class CommandOutputAdapterTests
         using var standardError = new StringWriter();
         var output = new ConsoleCommandOutput(standardOutput, standardError);
 
-        output.WritePageList(Array.Empty<PageSummary>(), longFormat);
+        output.WritePageList(Array.Empty<PageListItem>(), longFormat);
 
         using (Assert.EnterMultipleScope())
         {
@@ -263,20 +253,14 @@ public sealed class CommandOutputAdapterTests
         }
     }
 
-    static PageSummary CreateSummary(string name)
+    static PageListItem CreateSummary(string name)
     {
-        var now = DateTime.UtcNow;
-        return new PageSummary(
-            NotebookId.FromDatabasePath(
-                Path.Combine(Path.GetTempPath(), "output-adapter.db")),
+        var now = DateTimeOffset.UtcNow;
+        return new PageListItem(
             PageId.FromGuid(Guid.NewGuid()),
             name,
-            1,
-            new Dictionary<string, string>(),
-            "text/plain",
             now,
-            now,
-            false);
+            now);
     }
 
     static string[] GetLines(StringWriter writer)

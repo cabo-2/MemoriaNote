@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Application;
@@ -7,54 +8,6 @@ using MemoriaNote.Domain;
 
 namespace MemoriaNote.Cli
 {
-    internal sealed class BodySearchCommandFailure
-    {
-        internal BodySearchCommandFailure(
-            NotebookFailureCategory category,
-            string message)
-        {
-            Category = category;
-            Message = message ?? throw new ArgumentNullException(nameof(message));
-        }
-
-        internal NotebookFailureCategory Category { get; }
-
-        internal string Message { get; }
-    }
-
-    internal sealed class BodySearchCommandResult<T>
-        where T : class
-    {
-        BodySearchCommandResult(T value, BodySearchCommandFailure failure)
-        {
-            Value = value;
-            Failure = failure;
-        }
-
-        internal bool IsSuccess => Failure == null;
-
-        internal T Value { get; }
-
-        internal BodySearchCommandFailure Failure { get; }
-
-        internal static BodySearchCommandResult<T> Succeeded(T value) =>
-            new BodySearchCommandResult<T>(
-                value ?? throw new ArgumentNullException(nameof(value)),
-                null);
-
-        internal static BodySearchCommandResult<T> Failed(
-            NotebookFailureCategory category,
-            string message) => new BodySearchCommandResult<T>(
-                null,
-                new BodySearchCommandFailure(category, message));
-
-        internal static BodySearchCommandResult<T> Failed(NotebookFailure failure)
-        {
-            ArgumentNullException.ThrowIfNull(failure);
-            return Failed(failure.Category, failure.Message);
-        }
-    }
-
     internal sealed class BodySearchCommandMatch
     {
         internal BodySearchCommandMatch(int start, int length)
@@ -100,39 +53,6 @@ namespace MemoriaNote.Cli
         internal string Name { get; }
 
         internal BodySearchCommandSnippet Snippet { get; }
-    }
-
-    internal sealed class BodySearchCommandBatch
-    {
-        internal BodySearchCommandBatch(
-            IReadOnlyList<BodySearchCommandHit> hits,
-            bool isCompleted,
-            bool hasMore)
-        {
-            Hits = hits ?? throw new ArgumentNullException(nameof(hits));
-            IsCompleted = isCompleted;
-            HasMore = hasMore;
-        }
-
-        internal IReadOnlyList<BodySearchCommandHit> Hits { get; }
-
-        internal bool IsCompleted { get; }
-
-        internal bool HasMore { get; }
-    }
-
-    internal interface ICurrentBodySearchSession : IAsyncDisposable
-    {
-        Task<BodySearchCommandResult<BodySearchCommandBatch>> ReadAsync(
-            int maximumCount,
-            CancellationToken cancellationToken);
-    }
-
-    internal interface ICurrentBodySearchService
-    {
-        Task<BodySearchCommandResult<ICurrentBodySearchSession>> StartBodySearchAsync(
-            NotebookBodySearchRequest request,
-            CancellationToken cancellationToken);
     }
 
     internal static class BodySearchCommandParser
@@ -209,21 +129,10 @@ namespace MemoriaNote.Cli
                         "Sort must be name or updated.");
                 }
 
-                var resolved = await _targetResolver.ResolveAsync(
+                await using var resolved = await _targetResolver.ResolveAsync(
                     workspaceOption,
                     notebookOption,
                     token);
-                if (resolved.Workspace.SelectedNotebook == null)
-                {
-                    return CliCommandResult.Failure(
-                        CliErrorKind.NotFound,
-                        CliMessage.NoSelectedNotebook);
-                }
-                if (resolved.ApplicationService is not ICurrentBodySearchService current)
-                {
-                    throw new InvalidOperationException(
-                        "The resolved notebook does not expose current-format body search.");
-                }
 
                 var effectiveLimit = limit ?? NotebookBodySearchRequest.DefaultLimit;
                 var request = new NotebookBodySearchRequest(
@@ -234,7 +143,7 @@ namespace MemoriaNote.Cli
                     caseSensitivity: caseSensitive
                         ? NotebookBodySearchCaseSensitivity.Sensitive
                         : NotebookBodySearchCaseSensitivity.Insensitive);
-                var started = await current.StartBodySearchAsync(request, token)
+                var started = await resolved.Pages.StartBodySearchAsync(request, token)
                     .ConfigureAwait(false);
                 if (!started.IsSuccess)
                     return MapFailure(started.Failure);
@@ -255,7 +164,7 @@ namespace MemoriaNote.Cli
                         }
 
                         var batch = read.Value;
-                        _output.WriteBodySearchHits(batch.Hits);
+                        _output.WriteBodySearchHits(batch.Hits.Select(Map).ToArray());
                         displayedCount += batch.Hits.Count;
                         if (!batch.IsCompleted)
                             continue;
@@ -298,7 +207,20 @@ namespace MemoriaNote.Cli
                 $"(maximum limit is {NotebookBodySearchRequest.MaximumLimit}).");
         }
 
-        static CliCommandResult MapFailure(BodySearchCommandFailure failure)
+        static BodySearchCommandHit Map(NotebookBodySearchHit hit) =>
+            new BodySearchCommandHit(
+                hit.PageId,
+                hit.Name,
+                hit.Snippet == null
+                    ? null
+                    : new BodySearchCommandSnippet(
+                        hit.Snippet.Text,
+                        hit.Snippet.Matches.Select(match =>
+                            new BodySearchCommandMatch(
+                                match.Start,
+                                match.Length)).ToArray()));
+
+        static CliCommandResult MapFailure(NotebookFailure failure)
         {
             var errorKind = failure.Category switch
             {

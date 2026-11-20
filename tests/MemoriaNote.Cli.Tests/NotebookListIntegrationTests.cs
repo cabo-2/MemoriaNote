@@ -1,5 +1,4 @@
 using MemoriaNote.Cli.Tests.Infrastructure;
-using MemoriaNote.Models;
 using MemoriaNote.Persistence;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;

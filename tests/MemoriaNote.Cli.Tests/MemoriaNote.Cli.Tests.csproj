@@ -38,4 +38,9 @@
     <AssemblyMetadata Include="ExpectedReleaseBuild" Value="$(MemoriaNoteReleaseBuild)" />
     <AssemblyMetadata Include="TestEditorExecutablePath" Value="$(TestEditorExecutablePath)" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../MemoriaNote.Core.Tests/Infrastructure/TemporaryNotebookDatabase.cs"
+             Link="Infrastructure/TemporaryNotebookDatabase.cs" />
+  </ItemGroup>
 </Project>

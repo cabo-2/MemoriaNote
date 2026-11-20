@@ -1,5 +1,4 @@
 using System.Reflection;
-using MemoriaNote.Models;
 using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
@@ -14,7 +13,7 @@ public sealed class ProductVersionTests
     {
         var testAssembly = Assembly.GetExecutingAssembly();
         var cliAssembly = typeof(Program).Assembly;
-        var coreAssembly = typeof(Notebook).Assembly;
+        var coreAssembly = typeof(NotebookApplication).Assembly;
         var expectedProductVersion = MetadataValue(
             testAssembly,
             "ExpectedProductVersion");

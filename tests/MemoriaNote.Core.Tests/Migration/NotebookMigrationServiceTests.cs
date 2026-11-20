@@ -1,11 +1,9 @@
 using System.Security.Cryptography;
-using MemoriaNote.Archive;
 using MemoriaNote.Core.Tests.Infrastructure;
 using MemoriaNote.NotebookMigration;
 using MemoriaNote.Persistence;
 using MemoriaNote.Persistence.SchemaV2.Validation;
 using Microsoft.Data.Sqlite;
-using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
 namespace MemoriaNote.Core.Tests.Migration;
@@ -185,149 +183,6 @@ public sealed class NotebookMigrationServiceTests
             Assert.That(result.Report.Counts.SourcePages, Is.EqualTo(1));
             Assert.That(result.Report.Counts.MigratedPages, Is.EqualTo(1));
             Assert.That(File.Exists(destination), Is.False);
-        }
-    }
-
-    /// <summary>Verifies a live notebook and its CM1 backup produce the same logical result.</summary>
-    [Test]
-    public async Task LiveNotebookAndCm1Archive_ProduceSameLogicalFingerprint()
-    {
-        using var database = new TemporaryNotebookDatabase();
-        database.CreateNotebook("pair", "Pair");
-        InsertPage(
-            database.DatabasePath,
-            7,
-            "AAAAAAAA-BBBB-4CCC-8DDD-EEEEEEEEEEEE",
-            "Page",
-            1,
-            tags: "{\"Dir\":\"notes/reference\",\"review\":null}",
-            text: null,
-            createTime: "2026-01-02 03:04:05.1",
-            updateTime: "2026-01-02 03:04:05.12");
-        var archive = Path.Combine(database.DirectoryPath, "source.mnarchive");
-        using var temporaryFiles = new TemporaryFileStore(
-            Path.Combine(database.DirectoryPath, "archive-temp"));
-        var backup = new ArchiveV1BackupService(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance),
-            temporaryFiles,
-            new FixedClock(new DateTimeOffset(2026, 11, 3, 0, 0, 0, TimeSpan.Zero)),
-            new ArchiveV1Creator("MemoriaNote.Tests", "1.0.0"));
-        var backupResult = await backup.BackupAsync(
-            new ArchiveV1FileBackupRequest(database.DatabasePath, archive),
-            CancellationToken.None);
-        Assert.That(backupResult.IsSuccess, Is.True);
-
-        var liveOutput = Path.Combine(database.DirectoryPath, "live.mnote");
-        var archiveOutput = Path.Combine(database.DirectoryPath, "archive.mnote");
-        var service = new NotebookMigrationService();
-        var live = await service.MigrateAsync(
-            new NotebookMigrationRequest(database.DatabasePath, liveOutput),
-            CancellationToken.None);
-        var archived = await service.MigrateAsync(
-            new NotebookMigrationRequest(archive, archiveOutput),
-            CancellationToken.None);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(live.IsSuccess, Is.True, live.Error?.ToString());
-            Assert.That(archived.IsSuccess, Is.True, archived.Error?.ToString());
-            Assert.That(archived.Report.SourceKind, Is.EqualTo(
-                NotebookMigrationSourceKind.ContentModel1Archive));
-            Assert.That(live.Report.LogicalFingerprint, Is.EqualTo(
-                archived.Report.LogicalFingerprint));
-            Assert.That(live.Report.Counts, Is.EqualTo(archived.Report.Counts));
-            Assert.That(ReadCurrentPages(liveOutput), Is.EqualTo(ReadCurrentPages(archiveOutput)));
-        }
-    }
-
-    /// <summary>Verifies legacy metadata is allowlisted identically for live and CM1 sources.</summary>
-    [Test]
-    public async Task LiveNotebookAndCm1Archive_MetadataAllowlistProducesSameReport()
-    {
-        using var database = new TemporaryNotebookDatabase();
-        database.CreateNotebook("metadata-pair", "Metadata pair");
-        SetMetadata(database.DatabasePath, "Name", null);
-        SetMetadata(database.DatabasePath, "Title", null);
-        RemoveMetadata(database.DatabasePath, "Description");
-        SetMetadata(database.DatabasePath, "Author", null);
-        SetMetadata(database.DatabasePath, "ReadOnly", null);
-        RemoveMetadata(database.DatabasePath, "Tag");
-        RemoveMetadata(database.DatabasePath, "CreateTime");
-        SetMetadata(database.DatabasePath, "zeta-extension", "do-not-report-zeta-value");
-        SetMetadata(database.DatabasePath, "Alpha-extension", "do-not-report-alpha-value");
-        SetMetadata(database.DatabasePath, "middle-extension", null);
-
-        var archive = Path.Combine(database.DirectoryPath, "metadata-source.mnarchive");
-        using var temporaryFiles = new TemporaryFileStore(
-            Path.Combine(database.DirectoryPath, "metadata-archive-temp"));
-        var backup = new ArchiveV1BackupService(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance),
-            temporaryFiles,
-            new FixedClock(new DateTimeOffset(2026, 11, 5, 0, 0, 0, TimeSpan.Zero)),
-            new ArchiveV1Creator("MemoriaNote.Tests", "1.0.0"));
-        var backupResult = await backup.BackupAsync(
-            new ArchiveV1FileBackupRequest(database.DatabasePath, archive),
-            CancellationToken.None);
-        Assert.That(backupResult.IsSuccess, Is.True);
-
-        var liveOutput = Path.Combine(database.DirectoryPath, "metadata-live.mnote");
-        var archiveOutput = Path.Combine(database.DirectoryPath, "metadata-archive.mnote");
-        var service = new NotebookMigrationService();
-        var live = await service.MigrateAsync(
-            new NotebookMigrationRequest(database.DatabasePath, liveOutput),
-            CancellationToken.None);
-        var archived = await service.MigrateAsync(
-            new NotebookMigrationRequest(archive, archiveOutput),
-            CancellationToken.None);
-
-        var expectedMetadata = new (string Key, string? Value)[]
-        {
-            ("Author", string.Empty),
-            ("CreateTime", null),
-            ("Description", string.Empty),
-            ("ReadOnly", bool.FalseString),
-            ("Tag", string.Empty),
-            ("Title", string.Empty)
-        };
-        var expectedUnknownKeys = new[]
-        {
-            "Alpha-extension",
-            "middle-extension",
-            "zeta-extension"
-        };
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(live.IsSuccess, Is.True, live.Error?.ToString());
-            Assert.That(archived.IsSuccess, Is.True, archived.Error?.ToString());
-            Assert.That(ReadMetadata(liveOutput), Is.EqualTo(expectedMetadata));
-            Assert.That(ReadMetadata(archiveOutput), Is.EqualTo(expectedMetadata));
-            Assert.That(live.Report.LogicalFingerprint, Is.EqualTo(
-                archived.Report.LogicalFingerprint));
-            Assert.That(live.Report.Counts, Is.EqualTo(archived.Report.Counts));
-            Assert.That(live.Report.Issues, Has.Count.EqualTo(1));
-            Assert.That(archived.Report.Issues, Has.Count.EqualTo(1));
-        }
-
-        var liveIssue = live.Report.Issues.Single();
-        var archivedIssue = archived.Report.Issues.Single();
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(liveIssue.Code, Is.EqualTo(
-                NotebookMigrationIssueCode.UnknownMetadataDropped));
-            Assert.That(liveIssue.Severity, Is.EqualTo(
-                NotebookMigrationIssueSeverity.Warning));
-            Assert.That(liveIssue.ChangeKind, Is.EqualTo(
-                NotebookMigrationChangeKind.Dropped));
-            Assert.That(liveIssue.Field, Is.EqualTo("metadata"));
-            Assert.That(liveIssue.Count, Is.EqualTo(3));
-            Assert.That(liveIssue.MetadataKeys, Is.EqualTo(expectedUnknownKeys));
-            Assert.That(archivedIssue.Code, Is.EqualTo(liveIssue.Code));
-            Assert.That(archivedIssue.Severity, Is.EqualTo(liveIssue.Severity));
-            Assert.That(archivedIssue.ChangeKind, Is.EqualTo(liveIssue.ChangeKind));
-            Assert.That(archivedIssue.Field, Is.EqualTo(liveIssue.Field));
-            Assert.That(archivedIssue.Count, Is.EqualTo(liveIssue.Count));
-            Assert.That(archivedIssue.MetadataKeys, Is.EqualTo(liveIssue.MetadataKeys));
         }
     }
 
@@ -571,24 +426,6 @@ public sealed class NotebookMigrationServiceTests
         return values;
     }
 
-    private static IReadOnlyList<string> ReadCurrentPages(string databasePath)
-    {
-        using var connection = new SqliteConnection("Data Source=" + databasePath);
-        connection.Open();
-        using var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT PageId || '|' || Name || '|' || CreateTime || '|' ||
-                   UpdateTime || '|' || Revision || '|' || Tags || '|' || Text
-            FROM Pages
-            ORDER BY PageId COLLATE BINARY;
-            """;
-        using var reader = command.ExecuteReader();
-        var values = new List<string>();
-        while (reader.Read())
-            values.Add(reader.GetString(0));
-        return values;
-    }
-
     private static IReadOnlyList<(string Key, string? Value)> ReadMetadata(
         string databasePath)
     {
@@ -641,15 +478,4 @@ public sealed class NotebookMigrationServiceTests
         return Convert.ToHexString(SHA256.HashData(input));
     }
 
-    private sealed class FixedClock : IClock
-    {
-        private readonly DateTimeOffset _value;
-
-        internal FixedClock(DateTimeOffset value)
-        {
-            _value = value;
-        }
-
-        public DateTimeOffset UtcNow => _value;
-    }
 }

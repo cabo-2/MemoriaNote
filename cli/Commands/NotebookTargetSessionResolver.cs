@@ -3,17 +3,41 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using MemoriaNote.Application;
-using MemoriaNote.Models;
 using MemoriaNote.Persistence;
 
 namespace MemoriaNote.Cli
 {
     internal interface INotebookTargetSessionResolver
     {
-        Task<ApplicationSession> ResolveAsync(
+        Task<NotebookTargetSession> ResolveAsync(
             string workspaceOption,
             string notebookOption,
             CancellationToken cancellationToken);
+    }
+
+    internal sealed class NotebookTargetSession : IAsyncDisposable
+    {
+        readonly NotebookApplicationSession _application;
+
+        internal NotebookTargetSession(
+            string databasePath,
+            NotebookApplicationSession application)
+        {
+            DatabasePath = databasePath ??
+                throw new ArgumentNullException(nameof(databasePath));
+            _application = application ??
+                throw new ArgumentNullException(nameof(application));
+        }
+
+        internal string DatabasePath { get; }
+
+        internal NotebookDescriptor Notebook => _application.Notebook;
+
+        internal INotebookMetadataApplication Metadata => _application.Metadata;
+
+        internal INotebookPageApplication Pages => _application.Pages;
+
+        public ValueTask DisposeAsync() => _application.DisposeAsync();
     }
 
     internal sealed class NotebookTargetConflictException : Exception
@@ -69,7 +93,7 @@ namespace MemoriaNote.Cli
                 throw new ArgumentNullException(nameof(workspaceConfigurationStore));
         }
 
-        public async Task<ApplicationSession> ResolveAsync(
+        public async Task<NotebookTargetSession> ResolveAsync(
             string workspaceOption,
             string notebookOption,
             CancellationToken cancellationToken)
@@ -114,14 +138,7 @@ namespace MemoriaNote.Cli
             if (!opened.IsSuccess)
                 throw ToResolutionException(notebookPath, opened.Failure);
 
-            var notebook = new Notebook { DatabasePath = notebookPath };
-            var workspace = new Workspace(
-                Path.GetFileName(workspacePath),
-                new[] { notebook },
-                notebook);
-            return new ApplicationSession(
-                workspace,
-                new SchemaV2ApplicationServiceAdapter(opened.Value));
+            return new NotebookTargetSession(notebookPath, opened.Value);
         }
 
         static Exception ToResolutionException(

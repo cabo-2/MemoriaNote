@@ -73,12 +73,12 @@ namespace MemoriaNote.Cli
                         $"{CliMessage.Quote(sourcePath)}.");
                 }
 
-                var session = await _targetResolver.ResolveAsync(
+                await using var session = await _targetResolver.ResolveAsync(
                         workspaceOption,
                         notebookOption,
                         token)
                     .ConfigureAwait(false);
-                var targetPath = session.Workspace.SelectedNotebook.DatabasePath;
+                var targetPath = session.DatabasePath;
                 var result = await _importer.ImportAsync(
                         new TextPageImportRequest(
                             NotebookId.FromDatabasePath(targetPath),
