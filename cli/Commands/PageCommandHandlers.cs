@@ -477,7 +477,7 @@ namespace MemoriaNote.Cli
                     workspaceOption,
                     notebookOption,
                     token);
-                var result = await session.Pages.QuerySummariesAsync(
+                var started = await session.Pages.StartPageQueryAsync(
                         new NotebookPageQueryRequest(
                             pageNamePattern,
                             parsedSort,
@@ -485,14 +485,54 @@ namespace MemoriaNote.Cli
                             limit),
                         token)
                     .ConfigureAwait(false);
-                if (!result.IsSuccess)
-                    return NotebookApplicationFailureMapper.ToCliResult(result.Failure);
+                if (!started.IsSuccess)
+                    return NotebookApplicationFailureMapper.ToCliResult(started.Failure);
 
-                _output.WritePageList(
-                    result.Value.Select(page => new PageListItem(page)).ToArray(),
-                    longFormat);
-                return CliCommandResult.Success();
+                await using var query = started.Value;
+                var displayedCount = 0;
+                var includeHeader = true;
+                try
+                {
+                    while (true)
+                    {
+                        var read = await query.ReadAsync(token).ConfigureAwait(false);
+                        if (!read.IsSuccess)
+                        {
+                            return displayedCount == 0
+                                ? NotebookApplicationFailureMapper.ToCliResult(read.Failure)
+                                : PartialFailure(displayedCount);
+                        }
+
+                        var summaries = read.Value.Summaries;
+                        if (summaries.Count > 0)
+                        {
+                            _output.WritePageList(
+                                summaries.Select(page => new PageListItem(page)).ToArray(),
+                                longFormat,
+                                includeHeader);
+                            displayedCount += summaries.Count;
+                            includeHeader = false;
+                        }
+                        if (read.Value.IsCompleted)
+                            return CliCommandResult.Success();
+                    }
+                }
+                catch (OperationCanceledException) when (displayedCount > 0)
+                {
+                    return PartialFailure(displayedCount);
+                }
             }, cancellationToken);
+        }
+
+        CliCommandResult PartialFailure(int displayedCount)
+        {
+            var message =
+                $"Listing failed after {displayedCount} page(s); output is incomplete.";
+            _output.WriteErrorLine(message);
+            return CliCommandResult.Failure(
+                CliErrorKind.Partial,
+                message,
+                alreadyReported: true);
         }
     }
 

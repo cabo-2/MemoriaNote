@@ -88,6 +88,27 @@ public sealed class NotebookTargetIntegrationTests
         }
     }
 
+    /// <summary>Verifies normal open preserves unsupported-version diagnostics.</summary>
+    [Test]
+    public async Task Ls_WithFutureNotebook_ReportsUnsupportedVersion()
+    {
+        using var harness = new CliInProcessHarness();
+        Assert.That((await harness.RunAsync("create", "future")).ExitCode, Is.Zero);
+        await SchemaV2TestNotebook.SetUserVersionAsync(
+            Path.Combine(harness.WorkingDirectory, "future.mnote"),
+            3);
+
+        var result = await harness.RunAsync("ls", "--notebook", "future");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.StandardError, Does.Contain("unsupported format version"));
+            Assert.That(result.StandardError, Does.Contain("3"));
+        }
+    }
+
     /// <summary>Verifies an explicit notebook selects one target from multiple candidates.</summary>
     [Test]
     public async Task New_WithExplicitNotebook_CreatesPageOnlyInThatNotebook()

@@ -143,6 +143,24 @@ public sealed class NotebookPageQueryRequest
     public int? Limit { get; }
 }
 
+/// <summary>Contains one incrementally read page-name query batch.</summary>
+public sealed class NotebookPageQueryBatch
+{
+    internal NotebookPageQueryBatch(
+        IReadOnlyList<NotebookPageSummary> summaries,
+        bool isCompleted)
+    {
+        Summaries = Array.AsReadOnly([.. summaries]);
+        IsCompleted = isCompleted;
+    }
+
+    /// <summary>Gets the next ordered page summaries.</summary>
+    public IReadOnlyList<NotebookPageSummary> Summaries { get; }
+
+    /// <summary>Gets whether the single provider query has reached its terminal state.</summary>
+    public bool IsCompleted { get; }
+}
+
 /// <summary>Identifies one deterministic body-search ordering.</summary>
 public enum NotebookBodySearchSort
 {
@@ -415,6 +433,11 @@ public interface INotebookPageApplication
 
     /// <summary>Queries body-free summaries by a MemoriaNote page-name glob.</summary>
     Task<NotebookOperationResult<IReadOnlyList<NotebookPageSummary>>> QuerySummariesAsync(
+        NotebookPageQueryRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Starts one streaming page-name query.</summary>
+    Task<NotebookOperationResult<NotebookPageQuerySession>> StartPageQueryAsync(
         NotebookPageQueryRequest request,
         CancellationToken cancellationToken = default);
 

@@ -259,6 +259,31 @@ public sealed class PageListIntegrationTests
         }
     }
 
+    /// <summary>Verifies long output writes one header while streaming multiple batches.</summary>
+    [Test]
+    public async Task Ls_LongFormatAcrossBatches_WritesOneHeader()
+    {
+        using var harness = new CliInProcessHarness();
+        Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
+        Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
+        var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
+        await SchemaV2TestNotebook.InsertPagesAsync(notebookPath, 130);
+
+        var result = await harness.RunAsync("ls", "--long");
+        var lines = GetOutputLines(result.StandardOutput);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero, result.StandardError);
+            Assert.That(result.StandardError, Is.Empty);
+            Assert.That(lines, Has.Length.EqualTo(131));
+            Assert.That(lines.Count(line => line.StartsWith("IDX ", StringComparison.Ordinal)),
+                Is.EqualTo(1));
+            Assert.That(lines[1], Does.EndWith("page-0000"));
+            Assert.That(lines[^1], Does.EndWith("page-0129"));
+        }
+    }
+
     /// <summary>Verifies an explicit notebook disambiguates multiple root notebooks.</summary>
     [Test]
     public async Task Ls_WithMultipleNotebooks_RequiresExplicitTarget()

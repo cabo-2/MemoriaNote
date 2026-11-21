@@ -50,6 +50,44 @@ internal static class SchemaV2TestNotebook
         await command.ExecuteNonQueryAsync().ConfigureAwait(false);
     }
 
+    internal static async Task InsertPagesAsync(
+        string databasePath,
+        int count,
+        string namePrefix = "page",
+        string text = "body")
+    {
+        if (count < 0)
+            throw new ArgumentOutOfRangeException(nameof(count));
+
+        var connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = databasePath,
+            Mode = SqliteOpenMode.ReadWrite,
+            Pooling = false
+        }.ToString();
+        await using var connection = new SqliteConnection(connectionString);
+        await connection.OpenAsync().ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync()
+            .ConfigureAwait(false);
+        await using var command = connection.CreateCommand();
+        command.Transaction = (SqliteTransaction)transaction;
+        command.CommandText = """
+            INSERT INTO Pages(PageId, Name, CreateTime, UpdateTime, Revision, Tags, Text)
+            VALUES ($pageId, $name, $time, $time, 1, '[]', $text);
+            """;
+        var pageId = command.Parameters.Add("$pageId", SqliteType.Text);
+        var name = command.Parameters.Add("$name", SqliteType.Text);
+        command.Parameters.AddWithValue("$time", "2026-01-01 00:00:00.0000000");
+        command.Parameters.AddWithValue("$text", text);
+        for (var index = 0; index < count; index++)
+        {
+            pageId.Value = GuidFromIndex(index + 1).ToString("D");
+            name.Value = $"{namePrefix}-{index:0000}";
+            await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+        }
+        await transaction.CommitAsync().ConfigureAwait(false);
+    }
+
     internal static async Task SetPageTimesAsync(
         string databasePath,
         string name,
@@ -192,4 +230,11 @@ internal static class SchemaV2TestNotebook
         value.UtcDateTime.ToString(
             "yyyy-MM-dd HH:mm:ss.fffffff",
             CultureInfo.InvariantCulture);
+
+    private static Guid GuidFromIndex(int index)
+    {
+        var bytes = new byte[16];
+        BitConverter.GetBytes(index).CopyTo(bytes, 0);
+        return new Guid(bytes);
+    }
 }

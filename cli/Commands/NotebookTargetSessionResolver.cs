@@ -80,15 +80,11 @@ namespace MemoriaNote.Cli
 
     internal sealed class NotebookTargetSessionResolver : INotebookTargetSessionResolver
     {
-        readonly INotebookFormatValidator _formatValidator;
         readonly IWorkspaceConfigurationStore _workspaceConfigurationStore;
 
         internal NotebookTargetSessionResolver(
-            INotebookFormatValidator formatValidator,
             IWorkspaceConfigurationStore workspaceConfigurationStore)
         {
-            _formatValidator = formatValidator ??
-                throw new ArgumentNullException(nameof(formatValidator));
             _workspaceConfigurationStore = workspaceConfigurationStore ??
                 throw new ArgumentNullException(nameof(workspaceConfigurationStore));
         }
@@ -103,34 +99,6 @@ namespace MemoriaNote.Cli
             var notebookPath = notebookOption == null
                 ? ResolveSelectedNotebookPath(workspacePath)
                 : ResolveExplicitNotebookPath(workspacePath, notebookOption);
-            try
-            {
-                await _formatValidator
-                    .ValidateCurrentAsync(notebookPath, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            catch (FileNotFoundException exception)
-            {
-                throw new NotebookTargetNotFoundException(
-                    $"The notebook file does not exist: " +
-                    $"{CliMessage.Quote(Path.GetFileName(notebookPath))}.",
-                    exception);
-            }
-            catch (UnsupportedNotebookFormatVersionException exception)
-            {
-                throw new NotebookTargetValidationException(
-                    $"Notebook {CliMessage.Quote(Path.GetFileName(notebookPath))} uses " +
-                    $"unsupported format version {CliMessage.Quote(exception.FormatVersion)}.",
-                    exception);
-            }
-            catch (InvalidDataException exception)
-            {
-                throw new NotebookTargetValidationException(
-                    $"Notebook {CliMessage.Quote(Path.GetFileName(notebookPath))} is not " +
-                    $"a valid current-format notebook. {exception.Message}",
-                    exception);
-            }
-
             var opened = await NotebookApplication.OpenAsync(
                     new NotebookOpenRequest(notebookPath),
                     cancellationToken)

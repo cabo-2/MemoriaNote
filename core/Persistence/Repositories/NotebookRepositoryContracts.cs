@@ -99,6 +99,19 @@ internal interface INotebookPageReader
         NotebookId notebookId,
         RepositoryPageQuery query,
         CancellationToken cancellationToken);
+
+    Task<INotebookPageQueryCursor> StartQueryAsync(
+        NotebookId notebookId,
+        RepositoryPageQuery query,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>Reads bounded page-summary batches from one provider query.</summary>
+internal interface INotebookPageQueryCursor : IAsyncDisposable
+{
+    ValueTask<RepositoryPageQueryBatch> ReadAsync(
+        int maximumCount,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>Searches authoritative page bodies without exposing provider syntax.</summary>

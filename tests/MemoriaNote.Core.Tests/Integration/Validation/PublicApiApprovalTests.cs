@@ -35,7 +35,9 @@ public sealed class PublicApiApprovalTests
         "NotebookBodySearchSort",
         "NotebookPage",
         "NotebookPageCreateRequest",
+        "NotebookPageQueryBatch",
         "NotebookPageQueryRequest",
+        "NotebookPageQuerySession",
         "NotebookPageQuerySort",
         "NotebookPageReplaceRequest",
         "NotebookPageSummary"

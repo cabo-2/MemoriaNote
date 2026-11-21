@@ -41,13 +41,16 @@ namespace MemoriaNote.Cli
             _standardError.WriteLine(value);
         }
 
-        public void WritePageList(IReadOnlyList<PageListItem> pages, bool longFormat)
+        public void WritePageList(
+            IReadOnlyList<PageListItem> pages,
+            bool longFormat,
+            bool includeHeader = true)
         {
             if (pages == null)
                 throw new ArgumentNullException(nameof(pages));
 
             if (longFormat)
-                WriteLongPageList(pages);
+                WriteLongPageList(pages, includeHeader);
             else
                 WriteNamePageList(pages);
         }
@@ -122,28 +125,31 @@ namespace MemoriaNote.Cli
             WriteRows(rows);
         }
 
-        void WriteLongPageList(IReadOnlyList<PageListItem> pages)
+        void WriteLongPageList(
+            IReadOnlyList<PageListItem> pages,
+            bool includeHeader)
         {
             if (pages.Count == 0)
                 return;
 
-            var rows = new List<string[]>
+            var header = new[]
             {
-                new[]
-                {
-                    "IDX",
-                    "TYPE",
-                    "CREATED-UTC",
-                    "UPDATED-UTC",
-                    "ERASED",
-                    "TAGS",
-                    "PAGE-ID",
-                    "NAME"
-                }
+                "IDX",
+                "TYPE",
+                "CREATED-UTC",
+                "UPDATED-UTC",
+                "ERASED",
+                "TAGS",
+                "PAGE-ID",
+                "NAME"
             };
+            var widths = new[] { 3, 4, 28, 28, 6, 4, 36 };
+            if (includeHeader)
+                WriteRow(header, widths);
+
             foreach (var page in pages)
             {
-                rows.Add(new[]
+                WriteRow(new[]
                 {
                     "1",
                     "T",
@@ -153,10 +159,20 @@ namespace MemoriaNote.Cli
                     "{}",
                     page.PageId.ToString(),
                     EscapeCell(page.Name)
-                });
+                }, widths);
             }
+        }
 
-            WriteRows(rows);
+        void WriteRow(string[] row, int[] widths)
+        {
+            var buffer = new StringBuilder();
+            for (var column = 0; column < widths.Length; column++)
+            {
+                buffer.Append(row[column].PadRight(widths[column]));
+                buffer.Append(' ');
+            }
+            buffer.Append(row[^1]);
+            WriteLine(buffer.ToString());
         }
 
         void WriteRows(IReadOnlyList<string[]> rows)

@@ -14,7 +14,10 @@ namespace MemoriaNote.Cli
 
         void WriteErrorLine(string value);
 
-        void WritePageList(IReadOnlyList<PageListItem> pages, bool longFormat);
+        void WritePageList(
+            IReadOnlyList<PageListItem> pages,
+            bool longFormat,
+            bool includeHeader = true);
 
         void WriteBodySearchHits(IReadOnlyList<BodySearchCommandHit> hits);
 

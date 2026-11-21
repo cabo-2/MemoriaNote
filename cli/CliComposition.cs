@@ -74,7 +74,6 @@ namespace MemoriaNote.Cli
             var notebookFormatValidator = new SchemaV2NotebookFormatValidator();
             var workspaceConfigurationStore = new WorkspaceConfigurationStore();
             var notebookTargetResolver = new NotebookTargetSessionResolver(
-                notebookFormatValidator,
                 workspaceConfigurationStore);
             var workspaceSelection = new WorkspaceSelectionUseCase(
                 notebookFormatValidator,
