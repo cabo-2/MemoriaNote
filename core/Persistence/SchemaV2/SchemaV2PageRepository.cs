@@ -175,6 +175,28 @@ internal sealed class SchemaV2PageRepository :
         RepositoryPageQuery query,
         CancellationToken cancellationToken)
     {
+        await using var cursor = await StartQueryAsync(
+                notebookId,
+                query,
+                cancellationToken)
+            .ConfigureAwait(false);
+        var summaries = new List<RepositoryPageSummary>();
+        RepositoryPageQueryBatch batch;
+        do
+        {
+            batch = await cursor.ReadAsync(128, cancellationToken).ConfigureAwait(false);
+            summaries.AddRange(batch.Summaries);
+        }
+        while (!batch.IsCompleted);
+
+        return summaries.AsReadOnly();
+    }
+
+    public async Task<INotebookPageQueryCursor> StartQueryAsync(
+        NotebookId notebookId,
+        RepositoryPageQuery query,
+        CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(notebookId);
         ArgumentNullException.ThrowIfNull(query);
         cancellationToken.ThrowIfCancellationRequested();
@@ -183,46 +205,54 @@ internal sealed class SchemaV2PageRepository :
             ? null
             : SqliteGlobPatternCompiler.Compile(query.Pattern);
 
-        await using var connection = await SqliteConnectionFactory.OpenAsync(
-                notebookId.Locator,
-                SqliteOpenMode.ReadOnly,
-                cancellationToken)
-            .ConfigureAwait(false);
-        await using var command = connection.CreateCommand();
-        var statement = new StringBuilder(
-            "SELECT PageId, Name, CreateTime, UpdateTime, Revision FROM Pages");
-        if (compiledPattern is not null)
+        SqliteConnection connection = null;
+        SqliteCommand command = null;
+        SqliteDataReader reader = null;
+        try
         {
-            statement.Append(" WHERE Name GLOB $pattern");
-            command.Parameters.AddWithValue("$pattern", compiledPattern);
-        }
+            connection = await SqliteConnectionFactory.OpenAsync(
+                    notebookId.Locator,
+                    SqliteOpenMode.ReadOnly,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            command = connection.CreateCommand();
+            var statement = new StringBuilder(
+                "SELECT PageId, Name, CreateTime, UpdateTime, Revision FROM Pages");
+            if (compiledPattern is not null)
+            {
+                statement.Append(" WHERE Name GLOB $pattern");
+                command.Parameters.AddWithValue("$pattern", compiledPattern);
+            }
 
-        statement.Append(" ORDER BY ");
-        statement.Append(OrderBy(query.Sort, query.Reverse));
-        if (query.Limit is not null)
+            statement.Append(" ORDER BY ");
+            statement.Append(OrderBy(query.Sort, query.Reverse));
+            if (query.Limit is not null)
+            {
+                statement.Append(" LIMIT $limit");
+                command.Parameters.AddWithValue("$limit", query.Limit.Value);
+            }
+            statement.Append(';');
+            command.CommandText = statement.ToString();
+
+            reader = await command
+                .ExecuteReaderAsync(cancellationToken)
+                .ConfigureAwait(false);
+            return new SchemaV2PageQueryCursor(
+                connection,
+                command,
+                reader,
+                activeReader => MapSummary(notebookId, activeReader));
+        }
+        catch
         {
-            statement.Append(" LIMIT $limit");
-            command.Parameters.AddWithValue("$limit", query.Limit.Value);
+            if (reader is not null)
+                await reader.DisposeAsync().ConfigureAwait(false);
+            if (command is not null)
+                await command.DisposeAsync().ConfigureAwait(false);
+            if (connection is not null)
+                await connection.DisposeAsync().ConfigureAwait(false);
+            throw;
         }
-        statement.Append(';');
-        command.CommandText = statement.ToString();
-
-        await using var reader = await command
-            .ExecuteReaderAsync(cancellationToken)
-            .ConfigureAwait(false);
-        var summaries = new List<RepositoryPageSummary>();
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            summaries.Add(new RepositoryPageSummary(
-                notebookId,
-                PageId.FromUuid(reader.GetString(0)),
-                reader.GetString(1),
-                SchemaV2PageValueCodec.ParseTimestamp(reader.GetString(2)),
-                SchemaV2PageValueCodec.ParseTimestamp(reader.GetString(3)),
-                reader.GetInt64(4)));
-        }
-
-        return summaries.AsReadOnly();
     }
 
     public async Task<RepositoryPageWriteResult> CreateAsync(
@@ -541,6 +571,19 @@ internal sealed class SchemaV2PageRepository :
             reader.GetInt64(4),
             SchemaV2TagCodec.Decode(reader.GetString(5)),
             reader.GetString(6));
+    }
+
+    private static RepositoryPageSummary MapSummary(
+        NotebookId notebookId,
+        SqliteDataReader reader)
+    {
+        return new RepositoryPageSummary(
+            notebookId,
+            PageId.FromUuid(reader.GetString(0)),
+            reader.GetString(1),
+            SchemaV2PageValueCodec.ParseTimestamp(reader.GetString(2)),
+            SchemaV2PageValueCodec.ParseTimestamp(reader.GetString(3)),
+            reader.GetInt64(4));
     }
 
     private static async Task<bool> PageExistsAsync(

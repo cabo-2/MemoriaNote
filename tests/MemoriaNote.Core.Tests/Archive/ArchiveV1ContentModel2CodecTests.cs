@@ -257,9 +257,9 @@ public sealed class ArchiveV1ContentModel2CodecTests
             Describe(report));
     }
 
-    /// <summary>Verifies the native CM2 reader does not reinterpret published CM1 payloads.</summary>
+    /// <summary>Verifies the native CM2 reader classifies exact CM1 for explicit migration.</summary>
     [Test]
-    public async Task ContentModel2Reader_RejectsContentModel1AsUnsupportedVersion()
+    public async Task ContentModel2Reader_ClassifiesContentModel1AsLegacyMigrationInput()
     {
         var cm1Directory = Path.Combine(
             TestContext.CurrentContext.TestDirectory,
@@ -279,9 +279,68 @@ public sealed class ArchiveV1ContentModel2CodecTests
             CancellationToken.None);
 
         Assert.That(
-            report.Issues.Any(issue => issue.Code == ArchiveV1IssueCode.UnsupportedVersion),
+            report.Issues.Any(issue =>
+                issue.Code == ArchiveV1IssueCode.LegacyContentModelUnsupported),
             Is.True,
             Describe(report));
+        Assert.That(
+            report.Issues.Any(issue => issue.Code == ArchiveV1IssueCode.UnsupportedVersion),
+            Is.False,
+            Describe(report));
+    }
+
+    /// <summary>Verifies mixed and future tuples are not classified as CM1 migration input.</summary>
+    [TestCase("manifest-mixed-source-version.json")]
+    [TestCase("manifest-unsupported-content-model-version.json")]
+    public async Task ContentModel2Reader_UnknownTupleRemainsUnsupported(
+        string manifestFile)
+    {
+        await using var archive = CreateArchive(
+            ReadBytes("invalid/" + manifestFile),
+            ReadBytes("valid/metadata.json"),
+            ReadBytes("valid/pages.ndjson"));
+
+        var report = await new ArchiveV1ContentModel2Reader().ValidateAsync(
+            archive,
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                report.Issues.Any(issue =>
+                    issue.Code == ArchiveV1IssueCode.UnsupportedVersion),
+                Is.True,
+                Describe(report));
+            Assert.That(
+                report.Issues.Any(issue =>
+                    issue.Code == ArchiveV1IssueCode.LegacyContentModelUnsupported),
+                Is.False,
+                Describe(report));
+        }
+    }
+
+    /// <summary>Verifies CM2 uses the exact pre-v1 entry-layout classifier.</summary>
+    [TestCaseSource(nameof(LegacyLayoutCases))]
+    public async Task ContentModel2Reader_LegacyLayoutMatchesArchiveV1Reader(
+        string[] entryNames,
+        ArchiveV1Classification expectedClassification)
+    {
+        var entries = entryNames
+            .Select(name => (name, new byte[] { 0xff, 0xfe, 0xfd }))
+            .ToArray();
+        await using var archive = CreateZip(entries);
+
+        var report = await new ArchiveV1ContentModel2Reader().ValidateAsync(
+            archive,
+            CancellationToken.None);
+
+        Assert.That(report.Classification, Is.EqualTo(expectedClassification));
+        if (expectedClassification == ArchiveV1Classification.LegacyArchiveCandidate)
+        {
+            Assert.That(report.Issues, Has.Some.Matches<ArchiveV1ValidationIssue>(issue =>
+                issue is not null &&
+                issue.Code == ArchiveV1IssueCode.LegacyArchiveUnsupported));
+        }
     }
 
     /// <summary>Verifies a non-object manifest is classified instead of escaping as an exception.</summary>
@@ -317,6 +376,18 @@ public sealed class ArchiveV1ContentModel2CodecTests
             WriteEntry(archive, "manifest.json", manifest);
             WriteEntry(archive, "metadata.json", metadata);
             WriteEntry(archive, "pages.ndjson", pages);
+        }
+        result.Position = 0;
+        return result;
+    }
+
+    private static MemoryStream CreateZip(params (string Name, byte[] Bytes)[] entries)
+    {
+        var result = new MemoryStream();
+        using (var archive = new ZipArchive(result, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var entry in entries)
+                WriteEntry(archive, entry.Name, entry.Bytes);
         }
         result.Position = 0;
         return result;
@@ -362,6 +433,41 @@ public sealed class ArchiveV1ContentModel2CodecTests
             """ + "\n";
         return Encoding.UTF8.GetBytes(json);
     }
+
+    private static IEnumerable<TestCaseData> LegacyLayoutCases()
+    {
+        yield return LegacyCase(
+            ArchiveV1Classification.LegacyArchiveCandidate,
+            "metadata.json");
+        yield return LegacyCase(
+            ArchiveV1Classification.LegacyArchiveCandidate,
+            "metadata.json",
+            "0.json",
+            "001.json",
+            "42.json");
+        yield return LegacyCase(
+            ArchiveV1Classification.UnrecognizedZip,
+            "Metadata.json");
+        yield return LegacyCase(
+            ArchiveV1Classification.UnrecognizedZip,
+            "metadata.json",
+            "readme.json");
+        yield return LegacyCase(
+            ArchiveV1Classification.UnrecognizedZip,
+            "metadata.json",
+            "pages/1.json");
+        yield return LegacyCase(
+            ArchiveV1Classification.ArchiveV1,
+            "manifest.json",
+            "metadata.json",
+            "1.json");
+    }
+
+    private static TestCaseData LegacyCase(
+        ArchiveV1Classification classification,
+        params string[] names) =>
+        new TestCaseData(names, classification)
+            .SetName($"CM2LegacyLayout_{classification}_{string.Join('_', names)}");
 
     private static IReadOnlyList<ArchiveV1MetadataRow> ReadMetadata(string relativePath)
     {

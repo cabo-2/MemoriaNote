@@ -1,3 +1,4 @@
+using MemoriaNote.Persistence;
 using MemoriaNote.Persistence.SchemaV2;
 using MemoriaNote.Persistence.SchemaV2.Validation;
 using Microsoft.Data.Sqlite;
@@ -5,89 +6,50 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Core.Tests.Persistence.SchemaV2;
 
-/// <summary>Verifies Schema V2 derived-index validation and transactional rebuilds.</summary>
+/// <summary>Verifies PageTags validation and transactional rebuilds.</summary>
 [TestFixture]
 [Category("Functional")]
 public sealed class SchemaV2DerivedIndexMaintenanceTests
 {
-    /// <summary>Verifies each derived index can be selected independently.</summary>
+    /// <summary>Verifies checking corrupt PageTags is read-only and classifies the mismatch.</summary>
     [Test]
-    public async Task CheckAsync_WithIndependentCorruption_ReportsSelectedIndexOnly()
-    {
-        using var database = await TestDatabase.CreateAsync("selection");
-        await database.InsertPageAsync("[\"tag\"]", "searchable body");
-        await database.ExecuteAsync(
-            """
-            DELETE FROM PageTags;
-            INSERT INTO FtsIndexUnicode61(FtsIndexUnicode61) VALUES('delete-all');
-            INSERT INTO FtsIndexTrigram(FtsIndexTrigram) VALUES('delete-all');
-            """);
-
-        var pageTags = await SchemaV2DerivedIndexMaintenance.CheckAsync(
-            database.DatabasePath,
-            SchemaV2DerivedIndexSelection.PageTags);
-        var unicode61 = await SchemaV2DerivedIndexMaintenance.CheckAsync(
-            database.DatabasePath,
-            SchemaV2DerivedIndexSelection.FtsUnicode61);
-        var trigram = await SchemaV2DerivedIndexMaintenance.CheckAsync(
-            database.DatabasePath,
-            SchemaV2DerivedIndexSelection.FtsTrigram);
-
-        using (Assert.EnterMultipleScope())
-        {
-            AssertSingleIssue(pageTags, SchemaV2DerivedIndexKind.PageTags);
-            AssertSingleIssue(unicode61, SchemaV2DerivedIndexKind.FtsUnicode61);
-            AssertSingleIssue(trigram, SchemaV2DerivedIndexKind.FtsTrigram);
-        }
-    }
-
-    /// <summary>Verifies a write-capable integrity check never changes the notebook.</summary>
-    [Test]
-    public async Task CheckAsync_WithCorruptNonEmptyIndexes_LeavesFileSetUnchanged()
+    public async Task CheckAsync_WithCorruptPageTags_LeavesFileSetUnchanged()
     {
         using var database = await TestDatabase.CreateAsync("check-unchanged");
         await database.InsertPageAsync("[\"tag\"]", "searchable body");
-        await database.ExecuteAsync(
-            """
-            DELETE FROM PageTags;
-            INSERT INTO FtsIndexUnicode61(FtsIndexUnicode61) VALUES('delete-all');
-            INSERT INTO FtsIndexTrigram(FtsIndexTrigram) VALUES('delete-all');
-            """);
+        await database.ExecuteAsync("DELETE FROM PageTags;");
         var beforeBytes = await File.ReadAllBytesAsync(database.DatabasePath);
         var beforeFiles = Directory.GetFileSystemEntries(database.DirectoryPath);
 
         var result = await SchemaV2DerivedIndexMaintenance.CheckAsync(
             database.DatabasePath,
-            SchemaV2DerivedIndexSelection.All);
+            SchemaV2DerivedIndexSelection.PageTags);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.IsValid, Is.False);
-            Assert.That(result.Issues, Has.Count.EqualTo(3));
-            Assert.That(await File.ReadAllBytesAsync(database.DatabasePath),
-                Is.EqualTo(beforeBytes));
-            Assert.That(Directory.GetFileSystemEntries(database.DirectoryPath),
-                Is.EqualTo(beforeFiles));
+            Assert.That(result.Issues, Has.Count.EqualTo(1));
+            Assert.That(result.Issues[0].Index, Is.EqualTo(SchemaV2DerivedIndexKind.PageTags));
+            Assert.That(
+                result.Issues[0].Kind,
+                Is.EqualTo(SchemaV2DerivedDataIssueKind.MissingRows));
+            Assert.That(await File.ReadAllBytesAsync(database.DatabasePath), Is.EqualTo(beforeBytes));
+            Assert.That(Directory.GetFileSystemEntries(database.DirectoryPath), Is.EqualTo(beforeFiles));
         }
     }
 
-    /// <summary>Verifies a complete rebuild restores the dual-index draft candidate.</summary>
+    /// <summary>Verifies rebuilding PageTags preserves authoritative page values.</summary>
     [Test]
-    public async Task RebuildAsync_WithAllIndexesCorrupt_RestoresCompleteCandidate()
+    public async Task RebuildAsync_WithCorruptPageTags_RestoresReleaseDerivedData()
     {
-        using var database = await TestDatabase.CreateAsync("rebuild-all");
+        using var database = await TestDatabase.CreateAsync("rebuild-page-tags");
         await database.InsertPageAsync("[\"alpha\",\"beta\"]", "searchable body");
-        await database.ExecuteAsync(
-            """
-            DELETE FROM PageTags;
-            INSERT INTO FtsIndexUnicode61(FtsIndexUnicode61) VALUES('delete-all');
-            INSERT INTO FtsIndexTrigram(FtsIndexTrigram) VALUES('delete-all');
-            """);
+        await database.ExecuteAsync("DELETE FROM PageTags;");
         var authoritativeBefore = await database.ReadAuthoritativePageAsync();
 
         var result = await SchemaV2DerivedIndexMaintenance.RebuildAsync(
             database.DatabasePath,
-            SchemaV2DerivedIndexSelection.All);
+            SchemaV2DerivedIndexSelection.PageTags);
         var validation = await SchemaV2DatabaseValidator.ValidateAsync(database.DatabasePath);
         var authoritativeAfter = await database.ReadAuthoritativePageAsync();
 
@@ -98,106 +60,50 @@ public sealed class SchemaV2DerivedIndexMaintenanceTests
             Assert.That(validation.IsValid, Is.True);
             Assert.That(authoritativeAfter, Is.EqualTo(authoritativeBefore));
             Assert.That(await database.CountRowsAsync("PageTags"), Is.EqualTo(2));
-            Assert.That(
-                await database.CountMatchesAsync("FtsIndexUnicode61", "searchable"),
-                Is.EqualTo(1));
-            Assert.That(
-                await database.CountMatchesAsync("FtsIndexTrigram", "searchable"),
-                Is.EqualTo(1));
         }
     }
 
-    /// <summary>Verifies rebuilding one FTS index does not repair the other index.</summary>
+    /// <summary>Verifies failed post-validation rolls back a PageTags rebuild.</summary>
     [Test]
-    public async Task RebuildAsync_WithUnicode61Selected_LeavesTrigramUnchanged()
-    {
-        using var database = await TestDatabase.CreateAsync("rebuild-selected");
-        await database.InsertPageAsync("[]", "searchable body");
-        await database.ExecuteAsync(
-            """
-            INSERT INTO FtsIndexUnicode61(FtsIndexUnicode61) VALUES('delete-all');
-            INSERT INTO FtsIndexTrigram(FtsIndexTrigram) VALUES('delete-all');
-            """);
-
-        var result = await SchemaV2DerivedIndexMaintenance.RebuildAsync(
-            database.DatabasePath,
-            SchemaV2DerivedIndexSelection.FtsUnicode61);
-        var unicode61 = await SchemaV2DerivedIndexMaintenance.CheckAsync(
-            database.DatabasePath,
-            SchemaV2DerivedIndexSelection.FtsUnicode61);
-        var trigram = await SchemaV2DerivedIndexMaintenance.CheckAsync(
-            database.DatabasePath,
-            SchemaV2DerivedIndexSelection.FtsTrigram);
-
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(result.WasCommitted, Is.True);
-            Assert.That(unicode61.IsValid, Is.True);
-            AssertSingleIssue(trigram, SchemaV2DerivedIndexKind.FtsTrigram);
-        }
-    }
-
-    /// <summary>Verifies failed post-validation rolls back every selected rebuild.</summary>
-    [Test]
-    public async Task RebuildAsync_WhenPostValidationFails_RollsBackEveryChange()
+    public async Task RebuildAsync_WhenPostValidationFails_RollsBackChange()
     {
         using var database = await TestDatabase.CreateAsync("rollback");
         await database.InsertPageAsync("[\"missing\"]", "searchable body");
-        await database.ExecuteAsync(
-            """
-            DELETE FROM PageTags;
-            INSERT INTO FtsIndexUnicode61(FtsIndexUnicode61) VALUES('delete-all');
-            """);
+        await database.ExecuteAsync("DELETE FROM PageTags;");
         var injected = SchemaV2DerivedDataValidation.Evaluated(
         [
             new SchemaV2DerivedDataIssue(
-                SchemaV2DerivedIndexKind.FtsUnicode61,
-                SchemaV2DerivedDataIssueKind.ContentMismatch,
-                RowCount: null,
+                SchemaV2DerivedIndexKind.PageTags,
+                SchemaV2DerivedDataIssueKind.MissingRows,
+                RowCount: 1,
                 "Injected post-validation failure.")
         ]);
 
         var result = await SchemaV2DerivedIndexMaintenance.RebuildAsync(
             database.DatabasePath,
-            SchemaV2DerivedIndexSelection.PageTags |
-            SchemaV2DerivedIndexSelection.FtsUnicode61,
+            SchemaV2DerivedIndexSelection.PageTags,
             (_, _, _, _) => Task.FromResult(injected));
-        var actual = await SchemaV2DerivedIndexMaintenance.CheckAsync(
-            database.DatabasePath,
-            SchemaV2DerivedIndexSelection.PageTags |
-            SchemaV2DerivedIndexSelection.FtsUnicode61);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.WasCommitted, Is.False);
             Assert.That(await database.CountRowsAsync("PageTags"), Is.Zero);
-            Assert.That(actual.Issues, Has.Some.Matches<SchemaV2DerivedDataIssue>(
-                issue => issue is not null &&
-                         issue.Index == SchemaV2DerivedIndexKind.PageTags));
-            Assert.That(actual.Issues, Has.Some.Matches<SchemaV2DerivedDataIssue>(
-                issue => issue is not null &&
-                         issue.Index == SchemaV2DerivedIndexKind.FtsUnicode61));
         }
     }
 
-    /// <summary>Verifies cancellation after rebuilding starts rolls back every change.</summary>
+    /// <summary>Verifies cancellation after rebuilding starts rolls back the change.</summary>
     [Test]
-    public async Task RebuildAsync_WhenPostValidationCancels_RollsBackEveryChange()
+    public async Task RebuildAsync_WhenPostValidationCancels_RollsBackChange()
     {
         using var database = await TestDatabase.CreateAsync("cancel-rollback");
         await database.InsertPageAsync("[\"missing\"]", "searchable body");
-        await database.ExecuteAsync(
-            """
-            DELETE FROM PageTags;
-            INSERT INTO FtsIndexUnicode61(FtsIndexUnicode61) VALUES('delete-all');
-            """);
+        await database.ExecuteAsync("DELETE FROM PageTags;");
         using var cancellation = new CancellationTokenSource();
 
         Assert.That(
             async () => await SchemaV2DerivedIndexMaintenance.RebuildAsync(
                 database.DatabasePath,
-                SchemaV2DerivedIndexSelection.PageTags |
-                SchemaV2DerivedIndexSelection.FtsUnicode61,
+                SchemaV2DerivedIndexSelection.PageTags,
                 (_, _, _, token) =>
                 {
                     cancellation.Cancel();
@@ -206,65 +112,38 @@ public sealed class SchemaV2DerivedIndexMaintenanceTests
                 },
                 cancellation.Token),
             Throws.InstanceOf<OperationCanceledException>());
-
-        var actual = await SchemaV2DerivedIndexMaintenance.CheckAsync(
-            database.DatabasePath,
-            SchemaV2DerivedIndexSelection.PageTags |
-            SchemaV2DerivedIndexSelection.FtsUnicode61);
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(await database.CountRowsAsync("PageTags"), Is.Zero);
-            Assert.That(actual.Issues, Has.Count.EqualTo(2));
-        }
+        Assert.That(await database.CountRowsAsync("PageTags"), Is.Zero);
     }
 
     /// <summary>Verifies schema defects are reported rather than repaired.</summary>
     [Test]
-    public async Task RebuildAsync_WithMissingIndexTable_RefusesSchemaRepair()
+    public async Task RebuildAsync_WithMissingPageTagsTable_RefusesSchemaRepair()
     {
         using var database = await TestDatabase.CreateAsync("schema-defect");
-        await database.ExecuteAsync("DROP TABLE FtsIndexTrigram;");
+        await database.ExecuteAsync("DROP TABLE PageTags;");
 
         Assert.That(
             async () => await SchemaV2DerivedIndexMaintenance.RebuildAsync(
                 database.DatabasePath,
-                SchemaV2DerivedIndexSelection.All),
+                SchemaV2DerivedIndexSelection.PageTags),
             Throws.TypeOf<InvalidDataException>()
                 .With.Message.Contains("prerequisite validation failed"));
     }
 
-    /// <summary>Verifies pre-cancellation leaves the database and file set unchanged.</summary>
+    /// <summary>Verifies unknown and empty selections are rejected.</summary>
     [Test]
-    public async Task RebuildAsync_WhenPreCancelled_LeavesDatabaseUnchanged()
+    public void CheckAsync_WithInvalidSelection_RejectsRequest()
     {
-        using var database = await TestDatabase.CreateAsync("cancelled");
-        await database.InsertPageAsync("[\"tag\"]", "body");
-        var beforeBytes = await File.ReadAllBytesAsync(database.DatabasePath);
-        var beforeFiles = Directory.GetFileSystemEntries(database.DirectoryPath);
-        using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
-
         Assert.That(
-            async () => await SchemaV2DerivedIndexMaintenance.RebuildAsync(
-                database.DatabasePath,
-                SchemaV2DerivedIndexSelection.All,
-                cancellation.Token),
-            Throws.InstanceOf<OperationCanceledException>());
-        using (Assert.EnterMultipleScope())
-        {
-            Assert.That(await File.ReadAllBytesAsync(database.DatabasePath),
-                Is.EqualTo(beforeBytes));
-            Assert.That(Directory.GetFileSystemEntries(database.DirectoryPath),
-                Is.EqualTo(beforeFiles));
-        }
-    }
-
-    private static void AssertSingleIssue(
-        SchemaV2DerivedDataValidation validation,
-        SchemaV2DerivedIndexKind index)
-    {
-        Assert.That(validation.Issues, Has.Count.EqualTo(1));
-        Assert.That(validation.Issues[0].Index, Is.EqualTo(index));
+            async () => await SchemaV2DerivedIndexMaintenance.CheckAsync(
+                "unused.mnote",
+                SchemaV2DerivedIndexSelection.None),
+            Throws.TypeOf<ArgumentOutOfRangeException>());
+        Assert.That(
+            async () => await SchemaV2DerivedIndexMaintenance.CheckAsync(
+                "unused.mnote",
+                (SchemaV2DerivedIndexSelection)2),
+            Throws.TypeOf<ArgumentOutOfRangeException>());
     }
 
     private sealed class TestDatabase : IDisposable
@@ -325,17 +204,6 @@ public sealed class SchemaV2DerivedIndexMaintenanceTests
                 SqliteOpenMode.ReadOnly);
             await using var command = connection.CreateCommand();
             command.CommandText = $"SELECT COUNT(*) FROM {table};";
-            return (long)(await command.ExecuteScalarAsync())!;
-        }
-
-        internal async Task<long> CountMatchesAsync(string table, string query)
-        {
-            await using var connection = await SqliteConnectionFactory.OpenAsync(
-                DatabasePath,
-                SqliteOpenMode.ReadOnly);
-            await using var command = connection.CreateCommand();
-            command.CommandText = $"SELECT COUNT(*) FROM {table} WHERE {table} MATCH $query;";
-            command.Parameters.AddWithValue("$query", query);
             return (long)(await command.ExecuteScalarAsync())!;
         }
 

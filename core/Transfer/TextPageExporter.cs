@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using MemoriaNote.Models;
 using MemoriaNote.Persistence;
 
 namespace MemoriaNote.Transfer
@@ -146,7 +145,7 @@ namespace MemoriaNote.Transfer
         }
 
         async Task<IReadOnlyList<ExportPlanItem>> CreatePlanAsync(
-            IReadOnlyList<Page> pages,
+            IReadOnlyList<TextPageExportItem> pages,
             string temporaryDirectory,
             TextPageExportNameConflictPolicy conflictPolicy,
             CancellationToken token)
@@ -251,12 +250,9 @@ namespace MemoriaNote.Transfer
 
         static string AddPageIdSuffix(ExportPlanItem item)
         {
-            if (item.Page.Guid == Guid.Empty)
-                return item.FileName;
-
             var stem = item.FileName.Substring(0, item.FileName.Length - 4);
             return stem + PageIdSuffixMarker +
-                item.Page.Guid.ToString("D").ToLowerInvariant() + ".txt";
+                item.Page.PageId.Value.ToString("D").ToLowerInvariant() + ".txt";
         }
 
         static async Task<bool> ValidateFinalPlanAsync(
@@ -371,13 +367,13 @@ namespace MemoriaNote.Transfer
 
         sealed class ExportPlanItem
         {
-            internal ExportPlanItem(Page page, string fileName)
+            internal ExportPlanItem(TextPageExportItem page, string fileName)
             {
                 Page = page;
                 FileName = fileName;
             }
 
-            internal Page Page { get; }
+            internal TextPageExportItem Page { get; }
 
             internal string FileName { get; }
 

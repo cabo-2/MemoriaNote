@@ -75,7 +75,7 @@ internal static class SchemaV2DatabaseValidator
                           authoritativeValues.IsValid
             ? await SchemaV2DerivedDataValidator.ValidateAsync(
                     databasePath,
-                    SchemaV2DerivedIndexSelection.All,
+                    SchemaV2DerivedIndexSelection.PageTags,
                     cancellationToken)
                 .ConfigureAwait(false)
             : SchemaV2DerivedDataValidation.NotEvaluated;

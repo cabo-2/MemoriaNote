@@ -98,7 +98,7 @@ namespace MemoriaNote.Archive
             {
                 using var archive = new ZipArchive(input, ZipArchiveMode.Read, leaveOpen: true);
                 var entries = archive.Entries.ToList();
-                var classification = Classify(entries);
+                var classification = ArchiveV1ContainerClassifier.Classify(entries);
                 if (classification == ArchiveV1Classification.LegacyArchiveCandidate)
                 {
                     issues.Add(new ArchiveV1ValidationIssue(
@@ -197,30 +197,6 @@ namespace MemoriaNote.Archive
                     "$archive"));
                 return Report(ArchiveV1Classification.MalformedZip, issues);
             }
-        }
-
-        static ArchiveV1Classification Classify(IReadOnlyList<ZipArchiveEntry> entries)
-        {
-            if (entries.Any(entry => entry.FullName == ArchiveV1Format.ManifestEntryName))
-                return ArchiveV1Classification.ArchiveV1;
-
-            var metadataCount = entries.Count(entry =>
-                entry.FullName == ArchiveV1Format.MetadataEntryName &&
-                entry.Name == ArchiveV1Format.MetadataEntryName);
-            var legacyPages = entries.Where(entry =>
-                entry.FullName != ArchiveV1Format.MetadataEntryName).ToList();
-            if (metadataCount == 1 && legacyPages.All(IsLegacyPageEntry))
-                return ArchiveV1Classification.LegacyArchiveCandidate;
-
-            return ArchiveV1Classification.UnrecognizedZip;
-        }
-
-        static bool IsLegacyPageEntry(ZipArchiveEntry entry)
-        {
-            if (entry.Name != entry.FullName || !entry.FullName.EndsWith(".json", StringComparison.Ordinal))
-                return false;
-            var stem = entry.FullName.Substring(0, entry.FullName.Length - 5);
-            return stem.Length > 0 && stem.All(character => character >= '0' && character <= '9');
         }
 
         static void ValidateContainer(

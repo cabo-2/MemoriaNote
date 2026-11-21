@@ -32,8 +32,6 @@ internal static class DatabaseExpectedContractValidator
             .ToList();
 
         ValidateObjectClassification(contract, differences);
-        foreach (var fts5Index in contract.Fts5Indexes)
-            ValidateFts5(fts5Index, observation, differences);
         return differences;
     }
 
@@ -142,59 +140,5 @@ internal static class DatabaseExpectedContractValidator
             if (!objectNames.Contains(implementationObject))
                 differences.Add($"Implementation object '{implementationObject}' is not present.");
         }
-    }
-
-    private static void ValidateFts5(
-        Fts5Contract contract,
-        DatabaseSchemaObservation observation,
-        ICollection<string> differences)
-    {
-        var schemaObject = observation.SchemaObjects.SingleOrDefault(candidate =>
-            candidate.Type == "table" && candidate.Name == contract.Table);
-        if (schemaObject?.Sql is null)
-        {
-            differences.Add($"FTS5 table '{contract.Table}' has no observable SQL definition.");
-            return;
-        }
-
-        var normalizedSql = NormalizeSql(schemaObject.Sql);
-        RequireSqlFragment(
-            differences,
-            normalizedSql,
-            $"content='{contract.ContentTable}'",
-            "FTS5 content table");
-        RequireSqlFragment(
-            differences,
-            normalizedSql,
-            $"content_rowid='{contract.ContentRowId}'",
-            "FTS5 content row ID");
-        RequireSqlFragment(
-            differences,
-            normalizedSql,
-            $"tokenize='{contract.Tokenizer}'",
-            "FTS5 tokenizer");
-
-        var table = observation.Tables.SingleOrDefault(candidate => candidate.Name == contract.Table);
-        var visibleColumns = table?.Columns
-            .Where(candidate => candidate.Hidden == 0)
-            .Select(candidate => candidate.Name)
-            .ToArray() ?? Array.Empty<string>();
-        if (!visibleColumns.SequenceEqual(contract.IndexedColumns, StringComparer.Ordinal))
-        {
-            differences.Add(
-                $"FTS5 indexed columns differ. Expected " +
-                $"[{string.Join(", ", contract.IndexedColumns)}]; actual " +
-                $"[{string.Join(", ", visibleColumns)}].");
-        }
-    }
-
-    private static void RequireSqlFragment(
-        ICollection<string> differences,
-        string normalizedSql,
-        string fragment,
-        string label)
-    {
-        if (!normalizedSql.Contains(fragment, StringComparison.OrdinalIgnoreCase))
-            differences.Add($"{label} does not match '{fragment}'.");
     }
 }

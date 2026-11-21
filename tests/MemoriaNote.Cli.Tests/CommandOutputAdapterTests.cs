@@ -55,21 +55,11 @@ public sealed class CommandOutputAdapterTests
         var output = new ConsoleCommandOutput(standardOutput, standardError);
         var pageId = PageId.FromGuid(
             Guid.Parse("550e8400-e29b-41d4-a716-446655440000"));
-        var page = new PageSummary(
-            NotebookId.FromDatabasePath(
-                Path.Combine(Path.GetTempPath(), "output-adapter.db")),
+        var page = new PageListItem(
             pageId,
             "Meeting - Project A",
-            2,
-            new Dictionary<string, string>
-            {
-                ["zeta"] = "last",
-                ["alpha"] = "first"
-            },
-            "T",
-            new DateTime(2026, 9, 18, 1, 20, 30, DateTimeKind.Utc),
-            new DateTime(2026, 9, 20, 4, 10, 0, DateTimeKind.Utc),
-            false);
+            new DateTimeOffset(2026, 9, 18, 1, 20, 30, TimeSpan.Zero),
+            new DateTimeOffset(2026, 9, 20, 4, 10, 0, TimeSpan.Zero));
 
         output.WritePageList(new[] { page }, longFormat: true);
 
@@ -80,10 +70,10 @@ public sealed class CommandOutputAdapterTests
             Assert.That(lines[0], Does.Contain("IDX"));
             Assert.That(lines[0], Does.Contain("PAGE-ID"));
             Assert.That(lines[0], Does.EndWith("NAME"));
-            Assert.That(lines[1], Does.StartWith("2"));
+            Assert.That(lines[1], Does.StartWith("1"));
             Assert.That(lines[1], Does.Contain("2026-09-18T01:20:30.0000000Z"));
             Assert.That(lines[1], Does.Contain("2026-09-20T04:10:00.0000000Z"));
-            Assert.That(lines[1], Does.Contain("{\"alpha\":\"first\",\"zeta\":\"last\"}"));
+            Assert.That(lines[1], Does.Contain("{}"));
             Assert.That(lines[1], Does.Contain(pageId.ToString()));
             Assert.That(lines[1], Does.EndWith("Meeting - Project A"));
             Assert.That(standardError.ToString(), Is.Empty);
@@ -99,13 +89,103 @@ public sealed class CommandOutputAdapterTests
         using var standardError = new StringWriter();
         var output = new ConsoleCommandOutput(standardOutput, standardError);
 
-        output.WritePageList(Array.Empty<PageSummary>(), longFormat);
+        output.WritePageList(Array.Empty<PageListItem>(), longFormat);
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(standardOutput.ToString(), Is.Empty);
             Assert.That(standardError.ToString(), Is.Empty);
         }
+    }
+
+    /// <summary>Verifies body-search output uses full IDs, escaped names, and span markers.</summary>
+    [Test]
+    public void WriteBodySearchHits_WithSnippet_WritesReleaseLayout()
+    {
+        using var standardOutput = new StringWriter();
+        using var standardError = new StringWriter();
+        var output = new ConsoleCommandOutput(standardOutput, standardError);
+        var pageId = PageId.FromGuid(
+            Guid.Parse("01234567-89ab-cdef-0123-456789abcdef"));
+        var snippet = new BodySearchCommandSnippet(
+            "alpha 😀 beta alpha",
+            new[]
+            {
+                new BodySearchCommandMatch(0, 5),
+                new BodySearchCommandMatch(14, 5)
+            });
+
+        output.WriteBodySearchHits(new[]
+        {
+            new BodySearchCommandHit(
+                pageId,
+                "Meeting\nNotes\\draft",
+                snippet)
+        });
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(
+                GetLines(standardOutput),
+                Is.EqualTo(new[]
+                {
+                    "01234567-89ab-cdef-0123-456789abcdef " +
+                        "Meeting\\nNotes\\\\draft",
+                    "  [[alpha]] 😀 beta [[alpha]]"
+                }));
+            Assert.That(standardError.ToString(), Is.Empty);
+        }
+    }
+
+    /// <summary>Verifies marker-looking text remains distinct from generated markers.</summary>
+    [Test]
+    public void WriteBodySearchHits_WithLiteralMarkers_PreservesSnippetText()
+    {
+        using var standardOutput = new StringWriter();
+        using var standardError = new StringWriter();
+        var output = new ConsoleCommandOutput(standardOutput, standardError);
+        var snippet = new BodySearchCommandSnippet(
+            "before [[alpha]] after",
+            new[] { new BodySearchCommandMatch(9, 5) });
+
+        output.WriteBodySearchHits(new[]
+        {
+            new BodySearchCommandHit(
+                PageId.FromGuid(Guid.NewGuid()),
+                "page",
+                snippet)
+        });
+
+        Assert.That(
+            GetLines(standardOutput)[1],
+            Is.EqualTo("  before [[[[alpha]]]] after"));
+        Assert.That(standardError.ToString(), Is.Empty);
+    }
+
+    /// <summary>Verifies no-snippet hits remain one line each.</summary>
+    [Test]
+    public void WriteBodySearchHits_WithoutSnippet_WritesOnlyIdentityLine()
+    {
+        using var standardOutput = new StringWriter();
+        using var standardError = new StringWriter();
+        var output = new ConsoleCommandOutput(standardOutput, standardError);
+
+        output.WriteBodySearchHits(new[]
+        {
+            new BodySearchCommandHit(
+                PageId.FromGuid(
+                    Guid.Parse("fedcba98-7654-3210-fedc-ba9876543210")),
+                "page",
+                null)
+        });
+
+        Assert.That(
+            GetLines(standardOutput),
+            Is.EqualTo(new[]
+            {
+                "fedcba98-7654-3210-fedc-ba9876543210 page"
+            }));
+        Assert.That(standardError.ToString(), Is.Empty);
     }
 
     /// <summary>Verifies that the shared executor preserves fatal error mapping.</summary>
@@ -173,20 +253,14 @@ public sealed class CommandOutputAdapterTests
         }
     }
 
-    static PageSummary CreateSummary(string name)
+    static PageListItem CreateSummary(string name)
     {
-        var now = DateTime.UtcNow;
-        return new PageSummary(
-            NotebookId.FromDatabasePath(
-                Path.Combine(Path.GetTempPath(), "output-adapter.db")),
+        var now = DateTimeOffset.UtcNow;
+        return new PageListItem(
             PageId.FromGuid(Guid.NewGuid()),
             name,
-            1,
-            new Dictionary<string, string>(),
-            "text/plain",
             now,
-            now,
-            false);
+            now);
     }
 
     static string[] GetLines(StringWriter writer)

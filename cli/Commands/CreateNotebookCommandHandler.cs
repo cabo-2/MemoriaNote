@@ -6,15 +6,33 @@ using MemoriaNote.Application;
 
 namespace MemoriaNote.Cli
 {
+    internal interface INotebookCreationService
+    {
+        Task<NotebookOperationResult<NotebookApplicationSession>> CreateAsync(
+            string databasePath,
+            string title,
+            CancellationToken cancellationToken);
+    }
+
+    internal sealed class CurrentNotebookCreationService : INotebookCreationService
+    {
+        public Task<NotebookOperationResult<NotebookApplicationSession>> CreateAsync(
+            string databasePath,
+            string title,
+            CancellationToken cancellationToken) => NotebookApplication.CreateAsync(
+                new NotebookCreateRequest(databasePath, title),
+                cancellationToken);
+    }
+
     internal sealed class CreateNotebookCommandHandler
     {
         readonly CliCommandExecutor _executor;
-        readonly CreateNotebookUseCase _createNotebook;
+        readonly INotebookCreationService _createNotebook;
         readonly ICommandOutput _output;
 
         internal CreateNotebookCommandHandler(
             CliCommandExecutor executor,
-            CreateNotebookUseCase createNotebook,
+            INotebookCreationService createNotebook,
             ICommandOutput output)
         {
             _executor = executor ?? throw new ArgumentNullException(nameof(executor));
@@ -53,30 +71,18 @@ namespace MemoriaNote.Cli
                 }
 
                 var name = Path.GetFileNameWithoutExtension(notebookPath);
-                try
+                var created = await _createNotebook.CreateAsync(
+                        notebookPath,
+                        name,
+                        token)
+                    .ConfigureAwait(false);
+                if (!created.IsSuccess)
                 {
-                    await _createNotebook.CreateAsync(
-                            name,
-                            name,
-                            notebookPath,
-                            token)
-                        .ConfigureAwait(false);
+                    return NotebookApplicationFailureMapper.ToCliResult(
+                        created.Failure,
+                        notebookPath);
                 }
-                catch (ArgumentException exception) when (File.Exists(notebookPath))
-                {
-                    return CliCommandResult.Failure(
-                        CliErrorKind.Conflict,
-                        $"The notebook file already exists: " +
-                        $"{CliMessage.Quote(notebookPath)}.",
-                        exception);
-                }
-                catch (ArgumentException exception)
-                {
-                    return CliCommandResult.Failure(
-                        CliErrorKind.Validation,
-                        CliMessage.ArgumentReason(exception),
-                        exception);
-                }
+                await created.Value.DisposeAsync().ConfigureAwait(false);
 
                 _output.WriteLine(
                     $"Created notebook {CliMessage.Quote(notebookPath)}.");
@@ -98,6 +104,35 @@ namespace MemoriaNote.Cli
             }
 
             return notebookPath;
+        }
+    }
+
+    internal static class NotebookApplicationFailureMapper
+    {
+        internal static CliCommandResult ToCliResult(
+            NotebookFailure failure,
+            string path = null)
+        {
+            if (failure == null)
+                throw new ArgumentNullException(nameof(failure));
+
+            var message = failure.Category == NotebookFailureCategory.Conflict &&
+                          path != null
+                ? $"The notebook destination already exists: {CliMessage.Quote(path)}."
+                : failure.Message;
+            var kind = failure.Category switch
+            {
+                NotebookFailureCategory.Validation => CliErrorKind.Validation,
+                NotebookFailureCategory.NotFound => CliErrorKind.NotFound,
+                NotebookFailureCategory.Conflict => CliErrorKind.Conflict,
+                NotebookFailureCategory.Format => CliErrorKind.Validation,
+                NotebookFailureCategory.DerivedData => CliErrorKind.Validation,
+                NotebookFailureCategory.AccessOrBusy => CliErrorKind.Storage,
+                NotebookFailureCategory.UnexpectedStorage => CliErrorKind.Storage,
+                NotebookFailureCategory.Timeout => CliErrorKind.Storage,
+                _ => CliErrorKind.Unexpected
+            };
+            return CliCommandResult.Failure(kind, message);
         }
     }
 }

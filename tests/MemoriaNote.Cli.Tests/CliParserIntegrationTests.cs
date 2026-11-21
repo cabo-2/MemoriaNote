@@ -59,12 +59,50 @@ public sealed class CliParserIntegrationTests
         }
     }
 
+    /// <summary>Verifies ls rejects unsupported sort values before resolving a notebook.</summary>
+    [Test]
+    public async Task Ls_WithInvalidSort_ReturnsParserValidation()
+    {
+        using var harness = new CliInProcessHarness();
+
+        var result = await harness.RunAsync("ls", "--sort", "relevance");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(
+                result.StandardError,
+                Does.Contain("Sort must be name, updated, or created."));
+            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
+            Assert.That(
+                Directory.EnumerateFileSystemEntries(harness.WorkingDirectory),
+                Is.Empty);
+        }
+    }
+
+    /// <summary>Verifies ls accepts at most one positional page-name pattern.</summary>
+    [Test]
+    public async Task Ls_WithMultiplePatterns_ReturnsParserValidation()
+    {
+        using var harness = new CliInProcessHarness();
+
+        var result = await harness.RunAsync("ls", "first-*", "second-*");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.StandardError, Does.Contain("second-*"));
+            Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
+        }
+    }
+
     /// <summary>Verifies removed legacy commands are unknown and have no side effects.</summary>
     [TestCase("work")]
     [TestCase("import")]
     [TestCase("export")]
     [TestCase("list")]
-    [TestCase("find")]
     public async Task RemovedLegacyCommand_IsUnrecognizedWithoutCreatingConfiguration(
         string command)
     {

@@ -3,6 +3,27 @@ using MemoriaNote.Domain;
 
 namespace MemoriaNote.Transfer
 {
+    /// <summary>Contains the page values required by flat text export.</summary>
+    public sealed class TextPageExportItem
+    {
+        /// <summary>Initializes a text export page.</summary>
+        public TextPageExportItem(PageId pageId, string name, string text)
+        {
+            PageId = pageId ?? throw new ArgumentNullException(nameof(pageId));
+            Name = name ?? throw new ArgumentNullException(nameof(name));
+            Text = text ?? throw new ArgumentNullException(nameof(text));
+        }
+
+        /// <summary>Gets the stable page identifier.</summary>
+        public PageId PageId { get; }
+
+        /// <summary>Gets the page name.</summary>
+        public string Name { get; }
+
+        /// <summary>Gets the page body.</summary>
+        public string Text { get; }
+    }
+
     /// <summary>Controls how text export handles page names that share an output path.</summary>
     public enum TextPageExportNameConflictPolicy
     {

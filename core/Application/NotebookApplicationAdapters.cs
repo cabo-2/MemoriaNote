@@ -200,27 +200,73 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
             cancellationToken);
     }
 
-    public Task<NotebookOperationResult<IReadOnlyList<NotebookPageSummary>>> QuerySummariesAsync(
+    public async Task<NotebookOperationResult<IReadOnlyList<NotebookPageSummary>>> QuerySummariesAsync(
+        NotebookPageQueryRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var started = await StartPageQueryAsync(request, cancellationToken)
+            .ConfigureAwait(false);
+        if (!started.IsSuccess)
+        {
+            return NotebookOperationResult<IReadOnlyList<NotebookPageSummary>>.Failed(
+                started.Failure!);
+        }
+
+        await using var session = started.Value!;
+        var summaries = new List<NotebookPageSummary>();
+        while (true)
+        {
+            var read = await session.ReadAsync(cancellationToken).ConfigureAwait(false);
+            if (!read.IsSuccess)
+            {
+                return NotebookOperationResult<IReadOnlyList<NotebookPageSummary>>.Failed(
+                    read.Failure!);
+            }
+
+            summaries.AddRange(read.Value!.Summaries);
+            if (read.Value.IsCompleted)
+            {
+                return NotebookOperationResult<IReadOnlyList<NotebookPageSummary>>.Succeeded(
+                    summaries.AsReadOnly());
+            }
+        }
+    }
+
+    public Task<NotebookOperationResult<NotebookPageQuerySession>> StartPageQueryAsync(
         NotebookPageQueryRequest request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         _lifetime.ThrowIfDisposed();
+        var failure = ValidatePageQuery(request, out var query);
+        if (failure is not null)
+        {
+            return Task.FromResult(
+                NotebookOperationResult<NotebookPageQuerySession>.Failed(failure));
+        }
+
+        return NotebookPageQuerySession.StartAsync(
+            token => _reader.StartQueryAsync(_notebookId, query!, token),
+            _lifetime,
+            cancellationToken);
+    }
+
+    private static NotebookFailure? ValidatePageQuery(
+        NotebookPageQueryRequest request,
+        out RepositoryPageQuery? query)
+    {
+        query = null;
         if (!Enum.IsDefined(request.Sort))
         {
-            return Task.FromResult(NotebookOperationResult<
-                IReadOnlyList<NotebookPageSummary>>.Failed(
-                    NotebookFailureFactory.Validation(
-                        "page.query.invalid_sort",
-                        "The page query sort is not supported.")));
+            return NotebookFailureFactory.Validation(
+                "page.query.invalid_sort",
+                "The page query sort is not supported.");
         }
         if (request.Limit <= 0)
         {
-            return Task.FromResult(NotebookOperationResult<
-                IReadOnlyList<NotebookPageSummary>>.Failed(
-                    NotebookFailureFactory.Validation(
-                        "page.query.invalid_limit",
-                        "A page query limit must be greater than zero.")));
+            return NotebookFailureFactory.Validation(
+                "page.query.invalid_limit",
+                "A page query limit must be greater than zero.");
         }
 
         MemoriaNoteGlob pattern;
@@ -233,16 +279,14 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
                      out var parsed,
                      out var parseError))
         {
-            return Task.FromResult(NotebookOperationResult<
-                IReadOnlyList<NotebookPageSummary>>.Failed(
-                    GlobFailure(parseError)));
+            return GlobFailure(parseError);
         }
         else
         {
             pattern = parsed!;
         }
 
-        var query = new RepositoryPageQuery(
+        query = new RepositoryPageQuery(
             pattern,
             request.Sort switch
             {
@@ -253,14 +297,7 @@ internal sealed class NotebookPageApplicationAdapter : INotebookPageApplication
             },
             request.Reverse,
             request.Limit);
-        return NotebookOperationExecutor.ExecuteAsync<IReadOnlyList<NotebookPageSummary>>(
-            async () => (await _reader.QuerySummariesAsync(
-                    _notebookId,
-                    query,
-                    cancellationToken)
-                .ConfigureAwait(false)).Select(Map).ToArray(),
-            "page.query",
-            cancellationToken);
+        return null;
     }
 
     public async Task<NotebookOperationResult<NotebookBodySearchSession>> StartBodySearchAsync(

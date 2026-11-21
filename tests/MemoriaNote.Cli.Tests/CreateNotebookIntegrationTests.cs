@@ -22,24 +22,19 @@ public sealed class CreateNotebookIntegrationTests
 
         var result = await harness.RunAsync("create", "work");
 
-        var factory = new SqliteNotebookDbContextFactory(
-            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
-        var metadataRepository = new SqliteNotebookMetadataRepository(factory);
-        var metadata = await metadataRepository.LoadAsync(
-            notebookPath,
-            CancellationToken.None);
+        var metadata = await SchemaV2TestNotebook.GetMetadataAsync(notebookPath);
+        var identity = await SchemaV2TestNotebook.ReadIdentityAsync(notebookPath);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.ExitCode, Is.Zero);
             Assert.That(result.StandardOutput, Does.Contain(notebookPath));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(File.Exists(notebookPath), Is.True);
-            Assert.That(metadata.HasIssues, Is.False);
-            Assert.That(metadata.Metadata.Name, Is.EqualTo("work"));
-            Assert.That(metadata.Metadata.Title, Is.EqualTo("work"));
-            Assert.That(
-                metadata.Metadata.Version,
-                Is.EqualTo(NotebookDbContext.CurrentVersion));
+            Assert.That(metadata.Values["Title"], Is.EqualTo("work"));
+            Assert.That(metadata.Values.ContainsKey("Name"), Is.False);
+            Assert.That(metadata.Values.ContainsKey("Version"), Is.False);
+            Assert.That(identity.ApplicationId, Is.EqualTo(0x6A43DE53));
+            Assert.That(identity.UserVersion, Is.EqualTo(2));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
             Assert.That(
                 File.Exists(Path.Combine(
@@ -203,7 +198,7 @@ public sealed class CreateNotebookIntegrationTests
 
     /// <summary>Verifies that create maps an unavailable output path to storage failure.</summary>
     [Test]
-    public async Task Create_WhenOutputPathIsDirectory_ReturnsStorageFailure()
+    public async Task Create_WhenOutputPathIsDirectory_ReturnsConflict()
     {
         using var harness = new CliInProcessHarness();
         var outputPath = Path.Combine(harness.WorkingDirectory, "blocked.mnote");
@@ -213,7 +208,7 @@ public sealed class CreateNotebookIntegrationTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.ExitCode, Is.EqualTo(5));
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
             Assert.That(result.StandardOutput, Is.Empty);
             Assert.That(result.StandardError, Does.StartWith("Error: "));
             Assert.That(Directory.Exists(outputPath), Is.True);

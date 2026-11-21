@@ -107,26 +107,6 @@ internal static class SchemaV2DerivedIndexMaintenance
                     cancellationToken)
                 .ConfigureAwait(false);
         }
-
-        if (selection.HasFlag(SchemaV2DerivedIndexSelection.FtsUnicode61))
-        {
-            await ExecuteAsync(
-                    connection,
-                    transaction,
-                    SchemaV2Resources.ReadRebuildFtsUnicode61(),
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        if (selection.HasFlag(SchemaV2DerivedIndexSelection.FtsTrigram))
-        {
-            await ExecuteAsync(
-                    connection,
-                    transaction,
-                    SchemaV2Resources.ReadRebuildFtsTrigram(),
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
     }
 
     private static async Task ExecuteAsync(

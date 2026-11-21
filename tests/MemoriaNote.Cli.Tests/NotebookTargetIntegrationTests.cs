@@ -68,6 +68,47 @@ public sealed class NotebookTargetIntegrationTests
         }
     }
 
+    /// <summary>Verifies normal commands refuse schema v1 with explicit migration guidance.</summary>
+    [Test]
+    public async Task Ls_WithSchemaV1Notebook_RequiresExplicitMigration()
+    {
+        using var harness = new CliInProcessHarness();
+        var path = Path.Combine(harness.WorkingDirectory, "legacy.mnote");
+        using var legacy = new TemporaryNotebookDatabase();
+        legacy.CreateNotebook("legacy", "legacy", path);
+
+        var result = await harness.RunAsync("ls", "--notebook", "legacy");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.StandardError, Does.Contain("schema v1"));
+            Assert.That(result.StandardError, Does.Contain("mn notebooks migrate"));
+        }
+    }
+
+    /// <summary>Verifies normal open preserves unsupported-version diagnostics.</summary>
+    [Test]
+    public async Task Ls_WithFutureNotebook_ReportsUnsupportedVersion()
+    {
+        using var harness = new CliInProcessHarness();
+        Assert.That((await harness.RunAsync("create", "future")).ExitCode, Is.Zero);
+        await SchemaV2TestNotebook.SetUserVersionAsync(
+            Path.Combine(harness.WorkingDirectory, "future.mnote"),
+            3);
+
+        var result = await harness.RunAsync("ls", "--notebook", "future");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.StandardError, Does.Contain("unsupported format version"));
+            Assert.That(result.StandardError, Does.Contain("3"));
+        }
+    }
+
     /// <summary>Verifies an explicit notebook selects one target from multiple candidates.</summary>
     [Test]
     public async Task New_WithExplicitNotebook_CreatesPageOnlyInThatNotebook()
@@ -315,9 +356,8 @@ public sealed class NotebookTargetIntegrationTests
         return Path.GetFullPath(relativePath, harness.WorkingDirectory);
     }
 
-    static SqlitePageRepository CreatePageRepository()
+    static SchemaV2TestPageRepository CreatePageRepository()
     {
-        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        return new SqlitePageRepository(factory);
+        return new SchemaV2TestPageRepository();
     }
 }

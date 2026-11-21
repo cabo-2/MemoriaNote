@@ -34,8 +34,7 @@ public sealed class RedirectedInputProcessTests
         Assert.That((await harness.RunAsync("create", "work.mnote")).ExitCode, Is.Zero);
         Assert.That((await harness.RunAsync("use", "work")).ExitCode, Is.Zero);
         var notebookPath = Path.Combine(harness.WorkingDirectory, "work.mnote");
-        var repository = new SqlitePageRepository(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
+        var repository = new SchemaV2TestPageRepository();
         var page = await repository.CreatePageAsync(
             notebookPath,
             "Keep",

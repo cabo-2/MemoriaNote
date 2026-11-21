@@ -147,7 +147,7 @@ public sealed class WorkspaceSelectionUseCaseTests
 
         internal Exception? Exception { get; set; }
 
-        public Task<NotebookMetadataResult> ValidateCurrentAsync(
+        public Task<NotebookFormatValidation> ValidateCurrentAsync(
             string databasePath,
             CancellationToken token)
         {
@@ -155,9 +155,9 @@ public sealed class WorkspaceSelectionUseCaseTests
             DatabasePath = databasePath;
             CallCount++;
             if (Exception != null)
-                return Task.FromException<NotebookMetadataResult>(Exception);
+                return Task.FromException<NotebookFormatValidation>(Exception);
 
-            return Task.FromResult<NotebookMetadataResult>(null!);
+            return Task.FromResult(new NotebookFormatValidation(2, false));
         }
     }
 }

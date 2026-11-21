@@ -15,6 +15,8 @@ internal static class SchemaV2BaselineProvenance
 
     internal const string MetadataContractAmendment = "ECLI-1145a";
 
+    internal const string ReleaseSearchAmendment = "ECLI-1180";
+
     internal const string InitialCanonicalDdlSourcePath = "schemas/schema-v2.sql";
 
     internal const string InitialCanonicalDdlSha256 =
@@ -27,8 +29,8 @@ internal static class SchemaV2BaselineProvenance
         "63cd171db3b06b63db6b1f3396674fc36a393c53b0d8ed88abfd9a8a778be22f";
 
     internal const string CanonicalDdlSha256 =
-        "a27166b955cff4f0ed4ac8f0f9e6a247f7395e60773173b016b8c49ae6441945";
+        "070a59ea2ce61f4cf128124014bc7cac9871bcf881833bce401bdb8ae120d97e";
 
     internal const string ExpectedContractSha256 =
-        "0d611c1df761994a79eb8b100b8137453936b3e1e7fb9e8bca9df3af2c88b48f";
+        "ebc1d4aead547285e10ada49cffdd9fb391f0585c18c2bdc79092a2235c34a25";
 }

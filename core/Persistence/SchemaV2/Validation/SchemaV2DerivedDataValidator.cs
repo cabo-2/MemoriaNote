@@ -59,62 +59,7 @@ internal static class SchemaV2DerivedDataValidator
                 .ConfigureAwait(false);
         }
 
-        if (selection.HasFlag(SchemaV2DerivedIndexSelection.FtsUnicode61))
-        {
-            await ValidateFtsAsync(
-                    connection,
-                    transaction,
-                    SchemaV2DerivedIndexKind.FtsUnicode61,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        if (selection.HasFlag(SchemaV2DerivedIndexSelection.FtsTrigram))
-        {
-            await ValidateFtsAsync(
-                    connection,
-                    transaction,
-                    SchemaV2DerivedIndexKind.FtsTrigram,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-
         return SchemaV2DerivedDataValidation.Evaluated(issues);
-
-        async Task ValidateFtsAsync(
-            SqliteConnection activeConnection,
-            SqliteTransaction activeTransaction,
-            SchemaV2DerivedIndexKind index,
-            CancellationToken token)
-        {
-            await using var command = activeConnection.CreateCommand();
-            command.Transaction = activeTransaction;
-            command.CommandText = index switch
-            {
-                SchemaV2DerivedIndexKind.FtsUnicode61 =>
-                    "INSERT INTO FtsIndexUnicode61(FtsIndexUnicode61, rank) " +
-                    "VALUES('integrity-check', 1);",
-                SchemaV2DerivedIndexKind.FtsTrigram =>
-                    "INSERT INTO FtsIndexTrigram(FtsIndexTrigram, rank) " +
-                    "VALUES('integrity-check', 1);",
-                _ => throw new ArgumentOutOfRangeException(nameof(index))
-            };
-
-            try
-            {
-                await command.ExecuteNonQueryAsync(token).ConfigureAwait(false);
-            }
-            catch (SqliteException exception) when (
-                exception.SqliteErrorCode == 11 ||
-                exception.SqliteExtendedErrorCode == 267)
-            {
-                issues.Add(new SchemaV2DerivedDataIssue(
-                    index,
-                    SchemaV2DerivedDataIssueKind.ContentMismatch,
-                    RowCount: null,
-                    $"Derived index '{index}' does not match Pages."));
-            }
-        }
     }
 
     private static async Task ValidatePageTagsAsync(
@@ -177,7 +122,7 @@ internal static class SchemaV2DerivedDataValidator
     internal static void ValidateSelection(SchemaV2DerivedIndexSelection selection)
     {
         if (selection == SchemaV2DerivedIndexSelection.None ||
-            (selection & ~SchemaV2DerivedIndexSelection.All) != 0)
+            (selection & ~SchemaV2DerivedIndexSelection.PageTags) != 0)
         {
             throw new ArgumentOutOfRangeException(nameof(selection));
         }

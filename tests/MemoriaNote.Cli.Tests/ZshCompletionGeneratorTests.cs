@@ -40,6 +40,31 @@ public sealed class ZshCompletionGeneratorTests
             Assert.That(
                 script,
                 Does.Contain("'(-l --long)--long[Show all page metadata columns]'"));
+            Assert.That(
+                script,
+                Does.Contain(
+                    "'(--sort)--sort[Sort by name, updated, or created; " +
+                    "default is name]:mode:'"));
+            Assert.That(
+                script,
+                Does.Contain(
+                    "'(-r --reverse)-r[Reverse every key of the selected sort order]'"));
+            Assert.That(script, Does.Contain("'1:page-name-pattern:'"));
+            Assert.That(
+                script,
+                Does.Contain(
+                    "'find:Find pages whose bodies contain every literal keyword'"));
+            Assert.That(script, Does.Contain("'*:keyword:'"));
+            Assert.That(
+                script,
+                Does.Contain(
+                    "'(--case-sensitive)--case-sensitive[Use ordinal " +
+                    "case-sensitive literal matching]'"));
+            Assert.That(
+                script,
+                Does.Contain(
+                    "'(--no-snippet)--no-snippet[Omit the matched body snippet " +
+                    "from each result]'"));
             Assert.That(script, Does.Contain(":notebook:'"));
         }
     }
@@ -55,7 +80,6 @@ public sealed class ZshCompletionGeneratorTests
             Assert.That(script, Does.Not.Contain("--completion"));
             Assert.That(script, Does.Not.Contain("mn work list"));
             Assert.That(script, Does.Not.Contain("'work:"));
-            Assert.That(script, Does.Not.Contain("'find:"));
             Assert.That(script, Does.Not.Contain("'page:"));
             Assert.That(script, Does.Not.Contain("_call_program"));
         }

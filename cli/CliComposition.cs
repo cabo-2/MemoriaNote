@@ -6,6 +6,7 @@ using MemoriaNote.NotebookMigration;
 using MemoriaNote.Application;
 using MemoriaNote.Cli.UserConfig;
 using MemoriaNote.Persistence;
+using MemoriaNote.Persistence.SchemaV2;
 using MemoriaNote.Transfer;
 using Microsoft.Extensions.Logging;
 using Serilog;
@@ -69,26 +70,11 @@ namespace MemoriaNote.Cli
                     .AddSerilog(serilogLogger, dispose: false);
             });
 
-            var databaseFactory = new SqliteNotebookDbContextFactory(loggerFactory);
-            var pageRepository = new SqlitePageRepository(databaseFactory, clock);
-            var pageSearchRepository = new SqlitePageSearchRepository(databaseFactory);
-            var transferRepository = new SqliteNotebookTransferRepository(databaseFactory);
-            var metadataRepository = new SqliteNotebookMetadataRepository(databaseFactory);
-            var metadataService = new NotebookMetadataService(metadataRepository);
-            var notebookMigrator = new SqliteNotebookMigrator(
-                databaseFactory,
-                metadataRepository);
-            var notebookFormatValidator = new SqliteNotebookFormatValidator(
-                databaseFactory,
-                metadataRepository);
+            var transferRepository = new SchemaV2NotebookTransferRepository(clock);
+            var notebookFormatValidator = new SchemaV2NotebookFormatValidator();
             var workspaceConfigurationStore = new WorkspaceConfigurationStore();
             var notebookTargetResolver = new NotebookTargetSessionResolver(
-                notebookFormatValidator,
-                workspaceConfigurationStore,
-                pageRepository,
-                pageSearchRepository,
-                metadataRepository);
-            var createNotebook = new CreateNotebookUseCase(notebookMigrator);
+                workspaceConfigurationStore);
             var workspaceSelection = new WorkspaceSelectionUseCase(
                 notebookFormatValidator,
                 workspaceConfigurationStore);
@@ -135,21 +121,19 @@ namespace MemoriaNote.Cli
                 userConfigurationWorkflow);
             var textPageImporter = new TextPageImporter(transferRepository);
             var textPageExporter = new TextPageExporter(transferRepository);
-            var archiveV1BackupService = new ArchiveV1BackupService(
-                databaseFactory,
+            var archiveV1BackupService = new ArchiveV1ContentModel2BackupService(
                 temporaryFileStore,
                 clock,
                 new ArchiveV1Creator(
                     ApplicationPaths.ApplicationName,
                     CliProductVersion.InformationalVersion));
-            var archiveV1RestoreService = new ArchiveV1RestoreService(
-                databaseFactory,
+            var archiveV1RestoreService = new ArchiveV1ContentModel2RestoreService(
                 temporaryFileStore);
 
             var commandHandlers = new CliCommandHandlers(
                 new CreateNotebookCommandHandler(
                     executor,
-                    createNotebook,
+                    new CurrentNotebookCreationService(),
                     output),
                 new UseNotebookCommandHandler(
                     executor,
@@ -191,7 +175,6 @@ namespace MemoriaNote.Cli
                 new NotebookMetadataCommandHandler(
                     executor,
                     notebookTargetResolver,
-                    metadataService,
                     input,
                     output),
                 new EditCommandHandler(
@@ -232,6 +215,10 @@ namespace MemoriaNote.Cli
                     userConfigurationWorkflow,
                     output),
                 new ListCommandHandler(
+                    executor,
+                    notebookTargetResolver,
+                    output),
+                new FindCommandHandler(
                     executor,
                     notebookTargetResolver,
                     output),

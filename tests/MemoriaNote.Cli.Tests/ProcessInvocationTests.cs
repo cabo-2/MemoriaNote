@@ -71,6 +71,7 @@ public sealed class ProcessInvocationTests
             "config",
             "create",
             "edit",
+            "find",
             "ls",
             "new",
             "rename",
@@ -87,7 +88,6 @@ public sealed class ProcessInvocationTests
         var hiddenCommands = new[]
         {
             "export",
-            "find",
             "import",
             "list",
             "page",

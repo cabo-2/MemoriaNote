@@ -1,7 +1,6 @@
 using System.Text;
 using MemoriaNote.Cli.Tests.Infrastructure;
 using MemoriaNote.Cli.UserConfig;
-using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 using UserConfigurationModel = MemoriaNote.Cli.UserConfig.UserConfiguration;
 
@@ -28,23 +27,17 @@ public sealed class ProcessInheritanceTests
 
         var result = await harness.RunAsync("create", notebookName);
 
-        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        var metadataRepository = new SqliteNotebookMetadataRepository(factory);
-        var metadata = await metadataRepository.LoadAsync(
-            notebookPath,
-            CancellationToken.None);
+        var metadata = await SchemaV2TestNotebook.GetMetadataAsync(notebookPath);
+        var identity = await SchemaV2TestNotebook.ReadIdentityAsync(notebookPath);
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.ExitCode, Is.Zero);
             Assert.That(result.StandardOutput, Does.Contain(notebookPath));
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(File.Exists(notebookPath), Is.True);
-            Assert.That(metadata.HasIssues, Is.False);
-            Assert.That(metadata.Metadata.Name, Is.EqualTo(notebookName));
-            Assert.That(metadata.Metadata.Title, Is.EqualTo(notebookName));
-            Assert.That(
-                metadata.Metadata.Version,
-                Is.EqualTo(NotebookDbContext.CurrentVersion));
+            Assert.That(metadata.Values.ContainsKey("Name"), Is.False);
+            Assert.That(metadata.Values["Title"], Is.EqualTo(notebookName));
+            Assert.That(identity.UserVersion, Is.EqualTo(2));
             Assert.That(File.Exists(harness.ConfigurationPath), Is.False);
             Assert.That(
                 File.Exists(Path.Combine(
@@ -89,10 +82,9 @@ public sealed class ProcessInheritanceTests
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
 
-    static async Task<Page?> FindPageAsync(CliProcessHarness harness, string name)
+    static async Task<SchemaV2TestPage?> FindPageAsync(CliProcessHarness harness, string name)
     {
-        var repository = new SqlitePageRepository(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
+        var repository = new SchemaV2TestPageRepository();
         return (await repository.ListPagesByHeadingAsync(
             Path.Combine(harness.WorkingDirectory, "work.mnote"),
             name,

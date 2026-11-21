@@ -74,6 +74,13 @@ internal sealed class NotebookMigrationCommandHandler
                 return MapFailure(result.Error.Value);
 
             WriteReport(result.Report, level);
+            if (!result.Report.DryRun)
+            {
+                _output.WriteLine(
+                    "Workspace selection was not changed. To select the migrated " +
+                    "notebook, keep it in the workspace root and run " +
+                    "'mn use <notebook>'.");
+            }
             return result.Report.HasPageErrors
                 ? CliCommandResult.Failure(
                     CliErrorKind.Partial,

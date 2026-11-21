@@ -60,9 +60,6 @@ public sealed class SchemaV2NotebookSinkTests
             SqliteOpenMode.ReadOnly);
         Assert.That(await ScalarAsync<long>(connection, "SELECT COUNT(*) FROM PageTags;"), Is.EqualTo(2));
         Assert.That(
-            await ScalarAsync<long>(connection, "SELECT COUNT(*) FROM FtsIndexTrigram('second');"),
-            Is.EqualTo(1));
-        Assert.That(
             await ScalarAsync<string?>(
                 connection,
                 "SELECT Value FROM Metadata WHERE Key = 'NullValue';"),

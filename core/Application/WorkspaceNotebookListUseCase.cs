@@ -222,10 +222,10 @@ namespace MemoriaNote.Application
                 return CreateEntry(
                     candidate,
                     isCurrent,
-                    metadata.Metadata.ReadOnly
+                    metadata.IsReadOnly
                         ? WorkspaceNotebookStatusKind.ReadOnly
                         : WorkspaceNotebookStatusKind.Ready,
-                    metadata.Metadata.Version);
+                    metadata.FormatVersion.ToString(System.Globalization.CultureInfo.InvariantCulture));
             }
             catch (UnsupportedNotebookFormatVersionException exception)
             {

@@ -650,9 +650,18 @@ public sealed class UserConfigurationCommandHandlerTests
             _standardError.AppendLine(value);
         }
 
-        public void WritePageList(IReadOnlyList<PageSummary> pages, bool longFormat)
+        public void WritePageList(
+            IReadOnlyList<PageListItem> pages,
+            bool longFormat,
+            bool includeHeader = true)
         {
             throw new AssertionException("User configuration handlers must not write pages.");
+        }
+
+        public void WriteBodySearchHits(IReadOnlyList<BodySearchCommandHit> hits)
+        {
+            throw new AssertionException(
+                "User configuration handlers must not write search hits.");
         }
 
         public void WriteWorkspaceNotebookList(

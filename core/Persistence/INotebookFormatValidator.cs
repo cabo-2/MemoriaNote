@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using MemoriaNote.Models;
 
 namespace MemoriaNote.Persistence
 {
@@ -30,8 +29,25 @@ namespace MemoriaNote.Persistence
         /// <param name="databasePath">The notebook database path.</param>
         /// <param name="token">The cancellation token for the operation.</param>
         /// <returns>The validated notebook metadata.</returns>
-        Task<NotebookMetadataResult> ValidateCurrentAsync(
+        Task<NotebookFormatValidation> ValidateCurrentAsync(
             string databasePath,
             CancellationToken token);
+    }
+
+    /// <summary>Contains current-format values needed by workspace workflows.</summary>
+    public sealed class NotebookFormatValidation
+    {
+        /// <summary>Initializes a validated current-format result.</summary>
+        public NotebookFormatValidation(int formatVersion, bool isReadOnly)
+        {
+            FormatVersion = formatVersion;
+            IsReadOnly = isReadOnly;
+        }
+
+        /// <summary>Gets the validated notebook format version.</summary>
+        public int FormatVersion { get; }
+
+        /// <summary>Gets whether the notebook rejects write operations.</summary>
+        public bool IsReadOnly { get; }
     }
 }
