@@ -28,8 +28,8 @@ public sealed class CoreIntegrationContractTests
             Assert.That(descriptor.PackageId, Is.EqualTo(CoreIntegrationContract.PackageId));
             Assert.That(
                 descriptor.PackageVersion,
-                Does.Match("^0\\.2\\.1-ecli1180\\.g[0-9a-f]{12}$"));
-            Assert.That(descriptor.AssemblyInformationalVersion, Does.StartWith("0.2.1-dev+"));
+                Does.Match("^0\\.3\\.0-ecli1180\\.g[0-9a-f]{12}$"));
+            Assert.That(descriptor.AssemblyInformationalVersion, Does.StartWith("0.3.0-dev+"));
             Assert.That(descriptor.SourceCommit, Is.EqualTo(currentCommit));
             Assert.That(descriptor.SourceCommit, Does.Match("^[0-9a-f]{40}$"));
             Assert.That(descriptor.TargetFramework, Is.EqualTo(".NETCoreApp,Version=v10.0"));
