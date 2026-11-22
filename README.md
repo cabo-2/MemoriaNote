@@ -46,6 +46,12 @@ mn.exe --version
 See the [user guide](reference/user-guide.md#installation-update-and-uninstall) for checksum,
 update, rollback, and uninstall instructions.
 
+## Migrating format 1 notebooks
+
+Memoria Note `v0.3.0` changes the notebook format from `1` to `2`. Existing notebooks must be
+migrated to format `2` before use. See
+[Schema v1 to v2 migration](reference/migration/schema-v1-to-v2.md) for details.
+
 ## Quick start
 
 Create a workspace and notebook, select the notebook, and configure an editor:
