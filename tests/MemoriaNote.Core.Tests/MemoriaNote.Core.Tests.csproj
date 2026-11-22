@@ -29,14 +29,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="../../reference/archive/v1/examples/**/*"
-          Link="reference/archive/v1/examples/%(RecursiveDir)%(Filename)%(Extension)"
+    <None Include="../../reference/archive/v1/content-models/v1/examples/**/*"
+          Link="reference/archive/v1/content-models/v1/examples/%(RecursiveDir)%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../../reference/archive/v1-content-model-v2/examples/**/*"
-          Link="reference/archive/v1-content-model-v2/examples/%(RecursiveDir)%(Filename)%(Extension)"
+    <None Include="../../reference/archive/v1/content-models/v2/examples/**/*"
+          Link="reference/archive/v1/content-models/v2/examples/%(RecursiveDir)%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
-    <None Include="../../reference/archive/v1-content-model-v2/schema/**/*"
-          Link="reference/archive/v1-content-model-v2/schema/%(RecursiveDir)%(Filename)%(Extension)"
+    <None Include="../../reference/archive/v1/content-models/v2/schema/**/*"
+          Link="reference/archive/v1/content-models/v2/schema/%(RecursiveDir)%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

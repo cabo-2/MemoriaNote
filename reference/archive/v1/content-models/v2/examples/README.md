@@ -1,14 +1,14 @@
-# Archive v1 content model v2 draft examples
+# Archive v1 content model version 2 examples
 
-These examples belong to the ECLI-1145b amended draft reference package. They describe the candidate tuple
-`(1, 2, "2")` but do not indicate released reader, writer, backup, or restore support.
+These examples belong to the released content model version 2 reference package. They describe the native
+`v0.3.0` backup and restore tuple `(1, 2, "2")`.
 
-The `valid` directory represents the root of an extracted candidate archive. Placing its three files at the root of a
+The `valid` directory represents the root of an extracted archive. Placing its three files at the root of a
 ZIP container produces a representative valid archive. The sizes and SHA-256 digests in the manifest match the exact
 payload bytes stored in this repository.
 
 The `compatibility` directories are canonical review and implementation fixtures. Their bytes are fixed for
-specification revision `draft-2`; a later change requires another explicit draft revision:
+specification revision `1`; a contract change requires another explicit specification revision:
 
 - `empty` represents a notebook with no pages;
 - `single-page` represents the minimal non-empty streaming and round-trip case;
@@ -16,7 +16,7 @@ specification revision `draft-2`; a later change requires another explicit draft
   properties, unknown metadata with null, empty, and non-empty values, Unicode, multiline text, canonical tags, JSON
   escapes, and signed 64-bit boundary values.
 
-ECLI-1145c compatibility tests should consume these repository bytes directly rather than copying or regenerating
+Compatibility tests consume these repository bytes directly rather than copying or regenerating
 them.
 
 Files directly in the `invalid` directory are individual entry examples for specific validation rules. They are not

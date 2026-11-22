@@ -5,7 +5,7 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Core.Tests.Archive;
 
-/// <summary>Verifies the amended CM2 draft reference package as a specification artifact.</summary>
+/// <summary>Verifies the released CM2 reference package as a specification artifact.</summary>
 [TestFixture]
 [Category("Functional")]
 public sealed class ArchiveV1ContentModel2ReferencePackageTests
@@ -14,7 +14,9 @@ public sealed class ArchiveV1ContentModel2ReferencePackageTests
         TestContext.CurrentContext.TestDirectory,
         "reference",
         "archive",
-        "v1-content-model-v2");
+        "v1",
+        "content-models",
+        "v2");
 
     private static readonly string[] ManagedKeys =
     {
@@ -28,7 +30,7 @@ public sealed class ArchiveV1ContentModel2ReferencePackageTests
 
     /// <summary>Verifies the JSON Schema expresses the six managed keys and retired-key rejection.</summary>
     [Test]
-    public void MetadataSchema_DescribesAmendedDraftContract()
+    public void MetadataSchema_DescribesReleasedContract()
     {
         using var schema = JsonDocument.Parse(ReadPackageBytes("schema", "metadata.schema.json"));
         var root = schema.RootElement;

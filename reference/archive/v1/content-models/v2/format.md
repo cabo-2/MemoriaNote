@@ -1,18 +1,19 @@
-# MemoriaNote archive v1 content model v2 draft specification
+# MemoriaNote archive v1 content model version 2
 
 - format identifier: `memoria-note-archive`
 - archive format version: `1`
 - content model version: `2`
 - source notebook format version: `2`
-- specification revision: `draft-2`
-- specification status: ECLI-1145b amended draft reference package; not a published compatibility promise
-- last updated: 2026-11-04
+- specification revision: `1`
+- specification status: released with Memoria Note `v0.3.0`
+- last updated: 2026-11-22
 
-## 1. Purpose and compatibility status
+## 1. Purpose and compatibility promise
 
-This document defines the draft content model version `2` payload for a MemoriaNote archive format version `1`
-container. It is a logical backup of one notebook format version `2` database. It preserves notebook metadata and
-logical page values without copying a SQLite database file or its derived indexes.
+This document defines content model version `2` for the common
+[archive format version 1 container](../../README.md). It is the native logical
+backup of one notebook format `2` database. It preserves notebook metadata and
+logical page values without copying SQLite file bytes or derived data.
 
 The container, entry names, UTF-8 and JSON framing, checksums, and resource limits remain archive format version `1`.
 The page payload changes in content model version `2`:
@@ -27,19 +28,18 @@ The page payload changes in content model version `2`:
 supports source fidelity, deterministic writer order, validation, and safe diagnostics. It is not a public page
 identity and is not assigned to the restore target. The stable identity used for restore equivalence is `pageId`.
 
-This draft extends the published
-[archive v1 content model version 1 specification](../v1/format.md) for notebook format version `2`. It does not
+CM2 is independent from the published
+[content model version 1 specification](../v1/format.md). It does not
 redefine the published tuple `(archive format 1, content model 1, source notebook format 1)`. That tuple remains
 governed by its published specification and compatibility promise.
 
-This package is a review and implementation input for ECLI-1145c. No released MemoriaNote version promises to write,
-read, or restore the candidate tuple `(1, 2, "2")` yet. Publishing this package does not add that tuple to the
-application compatibility matrix. ECLI-1190 will reconcile the accepted contract with the released implementation
-and reorganize the archive reference documents.
+Memoria Note `v0.3.0` writes, reads, and restores the exact tuple
+`(1, 2, "2")`. Earlier applications that support only CM1 reject it as an
+unsupported tuple.
 
-Archive format version, content model version, source notebook format version, application version, and this prose
-specification revision are independent version axes. `draft-2` identifies only this reference draft and is not stored
-in an archive.
+Archive format version, content model version, source notebook format version,
+application version, and this prose specification revision are independent
+version axes. Specification revision `1` is not stored in an archive.
 
 ## 2. Container
 
@@ -104,7 +104,7 @@ stable fixture diffs but is not a reader precondition.
 
 ## 4. Manifest
 
-`manifest.json` conforms to [manifest.schema.json](schema/manifest.schema.json). Its exact candidate version tuple is:
+`manifest.json` conforms to [manifest.schema.json](schema/manifest.schema.json). Its exact version tuple is:
 
 ```json
 {
@@ -161,7 +161,7 @@ not represented as a JSON object because unknown keys and the stored row contrac
 The standard writer orders rows by `key` using ordinal comparison. Readers do not depend on row order. Keys must be
 unique using ordinal, case-sensitive comparison.
 
-For the candidate source notebook format version `2` tuple:
+For the source notebook format version `2` tuple:
 
 - `Author`, `CreateTime`, `Description`, `ReadOnly`, `Tag`, and `Title` rows occur exactly once.
 - `Author`, `Description`, `ReadOnly`, `Tag`, and `Title` values are non-null strings. Empty strings are valid.
@@ -306,16 +306,16 @@ Implementations stream page records and must not require the entire pages data s
 
 ## 9. Version compatibility matrix
 
-This draft describes a candidate tuple without changing the support status or meaning of any published tuple:
+Memoria Note `v0.3.0` supports these archive tuples:
 
 | Archive format | Content model | Source notebook format | Contract status | Released write | Released read | Intended operation or target |
 | ---: | ---: | --- | --- | --- | --- | --- |
-| `1` | `1` | `1` | published CM1 contract | yes | yes | Format 1 restore under the published specification; explicit migration to format 2 is a separate contract |
-| `1` | `2` | `2` | ECLI-1145b amended draft candidate | no | no | Proposed lossless logical restore to a new format 2 notebook |
+| `1` | `1` | `1` | published CM1 contract | no | migration only | Explicit migration to a new format 2 notebook |
+| `1` | `2` | `2` | published CM2 contract | yes | yes | Lossless logical restore to a new format 2 notebook |
 
-A future format 2 application implementing this draft writes only `(1, 2, "2")` for a native format 2 backup. It may
-recognize and validate `(1, 1, "1")` for an explicit migration path, but must not reinterpret that payload as content
-model version `2`.
+The format 2 application writes only `(1, 2, "2")` for a native format 2
+backup. It recognizes `(1, 1, "1")` only for explicit migration and never
+reinterprets that payload as content model version `2`.
 
 Applications that support only `(1, 1, "1")` reject `(1, 2, "2")` as an unsupported version tuple before interpreting
 page payloads. Rollback therefore requires retention of the older notebook or an archive created by a compatible
@@ -327,7 +327,7 @@ nearest known version.
 
 `archiveFormatVersion` changes when container layout, entry encoding, checksum placement, or framing changes.
 `contentModelVersion` changes when payload properties, types, nullability, or meaning change. The property and
-semantic changes in this draft therefore increment only `contentModelVersion`.
+semantic changes in CM2 therefore increment only `contentModelVersion`.
 
 ## 10. Validation order and classification
 
@@ -348,7 +348,7 @@ rules for a legacy candidate, unrelated ZIP, and malformed ZIP remain unchanged.
 
 ## 11. Writer requirements
 
-A future archive v1 content model version `2` writer conforming to this draft:
+An archive v1 content model version `2` writer:
 
 1. reads `Metadata` and `Pages` from one consistent format 2 database snapshot;
 2. reads stored authoritative values directly without using `PageTags`, FTS, or another derived representation as an
@@ -390,7 +390,9 @@ is never replaced.
 
 ## 13. Schemas and examples
 
+- [Archive format version 1 common contract](../../README.md)
 - [Published archive v1 content model version 1 specification](../v1/format.md)
+- [Notebook database schema v2](../../../../notebook/v2/schema.md)
 - [Manifest JSON Schema](schema/manifest.schema.json)
 - [Metadata JSON Schema](schema/metadata.schema.json)
 - [Page record JSON Schema](schema/page.schema.json)
@@ -399,4 +401,4 @@ is never replaced.
 JSON Schema covers document shape, JSON types, required and unknown properties, basic lexical patterns, and declared
 limits. Rules involving ZIP structure, UTF-8 bytes, integer token spelling, checksums, cross-document equality,
 uniqueness, canonical tags, calendar validity, source-local identity handling, restore equivalence, and version tuples
-are normative semantic requirements in this specification and must also be enforced by a future archive validator.
+are normative semantic requirements in this specification and must also be enforced by the archive validator.

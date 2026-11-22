@@ -8,7 +8,7 @@ using NUnit.Framework;
 
 namespace MemoriaNote.Core.Tests.Archive;
 
-/// <summary>Locks the content model 2 codec to the amended draft reference bytes.</summary>
+/// <summary>Locks the content model 2 codec to the released reference bytes.</summary>
 [TestFixture]
 [Category("Functional")]
 public sealed class ArchiveV1ContentModel2CodecTests
@@ -17,10 +17,12 @@ public sealed class ArchiveV1ContentModel2CodecTests
         TestContext.CurrentContext.TestDirectory,
         "reference",
         "archive",
-        "v1-content-model-v2",
+        "v1",
+        "content-models",
+        "v2",
         "examples");
 
-    /// <summary>Verifies every amended compatibility fixture is accepted and streamed.</summary>
+    /// <summary>Verifies every released compatibility fixture is accepted and streamed.</summary>
     [TestCase("empty", 6, 0)]
     [TestCase("single-page", 7, 1)]
     [TestCase("full-field", 9, 3)]
@@ -265,6 +267,8 @@ public sealed class ArchiveV1ContentModel2CodecTests
             TestContext.CurrentContext.TestDirectory,
             "reference",
             "archive",
+            "v1",
+            "content-models",
             "v1",
             "examples",
             "compatibility",

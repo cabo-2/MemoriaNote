@@ -333,7 +333,7 @@ separate write operations.
 
 ## 10. Archive and migration relationship
 
-The [MemoriaNote archive v1 format specification](../../archive/v1/format.md)
+The [MemoriaNote archive v1 content model 1 specification](../../archive/v1/content-models/v1/format.md)
 defines a logical backup rather than a copy of SQLite bytes. Notebook and
 archive versions are separate axes:
 

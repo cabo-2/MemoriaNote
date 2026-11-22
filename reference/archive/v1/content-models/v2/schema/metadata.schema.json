@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:memoria-note:archive:v1:content-model:v2:metadata",
-  "title": "MemoriaNote archive v1 content model v2 draft metadata data set",
+  "title": "MemoriaNote archive v1 content model v2 metadata data set",
   "$comment": "Metadata keys are additionally unique by ordinal comparison. A non-null CreateTime must be a valid Gregorian calendar date and clock value.",
   "type": "array",
   "maxItems": 65536,
