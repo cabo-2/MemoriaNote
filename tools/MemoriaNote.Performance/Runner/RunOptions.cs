@@ -24,6 +24,8 @@ internal sealed record RunOptions
 
     internal required string ArtifactInputKind { get; init; }
 
+    internal required string ScenarioSupportLevel { get; init; }
+
     internal string? ArchivePath { get; init; }
 
     internal required string EnvironmentLabel { get; init; }

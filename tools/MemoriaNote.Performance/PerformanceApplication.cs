@@ -99,6 +99,8 @@ internal sealed class PerformanceApplication
         await _standardOutput.WriteLineAsync($"Executable: {Path.GetFullPath(options.ExecutablePath)}");
         await _standardOutput.WriteLineAsync($"Deployment: {options.DeploymentKind}");
         await _standardOutput.WriteLineAsync($"Input kind: {options.ArtifactInputKind}");
+        await _standardOutput.WriteLineAsync(
+            $"Scenario support level: {options.ScenarioSupportLevel}");
         if (options.DatasetManifestPath != null)
         {
             var dataset = await ContractLoader.ReadDatasetManifestAsync(
@@ -109,6 +111,16 @@ internal sealed class PerformanceApplication
         }
         foreach (var scenario in selected)
         {
+            if (!scenario.Availability.Contains(
+                options.ScenarioSupportLevel,
+                StringComparer.Ordinal))
+            {
+                await _standardOutput.WriteLineAsync(
+                    $"Skipped scenario: {scenario.ScenarioId} " +
+                    $"(artifact level '{options.ScenarioSupportLevel}' is not in " +
+                    $"[{string.Join(", ", scenario.Availability)}])");
+                continue;
+            }
             await _standardOutput.WriteLineAsync(
                 $"Scenario: {scenario.ScenarioId} " +
                 $"({scenario.WarmupCount} warm-up, {scenario.MeasurementCount} measured, " +
@@ -157,6 +169,7 @@ internal sealed class PerformanceApplication
         "  --rid <rid>\n" +
         "  --deployment-kind <self-contained|native-aot>\n" +
         "  --artifact-input-kind <publish-directory|extracted-archive>\n" +
+        "  --scenario-support-level <level>\n" +
         "  --environment-label <label>\n" +
         "  --output <path>                 required only by run\n" +
         "\n" +

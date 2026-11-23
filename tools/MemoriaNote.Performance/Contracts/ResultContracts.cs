@@ -48,6 +48,8 @@ internal sealed class TargetIdentity
 
     public string ArtifactInputKind { get; set; } = string.Empty;
 
+    public string ScenarioSupportLevel { get; set; } = string.Empty;
+
     public string ExecutableSha256 { get; set; } = string.Empty;
 
     public long ExecutableSizeBytes { get; set; }
@@ -102,6 +104,8 @@ internal sealed class ScenarioResult
     public int TimeoutMilliseconds { get; set; }
 
     public string Status { get; set; } = string.Empty;
+
+    public string? SkipReason { get; set; }
 
     public List<PerformanceSample> Samples { get; set; } = [];
 

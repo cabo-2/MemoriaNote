@@ -18,7 +18,7 @@ internal static partial class ResultValidator
         RequireText(result.Run.RunId, "run.runId", issues);
         RequireText(result.Run.RunnerVersion, "run.runnerVersion", issues);
         RequireText(result.Run.RunnerCommit, "run.runnerCommit", issues);
-        RequireStatus(result.Run.Status, "run.status", issues);
+        RequireRunStatus(result.Run.Status, "run.status", issues);
         RequireText(result.Target.ArtifactId, "target.artifactId", issues);
         RequireText(result.Target.ProductVersion, "target.productVersion", issues);
         RequireText(result.Target.SourceCommit, "target.sourceCommit", issues);
@@ -28,6 +28,10 @@ internal static partial class ResultValidator
             issues.Add("target.deploymentKind is not supported.");
         if (result.Target.ArtifactInputKind is not ("publish-directory" or "extracted-archive"))
             issues.Add("target.artifactInputKind is not supported.");
+        RequireText(
+            result.Target.ScenarioSupportLevel,
+            "target.scenarioSupportLevel",
+            issues);
         ValidateSha256(result.Target.ExecutableSha256, "target.executableSha256", issues);
         if (result.Target.ExecutableSizeBytes <= 0)
             issues.Add("target.executableSizeBytes must be positive.");
@@ -126,6 +130,8 @@ internal static partial class ResultValidator
 
         if (scenario.Status == "valid")
         {
+            if (scenario.SkipReason != null)
+                issues.Add($"{prefix}.skipReason must be absent for a valid scenario.");
             if (scenario.Samples.Count != scenario.MeasurementCount)
                 issues.Add($"{prefix} does not contain the declared measurement count.");
             if (scenario.Samples.Any(sample => sample.Status != "valid"))
@@ -139,10 +145,23 @@ internal static partial class ResultValidator
                 ValidateSummary(scenario, prefix, issues);
             }
         }
+        else if (scenario.Status == "skipped")
+        {
+            if (string.IsNullOrWhiteSpace(scenario.SkipReason))
+                issues.Add($"{prefix}.skipReason is required for a skipped scenario.");
+            if (scenario.Samples.Count != 0)
+                issues.Add($"{prefix} cannot contain samples when skipped.");
+            if (scenario.Summary != null)
+                issues.Add($"{prefix}.summary must be absent for a skipped scenario.");
+            if (!scenario.Validation.IsValid)
+                issues.Add($"{prefix}.validation must be valid for a skipped scenario.");
+        }
         else if (scenario.Summary != null)
         {
             issues.Add($"{prefix}.summary must be absent for an invalid scenario.");
         }
+        if (scenario.Status == "invalid" && scenario.SkipReason != null)
+            issues.Add($"{prefix}.skipReason must be absent for an invalid scenario.");
     }
 
     static void ValidateSummary(
@@ -189,6 +208,12 @@ internal static partial class ResultValidator
     }
 
     static void RequireStatus(string value, string path, List<string> issues)
+    {
+        if (value is not ("valid" or "invalid" or "skipped"))
+            issues.Add($"{path} must be 'valid', 'invalid', or 'skipped'.");
+    }
+
+    static void RequireRunStatus(string value, string path, List<string> issues)
     {
         if (value is not ("valid" or "invalid"))
             issues.Add($"{path} must be 'valid' or 'invalid'.");

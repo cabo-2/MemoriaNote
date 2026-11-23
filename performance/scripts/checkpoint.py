@@ -261,6 +261,7 @@ def load_artifact_profile(path: Path) -> dict:
         "configuration",
         "deploymentKind",
         "artifactInputKind",
+        "scenarioSupportLevel",
         "executableRelativePath",
         "expectedVersionOutput",
     }
@@ -291,6 +292,11 @@ def load_artifact_profile(path: Path) -> dict:
         "extracted-archive",
     }:
         raise WorkflowError("artifactInputKind is not supported.")
+    scenario_support_level = require_text(
+        profile["scenarioSupportLevel"], "scenarioSupportLevel"
+    )
+    if not IDENTIFIER_PATTERN.fullmatch(scenario_support_level):
+        raise WorkflowError("scenarioSupportLevel contains unsupported characters.")
     validate_relative_path(profile["executableRelativePath"], "executableRelativePath")
     require_text(profile["expectedVersionOutput"], "expectedVersionOutput")
 
@@ -772,6 +778,8 @@ def runner_arguments(
             str(profile["deploymentKind"]),
             "--artifact-input-kind",
             str(profile["artifactInputKind"]),
+            "--scenario-support-level",
+            str(profile["scenarioSupportLevel"]),
             "--environment-label",
             environment_label,
             "--temporary-root",
@@ -891,6 +899,7 @@ def create_session_record(
                 "configuration",
                 "deploymentKind",
                 "artifactInputKind",
+                "scenarioSupportLevel",
             )
         },
         "inputs": session_input_records(profile_path),
@@ -1119,6 +1128,7 @@ def validate_session_record(session: Mapping[str, object]) -> None:
         "configuration",
         "deploymentKind",
         "artifactInputKind",
+        "scenarioSupportLevel",
     }
     require_exact_keys(artifact, artifact_fields, set(), "Checkpoint session artifact")
     for field in artifact_fields:
@@ -1224,6 +1234,7 @@ def validate_report_inputs(session: Mapping[str, object], results: Sequence[dict
             "configuration",
             "deploymentKind",
             "artifactInputKind",
+            "scenarioSupportLevel",
         ):
             if target.get(key) != artifact.get(key):
                 raise WorkflowError(f"Performance result target mismatch: {key}.")
@@ -1321,6 +1332,7 @@ def render_report(session: Mapping[str, object], results: Sequence[dict]) -> str
             f"| Source commit | {code(target['sourceCommit'])} |",
             f"| RID / deployment | {markdown(target['rid'])} / {markdown(target['deploymentKind'])} |",
             f"| Artifact input | {markdown(target['artifactInputKind'])} |",
+            f"| Scenario support level | {markdown(target['scenarioSupportLevel'])} |",
             f"| Executable SHA-256 | {code(target['executableSha256'])} |",
             f"| Executable size | {markdown(target['executableSizeBytes'])} bytes |",
             f"| Archive SHA-256 | {code(target.get('archiveSha256', 'N/A'))} |",
@@ -1365,8 +1377,8 @@ def render_report(session: Mapping[str, object], results: Sequence[dict]) -> str
             "",
             "Times are converted from nanoseconds to milliseconds and rounded to three decimal places.",
             "",
-            "| Result | Scenario | Status | n | p50 ms | p95 ms | min ms | max ms | mean ms |",
-            "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+            "| Result | Scenario | Status | Skip reason | n | p50 ms | p95 ms | min ms | max ms | mean ms |",
+            "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
     )
     session_results = session["results"]
@@ -1377,7 +1389,9 @@ def render_report(session: Mapping[str, object], results: Sequence[dict]) -> str
             summary = scenario.get("summary") or {}
             lines.append(
                 f"| {code(paths_by_name[entry['name']])} | {markdown(scenario['scenarioId'])} | "
-                f"{markdown(scenario['status'])} | {markdown(summary.get('sampleCount', 'N/A'))} | "
+                f"{markdown(scenario['status'])} | "
+                f"{markdown(scenario.get('skipReason', 'N/A'))} | "
+                f"{markdown(summary.get('sampleCount', 'N/A'))} | "
                 f"{format_milliseconds(summary.get('p50Nanoseconds'))} | "
                 f"{format_milliseconds(summary.get('p95Nanoseconds'))} | "
                 f"{format_milliseconds(summary.get('minNanoseconds'))} | "

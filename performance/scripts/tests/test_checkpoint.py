@@ -440,6 +440,7 @@ def sample_profile(payload: bytes = b"fixture") -> dict:
         "configuration": "Release",
         "deploymentKind": "self-contained",
         "artifactInputKind": "extracted-archive",
+        "scenarioSupportLevel": "v0.2.0",
         "executableRelativePath": "mn",
         "expectedVersionOutput": "mn 1.0.0",
         "archive": {
@@ -525,6 +526,7 @@ def sample_session() -> dict:
             "configuration": "Release",
             "deploymentKind": "self-contained",
             "artifactInputKind": "extracted-archive",
+            "scenarioSupportLevel": "v0.2.0",
         },
         "inputs": [
             {
@@ -565,6 +567,7 @@ def sample_result() -> dict:
             "configuration": "Release",
             "deploymentKind": "self-contained",
             "artifactInputKind": "extracted-archive",
+            "scenarioSupportLevel": "v0.2.0",
             "executableSha256": "5" * 64,
             "executableSizeBytes": 1234,
             "archiveSha256": "6" * 64,

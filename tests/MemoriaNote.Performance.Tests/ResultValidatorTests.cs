@@ -31,6 +31,25 @@ public sealed class ResultValidatorTests
         Assert.That(issues, Has.Some.Contains("does not match its raw samples"));
     }
 
+    /// <summary>Verifies an intentional skip is valid only with a reason and no samples.</summary>
+    [Test]
+    public void Validate_SkippedScenario_RequiresReasonAndNoSamples()
+    {
+        var result = CreateValidResult();
+        var scenario = result.ScenarioResults[0];
+        scenario.Status = "skipped";
+        scenario.SkipReason = "The artifact does not support this scenario.";
+        scenario.Samples = [];
+        scenario.Summary = null;
+
+        Assert.That(ResultValidator.Validate(result), Is.Empty);
+
+        scenario.SkipReason = null;
+        Assert.That(
+            ResultValidator.Validate(result),
+            Has.Some.Contains("skipReason is required"));
+    }
+
     internal static PerformanceResultDocument CreateValidResult()
     {
         var samples = Enumerable.Range(1, 20)
@@ -64,6 +83,7 @@ public sealed class ResultValidatorTests
                 Configuration = "Release",
                 DeploymentKind = "self-contained",
                 ArtifactInputKind = "publish-directory",
+                ScenarioSupportLevel = "test",
                 ExecutableSha256 = new string('a', 64),
                 ExecutableSizeBytes = 1
             },

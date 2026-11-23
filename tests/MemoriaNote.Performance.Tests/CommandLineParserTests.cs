@@ -28,13 +28,18 @@ public sealed class CommandLineParserTests
             "--rid", "linux-x64",
             "--deployment-kind", "self-contained",
             "--artifact-input-kind", "publish-directory",
+            "--scenario-support-level", "test",
             "--environment-label", "local",
             "--output", "result.json",
             "--scenario", "first",
             "--scenario", "second"
         ]);
 
-        Assert.That(command.Options.ScenarioIds, Is.EqualTo(new[] { "first", "second" }));
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(command.Options.ScenarioIds, Is.EqualTo(new[] { "first", "second" }));
+            Assert.That(command.Options.ScenarioSupportLevel, Is.EqualTo("test"));
+        }
     }
 
     /// <summary>Verifies a required option omission is a usage error.</summary>
