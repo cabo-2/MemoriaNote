@@ -26,6 +26,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../../core/MemoriaNote.Core.csproj" />
+    <AssemblyMetadata Include="ExpectedProductVersion" Value="$(MemoriaNoteProductVersion)" />
+    <AssemblyMetadata Include="ExpectedReleaseBuild" Value="$(MemoriaNoteReleaseBuild)" />
   </ItemGroup>
 
   <ItemGroup>

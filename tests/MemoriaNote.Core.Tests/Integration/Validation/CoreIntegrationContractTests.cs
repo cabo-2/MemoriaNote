@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using MemoriaNote.Integration.Validation;
 using NUnit.Framework;
 
@@ -13,6 +15,13 @@ public sealed class CoreIntegrationContractTests
     public async Task Descriptor_ReportsPackageSourceFormatAndCandidates()
     {
         var descriptor = CoreIntegrationContract.GetDescriptor();
+        var testAssembly = Assembly.GetExecutingAssembly();
+        var expectedProductVersion = MetadataValue(
+            testAssembly,
+            "ExpectedProductVersion");
+        var releaseBuild = bool.Parse(MetadataValue(
+            testAssembly,
+            "ExpectedReleaseBuild"));
         var repositoryRoot = FindRepositoryRoot();
         var currentCommit = await ReadProcessOutputAsync(
             repositoryRoot,
@@ -28,8 +37,16 @@ public sealed class CoreIntegrationContractTests
             Assert.That(descriptor.PackageId, Is.EqualTo(CoreIntegrationContract.PackageId));
             Assert.That(
                 descriptor.PackageVersion,
-                Does.Match("^0\\.3\\.0-ecli1180\\.g[0-9a-f]{12}$"));
-            Assert.That(descriptor.AssemblyInformationalVersion, Does.StartWith("0.3.0-dev+"));
+                Does.Match(
+                    $"^{Regex.Escape(expectedProductVersion)}" +
+                    "-ecli1180\\.g[0-9a-f]{12}$"));
+            Assert.That(
+                descriptor.AssemblyInformationalVersion,
+                releaseBuild
+                    ? Is.EqualTo(expectedProductVersion)
+                    : Does.Match(
+                        $"^{Regex.Escape(expectedProductVersion)}" +
+                        "-dev\\+[0-9a-f]{7}$"));
             Assert.That(descriptor.SourceCommit, Is.EqualTo(currentCommit));
             Assert.That(descriptor.SourceCommit, Does.Match("^[0-9a-f]{40}$"));
             Assert.That(descriptor.TargetFramework, Is.EqualTo(".NETCoreApp,Version=v10.0"));
@@ -40,6 +57,14 @@ public sealed class CoreIntegrationContractTests
                 descriptor.DerivedDataCandidates,
                 Is.EqualTo(new[] { DerivedDataKind.PageTags }));
         }
+    }
+
+    private static string MetadataValue(Assembly assembly, string key)
+    {
+        return assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .Single(attribute => attribute.Key == key)
+            .Value!;
     }
 
     private static async Task<string> ReadProcessOutputAsync(
