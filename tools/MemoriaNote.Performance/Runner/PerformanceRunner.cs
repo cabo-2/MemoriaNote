@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using MemoriaNote.Performance.Contracts;
 using MemoriaNote.Performance.Execution;
@@ -35,7 +36,7 @@ internal sealed class PerformanceRunner
             ? Path.GetTempPath()
             : Path.GetFullPath(options.TemporaryRoot);
         Directory.CreateDirectory(parent);
-        var runRoot = Path.Combine(parent, $"MemoriaNote.Performance-{runId}");
+        var runRoot = Path.Combine(parent, $"mnp-{runId}");
         Directory.CreateDirectory(runRoot);
 
         try
@@ -225,7 +226,7 @@ internal sealed class PerformanceRunner
             {
                 reusedContext = new TrialContext(
                     runRoot,
-                    $"{scenario.ScenarioId}-shared",
+                    CreateTrialName(scenario.ScenarioId, "shared"),
                     datasetDirectory,
                     keepTemporary);
                 var arrangeIssue = await ArrangeAsync(
@@ -247,7 +248,7 @@ internal sealed class PerformanceRunner
                 using var trial = scenario.ResetPolicy == "per-trial"
                     ? new TrialContext(
                         runRoot,
-                        $"{scenario.ScenarioId}-warmup-{warmup}",
+                        CreateTrialName(scenario.ScenarioId, $"warmup-{warmup}"),
                         datasetDirectory,
                         keepTemporary)
                     : null;
@@ -288,7 +289,7 @@ internal sealed class PerformanceRunner
                 using var trial = scenario.ResetPolicy == "per-trial"
                     ? new TrialContext(
                         runRoot,
-                        $"{scenario.ScenarioId}-sample-{sequence}",
+                        CreateTrialName(scenario.ScenarioId, $"sample-{sequence}"),
                         datasetDirectory,
                         keepTemporary)
                     : null;
@@ -508,6 +509,13 @@ internal sealed class PerformanceRunner
                 Issues = ["The scenario has not completed."]
             }
         };
+    }
+
+    static string CreateTrialName(string scenarioId, string suffix)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(scenarioId));
+        var key = Convert.ToHexString(hash.AsSpan(0, 6)).ToLowerInvariant();
+        return $"s-{key}-{suffix}";
     }
 
     static IReadOnlyList<ScenarioDefinition> SelectScenarios(
