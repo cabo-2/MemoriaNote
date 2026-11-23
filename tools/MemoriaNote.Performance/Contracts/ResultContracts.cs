@@ -48,7 +48,7 @@ internal sealed class TargetIdentity
 
     public string ArtifactInputKind { get; set; } = string.Empty;
 
-    public string ScenarioSupportLevel { get; set; } = string.Empty;
+    public string? ScenarioSupportLevel { get; set; }
 
     public string ExecutableSha256 { get; set; } = string.Empty;
 

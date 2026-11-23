@@ -50,6 +50,37 @@ public sealed class ResultValidatorTests
             Has.Some.Contains("skipReason is required"));
     }
 
+    /// <summary>Verifies results written before support levels were added remain valid.</summary>
+    [Test]
+    public void Validate_LegacyResultWithoutSupportLevel_IsValid()
+    {
+        var result = CreateValidResult();
+        result.Target.ScenarioSupportLevel = null;
+
+        var issues = ResultValidator.Validate(result);
+
+        Assert.That(issues, Is.Empty);
+    }
+
+    /// <summary>Verifies skipped scenarios identify the artifact support level.</summary>
+    [Test]
+    public void Validate_SkippedScenarioWithoutSupportLevel_IsRejected()
+    {
+        var result = CreateValidResult();
+        result.Target.ScenarioSupportLevel = null;
+        var scenario = result.ScenarioResults[0];
+        scenario.Status = "skipped";
+        scenario.SkipReason = "The artifact does not support this scenario.";
+        scenario.Samples = [];
+        scenario.Summary = null;
+
+        var issues = ResultValidator.Validate(result);
+
+        Assert.That(
+            issues,
+            Has.Some.Contains("scenarioSupportLevel is required"));
+    }
+
     internal static PerformanceResultDocument CreateValidResult()
     {
         var samples = Enumerable.Range(1, 20)

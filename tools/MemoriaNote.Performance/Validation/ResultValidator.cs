@@ -28,10 +28,18 @@ internal static partial class ResultValidator
             issues.Add("target.deploymentKind is not supported.");
         if (result.Target.ArtifactInputKind is not ("publish-directory" or "extracted-archive"))
             issues.Add("target.artifactInputKind is not supported.");
-        RequireText(
-            result.Target.ScenarioSupportLevel,
-            "target.scenarioSupportLevel",
-            issues);
+        if (result.Target.ScenarioSupportLevel != null)
+        {
+            RequireText(
+                result.Target.ScenarioSupportLevel,
+                "target.scenarioSupportLevel",
+                issues);
+        }
+        else if (result.ScenarioResults.Any(scenario => scenario.Status == "skipped"))
+        {
+            issues.Add(
+                "target.scenarioSupportLevel is required when a scenario is skipped.");
+        }
         ValidateSha256(result.Target.ExecutableSha256, "target.executableSha256", issues);
         if (result.Target.ExecutableSizeBytes <= 0)
             issues.Add("target.executableSizeBytes must be positive.");

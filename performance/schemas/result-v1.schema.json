@@ -62,7 +62,6 @@
         "configuration",
         "deploymentKind",
         "artifactInputKind",
-        "scenarioSupportLevel",
         "executableSha256",
         "executableSizeBytes"
       ],
