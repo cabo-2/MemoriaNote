@@ -103,7 +103,7 @@ contain that level are skipped before arrange or measured commands start. The re
 retain the explicit skip reason; a supported scenario failure is still an invalid checkpoint.
 
 Raw results and `session.json` are written under a new
-`performance/results/ecli-1040/<session-id>/` directory. Existing sessions are never replaced. Use
+`performance/results/ecli-1180/<session-id>/` directory. Existing sessions are never replaced. Use
 `--keep-temporary` only when the isolated workspace is needed for troubleshooting.
 
 ## Generate the report
