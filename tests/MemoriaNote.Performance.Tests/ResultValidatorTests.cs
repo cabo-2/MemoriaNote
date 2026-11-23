@@ -31,6 +31,56 @@ public sealed class ResultValidatorTests
         Assert.That(issues, Has.Some.Contains("does not match its raw samples"));
     }
 
+    /// <summary>Verifies an intentional skip is valid only with a reason and no samples.</summary>
+    [Test]
+    public void Validate_SkippedScenario_RequiresReasonAndNoSamples()
+    {
+        var result = CreateValidResult();
+        var scenario = result.ScenarioResults[0];
+        scenario.Status = "skipped";
+        scenario.SkipReason = "The artifact does not support this scenario.";
+        scenario.Samples = [];
+        scenario.Summary = null;
+
+        Assert.That(ResultValidator.Validate(result), Is.Empty);
+
+        scenario.SkipReason = null;
+        Assert.That(
+            ResultValidator.Validate(result),
+            Has.Some.Contains("skipReason is required"));
+    }
+
+    /// <summary>Verifies results written before support levels were added remain valid.</summary>
+    [Test]
+    public void Validate_LegacyResultWithoutSupportLevel_IsValid()
+    {
+        var result = CreateValidResult();
+        result.Target.ScenarioSupportLevel = null;
+
+        var issues = ResultValidator.Validate(result);
+
+        Assert.That(issues, Is.Empty);
+    }
+
+    /// <summary>Verifies skipped scenarios identify the artifact support level.</summary>
+    [Test]
+    public void Validate_SkippedScenarioWithoutSupportLevel_IsRejected()
+    {
+        var result = CreateValidResult();
+        result.Target.ScenarioSupportLevel = null;
+        var scenario = result.ScenarioResults[0];
+        scenario.Status = "skipped";
+        scenario.SkipReason = "The artifact does not support this scenario.";
+        scenario.Samples = [];
+        scenario.Summary = null;
+
+        var issues = ResultValidator.Validate(result);
+
+        Assert.That(
+            issues,
+            Has.Some.Contains("scenarioSupportLevel is required"));
+    }
+
     internal static PerformanceResultDocument CreateValidResult()
     {
         var samples = Enumerable.Range(1, 20)
@@ -64,6 +114,7 @@ public sealed class ResultValidatorTests
                 Configuration = "Release",
                 DeploymentKind = "self-contained",
                 ArtifactInputKind = "publish-directory",
+                ScenarioSupportLevel = "test",
                 ExecutableSha256 = new string('a', 64),
                 ExecutableSizeBytes = 1
             },

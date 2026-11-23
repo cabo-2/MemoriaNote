@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using MemoriaNote.Performance.Contracts;
 using MemoriaNote.Performance.Execution;
@@ -35,7 +36,7 @@ internal sealed class PerformanceRunner
             ? Path.GetTempPath()
             : Path.GetFullPath(options.TemporaryRoot);
         Directory.CreateDirectory(parent);
-        var runRoot = Path.Combine(parent, $"MemoriaNote.Performance-{runId}");
+        var runRoot = Path.Combine(parent, $"mnp-{runId}");
         Directory.CreateDirectory(runRoot);
 
         try
@@ -103,35 +104,49 @@ internal sealed class PerformanceRunner
 
             foreach (var scenario in scenarios)
             {
-                var prerequisiteIssue = ValidateScenarioPrerequisites(
-                    scenario,
-                    datasetManifest,
-                    datasetIssue);
                 ScenarioExecution execution;
-                if (prerequisiteIssue == null)
+                if (!scenario.Availability.Contains(
+                    options.ScenarioSupportLevel,
+                    StringComparer.Ordinal))
                 {
-                    execution = await ExecuteScenarioAsync(
+                    execution = ScenarioExecution.Skipped(
                         scenario,
-                        executablePath,
-                        runRoot,
-                        datasetDirectory,
-                        options.KeepTemporary,
-                        cancellationToken);
+                        $"Artifact scenario support level " +
+                        $"'{options.ScenarioSupportLevel}' is not available; " +
+                        $"scenario requires one of: " +
+                        $"{string.Join(", ", scenario.Availability)}.");
                 }
                 else
                 {
-                    execution = ScenarioExecution.Invalid(
+                    var prerequisiteIssue = ValidateScenarioPrerequisites(
                         scenario,
-                        "prerequisite",
-                        prerequisiteIssue);
+                        datasetManifest,
+                        datasetIssue);
+                    if (prerequisiteIssue == null)
+                    {
+                        execution = await ExecuteScenarioAsync(
+                            scenario,
+                            executablePath,
+                            runRoot,
+                            datasetDirectory,
+                            options.KeepTemporary,
+                            cancellationToken);
+                    }
+                    else
+                    {
+                        execution = ScenarioExecution.Invalid(
+                            scenario,
+                            "prerequisite",
+                            prerequisiteIssue);
+                    }
                 }
 
                 result.ScenarioResults.Add(execution.Result);
                 result.Failures.AddRange(execution.Failures);
             }
 
-            result.Run.Status = result.ScenarioResults.All(
-                scenario => scenario.Status == "valid") ? "valid" : "invalid";
+            result.Run.Status = result.ScenarioResults.Any(
+                scenario => scenario.Status == "invalid") ? "invalid" : "valid";
             var validationIssues = ResultValidator.Validate(result);
             if (validationIssues.Count > 0)
             {
@@ -178,6 +193,7 @@ internal sealed class PerformanceRunner
                 Configuration = options.Configuration,
                 DeploymentKind = options.DeploymentKind,
                 ArtifactInputKind = options.ArtifactInputKind,
+                ScenarioSupportLevel = options.ScenarioSupportLevel,
                 ExecutableSha256 = await ContentHasher.HashFileAsync(
                     executablePath,
                     cancellationToken),
@@ -210,7 +226,7 @@ internal sealed class PerformanceRunner
             {
                 reusedContext = new TrialContext(
                     runRoot,
-                    $"{scenario.ScenarioId}-shared",
+                    CreateTrialName(scenario.ScenarioId, "shared"),
                     datasetDirectory,
                     keepTemporary);
                 var arrangeIssue = await ArrangeAsync(
@@ -232,7 +248,7 @@ internal sealed class PerformanceRunner
                 using var trial = scenario.ResetPolicy == "per-trial"
                     ? new TrialContext(
                         runRoot,
-                        $"{scenario.ScenarioId}-warmup-{warmup}",
+                        CreateTrialName(scenario.ScenarioId, $"warmup-{warmup}"),
                         datasetDirectory,
                         keepTemporary)
                     : null;
@@ -273,7 +289,7 @@ internal sealed class PerformanceRunner
                 using var trial = scenario.ResetPolicy == "per-trial"
                     ? new TrialContext(
                         runRoot,
-                        $"{scenario.ScenarioId}-sample-{sequence}",
+                        CreateTrialName(scenario.ScenarioId, $"sample-{sequence}"),
                         datasetDirectory,
                         keepTemporary)
                     : null;
@@ -495,6 +511,13 @@ internal sealed class PerformanceRunner
         };
     }
 
+    static string CreateTrialName(string scenarioId, string suffix)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(scenarioId));
+        var key = Convert.ToHexString(hash.AsSpan(0, 6)).ToLowerInvariant();
+        return $"s-{key}-{suffix}";
+    }
+
     static IReadOnlyList<ScenarioDefinition> SelectScenarios(
         ScenarioManifestDocument manifest,
         IReadOnlyList<string> requestedIds)
@@ -527,6 +550,8 @@ internal sealed class PerformanceRunner
             throw new ContractException(
                 "artifact-input-kind must be publish-directory or extracted-archive.");
         }
+        if (string.IsNullOrWhiteSpace(options.ScenarioSupportLevel))
+            throw new ContractException("scenario-support-level is required.");
         if (scenarios.Any(
             scenario => scenario.ArtifactInputKind != options.ArtifactInputKind))
         {
@@ -610,6 +635,17 @@ internal sealed class PerformanceRunner
             return new ScenarioExecution(
                 result,
                 [CreateFailure(scenario, code, message)]);
+        }
+
+        internal static ScenarioExecution Skipped(
+            ScenarioDefinition scenario,
+            string reason)
+        {
+            var result = CreateScenarioResult(scenario);
+            result.Status = "skipped";
+            result.SkipReason = reason;
+            result.Validation = new ValidationOutcome { IsValid = true };
+            return new ScenarioExecution(result, []);
         }
     }
 }

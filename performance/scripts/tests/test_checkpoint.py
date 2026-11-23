@@ -28,6 +28,8 @@ class ArtifactProfileTests(unittest.TestCase):
             ("v0.2.0-win-x64.json", checkpoint.HostIdentity("windows", "x64")),
             ("v0.2.1-linux-x64.json", checkpoint.HostIdentity("linux", "x64")),
             ("v0.2.1-win-x64.json", checkpoint.HostIdentity("windows", "x64")),
+            ("v0.3.0-linux-x64.json", checkpoint.HostIdentity("linux", "x64")),
+            ("v0.3.0-win-x64.json", checkpoint.HostIdentity("windows", "x64")),
         )
         for file_name, host in cases:
             with self.subTest(file_name=file_name):
@@ -440,6 +442,7 @@ def sample_profile(payload: bytes = b"fixture") -> dict:
         "configuration": "Release",
         "deploymentKind": "self-contained",
         "artifactInputKind": "extracted-archive",
+        "scenarioSupportLevel": "v0.2.0",
         "executableRelativePath": "mn",
         "expectedVersionOutput": "mn 1.0.0",
         "archive": {
@@ -525,6 +528,7 @@ def sample_session() -> dict:
             "configuration": "Release",
             "deploymentKind": "self-contained",
             "artifactInputKind": "extracted-archive",
+            "scenarioSupportLevel": "v0.2.0",
         },
         "inputs": [
             {
@@ -565,6 +569,7 @@ def sample_result() -> dict:
             "configuration": "Release",
             "deploymentKind": "self-contained",
             "artifactInputKind": "extracted-archive",
+            "scenarioSupportLevel": "v0.2.0",
             "executableSha256": "5" * 64,
             "executableSizeBytes": 1234,
             "archiveSha256": "6" * 64,

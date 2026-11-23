@@ -5,9 +5,9 @@ checkpoints. It prepares the fixed inputs, runs the .NET performance harness, va
 and generates an English Markdown report. Python does not perform timing; the .NET runner remains
 the source of raw samples and summaries.
 
-Representative measurements are local-only diagnostics. GitHub Actions runs only the bounded
-Python tests, which use small synthetic fixtures and do not download public datasets or release
-artifacts.
+Representative measurements are local-only diagnostics. GitHub Actions runs bounded Python tests
+and a two-page .NET workflow test for the `ls` glob and `find` scenarios. CI does not download
+public datasets or release artifacts.
 
 ## Requirements
 
@@ -29,6 +29,8 @@ the profile matching the host:
 | `v0.2.0` | Windows x64 | `performance/artifacts/v0.2.0-win-x64.json` |
 | `v0.2.1` | Linux x64 | `performance/artifacts/v0.2.1-linux-x64.json` |
 | `v0.2.1` | Windows x64 | `performance/artifacts/v0.2.1-win-x64.json` |
+| `v0.3.0` | Linux x64 | `performance/artifacts/v0.3.0-linux-x64.json` |
+| `v0.3.0` | Windows x64 | `performance/artifacts/v0.3.0-win-x64.json` |
 
 ## Generate release artifact profiles
 
@@ -36,13 +38,16 @@ After a release is published and its final assets are available, generate both h
 the repository root:
 
 ```console
-bash performance/scripts/generate-release-artifact-profiles.sh v0.2.1
+bash performance/scripts/generate-release-artifact-profiles.sh v0.3.0 phase-11
 ```
 
 The script rejects drafts and prereleases, validates the remote tag commit and tagged product
 version, downloads the two archives and `SHA256SUMS`, and verifies both archive checksums. Downloads
-are stored under `performance/.cache/artifacts/v0.2.1/download/`; the generated profiles are stored
+are stored under `performance/.cache/artifacts/v0.3.0/download/`; the generated profiles are stored
 under `performance/artifacts/`.
+
+The second argument is the explicit scenario support level recorded in both generated profiles.
+It must match the `availability` value of scenarios supported by that release.
 
 A matching cache or profile is reused without modification. Existing content that differs from the
 published release is an error and is never overwritten. The script supports later stable release
@@ -63,7 +68,7 @@ release archive:
 
 ```console
 python performance/scripts/checkpoint.py prepare \
-  --artifact-profile performance/artifacts/v0.2.1-linux-x64.json
+  --artifact-profile performance/artifacts/v0.3.0-linux-x64.json
 ```
 
 PowerShell accepts the same arguments when the command is entered on one line or written with its
@@ -83,9 +88,9 @@ Run the generic, English, and Japanese manifests as one checkpoint session:
 
 ```console
 python performance/scripts/checkpoint.py run \
-  --artifact-profile performance/artifacts/v0.2.1-linux-x64.json \
-  --roadmap-id ECLI-1040 \
-  --description "v0.2.1 post-upgrade checkpoint" \
+  --artifact-profile performance/artifacts/v0.3.0-linux-x64.json \
+  --roadmap-id ECLI-1180 \
+  --description "v0.3.0 schema v2 and search checkpoint" \
   --environment-label linux-reference-1
 ```
 
@@ -93,8 +98,12 @@ python performance/scripts/checkpoint.py run \
 `Release`, safely extracts the artifact into a new temporary directory, checks `mn --version`, and
 runs and validates every configured manifest.
 
+Each artifact profile declares one scenario support level. Scenarios whose `availability` does not
+contain that level are skipped before arrange or measured commands start. The result and report
+retain the explicit skip reason; a supported scenario failure is still an invalid checkpoint.
+
 Raw results and `session.json` are written under a new
-`performance/results/ecli-1040/<session-id>/` directory. Existing sessions are never replaced. Use
+`performance/results/ecli-1180/<session-id>/` directory. Existing sessions are never replaced. Use
 `--keep-temporary` only when the isolated workspace is needed for troubleshooting.
 
 ## Generate the report

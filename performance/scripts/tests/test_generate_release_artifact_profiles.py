@@ -19,6 +19,7 @@ SCRIPT_SOURCE = (
 )
 TAG = "v1.2.3"
 VERSION = "1.2.3"
+SCENARIO_SUPPORT_LEVEL = "phase-11"
 SOURCE_COMMIT = "1" * 40
 REPOSITORY = "example/MemoriaNote"
 LINUX_ARCHIVE = f"mn-{TAG}-linux-x64.tar.gz"
@@ -207,9 +208,18 @@ esac
             newline="\n",
         )
 
-    def run_script(self, tag: str = TAG) -> subprocess.CompletedProcess[str]:
+    def run_script(
+        self,
+        tag: str = TAG,
+        scenario_support_level: str = SCENARIO_SUPPORT_LEVEL,
+    ) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [str(BASH_COMMAND), self.script.as_posix(), tag],
+            [
+                str(BASH_COMMAND),
+                self.script.as_posix(),
+                tag,
+                scenario_support_level,
+            ],
             cwd=self.root,
             env=self.environment,
             check=False,
@@ -228,6 +238,7 @@ esac
         self.assertEqual(linux["sourceCommit"], SOURCE_COMMIT)
         self.assertEqual(linux["hostOs"], "linux")
         self.assertEqual(linux["rid"], "linux-x64")
+        self.assertEqual(linux["scenarioSupportLevel"], SCENARIO_SUPPORT_LEVEL)
         self.assertEqual(linux["archive"]["sha256"], sha256(self.assets / LINUX_ARCHIVE))
         self.assertEqual(windows["hostOs"], "windows")
         self.assertEqual(windows["rid"], "win-x64")
@@ -322,6 +333,12 @@ esac
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("release tag must use", result.stderr)
+
+    def test_rejects_invalid_scenario_support_level(self) -> None:
+        result = self.run_script(scenario_support_level="../phase-11")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("scenario support level", result.stderr)
 
     def profile_path(self, host: str) -> Path:
         return self.root / "performance" / "artifacts" / f"{TAG}-{host}-x64.json"

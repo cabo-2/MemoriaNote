@@ -79,6 +79,174 @@
       "measurementCount": 30,
       "timeoutMilliseconds": 600000,
       "resetPolicy": "reuse-state"
+    },
+    {
+      "scenarioId": "ls-glob-all-pages-10000.mdn-translated-content-ja.extracted-archive",
+      "scenarioVersion": "1",
+      "description": "Lists all 10,000 Japanese corpus pages through the positional match-all glob.",
+      "availability": ["phase-11", "phase-12"],
+      "artifactInputKind": "extracted-archive",
+      "datasetId": "mdn-translated-content-ja",
+      "scaleId": "pages-10000",
+      "cacheMode": "warm-reopen",
+      "arrange": [
+        {
+          "command": {
+            "arguments": ["--workspace", "{workspace}", "create", "benchmark"],
+            "workingDirectory": "{working}",
+            "environment": {}
+          },
+          "expected": {
+            "exitCode": 0,
+            "standardOutputContains": ["benchmark.mnote"],
+            "standardErrorContains": [],
+            "standardOutputEmpty": false,
+            "standardErrorEmpty": true
+          }
+        },
+        {
+          "command": {
+            "arguments": ["--workspace", "{workspace}", "notebooks", "import", "{dataset}/scales/pages-10000", "--notebook", "benchmark"],
+            "workingDirectory": "{working}",
+            "environment": {}
+          },
+          "expected": {
+            "exitCode": 0,
+            "standardOutputContains": ["Import completed:", "created=10000"],
+            "standardErrorContains": [],
+            "standardOutputEmpty": false,
+            "standardErrorEmpty": true
+          }
+        }
+      ],
+      "command": {
+        "arguments": ["--workspace", "{workspace}", "ls", "*", "--notebook", "benchmark", "--limit", "10000"],
+        "workingDirectory": "{working}",
+        "environment": {}
+      },
+      "expected": {
+        "exitCode": 0,
+        "standardOutputContains": [],
+        "standardErrorContains": [],
+        "standardOutputEmpty": false,
+        "standardErrorEmpty": true
+      },
+      "warmupCount": 3,
+      "measurementCount": 30,
+      "timeoutMilliseconds": 600000,
+      "resetPolicy": "reuse-state"
+    },
+    {
+      "scenarioId": "ls-glob-no-match-pages-10000.mdn-translated-content-ja.extracted-archive",
+      "scenarioVersion": "1",
+      "description": "Runs a deterministic no-match positional glob against 10,000 Japanese corpus pages.",
+      "availability": ["phase-11", "phase-12"],
+      "artifactInputKind": "extracted-archive",
+      "datasetId": "mdn-translated-content-ja",
+      "scaleId": "pages-10000",
+      "cacheMode": "warm-reopen",
+      "arrange": [
+        {
+          "command": {
+            "arguments": ["--workspace", "{workspace}", "create", "benchmark"],
+            "workingDirectory": "{working}",
+            "environment": {}
+          },
+          "expected": {
+            "exitCode": 0,
+            "standardOutputContains": ["benchmark.mnote"],
+            "standardErrorContains": [],
+            "standardOutputEmpty": false,
+            "standardErrorEmpty": true
+          }
+        },
+        {
+          "command": {
+            "arguments": ["--workspace", "{workspace}", "notebooks", "import", "{dataset}/scales/pages-10000", "--notebook", "benchmark"],
+            "workingDirectory": "{working}",
+            "environment": {}
+          },
+          "expected": {
+            "exitCode": 0,
+            "standardOutputContains": ["Import completed:", "created=10000"],
+            "standardErrorContains": [],
+            "standardOutputEmpty": false,
+            "standardErrorEmpty": true
+          }
+        }
+      ],
+      "command": {
+        "arguments": ["--workspace", "{workspace}", "ls", "__memoria_note_benchmark_no_match__*", "--notebook", "benchmark"],
+        "workingDirectory": "{working}",
+        "environment": {}
+      },
+      "expected": {
+        "exitCode": 0,
+        "standardOutputContains": [],
+        "standardErrorContains": [],
+        "standardOutputEmpty": true,
+        "standardErrorEmpty": true
+      },
+      "warmupCount": 3,
+      "measurementCount": 30,
+      "timeoutMilliseconds": 600000,
+      "resetPolicy": "reuse-state"
+    },
+    {
+      "scenarioId": "find-body-no-match-pages-10000.mdn-translated-content-ja.extracted-archive",
+      "scenarioVersion": "1",
+      "description": "Scans all 10,000 Japanese corpus page bodies for a deterministic absent keyword.",
+      "availability": ["phase-11", "phase-12"],
+      "artifactInputKind": "extracted-archive",
+      "datasetId": "mdn-translated-content-ja",
+      "scaleId": "pages-10000",
+      "cacheMode": "warm-reopen",
+      "arrange": [
+        {
+          "command": {
+            "arguments": ["--workspace", "{workspace}", "create", "benchmark"],
+            "workingDirectory": "{working}",
+            "environment": {}
+          },
+          "expected": {
+            "exitCode": 0,
+            "standardOutputContains": ["benchmark.mnote"],
+            "standardErrorContains": [],
+            "standardOutputEmpty": false,
+            "standardErrorEmpty": true
+          }
+        },
+        {
+          "command": {
+            "arguments": ["--workspace", "{workspace}", "notebooks", "import", "{dataset}/scales/pages-10000", "--notebook", "benchmark"],
+            "workingDirectory": "{working}",
+            "environment": {}
+          },
+          "expected": {
+            "exitCode": 0,
+            "standardOutputContains": ["Import completed:", "created=10000"],
+            "standardErrorContains": [],
+            "standardOutputEmpty": false,
+            "standardErrorEmpty": true
+          }
+        }
+      ],
+      "command": {
+        "arguments": ["--workspace", "{workspace}", "find", "memoria-note-benchmark-no-match-7f3c2d91", "--notebook", "benchmark"],
+        "workingDirectory": "{working}",
+        "environment": {}
+      },
+      "expected": {
+        "exitCode": 0,
+        "standardOutputContains": [],
+        "standardErrorContains": [],
+        "standardOutputEmpty": true,
+        "standardErrorEmpty": true
+      },
+      "warmupCount": 3,
+      "measurementCount": 30,
+      "timeoutMilliseconds": 600000,
+      "resetPolicy": "reuse-state"
     }
   ]
 }

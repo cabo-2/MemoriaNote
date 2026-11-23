@@ -7,6 +7,8 @@ internal static class TestPaths
     internal static string TestTargetExecutable => GetAssemblyMetadataPath(
         "PerformanceTestTargetPath");
 
+    internal static string CliExecutable => GetAssemblyMetadataPath("CliExecutablePath");
+
     internal static string RepositoryRoot
     {
         get

@@ -75,6 +75,7 @@
         "artifactInputKind": {
           "enum": ["publish-directory", "extracted-archive"]
         },
+        "scenarioSupportLevel": { "type": "string", "minLength": 1 },
         "executableSha256": { "$ref": "#/$defs/sha256" },
         "executableSizeBytes": { "type": "integer", "minimum": 1 },
         "archiveSha256": { "$ref": "#/$defs/sha256" }
@@ -215,7 +216,8 @@
         "warmupCount": { "type": "integer", "minimum": 0 },
         "measurementCount": { "type": "integer", "minimum": 1 },
         "timeoutMilliseconds": { "type": "integer", "minimum": 1 },
-        "status": { "enum": ["valid", "invalid"] },
+        "status": { "enum": ["valid", "invalid", "skipped"] },
+        "skipReason": { "type": "string", "minLength": 1 },
         "samples": {
           "type": "array",
           "items": { "$ref": "#/$defs/sample" }

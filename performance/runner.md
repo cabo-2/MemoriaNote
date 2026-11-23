@@ -19,6 +19,7 @@ dotnet run --project tools/MemoriaNote.Performance -- describe \
   --rid linux-x64 \
   --deployment-kind self-contained \
   --artifact-input-kind publish-directory \
+  --scenario-support-level v0.2.0 \
   --environment-label linux-reference-1
 ```
 
@@ -36,6 +37,7 @@ dotnet run --project tools/MemoriaNote.Performance -- run \
   --rid linux-x64 \
   --deployment-kind self-contained \
   --artifact-input-kind publish-directory \
+  --scenario-support-level v0.2.0 \
   --environment-label linux-reference-1 \
   --output /path/to/results/v0.2.0-linux-x64.json
 
@@ -46,6 +48,10 @@ dotnet run --project tools/MemoriaNote.Performance -- validate-result \
 Use repeated `--scenario <id>` options to select a subset. Dataset-backed scenarios additionally
 require `--dataset-manifest`; `--dataset-root` may override the manifest-relative prepared directory.
 The runner never downloads a missing dataset.
+
+`--scenario-support-level` is required. A scenario runs only when its `availability` contains the
+artifact level. Otherwise the runner records it as `skipped`, including the reason, without running
+its arrange or measured commands. Intentional skips do not invalidate the overall run.
 
 For an extracted archive, set `--artifact-input-kind extracted-archive` and pass the original archive
 with `--archive` so its SHA-256 is recorded. Use
@@ -75,11 +81,13 @@ separators to `/`, sort paths with ordinal comparison, and append the UTF-8 byte
 entry. The manifest's `prepared.sha256` is the lowercase SHA-256 of that complete byte sequence;
 `prepared.totalBytes` is the sum of all file sizes.
 
-## 10,000-page listing scenarios
+## 10,000-page listing and search scenarios
 
-The ECLI-1010c manifests measure `ls --limit 10000` against notebooks populated from the largest
-locked English and Japanese scales. The `v0.2.0` baseline creates schema v1 notebooks; later
-checkpoints create the current format owned by the measured artifact:
+The representative manifests measure baseline `ls --limit 10000` against notebooks populated from
+the largest locked English and Japanese scales. For `phase-11` artifacts they also measure a
+positional match-all glob, a deterministic no-match glob, and a deterministic no-match `find` that
+scans every page body. The `v0.2.0` support level runs only the baseline scenario; the newer
+scenarios are recorded as skipped:
 
 | Dataset | Scenario manifest |
 | --- | --- |
@@ -90,11 +98,12 @@ Run each manifest with its matching `--dataset-manifest` and full prepared direc
 `--dataset-root`. The runner verifies the complete prepared tree before arranging the scenario; the
 manifest resolves the measured scale below that root as `{dataset}/scales/pages-10000`.
 
-Each scenario creates a notebook and imports the 10,000 text files once outside the measured
-interval. The same closed notebook is reopened by a new CLI process for three unmeasured warm-ups and
-30 measured `ls` invocations. The scenario contract applies one 600,000 ms timeout to both arrange
-and measured commands. One invalid warm-up or sample invalidates the scenario.
+Each supported scenario creates a notebook and imports the 10,000 text files once outside the
+measured interval. The same closed notebook is reopened by a new CLI process for three unmeasured
+warm-ups and 30 measured invocations. The scenario contract applies one 600,000 ms timeout to both
+arrange and measured commands. One invalid warm-up or sample invalidates the scenario.
 
 Use `describe` before `run` and inspect the manifest to confirm the dataset ID and scale,
 `warm-reopen` cache mode, `reuse-state` reset policy, repetitions, and timeout. Representative runs
-remain local-only; CI validates only the manifest and locked dataset contracts with bounded tests.
+remain local-only; CI validates the manifest and locked dataset contracts and executes `ls` glob and
+`find` against a two-page synthetic fixture with 20 samples each.

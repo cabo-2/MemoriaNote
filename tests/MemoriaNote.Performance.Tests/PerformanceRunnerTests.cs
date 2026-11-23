@@ -156,6 +156,37 @@ public sealed class PerformanceRunnerTests
         }
     }
 
+    /// <summary>Verifies an unavailable scenario is recorded without starting its command.</summary>
+    [Test]
+    public async Task RunAsync_UnavailableScenario_RecordsSkipBeforeProcessStart()
+    {
+        using var temporary = new TemporaryDirectory();
+        var manifestPath = await WriteManifestAsync(temporary.Path, "ok");
+        var manifest = await ContractLoader.ReadScenarioManifestAsync(manifestPath);
+        manifest.Scenarios[0].Command.Arguments = ["unsupported-command"];
+        File.Delete(manifestPath);
+        await ContractJson.WriteAsync(manifestPath, manifest);
+        var outputPath = System.IO.Path.Combine(temporary.Path, "skipped-result.json");
+        var options = Options(temporary.Path, manifestPath, outputPath) with
+        {
+            ScenarioSupportLevel = "legacy"
+        };
+
+        var result = await new PerformanceRunner().RunAsync(options);
+        var scenario = result.ScenarioResults.Single();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Run.Status, Is.EqualTo("valid"));
+            Assert.That(scenario.Status, Is.EqualTo("skipped"));
+            Assert.That(scenario.SkipReason, Does.Contain("legacy"));
+            Assert.That(scenario.Samples, Is.Empty);
+            Assert.That(scenario.Summary, Is.Null);
+            Assert.That(result.Failures, Is.Empty);
+            Assert.That(ResultValidator.Validate(result), Is.Empty);
+        }
+    }
+
     static RunOptions Options(
         string temporaryRoot,
         string manifestPath,
@@ -171,6 +202,7 @@ public sealed class PerformanceRunnerTests
             Rid = "test-x64",
             DeploymentKind = "self-contained",
             ArtifactInputKind = "publish-directory",
+            ScenarioSupportLevel = "test",
             EnvironmentLabel = "test-environment",
             OutputPath = outputPath,
             TemporaryRoot = temporaryRoot

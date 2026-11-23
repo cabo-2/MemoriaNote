@@ -15,10 +15,11 @@ fail() {
 
 usage() {
     cat <<'EOF'
-Usage: generate-release-artifact-profiles.sh <tag>
+Usage: generate-release-artifact-profiles.sh <tag> <scenario-support-level>
 
 Download a published Memoria Note release and generate its Linux and Windows
-performance artifact profiles. The tag must use v<major>.<minor>.<patch>.
+performance artifact profiles. The tag must use v<major>.<minor>.<patch>. The
+scenario support level must match scenario manifest availability values.
 EOF
 }
 
@@ -165,11 +166,13 @@ write_profile() {
     local archive_name="$9"
     local archive_url="${10}"
     local archive_sha256="${11}"
+    local scenario_support_level="${12}"
 
     "${PYTHON_COMMAND}" - \
         "${output_path}" "${tag}" "${version}" "${source_commit}" \
         "${host_os}" "${rid}" "${executable}" "${archive_format}" \
-        "${archive_name}" "${archive_url}" "${archive_sha256}" <<'PY'
+        "${archive_name}" "${archive_url}" "${archive_sha256}" \
+        "${scenario_support_level}" <<'PY'
 import json
 import pathlib
 import sys
@@ -186,6 +189,7 @@ import sys
     archive_name,
     archive_url,
     archive_sha256,
+    scenario_support_level,
 ) = sys.argv[1:]
 
 profile = {
@@ -198,6 +202,7 @@ profile = {
     "configuration": "Release",
     "deploymentKind": "self-contained",
     "artifactInputKind": "extracted-archive",
+    "scenarioSupportLevel": scenario_support_level,
     "executableRelativePath": executable,
     "expectedVersionOutput": f"mn {version}",
     "archive": {
@@ -242,7 +247,7 @@ install_if_missing() {
     echo "Created: ${destination#"${REPOSITORY_ROOT}/"}"
 }
 
-if [[ $# -ne 1 || "$1" == "-h" || "$1" == "--help" ]]; then
+if [[ $# -ne 2 || "$1" == "-h" || "$1" == "--help" ]]; then
     usage
     [[ $# -eq 1 ]] && exit 0
     exit 2
@@ -252,6 +257,9 @@ readonly TAG="$1"
 [[ "${TAG}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || \
     fail "release tag must use v<major>.<minor>.<patch> with no leading zeros."
 readonly VERSION="${TAG#v}"
+readonly SCENARIO_SUPPORT_LEVEL="$2"
+[[ "${SCENARIO_SUPPORT_LEVEL}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || \
+    fail "scenario support level contains unsupported characters."
 
 command -v "${GH_COMMAND}" >/dev/null 2>&1 || fail "GitHub CLI is required: ${GH_COMMAND}"
 PYTHON_COMMAND="$(find_python)"
@@ -381,10 +389,12 @@ readonly GENERATED_LINUX_PROFILE="${TEMPORARY_DIRECTORY}/${TAG}-linux-x64.json"
 readonly GENERATED_WINDOWS_PROFILE="${TEMPORARY_DIRECTORY}/${TAG}-win-x64.json"
 write_profile \
     "${GENERATED_LINUX_PROFILE}" "${TAG}" "${VERSION}" "${SOURCE_COMMIT}" \
-    linux linux-x64 mn tar.gz "${LINUX_ARCHIVE}" "${LINUX_URL}" "${LINUX_SHA256}"
+    linux linux-x64 mn tar.gz "${LINUX_ARCHIVE}" "${LINUX_URL}" "${LINUX_SHA256}" \
+    "${SCENARIO_SUPPORT_LEVEL}"
 write_profile \
     "${GENERATED_WINDOWS_PROFILE}" "${TAG}" "${VERSION}" "${SOURCE_COMMIT}" \
-    windows win-x64 mn.exe zip "${WINDOWS_ARCHIVE}" "${WINDOWS_URL}" "${WINDOWS_SHA256}"
+    windows win-x64 mn.exe zip "${WINDOWS_ARCHIVE}" "${WINDOWS_URL}" "${WINDOWS_SHA256}" \
+    "${SCENARIO_SUPPORT_LEVEL}"
 
 readonly LINUX_PROFILE="${PROFILE_DIRECTORY}/${TAG}-linux-x64.json"
 readonly WINDOWS_PROFILE="${PROFILE_DIRECTORY}/${TAG}-win-x64.json"
