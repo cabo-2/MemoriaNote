@@ -1,6 +1,6 @@
 # Memoria Note user guide
 
-This guide documents the public command-line interface for the initial Memoria Note release. Use
+This guide documents the public command-line interface for Memoria Note `v0.3.0`. Use
 `mn --help` and `mn <command> --help` for concise syntax at the terminal. This guide is the
 maintained reference for installation, workflows, operations, recovery, and process behavior.
 
@@ -39,7 +39,7 @@ implicitly.
 
 ### Supported release artifacts
 
-The initial release provides two self-contained archives:
+The release provides two self-contained archives:
 
 | Platform | Asset |
 | --- | --- |
@@ -52,7 +52,7 @@ required. The archive root contains the executable, managed assemblies, native r
 and `LICENSE`; keep the directory intact.
 
 macOS, Arm, framework-dependent, single-file, Native AOT, trimmed, ReadyToRun, installer, and
-package-manager distributions are not provided in the initial release.
+package-manager distributions are not provided.
 
 ### Verify a download
 
@@ -68,21 +68,21 @@ the expected tag and RID.
 On Windows, calculate the archive digest and compare it with the matching line in `SHA256SUMS`:
 
 ```powershell
-Get-FileHash .\mn-v0.2.1-win-x64.zip -Algorithm SHA256
-Select-String "mn-v0.2.1-win-x64.zip" .\SHA256SUMS
+Get-FileHash .\mn-v0.3.0-win-x64.zip -Algorithm SHA256
+Select-String "mn-v0.3.0-win-x64.zip" .\SHA256SUMS
 ```
 
 The hexadecimal values must be equal, ignoring letter case.
 
 ### Linux installation
 
-Install each release beside earlier versions and expose it through a symbolic link. For `v0.2.1`:
+Install each release beside earlier versions and expose it through a symbolic link. For `v0.3.0`:
 
 ```bash
-tar -xzf mn-v0.2.1-linux-x64.tar.gz
+tar -xzf mn-v0.3.0-linux-x64.tar.gz
 mkdir -p "$HOME/.local/lib/memoria-note" "$HOME/.local/bin"
-mv mn-v0.2.1-linux-x64 "$HOME/.local/lib/memoria-note/0.2.1"
-ln -s "$HOME/.local/lib/memoria-note/0.2.1/mn" "$HOME/.local/bin/mn"
+mv mn-v0.3.0-linux-x64 "$HOME/.local/lib/memoria-note/0.3.0"
+ln -s "$HOME/.local/lib/memoria-note/0.3.0/mn" "$HOME/.local/bin/mn"
 mn --version
 ```
 
@@ -94,7 +94,7 @@ only the `mn` executable out of its installed directory.
 Extract the ZIP, then move or rename its complete root directory to a versioned location such as:
 
 ```text
-%LOCALAPPDATA%\Programs\MemoriaNote\0.2.1
+%LOCALAPPDATA%\Programs\MemoriaNote\0.3.0
 ```
 
 Add that version directory—not just `mn.exe`—to the user `PATH`. Open a new terminal and verify the
@@ -118,9 +118,10 @@ For an application rollback, point the Linux link or Windows `PATH` entry back t
 intact version. Installing, updating, rolling back, or removing the application does not alter
 workspaces, notebook files, workspace selection, or user configuration.
 
-Before using a future release that changes notebook compatibility, create an archive v1 backup with
-the currently working release. Keep the previous application and backup until the new release has
-opened and backed up the data successfully.
+Before moving from a format `1` release to `v0.3.0`, keep the original notebook or a CM1 archive;
+`v0.3.0` migrates it to a separate format `2` notebook. For later updates, create a native CM2
+backup with the currently working release. Keep the previous application and compatible backup
+until the new release has opened and backed up the data successfully.
 
 ### Uninstall
 
@@ -146,6 +147,7 @@ Create and use a page:
 ```bash
 mn new meeting-notes
 mn ls
+mn find meeting
 mn cat meeting-notes
 mn edit meeting-notes
 mn rename meeting-notes project-notes
@@ -205,8 +207,8 @@ mn cat --id 744ffba0-0000-0000-0000-000000000000
 mn edit --id 744f
 ```
 
-The prefix must match exactly one page. If legacy data contains duplicate names, use `mn ls --long`
-to obtain Page IDs and select the intended page with `--id`. Rename keeps the Page ID unchanged.
+The prefix must match exactly one page. Use `mn ls --long` or `mn find` to obtain Page IDs and
+select a page with `--id`. Rename keeps the Page ID unchanged.
 
 ## Command reference
 
@@ -232,7 +234,7 @@ subcommand.
 mn create <notebook> [--workspace <directory>]
 ```
 
-Creates a current-format notebook directly in the workspace. The `.mnote` suffix is optional. The
+Creates a format `2` notebook directly in the workspace. The `.mnote` suffix is optional. The
 command does not overwrite an existing file or directory and does not select the new notebook.
 
 ### `use`
@@ -272,7 +274,7 @@ read-only; exceptional entries remain visible and do not make an otherwise compl
 mn notebooks backup [<archive>] [--notebook <notebook>] [--workspace <directory>]
 ```
 
-Creates a validated archive v1 backup from one consistent notebook snapshot. A file destination
+Creates a validated archive v1/CM2 backup of a format `2` notebook from one consistent snapshot. A file destination
 must not already exist. When `<archive>` is omitted or exactly `-`, binary archive bytes are written
 to redirected standard output with no human-readable text mixed into the stream:
 
@@ -290,7 +292,7 @@ real file named `-` is intended.
 mn notebooks restore [<archive>] --target <notebook> [--dry-run]
 ```
 
-Validates archive v1 and restores it to a new notebook. The target must not already exist; neither
+Validates archive v1/CM2 and restores it to a new format `2` notebook. The target must not already exist; neither
 the archive nor any existing notebook is modified. `--dry-run` performs full validation and reports
 record counts without creating the target.
 
@@ -303,7 +305,24 @@ mn notebooks backup --notebook work | mn notebooks restore --target copied
 ```
 
 The command refuses to read a binary archive from an interactive terminal. Restore does not select
-the new notebook.
+the new notebook. CM1 is a migration input and is not accepted as native restore input.
+
+### `notebooks migrate`
+
+```text
+mn notebooks migrate <source> --output <notebook>
+    [--resolution <file>] [--dry-run]
+    [--report-level error|warning|info]
+```
+
+Migrates a live format `1` notebook or CM1 archive into a separate format `2` notebook. The source,
+existing destinations, and workspace selection are never modified. `--output` is required for a
+dry-run as well as publication. The default report level is `warning`; page-local errors may
+produce a fully validated partial output and exit status `6`.
+
+Read the [schema v1 to v2 migration guide](migration/schema-v1-to-v2.md) before migrating. It
+documents backup, loss and warning policy, the resolution document, reruns, workspace selection,
+and rollback.
 
 ### `notebooks import`
 
@@ -347,7 +366,6 @@ With no update option, displays notebook metadata. Specify at most one of:
 
 | Option | Value |
 | --- | --- |
-| `--name <value>` | Display name |
 | `--title <value>` | Display title |
 | `--description <value>` | Description |
 | `--author <value>` | Author |
@@ -384,11 +402,73 @@ change is written when the editor content is unchanged.
 ### `ls`
 
 ```text
-mn ls [--notebook <notebook>] [--limit <positive-count>] [-l|--long]
+mn ls [<page-name-pattern>] [--notebook <notebook>]
+    [--sort name|updated|created] [-r|--reverse]
+    [--limit <positive-count>] [-l|--long]
 ```
 
-Lists pages in stable page-name order. `--limit` returns at most the requested positive number;
-`--long` includes all page metadata columns, including Page IDs. Listing is read-only.
+Lists pages or matches complete page names with a case-sensitive Memoria Note glob. The default
+sort is `name`; `updated` and `created` use stable name and Page ID tie-breaks, and `--reverse` reverses the
+complete selected order. `--limit` returns at most the requested positive number. `--long` includes
+all page metadata columns and the complete Page ID. Listing is read-only.
+
+Glob metacharacters are `*`, `?`, character classes such as `[A-Z]`, negated classes `[!0-9]` or
+`[^0-9]`, and backslash escape. Matching is ordinal, case-sensitive, and does not normalize
+Unicode. Quote wildcard patterns so the shell passes one unchanged argument:
+
+```bash
+mn ls 'project-*'
+mn ls "project-*"
+mn ls 'literal\*name'
+```
+
+In zsh, an unquoted wildcard with no filesystem match is rejected by the default `NOMATCH` behavior
+before `mn` starts. In bash, an unquoted wildcard that does match filesystem entries is expanded
+before `mn` starts. Quoting is therefore recommended in every shell. In zsh, `mn ls project\*`
+passes `project*`, while `mn ls "project\*"` preserves the backslash and asks Memoria Note to match
+a literal `*`. `noglob mn ls project*` is an occasional zsh alternative; changing shell-wide
+`NOMATCH` behavior is not recommended.
+
+If output has already begun when storage or cancellation fails, `ls` reports the number of pages
+already printed, identifies the output as incomplete, and exits with status `6`.
+
+### `find`
+
+```text
+mn find <keyword>... [--notebook <notebook>]
+    [--sort name|updated] [--limit <count>]
+    [--case-sensitive] [--no-snippet]
+```
+
+Finds pages whose bodies contain every literal keyword. Keywords are split on Unicode whitespace
+and combined with AND. Text such as `AND`, `OR`, `*`, and quotes remains literal; shell quoting does
+not create a phrase. One- and two-scalar keywords are accepted. The default uses culture-independent
+ordinal case-insensitive comparison; `--case-sensitive` uses ordinal case-sensitive comparison.
+Neither mode applies Unicode normalization, diacritic removal, width or kana conversion, or word
+boundaries.
+
+The default sort is `name`, the default limit is `20`, and the maximum is `1000`. A result contains
+the complete Page ID and escaped page name on its first line. Unless `--no-snippet` is used, the
+second line contains a sanitized body window with matches marked by ASCII `[[` and `]]`:
+
+```text
+744ffba0-0000-0000-0000-000000000000 meeting-notes
+  discuss [[release]] readiness
+```
+
+Use the Page ID directly, avoiding ambiguity and shell interpretation of the name:
+
+```bash
+mn cat --id 744ffba0-0000-0000-0000-000000000000
+mn edit --id 744ffba0-0000-0000-0000-000000000000
+```
+
+Zero results are a successful invocation with no output. `find` searches page bodies; `ls` matches
+page names. Neither command searches multiple notebooks or provides a tag filter. A format `1`
+notebook produces migration guidance; an unknown newer format is rejected without assuming it can
+be migrated. Invalid queries return status `2`, storage or timeout before output returns `5`, and
+process cancellation returns `130`. A failure after one or more results reports incomplete output
+and returns `6`.
 
 ### `cat`
 
@@ -493,10 +573,10 @@ Archive v1 is a logical backup of every authoritative value in one notebook; it 
 SQLite file bytes. It is validated before publication and fully validated before a restore target
 is created. Checksums detect corruption but do not authenticate the archive's source.
 
-The initial release supports exactly archive format version `1`, content model version `1`, and
-source notebook format version `1`. Unknown version combinations are rejected instead of being
-interpreted as a nearby version. The normative layout and compatibility promise are in the
-[archive v1 format specification](archive/v1/format.md).
+The native `v0.3.0` tuple is archive format `1`, content model `2`, and source notebook format `2`.
+The legacy tuple `(1, 1, "1")` is read only by explicit migration. Mixed and unknown tuples are
+rejected rather than interpreted as a nearby version. The normative layout and compatibility
+matrix are in the [archive v1 specification](archive/v1/README.md).
 
 Use archive backup and restore when all notebook metadata and page values must round-trip. Use text
 export and import for human-readable page bodies or transfer through a flat directory; text
@@ -524,13 +604,13 @@ Start a new shell after changing the configuration. After updating Memoria Note,
 with the newly installed executable. To uninstall completion, remove `_mn`; remove the `fpath`
 entry as well if the directory is no longer used.
 
-Initial-release completion is static and supports zsh only. It completes command metadata, fixed
+Completion is static and supports zsh only. It completes command metadata, fixed
 values, and suitable file or directory arguments, but does not read notebooks or pages. Bash, fish,
 PowerShell, and dynamic data completion are not supported.
 
 ## Automation and the CLI process contract
 
-This section is the documentation source of truth for the initial release's process-level
+This section is the documentation source of truth for the release's process-level
 automation contract.
 
 ### Exit status
@@ -543,6 +623,7 @@ automation contract.
 | `3` | not found | Required file, directory, notebook, page, or configuration was not found |
 | `4` | conflict | Existing or ambiguous data prevents the requested operation |
 | `5` | storage | Filesystem, database, archive, editor, or other external I/O failure |
+| `6` | partial | A validated migration or streamed listing/search result is incomplete |
 | `130` | canceled | Process cancellation such as `Ctrl+C` |
 
 A non-affirmative answer to the delete prompt and a canceled config setup are user decisions, not
@@ -583,7 +664,7 @@ automation contract. Human-readable help, notifications, diagnostic sentences, t
 and whitespace are not a versioned machine-readable format and must not be parsed as an external
 application API.
 
-The initial release does not provide versioned JSON output, a batch protocol, or a REST API.
+The release does not provide general-purpose versioned JSON output, a batch protocol, or a REST API.
 
 ### Non-interactive commands
 
@@ -596,7 +677,7 @@ The initial release does not provide versioned JSON output, a batch protocol, or
 
 ## Migration from `configuration.json`
 
-`config.toml` is the only user configuration read by the initial release. Memoria Note does not
+`config.toml` is the only user configuration read by this release. Memoria Note does not
 migrate, read, validate, repair, rename, quarantine, or delete the previous
 `configuration.json`. The legacy file remains byte-for-byte unchanged and is ignored even when it
 is beside `config.toml`.

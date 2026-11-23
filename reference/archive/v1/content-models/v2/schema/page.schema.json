@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:memoria-note:archive:v1:content-model:v2:page",
-  "title": "MemoriaNote archive v1 content model v2 draft page record",
+  "title": "MemoriaNote archive v1 content model v2 page record",
   "type": "object",
   "additionalProperties": false,
   "required": [

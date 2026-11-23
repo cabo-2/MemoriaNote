@@ -4,7 +4,7 @@ Memoria Note is a lightweight, database-backed command-line notepad. It stores p
 notebook files inside a workspace and uses your preferred external editor to create and edit page
 content.
 
-The initial release provides self-contained archives for 64-bit Linux and Windows. A separate .NET
+The release provides self-contained archives for 64-bit Linux and Windows. A separate .NET
 runtime is not required.
 
 ## Install
@@ -21,13 +21,13 @@ together; `mn` depends on the managed and native libraries beside it.
 ### Linux
 
 Extract the archive into a versioned application directory and link the executable from a directory
-on `PATH`. For release `v0.2.1`:
+on `PATH`. For release `v0.3.0`:
 
 ```bash
-tar -xzf mn-v0.2.1-linux-x64.tar.gz
+tar -xzf mn-v0.3.0-linux-x64.tar.gz
 mkdir -p "$HOME/.local/lib/memoria-note" "$HOME/.local/bin"
-mv mn-v0.2.1-linux-x64 "$HOME/.local/lib/memoria-note/0.2.1"
-ln -s "$HOME/.local/lib/memoria-note/0.2.1/mn" "$HOME/.local/bin/mn"
+mv mn-v0.3.0-linux-x64 "$HOME/.local/lib/memoria-note/0.3.0"
+ln -s "$HOME/.local/lib/memoria-note/0.3.0/mn" "$HOME/.local/bin/mn"
 mn --version
 ```
 
@@ -35,8 +35,8 @@ Ensure `$HOME/.local/bin` is on `PATH` before running `mn`.
 
 ### Windows
 
-Extract `mn-v0.2.1-win-x64.zip` into a versioned directory such as
-`%LOCALAPPDATA%\Programs\MemoriaNote\0.2.1`, add that complete directory to the user `PATH`, open a
+Extract `mn-v0.3.0-win-x64.zip` into a versioned directory such as
+`%LOCALAPPDATA%\Programs\MemoriaNote\0.3.0`, add that complete directory to the user `PATH`, open a
 new terminal, and run:
 
 ```powershell
@@ -45,6 +45,12 @@ mn.exe --version
 
 See the [user guide](reference/user-guide.md#installation-update-and-uninstall) for checksum,
 update, rollback, and uninstall instructions.
+
+## Migrating format 1 notebooks
+
+Memoria Note `v0.3.0` changes the notebook format from `1` to `2`. Existing notebooks must be
+migrated to format `2` before use. See
+[Schema v1 to v2 migration](reference/migration/schema-v1-to-v2.md) for details.
 
 ## Quick start
 
@@ -63,6 +69,7 @@ Create, list, read, and edit a page:
 ```bash
 mn new meeting-notes
 mn ls
+mn find meeting
 mn cat meeting-notes
 mn edit meeting-notes
 ```
@@ -94,7 +101,9 @@ Restart zsh after changing the file. Regenerate `_mn` whenever `mn` is updated.
 
 - [User guide](reference/user-guide.md): concepts, every command, operations, migration, recovery,
   troubleshooting, and the CLI process contract
-- [Archive v1 format](reference/archive/v1/format.md): normative backup and restore format
+- [Notebook schema v2](reference/notebook/v2/schema.md): format identity, DDL, values, and derived-data boundary
+- [Archive v1 format](reference/archive/v1/README.md): common container and CM1/CM2 compatibility
+- [Schema v1 to v2 migration](reference/migration/schema-v1-to-v2.md): upgrade, loss review, and rollback
 - [Release artifact verification](reference/release/artifact-verification.md): maintainer release
   checklist
 
@@ -112,10 +121,10 @@ dotnet test MemoriaNote.sln --no-build
 ```
 
 Repository builds are development builds and display a version such as
-`0.2.1-dev+1a2b3c4`. Release archives display the corresponding release version without the
+`0.3.0-dev+1a2b3c4`. Release archives display the corresponding release version without the
 development suffix.
 
-## Initial-release limits
+## Release limits
 
 - Supported release artifacts are `linux-x64` and `win-x64` self-contained archives.
 - macOS, Arm, framework-dependent, single-file, Native AOT, trimmed, and ReadyToRun distributions

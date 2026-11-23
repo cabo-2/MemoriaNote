@@ -16,6 +16,8 @@ public sealed class ArchiveV1CodecTests
         "reference",
         "archive",
         "v1",
+        "content-models",
+        "v1",
         "examples");
 
     /// <summary>Verifies canonical serialization and streaming round-trip behavior.</summary>

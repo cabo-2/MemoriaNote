@@ -19,7 +19,9 @@ public sealed class ArchiveV1ContentModel2ServiceTests
         TestContext.CurrentContext.TestDirectory,
         "reference",
         "archive",
-        "v1-content-model-v2",
+        "v1",
+        "content-models",
+        "v2",
         "examples",
         "compatibility",
         "full-field");

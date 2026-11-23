@@ -1,21 +1,25 @@
-# MemoriaNote archive v1 format specification
+# MemoriaNote archive v1 content model version 1
 
 - format identifier: `memoria-note-archive`
 - archive format version: `1`
 - content model version: `1`
-- specification status: NCLI-400 format baseline
-- last updated: 2026-10-20
+- source notebook format version: `1`
+- specification revision: `1`
+- specification status: released legacy migration input contract
+- last updated: 2026-11-22
 
 ## 1. Purpose and compatibility promise
 
-Archive v1 is a logical backup of one MemoriaNote notebook. It preserves every authoritative value in the current
-`Metadata` and `Pages` tables without depending on the current persistence entities. It is not a copy of a SQLite
-database file. The authoritative database tables and derived-data boundary for source format `1` are defined by the
-[notebook database schema v1 specification](../../notebook/v1/schema.md).
+This document defines content model version `1` for the common
+[archive format version 1 container](../../README.md). It preserves every
+authoritative value from a notebook format `1` source without depending on
+SQLite file bytes. The source contract is defined by the
+[notebook database schema v1 specification](../../../../notebook/v1/schema.md).
 
-Once published, the tuple of archive format version `1` and content model version `1` remains readable even if the
-application model or database schema changes. A reader must accept only version combinations listed in its explicit
-compatibility matrix. It must not interpret an unknown version as the nearest known version.
+The published tuple `(1, 1, "1")` retains its original meaning. Memoria Note
+`v0.3.0` reads it only through `notebooks migrate`; normal restore accepts CM2.
+Applications released before the schema v2 cutover may retain their original
+CM1 backup and restore behavior.
 
 Archive v1 is intended for data portability and migration. Its checksums detect corruption and incomplete output;
 they are not digital signatures and do not establish the origin or authenticity of an archive.
@@ -216,11 +220,12 @@ the entire pages data set in memory.
 
 ## 9. Version compatibility matrix
 
-The initial writer and reader support exactly this tuple:
+The tuple is fixed, while application operations vary by release:
 
-| Archive format | Content model | Source notebook format | Write | Read | Restore target |
-| ---: | ---: | --- | --- | --- | --- |
-| `1` | `1` | `1` | yes | yes | current schema, format `1` |
+| Application | Write CM1 | Read CM1 | Operation or target |
+| --- | --- | --- | --- |
+| `v0.2.x` | yes | yes | Native backup and restore to format `1` |
+| `v0.3.0` | no | yes | Explicit migration to a new format `2` notebook |
 
 An unsupported value in any version field produces an unsupported-version result, not a malformed-JSON result. A
 future implementation may add a tuple only after defining its transformation and tests. Adding a new tuple does not
@@ -265,20 +270,27 @@ An archive v1 writer:
 The writer emits metadata rows in ordinal key order and pages in ascending rowid order. This canonical writer order is
 not a promise that a restored database will have identical physical row placement or identical SQLite bytes.
 
-## 12. Restore equivalence
+## 12. Preservation and migration boundary
 
-Restore equivalence means comparing source and restored authoritative tables in primary-key order:
+The original CM1 restore equivalence compares source and restored authoritative
+tables in primary-key order:
 
 - every `Metadata.Key` and `Metadata.Value`, including null;
 - every listed `Pages` column, including text representation and null.
 
-SQLite file bytes, physical row layout, `sqlite_sequence`, `Contents`, FTS internals, triggers, indexes, and EF migration
-history are not copied values. The restore target creates the current schema normally, inserts authoritative values,
-rebuilds `Contents` and FTS, and verifies them before publishing the new `.mnote` file.
+SQLite file bytes, physical row layout, `sqlite_sequence`, `Contents`, FTS
+internals, triggers, indexes, and EF migration history are not copied values.
+
+The `v0.3.0` migration operation is intentionally not CM1 restore equivalence.
+It converts representable authoritative values to format `2`, drops or reports
+legacy-only values, and may publish a validated partial result. The exact
+allowlist, loss, warnings, and rollback behavior are defined by the
+[schema v1 to v2 migration guide](../../../../migration/schema-v1-to-v2.md).
 
 ## 13. Schemas and examples
 
-- [Notebook database schema v1](../../notebook/v1/schema.md)
+- [Archive format version 1 common contract](../../README.md)
+- [Notebook database schema v1](../../../../notebook/v1/schema.md)
 - [Manifest JSON Schema](schema/manifest.schema.json)
 - [Metadata JSON Schema](schema/metadata.schema.json)
 - [Page record JSON Schema](schema/page.schema.json)
