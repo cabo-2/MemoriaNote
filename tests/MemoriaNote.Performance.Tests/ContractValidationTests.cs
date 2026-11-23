@@ -24,7 +24,7 @@ public sealed class ContractValidationTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(manifests, Has.Count.EqualTo(4));
+            Assert.That(manifests, Has.Count.EqualTo(5));
             Assert.That(manifests, Has.All.Property("SchemaVersion").EqualTo("1"));
             Assert.That(
                 manifests.SelectMany(manifest => manifest.Scenarios)
@@ -39,6 +39,15 @@ public sealed class ContractValidationTests
                     .Select(scenario => scenario.ScenarioId),
                 Does.Contain(
                     "ls-pages-10000.mdn-translated-content-ja.extracted-archive"));
+            Assert.That(
+                manifests.SelectMany(manifest => manifest.Scenarios)
+                    .Select(scenario => scenario.ScenarioId),
+                Does.Contain("ls-glob.synthetic-small.extracted-archive"));
+            Assert.That(
+                manifests.SelectMany(manifest => manifest.Scenarios)
+                    .Select(scenario => scenario.ScenarioId),
+                Does.Contain(
+                    "find-body-no-match-pages-10000.dotnet-docs-en.extracted-archive"));
             Assert.That(
                 manifests.SelectMany(manifest => manifest.Scenarios),
                 Has.All.Property("MeasurementCount").GreaterThanOrEqualTo(20));
@@ -153,7 +162,8 @@ public sealed class ContractValidationTests
 
         var scenarioManifest = await ContractLoader.ReadScenarioManifestAsync(scenarioPath);
         var datasetManifest = await ContractLoader.ReadDatasetManifestAsync(datasetPath);
-        var scenario = scenarioManifest.Scenarios.Single();
+        var scenario = scenarioManifest.Scenarios.Single(candidate =>
+            candidate.ScenarioId.StartsWith("ls-pages-10000.", StringComparison.Ordinal));
         var scale = datasetManifest.Selection.Scales.Single(candidate =>
             candidate.ScaleId == scenario.ScaleId);
 

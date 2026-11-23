@@ -8,6 +8,9 @@
     <PerformanceTestTargetName>MemoriaNote.Performance.TestTarget</PerformanceTestTargetName>
     <PerformanceTestTargetName Condition="$([MSBuild]::IsOSPlatform('Windows'))">MemoriaNote.Performance.TestTarget.exe</PerformanceTestTargetName>
     <PerformanceTestTargetPath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../MemoriaNote.Performance.TestTarget/bin/$(Configuration)/$(TargetFramework)/$(PerformanceTestTargetName)'))</PerformanceTestTargetPath>
+    <CliExecutableName>mn</CliExecutableName>
+    <CliExecutableName Condition="$([MSBuild]::IsOSPlatform('Windows'))">mn.exe</CliExecutableName>
+    <CliExecutablePath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../../cli/bin/$(Configuration)/$(TargetFramework)/$(CliExecutableName)'))</CliExecutablePath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,8 +32,10 @@
 
   <ItemGroup>
     <ProjectReference Include="../../tools/MemoriaNote.Performance/MemoriaNote.Performance.csproj" />
+    <ProjectReference Include="../../cli/mn.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="../MemoriaNote.Performance.TestTarget/MemoriaNote.Performance.TestTarget.csproj"
                       ReferenceOutputAssembly="false" />
     <AssemblyMetadata Include="PerformanceTestTargetPath" Value="$(PerformanceTestTargetPath)" />
+    <AssemblyMetadata Include="CliExecutablePath" Value="$(CliExecutablePath)" />
   </ItemGroup>
 </Project>

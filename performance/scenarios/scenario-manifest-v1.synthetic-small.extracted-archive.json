@@ -1,0 +1,147 @@
+{
+  "schemaVersion": "1",
+  "scenarios": [
+    {
+      "scenarioId": "ls-glob.synthetic-small.extracted-archive",
+      "scenarioVersion": "1",
+      "description": "Matches a deterministic page-name prefix in the two-page synthetic notebook.",
+      "availability": ["phase-11", "phase-12"],
+      "artifactInputKind": "extracted-archive",
+      "datasetId": "synthetic-small",
+      "scaleId": "tiny-2",
+      "cacheMode": "warm-reopen",
+      "arrange": [
+        {
+          "command": {
+            "arguments": ["--workspace", "{workspace}", "create", "benchmark"],
+            "workingDirectory": "{working}",
+            "environment": {}
+          },
+          "expected": {
+            "exitCode": 0,
+            "standardOutputContains": ["benchmark.mnote"],
+            "standardErrorContains": [],
+            "standardOutputEmpty": false,
+            "standardErrorEmpty": true
+          }
+        },
+        {
+          "command": {
+            "arguments": [
+              "--workspace",
+              "{workspace}",
+              "notebooks",
+              "import",
+              "{dataset}",
+              "--notebook",
+              "benchmark"
+            ],
+            "workingDirectory": "{working}",
+            "environment": {}
+          },
+          "expected": {
+            "exitCode": 0,
+            "standardOutputContains": ["Import completed:", "created=2"],
+            "standardErrorContains": [],
+            "standardOutputEmpty": false,
+            "standardErrorEmpty": true
+          }
+        }
+      ],
+      "command": {
+        "arguments": [
+          "--workspace",
+          "{workspace}",
+          "ls",
+          "english-*",
+          "--notebook",
+          "benchmark"
+        ],
+        "workingDirectory": "{working}",
+        "environment": {}
+      },
+      "expected": {
+        "exitCode": 0,
+        "standardOutputContains": ["english-note"],
+        "standardErrorContains": [],
+        "standardOutputEmpty": false,
+        "standardErrorEmpty": true
+      },
+      "warmupCount": 0,
+      "measurementCount": 20,
+      "timeoutMilliseconds": 10000,
+      "resetPolicy": "reuse-state"
+    },
+    {
+      "scenarioId": "find-body.synthetic-small.extracted-archive",
+      "scenarioVersion": "1",
+      "description": "Finds a deterministic body keyword in the two-page synthetic notebook.",
+      "availability": ["phase-11", "phase-12"],
+      "artifactInputKind": "extracted-archive",
+      "datasetId": "synthetic-small",
+      "scaleId": "tiny-2",
+      "cacheMode": "warm-reopen",
+      "arrange": [
+        {
+          "command": {
+            "arguments": ["--workspace", "{workspace}", "create", "benchmark"],
+            "workingDirectory": "{working}",
+            "environment": {}
+          },
+          "expected": {
+            "exitCode": 0,
+            "standardOutputContains": ["benchmark.mnote"],
+            "standardErrorContains": [],
+            "standardOutputEmpty": false,
+            "standardErrorEmpty": true
+          }
+        },
+        {
+          "command": {
+            "arguments": [
+              "--workspace",
+              "{workspace}",
+              "notebooks",
+              "import",
+              "{dataset}",
+              "--notebook",
+              "benchmark"
+            ],
+            "workingDirectory": "{working}",
+            "environment": {}
+          },
+          "expected": {
+            "exitCode": 0,
+            "standardOutputContains": ["Import completed:", "created=2"],
+            "standardErrorContains": [],
+            "standardOutputEmpty": false,
+            "standardErrorEmpty": true
+          }
+        }
+      ],
+      "command": {
+        "arguments": [
+          "--workspace",
+          "{workspace}",
+          "find",
+          "deterministic",
+          "--notebook",
+          "benchmark"
+        ],
+        "workingDirectory": "{working}",
+        "environment": {}
+      },
+      "expected": {
+        "exitCode": 0,
+        "standardOutputContains": ["english-note", "[[deterministic]]"],
+        "standardErrorContains": [],
+        "standardOutputEmpty": false,
+        "standardErrorEmpty": true
+      },
+      "warmupCount": 0,
+      "measurementCount": 20,
+      "timeoutMilliseconds": 10000,
+      "resetPolicy": "reuse-state"
+    }
+  ]
+}
