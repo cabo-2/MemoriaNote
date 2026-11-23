@@ -3,9 +3,9 @@
 - notebook format version: `2`
 - specification revision: `1`
 - release baseline: Memoria Note `v0.3.0`
-- release source commit: finalized after ECLI-1180 is merged
+- release source commit: `5f0f92a3a30acb8e44483e759ae6c3b5af7acb49`
 - canonical DDL SHA-256: `070a59ea2ce61f4cf128124014bc7cac9871bcf881833bce401bdb8ae120d97e`
-- last updated: 2026-11-22
+- last updated: 2026-11-23
 
 ## 1. Purpose and compatibility promise
 
@@ -72,7 +72,7 @@ does not introduce a derived FTS object.
 ## 4. Canonical DDL
 
 The following UTF-8 text, including its final LF, is the fixed DDL embedded in
-the `v0.3.0` release candidate. Its SHA-256 is recorded in the header.
+the `v0.3.0` release source. Its SHA-256 is recorded in the header.
 
 ```sql
 PRAGMA application_id = 1782832723;
@@ -303,7 +303,7 @@ ECLI-1120a recorded the dual-index amendment, ECLI-1145a amended metadata, and
 ECLI-1180 selected the Scan-only release schema and removed both candidate FTS
 indexes.
 
-The canonical DDL hash above is the ECLI-1180 release-candidate value. The
-final ECLI-1180 squash commit is recorded here after that PR is merged and
-before ECLI-1190 is merged. Supporting implementation resources and tests are
-not public format extensions; they provide traceability to this contract.
+The canonical DDL hash above is the ECLI-1180 production value. The ECLI-1180
+squash commit is `5f0f92a3a30acb8e44483e759ae6c3b5af7acb49`. Supporting
+implementation resources and tests are not public format extensions; they
+provide traceability to this contract.
