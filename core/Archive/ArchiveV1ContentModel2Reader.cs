@@ -76,7 +76,7 @@ public sealed class ArchiveV1ContentModel2Reader
         {
             using var archive = new ZipArchive(input, ZipArchiveMode.Read, leaveOpen: true);
             var entries = archive.Entries.ToArray();
-            var classification = Classify(entries);
+            var classification = ArchiveV1ContainerClassifier.Classify(entries);
             if (classification != ArchiveV1Classification.ArchiveV1)
             {
                 issues.Add(Issue(
@@ -138,21 +138,6 @@ public sealed class ArchiveV1ContentModel2Reader
             issues.Add(Issue(ArchiveV1IssueCode.MalformedZip, "$archive"));
             return Report(ArchiveV1Classification.MalformedZip, issues);
         }
-    }
-
-    private static ArchiveV1Classification Classify(IReadOnlyList<ZipArchiveEntry> entries)
-    {
-        if (entries.Any(entry => entry.FullName == ArchiveV1Format.ManifestEntryName))
-            return ArchiveV1Classification.ArchiveV1;
-        var metadata = entries.Count(entry => entry.FullName == ArchiveV1Format.MetadataEntryName);
-        var remaining = entries.Where(entry => entry.FullName != ArchiveV1Format.MetadataEntryName);
-        if (metadata == 1 && remaining.All(entry =>
-                entry.Name == entry.FullName &&
-                entry.FullName.EndsWith(".json", StringComparison.Ordinal)))
-        {
-            return ArchiveV1Classification.LegacyArchiveCandidate;
-        }
-        return ArchiveV1Classification.UnrecognizedZip;
     }
 
     private static void ValidateContainer(
@@ -271,7 +256,13 @@ public sealed class ArchiveV1ContentModel2Reader
                  contentVersion != ArchiveV1ContentModel2Format.ContentModelVersion ||
                  sourceVersion != ArchiveV1ContentModel2Format.SourceNotebookFormatVersion))
             {
-                issues.Add(Issue(ArchiveV1IssueCode.UnsupportedVersion, "manifest.json"));
+                var issueCode = format == ArchiveV1Format.FormatIdentifier &&
+                    archiveVersion == ArchiveV1Format.ArchiveFormatVersion &&
+                    contentVersion == ArchiveV1Format.ContentModelVersion &&
+                    sourceVersion == ArchiveV1Format.SupportedSourceNotebookFormatVersion
+                        ? ArchiveV1IssueCode.LegacyContentModelUnsupported
+                        : ArchiveV1IssueCode.UnsupportedVersion;
+                issues.Add(Issue(issueCode, "manifest.json"));
             }
             if (createdAt is not null && !ArchiveV1Format.IsValidCreatedAt(createdAt))
                 InvalidValue(issues, "manifest.json.createdAtUtc", "canonical UTC timestamp");

@@ -101,7 +101,7 @@ public sealed class NotebookExportIntegrationTests
         }
     }
 
-    /// <summary>Verifies duplicate names can be exported with stable full Page ID suffixes.</summary>
+    /// <summary>Verifies portable path collisions use stable full Page ID suffixes.</summary>
     [Test]
     public async Task Export_IdSuffixPolicy_ExportsEveryDuplicatePage()
     {
@@ -110,7 +110,7 @@ public sealed class NotebookExportIntegrationTests
         var repository = CreatePageRepository();
         var first = await repository.CreatePageAsync(
             notebookPath,
-            "Daily",
+            "daily",
             "first",
             null,
             CancellationToken.None);
@@ -122,7 +122,6 @@ public sealed class NotebookExportIntegrationTests
             CancellationToken.None);
         var destination = Path.Combine(harness.TemporaryDirectory, "duplicate-export");
 
-        var failed = await harness.RunAsync("notebooks", "export", destination);
         var succeeded = await harness.RunAsync(
             "notebooks",
             "export",
@@ -130,13 +129,14 @@ public sealed class NotebookExportIntegrationTests
             "--name-conflict",
             "id-suffix");
 
-        var firstName = "Daily~id~" + first.Guid.ToString("D").ToLowerInvariant() + ".txt";
-        var secondName = "Daily~id~" + second.Guid.ToString("D").ToLowerInvariant() + ".txt";
+        var firstName = OperatingSystem.IsWindows()
+            ? "daily~id~" + first.Guid.ToString("D").ToLowerInvariant() + ".txt"
+            : "daily.txt";
+        var secondName = OperatingSystem.IsWindows()
+            ? "Daily~id~" + second.Guid.ToString("D").ToLowerInvariant() + ".txt"
+            : "Daily.txt";
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(failed.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
-            Assert.That(failed.StandardOutput, Is.Empty);
-            Assert.That(failed.StandardError, Does.Contain("unique, safe file paths"));
             Assert.That(succeeded.ExitCode, Is.Zero, succeeded.StandardError);
             Assert.That(succeeded.StandardOutput, Does.Contain("exported=2"));
             Assert.That(await File.ReadAllTextAsync(Path.Combine(destination, firstName)), Is.EqualTo("first"));
@@ -201,9 +201,8 @@ public sealed class NotebookExportIntegrationTests
         return Path.Combine(harness.WorkingDirectory, name + ".mnote");
     }
 
-    static SqlitePageRepository CreatePageRepository()
+    static SchemaV2TestPageRepository CreatePageRepository()
     {
-        return new SqlitePageRepository(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
+        return new SchemaV2TestPageRepository();
     }
 }

@@ -135,7 +135,10 @@ namespace MemoriaNote.Archive
         DuplicatePageName,
 
         /// <summary>Writer input is not in the canonical archive order.</summary>
-        NonCanonicalOrder
+        NonCanonicalOrder,
+
+        /// <summary>The input is the exact archive v1 content model 1 migration format.</summary>
+        LegacyContentModelUnsupported
     }
 
     /// <summary>Describes one archive validation problem without presentation-specific wording.</summary>

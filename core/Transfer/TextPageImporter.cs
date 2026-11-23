@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using MemoriaNote.Application;
 using MemoriaNote.Persistence;
 
 namespace MemoriaNote.Transfer
@@ -19,25 +18,21 @@ namespace MemoriaNote.Transfer
 
         readonly ITextPageImportRepository _repository;
         readonly PageFileNameCodec _fileNameCodec;
-        readonly PageValidationPolicy _validationPolicy;
 
         /// <summary>Initializes a text page importer.</summary>
         public TextPageImporter(ITextPageImportRepository repository)
-            : this(repository, new PageFileNameCodec(), new PageValidationPolicy())
+            : this(repository, new PageFileNameCodec())
         {
         }
 
         /// <summary>Initializes a text page importer with explicit validation collaborators.</summary>
         public TextPageImporter(
             ITextPageImportRepository repository,
-            PageFileNameCodec fileNameCodec,
-            PageValidationPolicy validationPolicy)
+            PageFileNameCodec fileNameCodec)
         {
             _repository = repository ?? throw new ArgumentNullException(nameof(repository));
             _fileNameCodec = fileNameCodec ??
                 throw new ArgumentNullException(nameof(fileNameCodec));
-            _validationPolicy = validationPolicy ??
-                throw new ArgumentNullException(nameof(validationPolicy));
         }
 
         /// <summary>Preflights and atomically imports text files from a directory.</summary>
@@ -65,7 +60,7 @@ namespace MemoriaNote.Transfer
                     token.ThrowIfCancellationRequested();
                     var name = _fileNameCodec.Decode(
                         source.Name.Substring(0, source.Name.Length - 4));
-                    if (_validationPolicy.ValidateName(name).Count > 0)
+                    if (!IsValidPageName(name))
                     {
                         return TextPageImportResult.Failed(
                             TextPageImportErrorCode.InvalidPageName);
@@ -131,6 +126,17 @@ namespace MemoriaNote.Transfer
                 .OrderBy(file => file.Name, StringComparer.Ordinal)
                 .ToList()
                 .AsReadOnly();
+        }
+
+        static bool IsValidPageName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name) ||
+                !string.Equals(name, name.Trim(), StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return !name.Any(char.IsControl);
         }
     }
 }

@@ -36,6 +36,9 @@ public sealed class SchemaV2ContractBaselineTests
                 SchemaV2BaselineProvenance.MetadataContractAmendment,
                 Is.EqualTo("ECLI-1145a"));
             Assert.That(
+                SchemaV2BaselineProvenance.ReleaseSearchAmendment,
+                Is.EqualTo("ECLI-1180"));
+            Assert.That(
                 SchemaV2BaselineProvenance.InitialCanonicalDdlSha256,
                 Is.EqualTo("e641601efd21623b774b292aed3fe3b64aa1b14c6318de798d0d24e535140ef7"));
             Assert.That(
@@ -60,23 +63,12 @@ public sealed class SchemaV2ContractBaselineTests
         var authoritativeTables = ReadStringArray(
             root.GetProperty("authoritativeTables"));
         var derivedObjects = ReadStringArray(root.GetProperty("derivedObjects"));
-        var fts5Indexes = root.GetProperty("fts5Indexes")
-            .EnumerateArray()
-            .ToDictionary(
-                item => item.GetProperty("table").GetString()!,
-                item => new
-                {
-                    Tokenizer = item.GetProperty("tokenizer").GetString(),
-                    IndexedColumns = ReadStringArray(item.GetProperty("indexedColumns"))
-                },
-                StringComparer.Ordinal);
-
         using (Assert.EnterMultipleScope())
         {
             Assert.That(SchemaV2Format.SchemaId, Is.EqualTo("schema-v2"));
             Assert.That(
                 root.GetProperty("observationContractVersion").GetInt32(),
-                Is.EqualTo(3));
+                Is.EqualTo(4));
             Assert.That(
                 root.GetProperty("applicationId").GetInt32(),
                 Is.EqualTo(SchemaV2Format.ApplicationId));
@@ -92,27 +84,8 @@ public sealed class SchemaV2ContractBaselineTests
                 Is.EqualTo(new[] { "Metadata", "Pages" }));
             Assert.That(
                 derivedObjects,
-                Is.EqualTo(new[]
-                {
-                    "PageTags",
-                    "FtsIndexUnicode61",
-                    "FtsIndexTrigram"
-                }));
-            Assert.That(
-                fts5Indexes.Keys,
-                Is.EquivalentTo(new[] { "FtsIndexUnicode61", "FtsIndexTrigram" }));
-            Assert.That(
-                fts5Indexes["FtsIndexUnicode61"].Tokenizer,
-                Is.EqualTo("unicode61"));
-            Assert.That(
-                fts5Indexes["FtsIndexTrigram"].Tokenizer,
-                Is.EqualTo("trigram"));
-            Assert.That(
-                fts5Indexes["FtsIndexUnicode61"].IndexedColumns,
-                Is.EqualTo(new[] { "Name", "Text" }));
-            Assert.That(
-                fts5Indexes["FtsIndexTrigram"].IndexedColumns,
-                Is.EqualTo(new[] { "Name", "Text" }));
+                Is.EqualTo(new[] { "PageTags" }));
+            Assert.That(root.TryGetProperty("fts5Indexes", out _), Is.False);
             Assert.That(
                 root.GetProperty("metadataKeys")
                     .EnumerateArray()

@@ -16,7 +16,6 @@ internal interface IDatabaseExpectedContract
     IReadOnlyList<SchemaObjectContract> SchemaObjects { get; }
     IReadOnlyList<TableObservation> Tables { get; }
     IReadOnlyList<MigrationEntryObservation> AppliedMigrations { get; }
-    IReadOnlyList<Fts5Contract> Fts5Indexes { get; }
 }
 
 /// <summary>Defines one known metadata key and its stored-value constraints.</summary>
@@ -33,14 +32,6 @@ internal sealed record SchemaObjectContract(
     string Name,
     string TableName,
     string Origin);
-
-/// <summary>Defines the external-content FTS5 configuration.</summary>
-internal sealed record Fts5Contract(
-    string Table,
-    string ContentTable,
-    string ContentRowId,
-    string Tokenizer,
-    IReadOnlyList<string> IndexedColumns);
 
 /// <summary>Requires normalized SQL fragments on one schema object.</summary>
 internal sealed record SqlRequirementContract(

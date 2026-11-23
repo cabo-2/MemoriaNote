@@ -6,9 +6,7 @@ namespace MemoriaNote.Persistence.SchemaV2.Validation;
 /// <summary>Identifies a fixed Schema V2 derived index.</summary>
 internal enum SchemaV2DerivedIndexKind
 {
-    PageTags,
-    FtsUnicode61,
-    FtsTrigram
+    PageTags
 }
 
 /// <summary>Identifies a kind of derived-index content inconsistency.</summary>

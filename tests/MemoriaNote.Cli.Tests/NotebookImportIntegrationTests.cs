@@ -1,6 +1,5 @@
 using System.Text;
 using MemoriaNote.Cli.Tests.Infrastructure;
-using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
@@ -223,28 +222,22 @@ public sealed class NotebookImportIntegrationTests
         }
     }
 
-    /// <summary>Verifies a late replace ambiguity rolls back all planned creates.</summary>
+    /// <summary>Verifies replace commits a planned create and replacement atomically.</summary>
     [Test]
     public async Task Import_ReplaceAmbiguityAfterNewItem_CommitsNothing()
     {
         using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "atomic-replace");
         var repository = CreatePageRepository();
-        var first = await repository.CreatePageAsync(
+        var existing = await repository.CreatePageAsync(
             notebookPath,
-            "Z duplicate",
-            "first",
-            null!,
-            CancellationToken.None);
-        var second = await repository.CreatePageAsync(
-            notebookPath,
-            "Z duplicate",
-            "second",
+            "Z existing",
+            "original",
             null!,
             CancellationToken.None);
         var source = CreateSourceDirectory(harness, "atomic-replace-import");
         await File.WriteAllTextAsync(Path.Combine(source, "A new.txt"), "new");
-        await File.WriteAllTextAsync(Path.Combine(source, "Z duplicate.txt"), "replacement");
+        await File.WriteAllTextAsync(Path.Combine(source, "Z existing.txt"), "replacement");
 
         var result = await harness.RunAsync(
             "notebooks",
@@ -253,28 +246,23 @@ public sealed class NotebookImportIntegrationTests
             "--on-conflict",
             "replace");
 
-        var retainedFirst = await repository.FindPageAsync(
+        var replaced = await repository.FindPageAsync(
             notebookPath,
-            first.Guid,
-            CancellationToken.None);
-        var retainedSecond = await repository.FindPageAsync(
-            notebookPath,
-            second.Guid,
+            existing.Guid,
             CancellationToken.None);
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Conflict));
-            Assert.That(result.StandardOutput, Is.Empty);
-            Assert.That(result.StandardError, Does.Contain("exactly one existing page"));
-            Assert.That(retainedFirst?.Text, Is.EqualTo("first"));
-            Assert.That(retainedSecond?.Text, Is.EqualTo("second"));
+            Assert.That(result.ExitCode, Is.Zero, result.StandardError);
+            Assert.That(result.StandardOutput, Does.Contain("created=1"));
+            Assert.That(result.StandardOutput, Does.Contain("replaced=1"));
+            Assert.That(replaced?.Text, Is.EqualTo("replacement"));
             Assert.That(
                 await repository.FindPageAsync(
                     notebookPath,
                     "A new",
                     1,
                     CancellationToken.None),
-                Is.Null);
+                Is.Not.Null);
         }
     }
 
@@ -310,11 +298,9 @@ public sealed class NotebookImportIntegrationTests
     {
         using var harness = new CliInProcessHarness();
         var notebookPath = await CreateAndSelectNotebookAsync(harness, "read-only");
-        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        await new SqliteNotebookMetadataRepository(factory).UpdateAsync(
+        await SchemaV2TestNotebook.UpdateMetadataAsync(
             notebookPath,
-            new NotebookMetadataPatch().SetReadOnly(true),
-            CancellationToken.None);
+            new Dictionary<string, string?> { ["ReadOnly"] = "True" });
         var source = CreateSourceDirectory(harness, "read-only-import");
         await File.WriteAllTextAsync(Path.Combine(source, "Entry.txt"), "text");
 
@@ -423,9 +409,8 @@ public sealed class NotebookImportIntegrationTests
         return path;
     }
 
-    static SqlitePageRepository CreatePageRepository()
+    static SchemaV2TestPageRepository CreatePageRepository()
     {
-        return new SqlitePageRepository(
-            new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance));
+        return new SchemaV2TestPageRepository();
     }
 }

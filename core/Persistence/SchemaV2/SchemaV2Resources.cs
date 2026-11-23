@@ -16,12 +16,6 @@ internal static class SchemaV2Resources
     internal const string RebuildPageTagsResourceName =
         "MemoriaNote.Persistence.SchemaV2.Sql.rebuild-page-tags.sql";
 
-    internal const string RebuildFtsUnicode61ResourceName =
-        "MemoriaNote.Persistence.SchemaV2.Sql.rebuild-fts-unicode61.sql";
-
-    internal const string RebuildFtsTrigramResourceName =
-        "MemoriaNote.Persistence.SchemaV2.Sql.rebuild-fts-trigram.sql";
-
     private static readonly UTF8Encoding StrictUtf8 = new(
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
@@ -43,12 +37,6 @@ internal static class SchemaV2Resources
 
     internal static string ReadRebuildPageTags() =>
         ReadText(RebuildPageTagsResourceName);
-
-    internal static string ReadRebuildFtsUnicode61() =>
-        ReadText(RebuildFtsUnicode61ResourceName);
-
-    internal static string ReadRebuildFtsTrigram() =>
-        ReadText(RebuildFtsTrigramResourceName);
 
     private static string ReadText(string resourceName)
     {

@@ -74,12 +74,12 @@ namespace MemoriaNote.Cli
                         $"{CliMessage.Quote(destinationPath)}.");
                 }
 
-                var session = await _targetResolver.ResolveAsync(
+                await using var session = await _targetResolver.ResolveAsync(
                         workspaceOption,
                         notebookOption,
                         token)
                     .ConfigureAwait(false);
-                var sourcePath = session.Workspace.SelectedNotebook.DatabasePath;
+                var sourcePath = session.DatabasePath;
                 var result = await _exporter.ExportAsync(
                         new TextPageExportRequest(
                             NotebookId.FromDatabasePath(sourcePath),

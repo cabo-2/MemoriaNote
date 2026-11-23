@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
-using System.Text.Json;
 using MemoriaNote.Application;
 using MemoriaNote.Domain;
 
@@ -42,15 +41,31 @@ namespace MemoriaNote.Cli
             _standardError.WriteLine(value);
         }
 
-        public void WritePageList(IReadOnlyList<PageSummary> pages, bool longFormat)
+        public void WritePageList(
+            IReadOnlyList<PageListItem> pages,
+            bool longFormat,
+            bool includeHeader = true)
         {
             if (pages == null)
                 throw new ArgumentNullException(nameof(pages));
 
             if (longFormat)
-                WriteLongPageList(pages);
+                WriteLongPageList(pages, includeHeader);
             else
                 WriteNamePageList(pages);
+        }
+
+        public void WriteBodySearchHits(IReadOnlyList<BodySearchCommandHit> hits)
+        {
+            if (hits == null)
+                throw new ArgumentNullException(nameof(hits));
+
+            foreach (var hit in hits)
+            {
+                WriteLine($"{hit.PageId} {EscapeCell(hit.Name)}");
+                if (hit.Snippet != null)
+                    WriteLine($"  {FormatSnippet(hit.Snippet)}");
+            }
         }
 
         public void WriteWorkspaceNotebookList(
@@ -66,7 +81,7 @@ namespace MemoriaNote.Cli
                 WriteShortWorkspaceNotebookList(entries);
         }
 
-        void WriteNamePageList(IReadOnlyList<PageSummary> pages)
+        void WriteNamePageList(IReadOnlyList<PageListItem> pages)
         {
             foreach (var page in pages)
                 WriteLine(EscapeCell(page.Name));
@@ -110,41 +125,54 @@ namespace MemoriaNote.Cli
             WriteRows(rows);
         }
 
-        void WriteLongPageList(IReadOnlyList<PageSummary> pages)
+        void WriteLongPageList(
+            IReadOnlyList<PageListItem> pages,
+            bool includeHeader)
         {
             if (pages.Count == 0)
                 return;
 
-            var rows = new List<string[]>
+            var header = new[]
             {
-                new[]
-                {
-                    "IDX",
-                    "TYPE",
-                    "CREATED-UTC",
-                    "UPDATED-UTC",
-                    "ERASED",
-                    "TAGS",
-                    "PAGE-ID",
-                    "NAME"
-                }
+                "IDX",
+                "TYPE",
+                "CREATED-UTC",
+                "UPDATED-UTC",
+                "ERASED",
+                "TAGS",
+                "PAGE-ID",
+                "NAME"
             };
+            var widths = new[] { 3, 4, 28, 28, 6, 4, 36 };
+            if (includeHeader)
+                WriteRow(header, widths);
+
             foreach (var page in pages)
             {
-                rows.Add(new[]
+                WriteRow(new[]
                 {
-                    page.Index.ToString(CultureInfo.InvariantCulture),
-                    EscapeCell(page.ContentType),
-                    FormatUtc(page.CreateTime),
-                    FormatUtc(page.UpdateTime),
-                    page.IsErased ? "true" : "false",
-                    FormatTags(page.Tags),
+                    "1",
+                    "T",
+                    FormatUtc(page.CreateTimeUtc.UtcDateTime),
+                    FormatUtc(page.UpdateTimeUtc.UtcDateTime),
+                    "false",
+                    "{}",
                     page.PageId.ToString(),
                     EscapeCell(page.Name)
-                });
+                }, widths);
             }
+        }
 
-            WriteRows(rows);
+        void WriteRow(string[] row, int[] widths)
+        {
+            var buffer = new StringBuilder();
+            for (var column = 0; column < widths.Length; column++)
+            {
+                buffer.Append(row[column].PadRight(widths[column]));
+                buffer.Append(' ');
+            }
+            buffer.Append(row[^1]);
+            WriteLine(buffer.ToString());
         }
 
         void WriteRows(IReadOnlyList<string[]> rows)
@@ -201,12 +229,21 @@ namespace MemoriaNote.Cli
             return utc.ToString("O", CultureInfo.InvariantCulture);
         }
 
-        static string FormatTags(IReadOnlyDictionary<string, string> tags)
+        static string FormatSnippet(BodySearchCommandSnippet snippet)
         {
-            var ordered = new SortedDictionary<string, string>(StringComparer.Ordinal);
-            foreach (var tag in tags)
-                ordered.Add(tag.Key, tag.Value);
-            return JsonSerializer.Serialize(ordered);
+            var buffer = new StringBuilder(snippet.Text.Length +
+                (snippet.Matches.Count * 4));
+            var position = 0;
+            foreach (var match in snippet.Matches)
+            {
+                buffer.Append(snippet.Text, position, match.Start - position);
+                buffer.Append("[[");
+                buffer.Append(snippet.Text, match.Start, match.Length);
+                buffer.Append("]]");
+                position = match.Start + match.Length;
+            }
+            buffer.Append(snippet.Text, position, snippet.Text.Length - position);
+            return buffer.ToString();
         }
 
         static string EscapeCell(string value)

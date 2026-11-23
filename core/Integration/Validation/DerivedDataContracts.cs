@@ -9,13 +9,7 @@ namespace MemoriaNote.Integration.Validation;
 public enum DerivedDataKind
 {
     /// <summary>The tag index derived from authoritative page tags.</summary>
-    PageTags,
-
-    /// <summary>The comparison FTS5 index using the unicode61 tokenizer.</summary>
-    Fts5Unicode61,
-
-    /// <summary>The comparison FTS5 index using the trigram tokenizer.</summary>
-    Fts5Trigram
+    PageTags
 }
 
 /// <summary>Classifies one derived-data content inconsistency.</summary>

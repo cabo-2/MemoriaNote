@@ -127,6 +127,21 @@ public sealed class NotebookApplicationTests
                 titleQuery.Value!.Select(summary => summary.Name),
                 Is.EqualTo(new[] { "renamed" }));
 
+            var streamedTitleQuery = await session.Pages.StartPageQueryAsync(
+                new NotebookPageQueryRequest("*", limit: 1));
+            Assert.That(streamedTitleQuery.IsSuccess, Is.True);
+            await using (var querySession = streamedTitleQuery.Value!)
+            {
+                var batch = await querySession.ReadAsync();
+                using (Assert.EnterMultipleScope())
+                {
+                    Assert.That(batch.IsSuccess, Is.True);
+                    Assert.That(batch.Value!.Summaries, Has.Count.EqualTo(1));
+                    Assert.That(batch.Value.Summaries.Single().Name, Is.EqualTo("renamed"));
+                    Assert.That(batch.Value.IsCompleted, Is.True);
+                }
+            }
+
             var omittedPattern = await session.Pages.QuerySummariesAsync(
                 new NotebookPageQueryRequest());
             var explicitMatchAll = await session.Pages.QuerySummariesAsync(
@@ -304,8 +319,8 @@ public sealed class NotebookApplicationTests
             databasePath,
             "INSERT INTO Pages(PageId, Name, CreateTime, UpdateTime, Revision, Tags, Text) " +
             "VALUES ('11111111-1111-1111-1111-111111111111', 'page', " +
-            "'2026-11-01 00:00:00.0000000', '2026-11-01 00:00:00.0000000', 1, '[]', 'body'); " +
-            "DELETE FROM FtsIndexUnicode61;");
+            "'2026-11-01 00:00:00.0000000', '2026-11-01 00:00:00.0000000', 1, " +
+            "'[\"tag\"]', 'body'); DELETE FROM PageTags;");
 
         var result = await NotebookApplication.OpenAsync(
             new NotebookOpenRequest(databasePath));

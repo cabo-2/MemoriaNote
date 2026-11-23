@@ -31,8 +31,7 @@ public sealed class PageCommandIntegrationTests
         var createResult = await harness.RunAsync("new", "Roadmap");
 
         AssertSucceeded(createResult);
-        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        var repository = new SqlitePageRepository(factory);
+        var repository = new SchemaV2TestPageRepository();
         var pages = await repository.ListPagesByHeadingAsync(
             notebookPath,
             "Roadmap",
@@ -95,8 +94,7 @@ public sealed class PageCommandIntegrationTests
             Assert.That(result.StandardError, Does.Not.StartWith("Fatal:"));
         }
 
-        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        var repository = new SqlitePageRepository(factory);
+        var repository = new SchemaV2TestPageRepository();
         Assert.That(
             await repository.ListPagesByHeadingAsync(
                 Path.Combine(harness.WorkingDirectory, "work.mnote"),
@@ -121,8 +119,7 @@ public sealed class PageCommandIntegrationTests
         AssertSucceeded(await harness.RunAsync("use", "work"));
         AssertSucceeded(await harness.RunAsync("new", "Roadmap"));
 
-        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        var repository = new SqlitePageRepository(factory);
+        var repository = new SchemaV2TestPageRepository();
         var page = (await repository.ListPagesByHeadingAsync(
             notebookPath,
             "Roadmap",
@@ -148,7 +145,7 @@ public sealed class PageCommandIntegrationTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.StandardOutput, Does.Contain("Updated page"));
-            Assert.That(updated.Text, Is.EqualTo("Edited body"));
+            Assert.That(updated!.Text, Is.EqualTo("Edited body"));
             Assert.That(updated.Guid, Is.EqualTo(page.Guid));
         }
     }

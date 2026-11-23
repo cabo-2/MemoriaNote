@@ -1,6 +1,7 @@
 using MemoriaNote.Archive;
 using MemoriaNote.Cli.Tests.Infrastructure;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
 
 namespace MemoriaNote.Cli.Tests;
@@ -11,6 +12,30 @@ namespace MemoriaNote.Cli.Tests;
 [NonParallelizable]
 public sealed class NotebookMigrationIntegrationTests
 {
+    /// <summary>Verifies help fixes legacy inputs, safe output, and workspace behavior.</summary>
+    [Test]
+    public async Task Help_DescribesLegacyInputsAndWorkspaceSelection()
+    {
+        using var harness = new CliInProcessHarness();
+
+        var result = await harness.RunAsync("notebooks", "migrate", "--help");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero);
+            Assert.That(result.StandardOutput, Does.Contain(
+                "schema v1 notebook or CM1 archive"));
+            Assert.That(result.StandardOutput, Does.Contain("--output <notebook>"));
+            Assert.That(result.StandardOutput, Does.Contain("--resolution <file>"));
+            Assert.That(result.StandardOutput, Does.Contain("--dry-run"));
+            Assert.That(result.StandardOutput, Does.Contain("--report-level <level>"));
+            Assert.That(result.StandardOutput, Does.Contain(
+                "without modifying the source"));
+            Assert.That(result.StandardOutput, Does.Contain("mn use <notebook>"));
+            Assert.That(result.StandardError, Is.Empty);
+        }
+    }
+
     /// <summary>Verifies warning is the default report level and info entries remain hidden.</summary>
     [Test]
     public async Task Migrate_DefaultReportLevel_WritesWarningsAndSummary()
@@ -38,6 +63,49 @@ public sealed class NotebookMigrationIntegrationTests
                 "INFO indexes-dropped"));
             Assert.That(result.StandardOutput, Does.Contain(
                 "source-pages=2, migrated=2, skipped=0, renamed=1"));
+            Assert.That(File.Exists(destination), Is.True);
+        }
+    }
+
+    /// <summary>Verifies migration preserves rollback input and saved workspace selection.</summary>
+    [Test]
+    public async Task Migrate_SuccessPreservesSourceAndWorkspaceSelection()
+    {
+        using var harness = new CliInProcessHarness();
+        Assert.That((await harness.RunAsync("create", "current")).ExitCode, Is.Zero);
+        Assert.That((await harness.RunAsync("use", "current")).ExitCode, Is.Zero);
+        var configurationPath = Path.Combine(
+            harness.WorkingDirectory,
+            WorkspaceConfigurationStore.FileName);
+        var configurationBefore = await File.ReadAllBytesAsync(configurationPath);
+        var source = await CreateLegacySourceAsync(harness, "legacy.mnote");
+        InsertPage(
+            source,
+            1,
+            "11111111-1111-4111-8111-111111111111",
+            "Migrated",
+            1);
+        var sourceBefore = await harness.ReadDatabaseBytesAsync(source);
+        var destination = Path.Combine(harness.WorkingDirectory, "migrated.mnote");
+
+        var result = await harness.RunAsync(
+            "notebooks",
+            "migrate",
+            source,
+            "--output",
+            destination);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.Zero, result.StandardError);
+            Assert.That(result.StandardOutput, Does.Contain(
+                "Workspace selection was not changed"));
+            Assert.That(result.StandardOutput, Does.Contain("mn use <notebook>"));
+            Assert.That(result.StandardError, Is.Empty);
+            Assert.That(await harness.ReadDatabaseBytesAsync(source), Is.EqualTo(sourceBefore));
+            Assert.That(
+                await File.ReadAllBytesAsync(configurationPath),
+                Is.EqualTo(configurationBefore));
             Assert.That(File.Exists(destination), Is.True);
         }
     }
@@ -354,13 +422,17 @@ public sealed class NotebookMigrationIntegrationTests
         }
     }
 
-    private static async Task<string> CreateLegacySourceAsync(
+    private static Task<string> CreateLegacySourceAsync(
         CliInProcessHarness harness,
         string name)
     {
-        var created = await harness.RunAsync("create", name);
-        Assert.That(created.ExitCode, Is.Zero, created.StandardError);
-        return Path.Combine(harness.WorkingDirectory, name);
+        var path = Path.Combine(harness.WorkingDirectory, name);
+        using var legacy = new TemporaryNotebookDatabase();
+        legacy.CreateNotebook(
+            Path.GetFileNameWithoutExtension(name),
+            Path.GetFileNameWithoutExtension(name),
+            path);
+        return Task.FromResult(path);
     }
 
     private static async Task CreateCm1ArchiveAsync(

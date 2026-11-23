@@ -160,8 +160,6 @@ public sealed class NotebookValidationSession
             internalSelection |= candidate switch
             {
                 DerivedDataKind.PageTags => SchemaV2DerivedIndexSelection.PageTags,
-                DerivedDataKind.Fts5Unicode61 => SchemaV2DerivedIndexSelection.FtsUnicode61,
-                DerivedDataKind.Fts5Trigram => SchemaV2DerivedIndexSelection.FtsTrigram,
                 _ => throw new ArgumentOutOfRangeException(nameof(selection))
             };
         }
@@ -180,8 +178,6 @@ public sealed class NotebookValidationSession
                 issue.Index switch
                 {
                     SchemaV2DerivedIndexKind.PageTags => DerivedDataKind.PageTags,
-                    SchemaV2DerivedIndexKind.FtsUnicode61 => DerivedDataKind.Fts5Unicode61,
-                    SchemaV2DerivedIndexKind.FtsTrigram => DerivedDataKind.Fts5Trigram,
                     _ => throw new ArgumentOutOfRangeException(nameof(validation))
                 },
                 issue.Kind switch

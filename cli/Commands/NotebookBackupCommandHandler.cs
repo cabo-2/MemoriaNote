@@ -72,12 +72,12 @@ namespace MemoriaNote.Cli
                     }
                 }
 
-                var session = await _targetResolver.ResolveAsync(
+                await using var session = await _targetResolver.ResolveAsync(
                         workspaceOption,
                         notebookOption,
                         token)
                     .ConfigureAwait(false);
-                var sourcePath = session.Workspace.SelectedNotebook.DatabasePath;
+                var sourcePath = session.DatabasePath;
                 var result = writeToStandardOutput
                     ? await _backupService.BackupAsync(
                             new ArchiveV1StreamBackupRequest(

@@ -35,7 +35,9 @@ public sealed class PublicApiApprovalTests
         "NotebookBodySearchSort",
         "NotebookPage",
         "NotebookPageCreateRequest",
+        "NotebookPageQueryBatch",
         "NotebookPageQueryRequest",
+        "NotebookPageQuerySession",
         "NotebookPageQuerySort",
         "NotebookPageReplaceRequest",
         "NotebookPageSummary"
@@ -82,6 +84,31 @@ public sealed class PublicApiApprovalTests
         Assert.That(
             forbidden.Where(snapshot.Contains),
             Is.Empty);
+    }
+
+    /// <summary>Verifies the retired schema v1 facade and entity model are no longer exported.</summary>
+    [Test]
+    public void CoreAssembly_DoesNotExportRetiredSchemaV1Surface()
+    {
+        var retiredTypeNames = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "ApplicationComposition",
+            "ApplicationSession",
+            "IMemoriaNoteApplicationService",
+            "MemoriaNoteApplicationService",
+            "NotebookDbContext",
+            "SqliteNotebookDbContextFactory",
+            "SqlitePageRepository",
+            "Workspace"
+        };
+        var violations = typeof(CoreIntegrationContract).Assembly
+            .GetExportedTypes()
+            .Where(type => type.Namespace == "MemoriaNote.Models" ||
+                retiredTypeNames.Contains(type.Name))
+            .Select(type => type.FullName)
+            .ToArray();
+
+        Assert.That(violations, Is.Empty);
     }
 
     private static string CreateSnapshot()

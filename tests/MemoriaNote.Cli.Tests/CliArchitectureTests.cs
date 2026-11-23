@@ -73,6 +73,26 @@ public sealed class CliArchitectureTests
             () => string.Join(Environment.NewLine, violations));
     }
 
+    /// <summary>Verifies target resolution delegates authoritative validation to one open.</summary>
+    [Test]
+    public void NotebookTargetResolver_UsesOnlyApplicationOpenValidation()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var sourcePath = Path.Combine(
+            repositoryRoot,
+            "cli",
+            "Commands",
+            "NotebookTargetSessionResolver.cs");
+        var source = File.ReadAllText(sourcePath);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(source, Does.Contain("NotebookApplication.OpenAsync"));
+            Assert.That(source, Does.Not.Contain("ValidateCurrentAsync"));
+            Assert.That(source, Does.Not.Contain("INotebookFormatValidator"));
+        }
+    }
+
     /// <summary>Verifies that production and CLI test projects omit removed packages.</summary>
     [Test]
     public void Projects_DoNotReferenceRemovedPackages()

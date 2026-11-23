@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using McMaster.Extensions.CommandLineUtils;
+using MemoriaNote.Application;
 
 namespace MemoriaNote.Cli
 {
@@ -20,6 +21,7 @@ namespace MemoriaNote.Cli
         typeof(ConfigCommand),
         typeof(CompletionCommand),
         typeof(ListCommand),
+        typeof(FindCommand),
         typeof(CatCommand),
         typeof(RenameCommand),
         typeof(DeleteCommand))]
@@ -228,8 +230,9 @@ namespace MemoriaNote.Cli
 
             [Command(
                 "backup",
-                Description = "Create a validated archive v1 backup",
+                Description = "Create a validated archive v1/CM2 backup",
                 ExtendedHelpText =
+                    "Backs up a schema v2 notebook as archive v1 content model 2. " +
                     "Omit <archive> or use - to write the archive to redirected " +
                     "standard output.")]
             [HelpOption("--help")]
@@ -260,8 +263,10 @@ namespace MemoriaNote.Cli
 
             [Command(
                 "restore",
-                Description = "Restore a validated archive v1 to a new notebook",
+                Description = "Restore a validated archive v1/CM2 to schema v2",
                 ExtendedHelpText =
+                    "Restores archive v1 content model 2 to a new schema v2 notebook. " +
+                    "Use 'mn notebooks migrate' for content model 1 archives. " +
                     "Omit <archive> or use - to read the archive from redirected " +
                     "standard input.")]
             [HelpOption("--help")]
@@ -305,7 +310,11 @@ namespace MemoriaNote.Cli
 
             [Command(
                 "migrate",
-                Description = "Migrate a schema v1 notebook or CM1 archive to schema v2")]
+                Description = "Migrate a schema v1 notebook or CM1 archive to schema v2",
+                ExtendedHelpText =
+                    "Creates a new schema v2 notebook without modifying the source, " +
+                    "an existing destination, or workspace selection. To select the " +
+                    "result, keep it in the workspace root and run 'mn use <notebook>'.")]
             [HelpOption("--help")]
             class NotebooksMigrateCommand
             {
@@ -481,9 +490,6 @@ namespace MemoriaNote.Cli
                     Description = NotebookOptionDescription)]
                 public string Notebook { get; set; }
 
-                [Option("--name <value>", Description = "Set the notebook display name; use - for standard input")]
-                public string Name { get; set; }
-
                 [Option("--title <value>", Description = "Set the notebook display title; use - for standard input")]
                 public string Title { get; set; }
 
@@ -502,7 +508,6 @@ namespace MemoriaNote.Cli
                 protected ValidationResult OnValidate()
                 {
                     var updateCount = 0;
-                    if (Name != null) updateCount++;
                     if (Title != null) updateCount++;
                     if (Description != null) updateCount++;
                     if (Author != null) updateCount++;
@@ -530,7 +535,6 @@ namespace MemoriaNote.Cli
                     return CommandHandlers.NotebookMetadata.ExecuteAsync(
                         Parent?.WorkspacePath,
                         Notebook,
-                        Name,
                         Title,
                         Description,
                         Author,
@@ -774,14 +778,38 @@ namespace MemoriaNote.Cli
             }
         }
 
-        [Command("ls", Description = "List pages in stable page-name order")]
+        [Command(
+            "ls",
+            Description = "List pages or match page names with a MemoriaNote glob",
+            ExtendedHelpText =
+                "Patterns match the complete page name case-sensitively without " +
+                "Unicode normalization. Use *, ?, character classes such as " +
+                "[A-Z], negated classes [!0-9] or [^0-9], and backslash to " +
+                "escape a metacharacter. Quote patterns to prevent shell " +
+                "expansion, for example: mn ls 'project-*'.")]
         [HelpOption("--help")]
         class ListCommand : WorkspaceCommand
         {
+            [Argument(
+                0,
+                Name = "page-name-pattern",
+                Description = "Optional MemoriaNote glob matched against the complete page name")]
+            public (bool hasValue, string value) PageNamePattern { get; set; }
+
             [Option(
                 "--notebook <notebook>",
                 Description = NotebookOptionDescription)]
             public string Notebook { get; set; }
+
+            [Option(
+                "--sort <mode>",
+                Description = "Sort by name, updated, or created; default is name")]
+            public string Sort { get; set; }
+
+            [Option(
+                "-r|--reverse",
+                Description = "Reverse every key of the selected sort order")]
+            public bool Reverse { get; set; }
 
             [Option("--limit <count>", Description = "Return at most this many pages; must be positive")]
             public int? Limit { get; set; }
@@ -791,9 +819,15 @@ namespace MemoriaNote.Cli
 
             protected ValidationResult OnValidate()
             {
-                return Limit <= 0
-                    ? new ValidationResult("Limit must be greater than zero.")
-                    : ValidationResult.Success;
+                if (Limit <= 0)
+                    return new ValidationResult("Limit must be greater than zero.");
+                if (!PageListCommandParser.TryParseSort(Sort, out _))
+                {
+                    return new ValidationResult(
+                        "Sort must be name, updated, or created.");
+                }
+
+                return ValidationResult.Success;
             }
 
             protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
@@ -801,8 +835,94 @@ namespace MemoriaNote.Cli
                 return CommandHandlers.List.ExecuteAsync(
                     WorkspacePath,
                     Notebook,
+                    PageNamePattern.hasValue ? PageNamePattern.value : null,
+                    Sort,
+                    Reverse,
                     Limit,
                     Long,
+                    cancellationToken);
+            }
+        }
+
+        [Command(
+            "find",
+            Description = "Find pages whose bodies contain every literal keyword",
+            ExtendedHelpText =
+                "Keywords are split on Unicode whitespace and combined with literal " +
+                "AND. Operator-looking text such as AND, OR, *, and quotes is searched " +
+                "literally; shell quoting does not create a phrase. Searches are " +
+                "case-insensitive by default using ordinal comparison; use " +
+                "--case-sensitive for ordinal case-sensitive matching. One- and " +
+                "two-scalar keywords are accepted. Unicode normalization, diacritic " +
+                "removal, full-width or half-width conversion, kana conversion, and " +
+                "word boundaries are not applied. Matches in snippets are marked with " +
+                "[[ and ]]. Each result includes a complete Page ID that can be passed " +
+                "to commands such as 'mn cat --id <page-id>' or " +
+                "'mn edit --id <page-id>'.")]
+        [HelpOption("--help")]
+        class FindCommand : WorkspaceCommand
+        {
+            [Argument(
+                0,
+                Name = "keyword",
+                Description = "One or more literal body-search keywords")]
+            public string[] Keywords { get; set; }
+
+            [Option(
+                "--notebook <notebook>",
+                Description = NotebookOptionDescription)]
+            public string Notebook { get; set; }
+
+            [Option(
+                "--sort <mode>",
+                Description = "Sort by name or updated; default is name")]
+            public string Sort { get; set; }
+
+            [Option(
+                "--limit <count>",
+                Description = "Return at most this many results; default 20, maximum 1000")]
+            public int? Limit { get; set; }
+
+            [Option(
+                "--case-sensitive",
+                Description = "Use ordinal case-sensitive literal matching")]
+            public bool CaseSensitive { get; set; }
+
+            [Option(
+                "--no-snippet",
+                Description = "Omit the matched body snippet from each result")]
+            public bool NoSnippet { get; set; }
+
+            protected ValidationResult OnValidate()
+            {
+                if (Keywords == null || Keywords.Length == 0)
+                {
+                    return new ValidationResult(
+                        "At least one keyword is required. Use 'mn ls' to list pages " +
+                        "or match page names.");
+                }
+                if (Limit is <= 0 or > NotebookBodySearchRequest.MaximumLimit)
+                {
+                    return new ValidationResult(
+                        $"Limit must be between 1 and " +
+                        $"{NotebookBodySearchRequest.MaximumLimit}.");
+                }
+                if (!BodySearchCommandParser.TryParseSort(Sort, out _))
+                    return new ValidationResult("Sort must be name or updated.");
+
+                return ValidationResult.Success;
+            }
+
+            protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+            {
+                return CommandHandlers.Find.ExecuteAsync(
+                    WorkspacePath,
+                    Notebook,
+                    Keywords,
+                    Sort,
+                    Limit,
+                    CaseSensitive,
+                    NoSnippet,
                     cancellationToken);
             }
         }

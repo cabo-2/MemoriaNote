@@ -103,6 +103,13 @@ namespace MemoriaNote.Cli
                     $"Restore {(dryRun ? "validated" : "completed")}: " +
                     $"destination={Quote(destinationPath)}, " +
                     $"metadata={result.MetadataCount}, pages={result.PageCount}.");
+                if (!dryRun)
+                {
+                    _output.WriteLine(
+                        "Workspace selection was not changed. Run " +
+                        $"'mn --workspace {Quote(workspacePath)} use " +
+                        $"{Quote(targetFileName.Value)}' to select the restored notebook.");
+                }
                 return CliCommandResult.Success();
             }, cancellationToken);
         }

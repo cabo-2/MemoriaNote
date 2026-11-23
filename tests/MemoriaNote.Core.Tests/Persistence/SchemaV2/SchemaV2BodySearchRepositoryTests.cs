@@ -46,10 +46,6 @@ public sealed class SchemaV2BodySearchRepositoryTests
                 Is.EqualTo(new[] { "operators" }));
             Assert.That(await database.CountPagesAsync(), Is.EqualTo(3));
         }
-
-        await database.ExecuteAsync("DROP TABLE FtsIndexUnicode61;");
-        var withoutIndex = await SearchAsync(repository, database, "sqlite migration");
-        Assert.That(withoutIndex.Hits.Select(hit => hit.Name), Is.EqualTo(new[] { "both" }));
     }
 
     /// <summary>Verifies the default comparison folds ordinal case without normalizing text.</summary>

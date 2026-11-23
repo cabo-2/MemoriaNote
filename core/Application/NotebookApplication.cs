@@ -123,7 +123,8 @@ public static class NotebookApplication
                 "The notebook uses a legacy format and must be migrated before it can be opened."),
             NotebookFormatClassification.Unsupported => NotebookFailureFactory.Format(
                 "format.unsupported",
-                "The notebook uses an unsupported format version."),
+                $"The notebook uses unsupported format version " +
+                $"'{recognition.DetectedVersion ?? "unknown"}'."),
             NotebookFormatClassification.Corrupt => NotebookFailureFactory.Format(
                 "format.corrupt",
                 "The notebook format identity is corrupt or unrecognized."),

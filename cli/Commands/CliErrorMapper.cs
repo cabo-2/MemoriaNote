@@ -5,7 +5,6 @@ using System.Linq;
 using MemoriaNote.Cli.Editors;
 using MemoriaNote.Cli.UserConfig;
 using MemoriaNote.Persistence;
-using Microsoft.EntityFrameworkCore;
 
 namespace MemoriaNote.Cli
 {
@@ -148,9 +147,6 @@ namespace MemoriaNote.Cli
             {
                 return true;
             }
-
-            if (exception is DbUpdateException)
-                return true;
 
             return exception is AggregateException aggregateException &&
                 aggregateException.InnerExceptions.Count > 0 &&

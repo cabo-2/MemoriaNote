@@ -24,6 +24,7 @@ namespace MemoriaNote.Cli
             UserConfigEditorShowCommandHandler userConfigEditorShow,
             UserConfigEditorUnsetCommandHandler userConfigEditorUnset,
             ListCommandHandler list,
+            FindCommandHandler find,
             CatCommandHandler cat,
             RenamePageCommandHandler renamePage,
             DeletePageCommandHandler deletePage)
@@ -63,6 +64,7 @@ namespace MemoriaNote.Cli
             UserConfigEditorUnset = userConfigEditorUnset ??
                 throw new ArgumentNullException(nameof(userConfigEditorUnset));
             List = list ?? throw new ArgumentNullException(nameof(list));
+            Find = find ?? throw new ArgumentNullException(nameof(find));
             Cat = cat ?? throw new ArgumentNullException(nameof(cat));
             RenamePage = renamePage ??
                 throw new ArgumentNullException(nameof(renamePage));
@@ -107,6 +109,8 @@ namespace MemoriaNote.Cli
         internal UserConfigEditorUnsetCommandHandler UserConfigEditorUnset { get; }
 
         internal ListCommandHandler List { get; }
+
+        internal FindCommandHandler Find { get; }
 
         internal CatCommandHandler Cat { get; }
 

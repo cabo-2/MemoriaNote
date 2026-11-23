@@ -1,5 +1,4 @@
 using MemoriaNote.Cli.Tests.Infrastructure;
-using MemoriaNote.Models;
 using MemoriaNote.Persistence;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
@@ -88,10 +87,9 @@ public sealed class StatusIntegrationTests
         using var harness = new CliInProcessHarness();
         AssertSucceeded(await harness.RunAsync("create", "archive"));
         AssertSucceeded(await harness.RunAsync("use", "archive"));
-        await UpdateMetadataAsync(
-            harness,
-            "archive.mnote",
-            new NotebookMetadataPatch().SetReadOnly(true));
+        await SchemaV2TestNotebook.UpdateMetadataAsync(
+            Path.Combine(harness.WorkingDirectory, "archive.mnote"),
+            new Dictionary<string, string?> { ["ReadOnly"] = "True" });
 
         var result = await harness.RunAsync("status");
 
@@ -140,10 +138,9 @@ public sealed class StatusIntegrationTests
         else
         {
             AssertSucceeded(await harness.RunAsync("create", "broken"));
-            await UpdateMetadataAsync(
-                harness,
-                "broken.mnote",
-                new NotebookMetadataPatch().SetVersion(version));
+            await SchemaV2TestNotebook.SetUserVersionAsync(
+                Path.Combine(harness.WorkingDirectory, "broken.mnote"),
+                int.Parse(version));
         }
         await File.WriteAllTextAsync(
             WorkspaceConfigurationPath(harness),
@@ -166,10 +163,9 @@ public sealed class StatusIntegrationTests
         using var harness = new CliInProcessHarness();
         AssertSucceeded(await harness.RunAsync("create", "future"));
         AssertSucceeded(await harness.RunAsync("use", "future"));
-        await UpdateMetadataAsync(
-            harness,
-            "future.mnote",
-            new NotebookMetadataPatch().SetVersion("2"));
+        await SchemaV2TestNotebook.SetUserVersionAsync(
+            Path.Combine(harness.WorkingDirectory, "future.mnote"),
+            3);
 
         var result = await harness.RunAsync("status");
 
@@ -178,7 +174,7 @@ public sealed class StatusIntegrationTests
             Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
             Assert.That(result.StandardOutput, Does.Contain("Location:  /future"));
             Assert.That(result.StandardOutput, Does.Contain("Status:    unsupported"));
-            Assert.That(result.StandardOutput, Does.Contain("version \"2\""));
+            Assert.That(result.StandardOutput, Does.Contain("version \"3\""));
             Assert.That(result.StandardError, Is.Empty);
         }
     }
@@ -206,19 +202,6 @@ public sealed class StatusIntegrationTests
             Assert.That(result.StandardError, Is.Empty);
             Assert.That(await File.ReadAllTextAsync(configurationPath), Is.EqualTo(content));
         }
-    }
-
-    static async Task UpdateMetadataAsync(
-        CliInProcessHarness harness,
-        string notebookFileName,
-        NotebookMetadataPatch patch)
-    {
-        var factory = new SqliteNotebookDbContextFactory(NullLoggerFactory.Instance);
-        var repository = new SqliteNotebookMetadataRepository(factory);
-        await repository.UpdateAsync(
-            Path.Combine(harness.WorkingDirectory, notebookFileName),
-            patch,
-            CancellationToken.None);
     }
 
     static string WorkspaceConfigurationPath(CliInProcessHarness harness)
