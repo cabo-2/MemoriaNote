@@ -599,6 +599,10 @@ internal static class NotebookFailureFactory
             InvalidDataException => Format(
                 $"{operationCode}.invalid_data",
                 "The notebook contains invalid persisted data."),
+            NotebookRecognitionConcurrentChangeException => new NotebookFailure(
+                NotebookFailureCategory.AccessOrBusy,
+                $"{operationCode}.busy",
+                "The notebook changed while its format was being recognized."),
             UnauthorizedAccessException => new NotebookFailure(
                 NotebookFailureCategory.AccessOrBusy,
                 $"{operationCode}.access_denied",
