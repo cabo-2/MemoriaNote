@@ -191,8 +191,9 @@ namespace MemoriaNote.Cli
 
         [Command(
             "notebooks",
-            Description = "Inspect workspace-root notebooks")]
+            Description = "Inspect and maintain notebooks")]
         [Subcommand(typeof(NotebooksListCommand),
+                    typeof(NotebooksCheckCommand),
                     typeof(NotebooksBackupCommand),
                     typeof(NotebooksRestoreCommand),
                     typeof(NotebooksMigrateCommand),
@@ -206,6 +207,38 @@ namespace MemoriaNote.Cli
             {
                 app.ShowHelp();
                 return Task.FromResult((int)CliExitCode.Success);
+            }
+
+            [Command(
+                "check",
+                Description = "Check a schema v2 notebook without changing it",
+                ExtendedHelpText =
+                    "Checks format identity, schema, triggers, SQLite integrity, " +
+                    "authoritative values, and derived data. The source path is " +
+                    "resolved from the current directory and workspace selection " +
+                    "is not changed.")]
+            [HelpOption("--help")]
+            class NotebooksCheckCommand
+            {
+                [Argument(
+                    0,
+                    Name = "source",
+                    Description = "Existing schema v2 notebook file")]
+                public (bool hasValue, string value) Source { get; set; }
+
+                protected ValidationResult OnValidate()
+                {
+                    return !Source.hasValue || string.IsNullOrWhiteSpace(Source.value)
+                        ? new ValidationResult("Specify a notebook source file.")
+                        : ValidationResult.Success;
+                }
+
+                protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+                {
+                    return CommandHandlers.NotebookCheck.ExecuteAsync(
+                        Source.value,
+                        cancellationToken);
+                }
             }
 
             [Command(

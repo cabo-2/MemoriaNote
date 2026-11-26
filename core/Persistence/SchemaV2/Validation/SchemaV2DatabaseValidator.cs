@@ -14,6 +14,7 @@ namespace MemoriaNote.Persistence.SchemaV2.Validation;
 /// <summary>Validates Schema V2 databases without repairing or changing them.</summary>
 internal static class SchemaV2DatabaseValidator
 {
+    private const int BusyTimeoutSeconds = 30;
     private const string TimestampFormat = "yyyy-MM-dd HH:mm:ss.fffffff";
 
     /// <summary>Runs the layered Schema V2 validation contract against an existing database.</summary>
@@ -50,42 +51,61 @@ internal static class SchemaV2DatabaseValidator
 
         var contract = await SchemaV2ExpectedContract.LoadEmbeddedAsync(cancellationToken)
             .ConfigureAwait(false);
-        var observation = await DatabaseSchemaInspector
-            .InspectAsync(databasePath, cancellationToken)
+        await using var connection = await SqliteConnectionFactory.OpenAsync(
+                databasePath,
+                SqliteOpenMode.ReadOnly,
+                cancellationToken)
             .ConfigureAwait(false);
+        connection.DefaultTimeout = BusyTimeoutSeconds;
+        await using var transaction = connection.BeginTransaction(deferred: true);
+        try
+        {
+            var observation = await DatabaseSchemaInspector
+                .InspectAsync(connection, transaction, cancellationToken)
+                .ConfigureAwait(false);
 
-        var identityIssues = ValidateIdentity(contract, observation);
-        var schemaIssues = SchemaV2ContractValidator.ValidateSchema(contract, observation);
-        var integrityIssues = await ValidateIntegrityAsync(databasePath, cancellationToken)
-            .ConfigureAwait(false);
-
-        var authoritativeValues = schemaIssues.Count == 0 && integrityIssues.Count == 0
-            ? SchemaV2ValidationLayerResult.Evaluated(
-                await ValidateAuthoritativeValuesAsync(
-                        databasePath,
-                        contract,
-                        observation,
-                        cancellationToken)
-                    .ConfigureAwait(false))
-            : SchemaV2ValidationLayerResult.NotEvaluated;
-
-        var derivedData = includeDerivedData &&
-                          schemaIssues.Count == 0 &&
-                          integrityIssues.Count == 0 &&
-                          authoritativeValues.IsValid
-            ? await SchemaV2DerivedDataValidator.ValidateAsync(
-                    databasePath,
-                    SchemaV2DerivedIndexSelection.PageTags,
+            var identityIssues = ValidateIdentity(contract, observation);
+            var schemaIssues = SchemaV2ContractValidator.ValidateSchema(contract, observation);
+            var integrityIssues = await ValidateIntegrityAsync(
+                    connection,
+                    transaction,
                     cancellationToken)
-                .ConfigureAwait(false)
-            : SchemaV2DerivedDataValidation.NotEvaluated;
+                .ConfigureAwait(false);
 
-        return new SchemaV2DatabaseValidation(
-            SchemaV2ValidationLayerResult.Evaluated(identityIssues),
-            SchemaV2ValidationLayerResult.Evaluated(schemaIssues),
-            SchemaV2ValidationLayerResult.Evaluated(integrityIssues),
-            authoritativeValues,
-            derivedData);
+            var authoritativeValues = schemaIssues.Count == 0 && integrityIssues.Count == 0
+                ? SchemaV2ValidationLayerResult.Evaluated(
+                    await ValidateAuthoritativeValuesAsync(
+                            connection,
+                            transaction,
+                            contract,
+                            observation,
+                            cancellationToken)
+                        .ConfigureAwait(false))
+                : SchemaV2ValidationLayerResult.NotEvaluated;
+
+            var derivedData = includeDerivedData &&
+                              schemaIssues.Count == 0 &&
+                              integrityIssues.Count == 0 &&
+                              authoritativeValues.IsValid
+                ? await SchemaV2DerivedDataValidator.ValidateAsync(
+                        connection,
+                        transaction,
+                        SchemaV2DerivedIndexSelection.PageTags,
+                        cancellationToken)
+                    .ConfigureAwait(false)
+                : SchemaV2DerivedDataValidation.NotEvaluated;
+
+            return new SchemaV2DatabaseValidation(
+                SchemaV2ValidationLayerResult.Evaluated(identityIssues),
+                SchemaV2ValidationLayerResult.Evaluated(schemaIssues),
+                SchemaV2ValidationLayerResult.Evaluated(integrityIssues),
+                authoritativeValues,
+                derivedData);
+        }
+        finally
+        {
+            await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+        }
     }
 
     private static IReadOnlyList<string> ValidateIdentity(
@@ -111,18 +131,15 @@ internal static class SchemaV2DatabaseValidator
     }
 
     private static async Task<IReadOnlyList<string>> ValidateIntegrityAsync(
-        string databasePath,
+        SqliteConnection connection,
+        SqliteTransaction transaction,
         CancellationToken cancellationToken)
     {
-        await using var connection = await SqliteConnectionFactory.OpenAsync(
-                databasePath,
-                SqliteOpenMode.ReadOnly,
-                cancellationToken)
-            .ConfigureAwait(false);
         var issues = new List<string>();
 
         await using (var command = connection.CreateCommand())
         {
+            command.Transaction = transaction;
             command.CommandText = "PRAGMA integrity_check;";
             await using var reader = await command.ExecuteReaderAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -136,6 +153,7 @@ internal static class SchemaV2DatabaseValidator
 
         await using (var command = connection.CreateCommand())
         {
+            command.Transaction = transaction;
             command.CommandText = "PRAGMA foreign_key_check;";
             await using var reader = await command.ExecuteReaderAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -157,7 +175,8 @@ internal static class SchemaV2DatabaseValidator
     }
 
     private static async Task<IReadOnlyList<string>> ValidateAuthoritativeValuesAsync(
-        string databasePath,
+        SqliteConnection connection,
+        SqliteTransaction transaction,
         SchemaV2ExpectedContract contract,
         DatabaseSchemaObservation observation,
         CancellationToken cancellationToken)
@@ -167,12 +186,8 @@ internal static class SchemaV2DatabaseValidator
             .ToList();
         ValidateMetadataCreateTime(observation, issues);
 
-        await using var connection = await SqliteConnectionFactory.OpenAsync(
-                databasePath,
-                SqliteOpenMode.ReadOnly,
-                cancellationToken)
-            .ConfigureAwait(false);
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = """
             SELECT InternalId, PageId, Name, CreateTime, UpdateTime, Revision, Tags
             FROM Pages
@@ -194,6 +209,7 @@ internal static class SchemaV2DatabaseValidator
 
         await AddDuplicateIssuesAsync(
                 connection,
+                transaction,
                 "PageId",
                 "Duplicate PageId",
                 issues,
@@ -201,6 +217,7 @@ internal static class SchemaV2DatabaseValidator
             .ConfigureAwait(false);
         await AddDuplicateIssuesAsync(
                 connection,
+                transaction,
                 "Name",
                 "Duplicate page Name",
                 issues,
@@ -307,12 +324,14 @@ internal static class SchemaV2DatabaseValidator
 
     private static async Task AddDuplicateIssuesAsync(
         SqliteConnection connection,
+        SqliteTransaction transaction,
         string column,
         string label,
         ICollection<string> issues,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = $"""
             SELECT {column}, COUNT(*)
             FROM Pages

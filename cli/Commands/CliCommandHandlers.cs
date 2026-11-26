@@ -9,6 +9,7 @@ namespace MemoriaNote.Cli
             UseNotebookCommandHandler useNotebook,
             StatusCommandHandler status,
             NotebookListCommandHandler notebookList,
+            NotebookCheckCommandHandler notebookCheck,
             NotebookBackupCommandHandler notebookBackup,
             NotebookRestoreCommandHandler notebookRestore,
             NotebookMigrationCommandHandler notebookMigration,
@@ -36,6 +37,8 @@ namespace MemoriaNote.Cli
             Status = status ?? throw new ArgumentNullException(nameof(status));
             NotebookList = notebookList ??
                 throw new ArgumentNullException(nameof(notebookList));
+            NotebookCheck = notebookCheck ??
+                throw new ArgumentNullException(nameof(notebookCheck));
             NotebookBackup = notebookBackup ??
                 throw new ArgumentNullException(nameof(notebookBackup));
             NotebookRestore = notebookRestore ??
@@ -79,6 +82,8 @@ namespace MemoriaNote.Cli
         internal StatusCommandHandler Status { get; }
 
         internal NotebookListCommandHandler NotebookList { get; }
+
+        internal NotebookCheckCommandHandler NotebookCheck { get; }
 
         internal NotebookBackupCommandHandler NotebookBackup { get; }
 

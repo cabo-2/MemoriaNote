@@ -21,7 +21,7 @@ internal static class SchemaV2DerivedDataValidator
 
         await using var connection = await SqliteConnectionFactory.OpenAsync(
                 databasePath,
-                SqliteOpenMode.ReadWrite,
+                SqliteOpenMode.ReadOnly,
                 cancellationToken)
             .ConfigureAwait(false);
         await using var transaction = connection.BeginTransaction(deferred: true);

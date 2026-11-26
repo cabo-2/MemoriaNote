@@ -36,18 +36,43 @@ internal static class DatabaseSchemaInspector
                 SqliteOpenMode.ReadOnly,
                 cancellationToken)
             .ConfigureAwait(false);
+        await using var transaction = connection.BeginTransaction(deferred: true);
+        try
+        {
+            return await InspectAsync(connection, transaction, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Records observable schema from an existing read snapshot.</summary>
+    internal static async Task<DatabaseSchemaObservation> InspectAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(transaction);
 
         var applicationId = await ReadPragmaInt32Async(
                 connection,
+                transaction,
                 "application_id",
                 cancellationToken)
             .ConfigureAwait(false);
         var userVersion = await ReadPragmaInt32Async(
                 connection,
+                transaction,
                 "user_version",
                 cancellationToken)
             .ConfigureAwait(false);
-        var rawObjects = await ReadSchemaObjectsAsync(connection, cancellationToken)
+        var rawObjects = await ReadSchemaObjectsAsync(
+                connection,
+                transaction,
+                cancellationToken)
             .ConfigureAwait(false);
         var objects = ClassifyObjects(rawObjects);
 
@@ -57,6 +82,7 @@ internal static class DatabaseSchemaInspector
         {
             tables.Add(await ReadTableAsync(
                     connection,
+                    transaction,
                     schemaObject.Name,
                     cancellationToken)
                 .ConfigureAwait(false));
@@ -64,12 +90,14 @@ internal static class DatabaseSchemaInspector
 
         var metadataTable = tables.SingleOrDefault(candidate => candidate.Name == "Metadata");
         var metadata = HasColumns(metadataTable, "Key", "Value")
-            ? await ReadMetadataAsync(connection, cancellationToken).ConfigureAwait(false)
+            ? await ReadMetadataAsync(connection, transaction, cancellationToken)
+                .ConfigureAwait(false)
             : Array.Empty<MetadataEntryObservation>();
         var migrationsTable = tables.SingleOrDefault(candidate =>
             candidate.Name == "__EFMigrationsHistory");
         var migrations = HasColumns(migrationsTable, "MigrationId", "ProductVersion")
-            ? await ReadMigrationsAsync(connection, cancellationToken).ConfigureAwait(false)
+            ? await ReadMigrationsAsync(connection, transaction, cancellationToken)
+                .ConfigureAwait(false)
             : Array.Empty<MigrationEntryObservation>();
 
         return new DatabaseSchemaObservation(
@@ -93,10 +121,12 @@ internal static class DatabaseSchemaInspector
 
     private static async Task<int> ReadPragmaInt32Async(
         SqliteConnection connection,
+        SqliteTransaction transaction,
         string pragmaName,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = $"PRAGMA {pragmaName};";
         var value = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         return Convert.ToInt32(value, CultureInfo.InvariantCulture);
@@ -104,9 +134,11 @@ internal static class DatabaseSchemaInspector
 
     private static async Task<IReadOnlyList<RawSchemaObject>> ReadSchemaObjectsAsync(
         SqliteConnection connection,
+        SqliteTransaction transaction,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = """
             SELECT type, name, tbl_name, sql
             FROM sqlite_schema
@@ -170,24 +202,39 @@ internal static class DatabaseSchemaInspector
 
     private static async Task<TableObservation> ReadTableAsync(
         SqliteConnection connection,
+        SqliteTransaction transaction,
         string tableName,
         CancellationToken cancellationToken)
     {
-        var columns = await ReadColumnsAsync(connection, tableName, cancellationToken)
+        var columns = await ReadColumnsAsync(
+                connection,
+                transaction,
+                tableName,
+                cancellationToken)
             .ConfigureAwait(false);
-        var foreignKeys = await ReadForeignKeysAsync(connection, tableName, cancellationToken)
+        var foreignKeys = await ReadForeignKeysAsync(
+                connection,
+                transaction,
+                tableName,
+                cancellationToken)
             .ConfigureAwait(false);
-        var indexes = await ReadIndexesAsync(connection, tableName, cancellationToken)
+        var indexes = await ReadIndexesAsync(
+                connection,
+                transaction,
+                tableName,
+                cancellationToken)
             .ConfigureAwait(false);
         return new TableObservation(tableName, columns, foreignKeys, indexes);
     }
 
     private static async Task<IReadOnlyList<ColumnObservation>> ReadColumnsAsync(
         SqliteConnection connection,
+        SqliteTransaction transaction,
         string tableName,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = $"PRAGMA table_xinfo({QuoteIdentifier(tableName)});";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -210,10 +257,12 @@ internal static class DatabaseSchemaInspector
 
     private static async Task<IReadOnlyList<ForeignKeyObservation>> ReadForeignKeysAsync(
         SqliteConnection connection,
+        SqliteTransaction transaction,
         string tableName,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = $"PRAGMA foreign_key_list({QuoteIdentifier(tableName)});";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -240,10 +289,12 @@ internal static class DatabaseSchemaInspector
 
     private static async Task<IReadOnlyList<IndexObservation>> ReadIndexesAsync(
         SqliteConnection connection,
+        SqliteTransaction transaction,
         string tableName,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = $"PRAGMA index_list({QuoteIdentifier(tableName)});";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -261,7 +312,11 @@ internal static class DatabaseSchemaInspector
         var indexes = new List<IndexObservation>();
         foreach (var header in headers.OrderBy(candidate => candidate.Name, StringComparer.Ordinal))
         {
-            var columns = await ReadIndexColumnsAsync(connection, header.Name, cancellationToken)
+            var columns = await ReadIndexColumnsAsync(
+                    connection,
+                    transaction,
+                    header.Name,
+                    cancellationToken)
                 .ConfigureAwait(false);
             indexes.Add(new IndexObservation(
                 header.Name,
@@ -276,10 +331,12 @@ internal static class DatabaseSchemaInspector
 
     private static async Task<IReadOnlyList<IndexColumnObservation>> ReadIndexColumnsAsync(
         SqliteConnection connection,
+        SqliteTransaction transaction,
         string indexName,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = $"PRAGMA index_xinfo({QuoteIdentifier(indexName)});";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -301,9 +358,11 @@ internal static class DatabaseSchemaInspector
 
     private static async Task<IReadOnlyList<MetadataEntryObservation>> ReadMetadataAsync(
         SqliteConnection connection,
+        SqliteTransaction transaction,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = "SELECT Key, Value FROM Metadata ORDER BY Key;";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -321,9 +380,11 @@ internal static class DatabaseSchemaInspector
 
     private static async Task<IReadOnlyList<MigrationEntryObservation>> ReadMigrationsAsync(
         SqliteConnection connection,
+        SqliteTransaction transaction,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = """
             SELECT MigrationId, ProductVersion
             FROM __EFMigrationsHistory

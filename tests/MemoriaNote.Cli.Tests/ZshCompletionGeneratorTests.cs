@@ -21,11 +21,13 @@ public sealed class ZshCompletionGeneratorTests
                 Does.Contain(
                     "'completion:Generate static shell completion scripts'"));
             Assert.That(script, Does.Contain("_mn_notebooks_import()"));
+            Assert.That(script, Does.Contain("_mn_notebooks_check()"));
             Assert.That(
                 script,
                 Does.Contain("'(--workspace)--workspace[Use this directory as " +
                     "the workspace for this invocation]:directory:_directories'"));
             Assert.That(script, Does.Contain("'1:archive:_files'"));
+            Assert.That(script, Does.Contain("'1:source:_files'"));
             Assert.That(script, Does.Contain("'1:directory:_directories'"));
             Assert.That(script, Does.Contain(":policy:(fail skip replace)'"));
             Assert.That(script, Does.Contain(":policy:(fail id-suffix)'"));

@@ -3,6 +3,7 @@ using System.IO;
 using System.Globalization;
 using MemoriaNote.Archive;
 using MemoriaNote.NotebookMigration;
+using MemoriaNote.NotebookMaintenance;
 using MemoriaNote.Application;
 using MemoriaNote.Cli.UserConfig;
 using MemoriaNote.Persistence;
@@ -146,6 +147,10 @@ namespace MemoriaNote.Cli
                 new NotebookListCommandHandler(
                     executor,
                     workspaceNotebookList,
+                    output),
+                new NotebookCheckCommandHandler(
+                    executor,
+                    new NotebookCheckService(),
                     output),
                 new NotebookBackupCommandHandler(
                     executor,
