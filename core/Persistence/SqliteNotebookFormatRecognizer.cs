@@ -26,7 +26,22 @@ internal static class SqliteNotebookFormatRecognizer
         string databasePath,
         CancellationToken cancellationToken = default)
     {
+        return await RecognizeAsync(
+                databasePath,
+                SchemaV2MaintenanceDefaults.BusyTimeoutSeconds,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Classifies a path with an explicit busy timeout for deterministic testing.</summary>
+    internal static async Task<NotebookFormatRecognition> RecognizeAsync(
+        string databasePath,
+        int busyTimeoutSeconds,
+        CancellationToken cancellationToken)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
+        if (busyTimeoutSeconds <= 0)
+            throw new ArgumentOutOfRangeException(nameof(busyTimeoutSeconds));
         cancellationToken.ThrowIfCancellationRequested();
 
         var fullPath = Path.GetFullPath(databasePath);
@@ -50,6 +65,7 @@ internal static class SqliteNotebookFormatRecognizer
                 return await RecognizeWithConnectionAsync(
                         fullPath,
                         immutable: false,
+                        busyTimeoutSeconds,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -62,6 +78,7 @@ internal static class SqliteNotebookFormatRecognizer
                 return await RecognizeWithConnectionAsync(
                         fullPath,
                         immutable: false,
+                        busyTimeoutSeconds,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -72,6 +89,7 @@ internal static class SqliteNotebookFormatRecognizer
                 recognition = await RecognizeWithConnectionAsync(
                         fullPath,
                         immutable: true,
+                        busyTimeoutSeconds,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -112,16 +130,19 @@ internal static class SqliteNotebookFormatRecognizer
     private static async Task<NotebookFormatRecognition> RecognizeWithConnectionAsync(
         string fullPath,
         bool immutable,
+        int busyTimeoutSeconds,
         CancellationToken cancellationToken)
     {
         await using var connection = immutable
             ? await SqliteConnectionFactory.OpenImmutableReadOnlyAsync(
                     fullPath,
+                    busyTimeoutSeconds,
                     cancellationToken)
                 .ConfigureAwait(false)
             : await SqliteConnectionFactory.OpenAsync(
                     fullPath,
                     SqliteOpenMode.ReadOnly,
+                    busyTimeoutSeconds,
                     cancellationToken)
                 .ConfigureAwait(false);
 

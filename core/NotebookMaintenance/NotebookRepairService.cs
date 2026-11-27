@@ -15,6 +15,21 @@ namespace MemoriaNote.NotebookMaintenance;
 /// <summary>Repairs current notebooks by losslessly rebuilding a validated new database.</summary>
 public sealed class NotebookRepairService : INotebookRepairService
 {
+    private readonly int _busyTimeoutSeconds;
+
+    /// <summary>Initializes a notebook repair service with the released timeout contract.</summary>
+    public NotebookRepairService()
+        : this(SchemaV2MaintenanceDefaults.BusyTimeoutSeconds)
+    {
+    }
+
+    internal NotebookRepairService(int busyTimeoutSeconds)
+    {
+        if (busyTimeoutSeconds <= 0)
+            throw new ArgumentOutOfRangeException(nameof(busyTimeoutSeconds));
+        _busyTimeoutSeconds = busyTimeoutSeconds;
+    }
+
     /// <inheritdoc />
     public async Task<NotebookRepairResult> RepairAsync(
         NotebookRepairRequest request,
@@ -40,14 +55,14 @@ public sealed class NotebookRepairService : INotebookRepairService
         try
         {
             var recognition = await SqliteNotebookFormatRecognizer
-                .RecognizeAsync(sourcePath, cancellationToken)
+                .RecognizeAsync(sourcePath, _busyTimeoutSeconds, cancellationToken)
                 .ConfigureAwait(false);
             var recognitionFailure = MapRecognitionFailure(recognition);
             if (recognitionFailure is not null)
                 return recognitionFailure;
 
             var preflight = await SchemaV2RepairSnapshot
-                .OpenAsync(sourcePath, cancellationToken)
+                .OpenAsync(sourcePath, _busyTimeoutSeconds, cancellationToken)
                 .ConfigureAwait(false);
             if (!preflight.IsRepairable)
             {

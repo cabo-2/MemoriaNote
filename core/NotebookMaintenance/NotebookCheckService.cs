@@ -17,6 +17,21 @@ namespace MemoriaNote.NotebookMaintenance;
 /// <summary>Checks current schema v2 notebooks through the release validation contract.</summary>
 public sealed class NotebookCheckService : INotebookCheckService
 {
+    private readonly int _busyTimeoutSeconds;
+
+    /// <summary>Initializes a notebook check service with the released timeout contract.</summary>
+    public NotebookCheckService()
+        : this(SchemaV2MaintenanceDefaults.BusyTimeoutSeconds)
+    {
+    }
+
+    internal NotebookCheckService(int busyTimeoutSeconds)
+    {
+        if (busyTimeoutSeconds <= 0)
+            throw new ArgumentOutOfRangeException(nameof(busyTimeoutSeconds));
+        _busyTimeoutSeconds = busyTimeoutSeconds;
+    }
+
     /// <inheritdoc />
     public async Task<NotebookCheckResult> CheckAsync(
         NotebookCheckRequest request,
@@ -43,14 +58,14 @@ public sealed class NotebookCheckService : INotebookCheckService
         try
         {
             var recognition = await SqliteNotebookFormatRecognizer
-                .RecognizeAsync(sourcePath, cancellationToken)
+                .RecognizeAsync(sourcePath, _busyTimeoutSeconds, cancellationToken)
                 .ConfigureAwait(false);
             var recognitionFailure = MapRecognitionFailure(recognition);
             if (recognitionFailure is not null)
                 return recognitionFailure;
 
             var validation = await SchemaV2DatabaseValidator
-                .ValidateAsync(sourcePath, cancellationToken)
+                .ValidateAsync(sourcePath, _busyTimeoutSeconds, cancellationToken)
                 .ConfigureAwait(false);
             return NotebookCheckResult.Completed(MapReport(sourcePath, validation));
         }

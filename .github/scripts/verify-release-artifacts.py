@@ -495,6 +495,85 @@ Path(sys.argv[-1]).write_text(
             )
         )
 
+    checked = invoke("notebooks", "check", str(notebook_path))
+    require_exit_code(checked, 0)
+    require_empty_stderr(checked)
+    require_contains(checked, "Notebook check: valid")
+    require_contains(checked, "Issues: 0")
+
+    rejected_migration_path = workspace / "migration output must not exist.mnote"
+    rejected_migration = invoke(
+        "notebooks",
+        "migrate",
+        str(notebook_path),
+        "--output",
+        str(rejected_migration_path),
+    )
+    require_exit_code(rejected_migration, 2)
+    if rejected_migration.standard_output:
+        raise VerificationError(
+            format_command_failure(
+                rejected_migration.arguments,
+                "wrote current-source migration guidance to standard output",
+                rejected_migration.standard_output,
+                rejected_migration.standard_error,
+            )
+        )
+    require_contains(rejected_migration, "schema v2 notebook", stream="stderr")
+    require_contains(rejected_migration, "mn notebooks check", stream="stderr")
+    if any(
+        candidate.exists()
+        for candidate in (
+            rejected_migration_path,
+            Path(str(rejected_migration_path) + "-journal"),
+            Path(str(rejected_migration_path) + "-shm"),
+            Path(str(rejected_migration_path) + "-wal"),
+        )
+    ):
+        raise VerificationError(
+            "current-source migration published an output file set: "
+            f"{rejected_migration_path}"
+        )
+
+    repaired_name = "artifact repaired 日本語.mnote"
+    repaired_path = workspace / repaired_name
+    repaired = invoke(
+        "notebooks",
+        "repair",
+        str(notebook_path),
+        "--output",
+        str(repaired_path),
+    )
+    require_exit_code(repaired, 0)
+    require_empty_stderr(repaired)
+    require_contains(repaired, "Notebook repair: completed")
+    require_contains(repaired, "Output validation: passed")
+    if not repaired_path.is_file():
+        raise VerificationError(f"repair did not produce notebook: {repaired_path}")
+
+    repaired_check = invoke("notebooks", "check", str(repaired_path))
+    require_exit_code(repaired_check, 0)
+    require_empty_stderr(repaired_check)
+    require_contains(repaired_check, "Notebook check: valid")
+
+    repaired_page = invoke(
+        "cat",
+        page_name,
+        "--notebook",
+        repaired_path.stem,
+    )
+    require_exit_code(repaired_page, 0)
+    require_empty_stderr(repaired_page)
+    if repaired_page.standard_output.decode("utf-8", errors="strict") != page_body:
+        raise VerificationError(
+            format_command_failure(
+                repaired_page.arguments,
+                "did not preserve the repaired page body",
+                repaired_page.standard_output,
+                repaired_page.standard_error,
+            )
+        )
+
     backup_path = workspace / "artifact backup 日本語.zip"
     backup = invoke("notebooks", "backup", str(backup_path))
     require_exit_code(backup, 0)

@@ -12,6 +12,38 @@ namespace MemoriaNote.Cli.Tests;
 [NonParallelizable]
 public sealed class NotebookMigrationIntegrationTests
 {
+    /// <summary>Verifies current schema v2 input receives check guidance without output.</summary>
+    [Test]
+    public async Task Migrate_CurrentSchemaV2_ReturnsCheckGuidanceAndCreatesNoOutput()
+    {
+        using var harness = new CliInProcessHarness();
+        Assert.That((await harness.RunAsync("create", "current")).ExitCode, Is.Zero);
+        var source = Path.Combine(harness.WorkingDirectory, "current.mnote");
+        await ExecuteAsync(source, "DROP TABLE Metadata;");
+        var destination = Path.Combine(harness.WorkingDirectory, "unused.mnote");
+
+        var result = await harness.RunAsync(
+            "notebooks",
+            "migrate",
+            source,
+            "--output",
+            destination);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.StandardError, Does.Contain("already a schema v2 notebook"));
+            Assert.That(result.StandardError, Does.Contain("schema v1 notebooks or CM1 archives"));
+            Assert.That(result.StandardError, Does.Contain("mn notebooks check"));
+            Assert.That(result.StandardError, Does.Contain(source));
+            Assert.That(File.Exists(destination), Is.False);
+            Assert.That(
+                Directory.EnumerateDirectories(harness.WorkingDirectory, ".mn-*"),
+                Is.Empty);
+        }
+    }
+
     /// <summary>Verifies help fixes legacy inputs, safe output, and workspace behavior.</summary>
     [Test]
     public async Task Help_DescribesLegacyInputsAndWorkspaceSelection()
@@ -433,6 +465,20 @@ public sealed class NotebookMigrationIntegrationTests
             Path.GetFileNameWithoutExtension(name),
             path);
         return Task.FromResult(path);
+    }
+
+    private static async Task ExecuteAsync(string path, string commandText)
+    {
+        await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadWrite,
+            Pooling = false
+        }.ToString());
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = commandText;
+        await command.ExecuteNonQueryAsync();
     }
 
     private static async Task CreateCm1ArchiveAsync(

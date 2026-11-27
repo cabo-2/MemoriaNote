@@ -15,7 +15,6 @@ namespace MemoriaNote.Persistence.SchemaV2;
 /// <summary>Owns a repairability preflight and authoritative records in one read snapshot.</summary>
 internal sealed class SchemaV2RepairSnapshot : IAsyncDisposable
 {
-    private const int BusyTimeoutSeconds = 30;
     private readonly SqliteConnection _connection;
     private readonly SqliteTransaction _transaction;
 
@@ -42,7 +41,22 @@ internal sealed class SchemaV2RepairSnapshot : IAsyncDisposable
         string databasePath,
         CancellationToken cancellationToken)
     {
+        return await OpenAsync(
+                databasePath,
+                SchemaV2MaintenanceDefaults.BusyTimeoutSeconds,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Opens a snapshot with an explicit busy timeout for deterministic testing.</summary>
+    internal static async Task<SchemaV2RepairSnapshotResult> OpenAsync(
+        string databasePath,
+        int busyTimeoutSeconds,
+        CancellationToken cancellationToken)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
+        if (busyTimeoutSeconds <= 0)
+            throw new ArgumentOutOfRangeException(nameof(busyTimeoutSeconds));
         cancellationToken.ThrowIfCancellationRequested();
 
         var contract = await SchemaV2ExpectedContract.LoadEmbeddedAsync(cancellationToken)
@@ -50,9 +64,9 @@ internal sealed class SchemaV2RepairSnapshot : IAsyncDisposable
         var connection = await SqliteConnectionFactory.OpenAsync(
                 databasePath,
                 SqliteOpenMode.ReadOnly,
+                busyTimeoutSeconds,
                 cancellationToken)
             .ConfigureAwait(false);
-        connection.DefaultTimeout = BusyTimeoutSeconds;
         try
         {
             var transaction = connection.BeginTransaction(

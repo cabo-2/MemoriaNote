@@ -14,7 +14,6 @@ namespace MemoriaNote.Persistence.SchemaV2.Validation;
 /// <summary>Validates Schema V2 databases without repairing or changing them.</summary>
 internal static class SchemaV2DatabaseValidator
 {
-    private const int BusyTimeoutSeconds = 30;
     private const string TimestampFormat = "yyyy-MM-dd HH:mm:ss.fffffff";
 
     /// <summary>Runs the layered Schema V2 validation contract against an existing database.</summary>
@@ -25,6 +24,21 @@ internal static class SchemaV2DatabaseValidator
         return await ValidateAsync(
                 databasePath,
                 includeDerivedData: true,
+                busyTimeoutSeconds: SchemaV2MaintenanceDefaults.BusyTimeoutSeconds,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Runs full validation with an explicit busy timeout for deterministic testing.</summary>
+    internal static async Task<SchemaV2DatabaseValidation> ValidateAsync(
+        string databasePath,
+        int busyTimeoutSeconds,
+        CancellationToken cancellationToken)
+    {
+        return await ValidateAsync(
+                databasePath,
+                includeDerivedData: true,
+                busyTimeoutSeconds: busyTimeoutSeconds,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -37,6 +51,7 @@ internal static class SchemaV2DatabaseValidator
         return await ValidateAsync(
                 databasePath,
                 includeDerivedData: false,
+                busyTimeoutSeconds: SchemaV2MaintenanceDefaults.BusyTimeoutSeconds,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -44,9 +59,12 @@ internal static class SchemaV2DatabaseValidator
     private static async Task<SchemaV2DatabaseValidation> ValidateAsync(
         string databasePath,
         bool includeDerivedData,
+        int busyTimeoutSeconds,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
+        if (busyTimeoutSeconds <= 0)
+            throw new ArgumentOutOfRangeException(nameof(busyTimeoutSeconds));
         cancellationToken.ThrowIfCancellationRequested();
 
         var contract = await SchemaV2ExpectedContract.LoadEmbeddedAsync(cancellationToken)
@@ -54,9 +72,9 @@ internal static class SchemaV2DatabaseValidator
         await using var connection = await SqliteConnectionFactory.OpenAsync(
                 databasePath,
                 SqliteOpenMode.ReadOnly,
+                busyTimeoutSeconds,
                 cancellationToken)
             .ConfigureAwait(false);
-        connection.DefaultTimeout = BusyTimeoutSeconds;
         await using var transaction = connection.BeginTransaction(deferred: true);
         try
         {

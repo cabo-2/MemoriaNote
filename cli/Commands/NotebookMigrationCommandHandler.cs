@@ -71,7 +71,7 @@ internal sealed class NotebookMigrationCommandHandler
                     token)
                 .ConfigureAwait(false);
             if (!result.IsSuccess)
-                return MapFailure(result.Error.Value);
+                return MapFailure(result.Error.Value, sourcePath);
 
             WriteReport(result.Report, level);
             if (!result.Report.DryRun)
@@ -176,7 +176,9 @@ internal sealed class NotebookMigrationCommandHandler
         return false;
     }
 
-    private static CliCommandResult MapFailure(NotebookMigrationErrorCode error)
+    private static CliCommandResult MapFailure(
+        NotebookMigrationErrorCode error,
+        string sourcePath)
     {
         return error switch
         {
@@ -186,6 +188,11 @@ internal sealed class NotebookMigrationCommandHandler
             NotebookMigrationErrorCode.UnsupportedSource => Failure(
                 CliErrorKind.Validation,
                 "The source is not a supported schema v1 notebook or CM1 archive."),
+            NotebookMigrationErrorCode.CurrentSource => Failure(
+                CliErrorKind.Validation,
+                "The migration source is already a schema v2 notebook. " +
+                "Migration accepts only schema v1 notebooks or CM1 archives. " +
+                $"Run 'mn notebooks check {CliMessage.Quote(sourcePath)}' instead."),
             NotebookMigrationErrorCode.InvalidSource => Failure(
                 CliErrorKind.Validation,
                 "The migration source cannot be read completely and safely."),

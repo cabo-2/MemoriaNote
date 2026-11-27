@@ -12,6 +12,78 @@ namespace MemoriaNote.Core.Tests.NotebookMaintenance;
 [TestFixture]
 public sealed class NotebookRepairServiceTests
 {
+    /// <summary>Verifies repair copies one committed snapshot while a WAL writer is active.</summary>
+    [Test]
+    public async Task RepairAsync_ConcurrentWalWriter_CopiesCommittedSnapshot()
+    {
+        using var directory = new TemporaryDirectory();
+        var source = directory.GetPath("wal-writer.mnote");
+        var output = directory.GetPath("repaired.mnote");
+        await SchemaV2DatabaseFactory.CreateAsync(source, "Committed title");
+        await using var writer = await OpenWriterAsync(source);
+        await ExecuteAsync(writer, "PRAGMA journal_mode = WAL;");
+        await ExecuteAsync(
+            writer,
+            "BEGIN IMMEDIATE; " +
+            "UPDATE Metadata SET Value = 'uncommitted title' WHERE Key = 'Title';");
+        var beforeMain = await File.ReadAllBytesAsync(source);
+        var beforeFiles = ExistingSqliteFiles(source);
+
+        var result = await new NotebookRepairService().RepairAsync(
+            new NotebookRepairRequest(source, output),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.ToString());
+            Assert.That(
+                await ScalarAsync<string>(
+                    output,
+                    "SELECT Value FROM Metadata WHERE Key = 'Title';"),
+                Is.EqualTo("Committed title"));
+            Assert.That(await File.ReadAllBytesAsync(source), Is.EqualTo(beforeMain));
+            Assert.That(ExistingSqliteFiles(source), Is.EqualTo(beforeFiles));
+            Assert.That(
+                Directory.EnumerateDirectories(directory.Path, ".mn-*"),
+                Is.Empty);
+        }
+        await ExecuteAsync(writer, "ROLLBACK;");
+    }
+
+    /// <summary>Verifies a locked source maps to busy without publishing private output.</summary>
+    [Test]
+    public async Task RepairAsync_ExclusiveWriter_ReturnsBusyAndCleansOutput()
+    {
+        using var directory = new TemporaryDirectory();
+        var source = directory.GetPath("busy.mnote");
+        var output = directory.GetPath("unused.mnote");
+        await SchemaV2DatabaseFactory.CreateAsync(source, "Busy");
+        await using var writer = await OpenWriterAsync(source);
+        await ExecuteAsync(writer, "PRAGMA journal_mode = DELETE;");
+        await ExecuteAsync(
+            writer,
+            "BEGIN EXCLUSIVE; " +
+            "UPDATE Metadata SET Value = 'locked' WHERE Key = 'Title';");
+        var beforeMain = await File.ReadAllBytesAsync(source);
+        var beforeFiles = ExistingSqliteFiles(source);
+
+        var result = await new NotebookRepairService(busyTimeoutSeconds: 1).RepairAsync(
+            new NotebookRepairRequest(source, output),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Error, Is.EqualTo(NotebookRepairErrorCode.SourceBusy));
+            Assert.That(File.Exists(output), Is.False);
+            Assert.That(await File.ReadAllBytesAsync(source), Is.EqualTo(beforeMain));
+            Assert.That(ExistingSqliteFiles(source), Is.EqualTo(beforeFiles));
+            Assert.That(
+                Directory.EnumerateDirectories(directory.Path, ".mn-*"),
+                Is.Empty);
+        }
+        await ExecuteAsync(writer, "ROLLBACK;");
+    }
+
     /// <summary>Verifies derived defects are rebuilt from exact authoritative records.</summary>
     [Test]
     public async Task RepairAsync_DerivedDefects_PreservesAuthoritativeValuesAndSource()
@@ -240,6 +312,27 @@ public sealed class NotebookRepairServiceTests
         command.CommandText = commandText;
         await command.ExecuteNonQueryAsync();
     }
+
+    private static async Task<SqliteConnection> OpenWriterAsync(string path)
+    {
+        var connection = SqliteConnectionFactory.Create(path, SqliteOpenMode.ReadWrite);
+        await connection.OpenAsync();
+        return connection;
+    }
+
+    private static async Task ExecuteAsync(
+        SqliteConnection connection,
+        string commandText)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = commandText;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static IReadOnlyList<string> ExistingSqliteFiles(string databasePath) =>
+        SqliteDatabaseFiles.Enumerate(databasePath)
+            .Where(File.Exists)
+            .ToArray();
 
     private static async Task<T?> ScalarAsync<T>(string path, string commandText)
     {

@@ -11,6 +11,73 @@ namespace MemoriaNote.Core.Tests.NotebookMaintenance;
 [TestFixture]
 public sealed class NotebookCheckServiceTests
 {
+    /// <summary>Fixes the released busy timeout without waiting for it to elapse.</summary>
+    [Test]
+    public void BusyTimeout_UsesThirtySecondProductionDefault()
+    {
+        Assert.That(SchemaV2MaintenanceDefaults.BusyTimeoutSeconds, Is.EqualTo(30));
+    }
+
+    /// <summary>Verifies a WAL writer does not leak uncommitted values into the check snapshot.</summary>
+    [Test]
+    public async Task CheckAsync_ConcurrentWalWriter_ReadsCommittedSnapshot()
+    {
+        using var directory = new TemporaryDirectory();
+        var source = directory.GetPath("wal-writer.mnote");
+        await SchemaV2DatabaseFactory.CreateAsync(source, "WAL writer");
+        await using var writer = await OpenWriterAsync(source);
+        await ExecuteAsync(writer, "PRAGMA journal_mode = WAL;");
+        await ExecuteAsync(
+            writer,
+            "BEGIN IMMEDIATE; " +
+            "UPDATE Metadata SET Value = 'uncommitted-invalid' WHERE Key = 'ReadOnly';");
+        var beforeMain = await File.ReadAllBytesAsync(source);
+        var beforeFiles = ExistingSqliteFiles(source);
+
+        var result = await new NotebookCheckService().CheckAsync(
+            new NotebookCheckRequest(source),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.IsCompleted, Is.True);
+            Assert.That(result.Report!.IsValid, Is.True);
+            Assert.That(await File.ReadAllBytesAsync(source), Is.EqualTo(beforeMain));
+            Assert.That(ExistingSqliteFiles(source), Is.EqualTo(beforeFiles));
+        }
+        await ExecuteAsync(writer, "ROLLBACK;");
+    }
+
+    /// <summary>Verifies a locked source maps to busy without a wall-clock timeout test.</summary>
+    [Test]
+    public async Task CheckAsync_ExclusiveWriter_ReturnsBusyWithoutChangingFileSet()
+    {
+        using var directory = new TemporaryDirectory();
+        var source = directory.GetPath("busy.mnote");
+        await SchemaV2DatabaseFactory.CreateAsync(source, "Busy");
+        await using var writer = await OpenWriterAsync(source);
+        await ExecuteAsync(writer, "PRAGMA journal_mode = DELETE;");
+        await ExecuteAsync(
+            writer,
+            "BEGIN EXCLUSIVE; " +
+            "UPDATE Metadata SET Value = 'locked' WHERE Key = 'Title';");
+        var beforeMain = await File.ReadAllBytesAsync(source);
+        var beforeFiles = ExistingSqliteFiles(source);
+
+        var result = await new NotebookCheckService(busyTimeoutSeconds: 1).CheckAsync(
+            new NotebookCheckRequest(source),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Error, Is.EqualTo(NotebookCheckErrorCode.SourceBusy));
+            Assert.That(result.Report, Is.Null);
+            Assert.That(await File.ReadAllBytesAsync(source), Is.EqualTo(beforeMain));
+            Assert.That(ExistingSqliteFiles(source), Is.EqualTo(beforeFiles));
+        }
+        await ExecuteAsync(writer, "ROLLBACK;");
+    }
+
     /// <summary>Verifies a release schema v2 notebook passes every layer unchanged.</summary>
     [Test]
     public async Task CheckAsync_ValidNotebook_PassesEveryLayerWithoutChangingSource()
@@ -275,6 +342,27 @@ public sealed class NotebookCheckServiceTests
         command.CommandText = commandText;
         await command.ExecuteNonQueryAsync();
     }
+
+    private static async Task<SqliteConnection> OpenWriterAsync(string path)
+    {
+        var connection = SqliteConnectionFactory.Create(path, SqliteOpenMode.ReadWrite);
+        await connection.OpenAsync();
+        return connection;
+    }
+
+    private static async Task ExecuteAsync(
+        SqliteConnection connection,
+        string commandText)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = commandText;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static IReadOnlyList<string> ExistingSqliteFiles(string databasePath) =>
+        SqliteDatabaseFiles.Enumerate(databasePath)
+            .Where(File.Exists)
+            .ToArray();
 
     private sealed class TemporaryDirectory : IDisposable
     {
