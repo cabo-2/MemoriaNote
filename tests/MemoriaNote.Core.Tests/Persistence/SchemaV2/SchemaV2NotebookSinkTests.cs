@@ -172,6 +172,29 @@ public sealed class SchemaV2NotebookSinkTests
         Assert.That(Directory.GetFileSystemEntries(directory.Path), Is.Empty);
     }
 
+    /// <summary>Verifies a changed transfer is rejected before preflight publication.</summary>
+    [Test]
+    public void PublishAsync_WithPreflightFingerprintMismatch_LeavesNoOutput()
+    {
+        using var directory = new TemporaryDirectory();
+        var destination = directory.GetPath("changed.mnote");
+        var preflight = new NotebookLogicalFingerprint(
+            0,
+            0,
+            new byte[32],
+            new byte[32]);
+
+        Assert.That(
+            async () => await SchemaV2NotebookSink.PublishAsync(
+                destination,
+                ValidEmptyTransfer(),
+                Array.Empty<string>(),
+                preflight),
+            Throws.TypeOf<InvalidDataException>()
+                .With.Message.Contains("differs from its completed preflight"));
+        Assert.That(Directory.GetFileSystemEntries(directory.Path), Is.Empty);
+    }
+
     /// <summary>Verifies cancellation during page loading rolls back and removes private output.</summary>
     [Test]
     public void PublishAsync_WithMidStreamCancellation_LeavesNoOutput()

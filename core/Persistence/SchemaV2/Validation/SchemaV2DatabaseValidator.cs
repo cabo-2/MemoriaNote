@@ -108,7 +108,7 @@ internal static class SchemaV2DatabaseValidator
         }
     }
 
-    private static IReadOnlyList<string> ValidateIdentity(
+    internal static IReadOnlyList<string> ValidateIdentity(
         SchemaV2ExpectedContract contract,
         DatabaseSchemaObservation observation)
     {
@@ -130,7 +130,7 @@ internal static class SchemaV2DatabaseValidator
         return issues;
     }
 
-    private static async Task<IReadOnlyList<string>> ValidateIntegrityAsync(
+    internal static async Task<IReadOnlyList<string>> ValidateIntegrityAsync(
         SqliteConnection connection,
         SqliteTransaction transaction,
         CancellationToken cancellationToken)
@@ -174,7 +174,7 @@ internal static class SchemaV2DatabaseValidator
         return issues;
     }
 
-    private static async Task<IReadOnlyList<string>> ValidateAuthoritativeValuesAsync(
+    internal static async Task<IReadOnlyList<string>> ValidateAuthoritativeValuesAsync(
         SqliteConnection connection,
         SqliteTransaction transaction,
         SchemaV2ExpectedContract contract,

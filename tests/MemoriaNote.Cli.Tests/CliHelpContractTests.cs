@@ -18,6 +18,7 @@ public sealed class CliHelpContractTests
         "notebooks",
         "notebooks list",
         "notebooks check",
+        "notebooks repair",
         "notebooks backup",
         "notebooks restore",
         "notebooks migrate",
@@ -110,6 +111,7 @@ public sealed class CliHelpContractTests
     [TestCase("notebooks backup", "Usage: mn notebooks backup [<archive>] [options]")]
     [TestCase("notebooks restore", "Usage: mn notebooks restore [<archive>] --target <notebook> [options]")]
     [TestCase("notebooks migrate", "Usage: mn notebooks migrate <source> --output <notebook> [options]")]
+    [TestCase("notebooks repair", "Usage: mn notebooks repair <source> --output <notebook> [options]")]
     [TestCase("notebooks check", "Usage: mn notebooks check [options] <source>")]
     [TestCase("edit", "Usage: mn edit [options] (<page-name> | --id <uuid-or-prefix>)")]
     [TestCase("cat", "Usage: mn cat [options] (<page-name> | --id <uuid-or-prefix>)")]

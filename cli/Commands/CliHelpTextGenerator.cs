@@ -19,6 +19,8 @@ namespace MemoriaNote.Cli
                     "Usage: mn notebooks restore [<archive>] --target <notebook> [options]",
                 ["mn notebooks migrate"] =
                     "Usage: mn notebooks migrate <source> --output <notebook> [options]",
+                ["mn notebooks repair"] =
+                    "Usage: mn notebooks repair <source> --output <notebook> [options]",
                 ["mn ls"] =
                     "Usage: mn ls [<page-name-pattern>] [options]",
                 ["mn edit"] =

@@ -152,6 +152,10 @@ namespace MemoriaNote.Cli
                     executor,
                     new NotebookCheckService(),
                     output),
+                new NotebookRepairCommandHandler(
+                    executor,
+                    new NotebookRepairService(),
+                    output),
                 new NotebookBackupCommandHandler(
                     executor,
                     notebookTargetResolver,

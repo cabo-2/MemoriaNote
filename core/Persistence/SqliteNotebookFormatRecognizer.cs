@@ -145,8 +145,7 @@ internal static class SqliteNotebookFormatRecognizer
                 userVersion.ToString(CultureInfo.InvariantCulture));
         }
 
-        if (applicationId == SchemaV2Format.ApplicationId &&
-            userVersion == SchemaV2Format.UserVersion)
+        if (SchemaV2Format.IsCurrentIdentity(applicationId, userVersion))
         {
             return new NotebookFormatRecognition(
                 NotebookFormatClassification.Current,

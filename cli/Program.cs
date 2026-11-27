@@ -194,6 +194,7 @@ namespace MemoriaNote.Cli
             Description = "Inspect and maintain notebooks")]
         [Subcommand(typeof(NotebooksListCommand),
                     typeof(NotebooksCheckCommand),
+                    typeof(NotebooksRepairCommand),
                     typeof(NotebooksBackupCommand),
                     typeof(NotebooksRestoreCommand),
                     typeof(NotebooksMigrateCommand),
@@ -237,6 +238,46 @@ namespace MemoriaNote.Cli
                 {
                     return CommandHandlers.NotebookCheck.ExecuteAsync(
                         Source.value,
+                        cancellationToken);
+                }
+            }
+
+            [Command(
+                "repair",
+                Description = "Rebuild a schema v2 notebook into a validated new output",
+                ExtendedHelpText =
+                    "Copies safely readable authoritative data without transforming it, " +
+                    "rebuilds derived data, and publishes only a completely validated new " +
+                    "notebook. The source, existing files, and workspace selection are not " +
+                    "changed.")]
+            [HelpOption("--help")]
+            class NotebooksRepairCommand
+            {
+                [Argument(
+                    0,
+                    Name = "source",
+                    Description = "Existing schema v2 notebook file")]
+                public (bool hasValue, string value) Source { get; set; }
+
+                [Option(
+                    "--output <notebook>",
+                    Description = "New repaired schema v2 notebook file")]
+                public string Output { get; set; }
+
+                protected ValidationResult OnValidate()
+                {
+                    if (!Source.hasValue || string.IsNullOrWhiteSpace(Source.value))
+                        return new ValidationResult("Specify a notebook source file.");
+                    return string.IsNullOrWhiteSpace(Output)
+                        ? new ValidationResult("Specify --output <notebook>.")
+                        : ValidationResult.Success;
+                }
+
+                protected Task<int> OnExecuteAsync(CancellationToken cancellationToken)
+                {
+                    return CommandHandlers.NotebookRepair.ExecuteAsync(
+                        Source.value,
+                        Output,
                         cancellationToken);
                 }
             }

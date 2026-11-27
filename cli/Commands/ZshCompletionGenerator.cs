@@ -39,6 +39,10 @@ namespace MemoriaNote.Cli
                     new CompletionHint(CompletionKind.File),
                 ["mn notebooks check argument source"] =
                     new CompletionHint(CompletionKind.File),
+                ["mn notebooks repair argument source"] =
+                    new CompletionHint(CompletionKind.File),
+                ["mn notebooks repair option --output"] =
+                    new CompletionHint(CompletionKind.File),
                 ["mn notebooks restore argument archive"] =
                     new CompletionHint(CompletionKind.File),
                 ["mn notebooks migrate argument source"] =
