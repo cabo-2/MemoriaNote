@@ -20,20 +20,25 @@ public sealed class NotebookRepairServiceTests
         var source = directory.GetPath("wal-writer.mnote");
         var output = directory.GetPath("repaired.mnote");
         await SchemaV2DatabaseFactory.CreateAsync(source, "Committed title");
-        await using var writer = await OpenWriterAsync(source);
-        await ExecuteAsync(writer, "PRAGMA journal_mode = WAL;");
+        await ExecuteAsync(source, "PRAGMA journal_mode = WAL;");
         var beforeMain = await File.ReadAllBytesAsync(source);
-        await ExecuteAsync(
-            writer,
-            "BEGIN IMMEDIATE; " +
-            "UPDATE Metadata SET Value = 'uncommitted title' WHERE Key = 'Title';");
-        var beforeFiles = ExistingSqliteFiles(source);
+        NotebookRepairResult result;
+        IReadOnlyList<string> beforeFiles;
+        IReadOnlyList<string> afterFiles;
+        await using (var writer = await OpenWriterAsync(source))
+        {
+            await ExecuteAsync(
+                writer,
+                "BEGIN IMMEDIATE; " +
+                "UPDATE Metadata SET Value = 'uncommitted title' WHERE Key = 'Title';");
+            beforeFiles = ExistingSqliteFiles(source);
 
-        var result = await new NotebookRepairService().RepairAsync(
-            new NotebookRepairRequest(source, output),
-            CancellationToken.None);
-        var afterFiles = ExistingSqliteFiles(source);
-        await ExecuteAsync(writer, "ROLLBACK;");
+            result = await new NotebookRepairService().RepairAsync(
+                new NotebookRepairRequest(source, output),
+                CancellationToken.None);
+            afterFiles = ExistingSqliteFiles(source);
+            await ExecuteAsync(writer, "ROLLBACK;");
+        }
 
         using (Assert.EnterMultipleScope())
         {
@@ -59,20 +64,25 @@ public sealed class NotebookRepairServiceTests
         var source = directory.GetPath("busy.mnote");
         var output = directory.GetPath("unused.mnote");
         await SchemaV2DatabaseFactory.CreateAsync(source, "Busy");
-        await using var writer = await OpenWriterAsync(source);
-        await ExecuteAsync(writer, "PRAGMA journal_mode = DELETE;");
+        await ExecuteAsync(source, "PRAGMA journal_mode = DELETE;");
         var beforeMain = await File.ReadAllBytesAsync(source);
-        await ExecuteAsync(
-            writer,
-            "BEGIN EXCLUSIVE; " +
-            "UPDATE Metadata SET Value = 'locked' WHERE Key = 'Title';");
-        var beforeFiles = ExistingSqliteFiles(source);
+        NotebookRepairResult result;
+        IReadOnlyList<string> beforeFiles;
+        IReadOnlyList<string> afterFiles;
+        await using (var writer = await OpenWriterAsync(source))
+        {
+            await ExecuteAsync(
+                writer,
+                "BEGIN EXCLUSIVE; " +
+                "UPDATE Metadata SET Value = 'locked' WHERE Key = 'Title';");
+            beforeFiles = ExistingSqliteFiles(source);
 
-        var result = await new NotebookRepairService(busyTimeoutSeconds: 1).RepairAsync(
-            new NotebookRepairRequest(source, output),
-            CancellationToken.None);
-        var afterFiles = ExistingSqliteFiles(source);
-        await ExecuteAsync(writer, "ROLLBACK;");
+            result = await new NotebookRepairService(busyTimeoutSeconds: 1).RepairAsync(
+                new NotebookRepairRequest(source, output),
+                CancellationToken.None);
+            afterFiles = ExistingSqliteFiles(source);
+            await ExecuteAsync(writer, "ROLLBACK;");
+        }
 
         using (Assert.EnterMultipleScope())
         {
