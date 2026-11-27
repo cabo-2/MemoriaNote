@@ -27,25 +27,26 @@ public sealed class NotebookCheckServiceTests
         await SchemaV2DatabaseFactory.CreateAsync(source, "WAL writer");
         await using var writer = await OpenWriterAsync(source);
         await ExecuteAsync(writer, "PRAGMA journal_mode = WAL;");
+        var beforeMain = await File.ReadAllBytesAsync(source);
         await ExecuteAsync(
             writer,
             "BEGIN IMMEDIATE; " +
             "UPDATE Metadata SET Value = 'uncommitted-invalid' WHERE Key = 'ReadOnly';");
-        var beforeMain = await File.ReadAllBytesAsync(source);
         var beforeFiles = ExistingSqliteFiles(source);
 
         var result = await new NotebookCheckService().CheckAsync(
             new NotebookCheckRequest(source),
             CancellationToken.None);
+        var afterFiles = ExistingSqliteFiles(source);
+        await ExecuteAsync(writer, "ROLLBACK;");
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.IsCompleted, Is.True);
             Assert.That(result.Report!.IsValid, Is.True);
             Assert.That(await File.ReadAllBytesAsync(source), Is.EqualTo(beforeMain));
-            Assert.That(ExistingSqliteFiles(source), Is.EqualTo(beforeFiles));
+            Assert.That(afterFiles, Is.EqualTo(beforeFiles));
         }
-        await ExecuteAsync(writer, "ROLLBACK;");
     }
 
     /// <summary>Verifies a locked source maps to busy without a wall-clock timeout test.</summary>
@@ -57,25 +58,26 @@ public sealed class NotebookCheckServiceTests
         await SchemaV2DatabaseFactory.CreateAsync(source, "Busy");
         await using var writer = await OpenWriterAsync(source);
         await ExecuteAsync(writer, "PRAGMA journal_mode = DELETE;");
+        var beforeMain = await File.ReadAllBytesAsync(source);
         await ExecuteAsync(
             writer,
             "BEGIN EXCLUSIVE; " +
             "UPDATE Metadata SET Value = 'locked' WHERE Key = 'Title';");
-        var beforeMain = await File.ReadAllBytesAsync(source);
         var beforeFiles = ExistingSqliteFiles(source);
 
         var result = await new NotebookCheckService(busyTimeoutSeconds: 1).CheckAsync(
             new NotebookCheckRequest(source),
             CancellationToken.None);
+        var afterFiles = ExistingSqliteFiles(source);
+        await ExecuteAsync(writer, "ROLLBACK;");
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Error, Is.EqualTo(NotebookCheckErrorCode.SourceBusy));
             Assert.That(result.Report, Is.Null);
             Assert.That(await File.ReadAllBytesAsync(source), Is.EqualTo(beforeMain));
-            Assert.That(ExistingSqliteFiles(source), Is.EqualTo(beforeFiles));
+            Assert.That(afterFiles, Is.EqualTo(beforeFiles));
         }
-        await ExecuteAsync(writer, "ROLLBACK;");
     }
 
     /// <summary>Verifies a release schema v2 notebook passes every layer unchanged.</summary>

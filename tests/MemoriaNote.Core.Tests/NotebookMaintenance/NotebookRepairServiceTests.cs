@@ -22,16 +22,18 @@ public sealed class NotebookRepairServiceTests
         await SchemaV2DatabaseFactory.CreateAsync(source, "Committed title");
         await using var writer = await OpenWriterAsync(source);
         await ExecuteAsync(writer, "PRAGMA journal_mode = WAL;");
+        var beforeMain = await File.ReadAllBytesAsync(source);
         await ExecuteAsync(
             writer,
             "BEGIN IMMEDIATE; " +
             "UPDATE Metadata SET Value = 'uncommitted title' WHERE Key = 'Title';");
-        var beforeMain = await File.ReadAllBytesAsync(source);
         var beforeFiles = ExistingSqliteFiles(source);
 
         var result = await new NotebookRepairService().RepairAsync(
             new NotebookRepairRequest(source, output),
             CancellationToken.None);
+        var afterFiles = ExistingSqliteFiles(source);
+        await ExecuteAsync(writer, "ROLLBACK;");
 
         using (Assert.EnterMultipleScope())
         {
@@ -42,12 +44,11 @@ public sealed class NotebookRepairServiceTests
                     "SELECT Value FROM Metadata WHERE Key = 'Title';"),
                 Is.EqualTo("Committed title"));
             Assert.That(await File.ReadAllBytesAsync(source), Is.EqualTo(beforeMain));
-            Assert.That(ExistingSqliteFiles(source), Is.EqualTo(beforeFiles));
+            Assert.That(afterFiles, Is.EqualTo(beforeFiles));
             Assert.That(
                 Directory.EnumerateDirectories(directory.Path, ".mn-*"),
                 Is.Empty);
         }
-        await ExecuteAsync(writer, "ROLLBACK;");
     }
 
     /// <summary>Verifies a locked source maps to busy without publishing private output.</summary>
@@ -60,28 +61,29 @@ public sealed class NotebookRepairServiceTests
         await SchemaV2DatabaseFactory.CreateAsync(source, "Busy");
         await using var writer = await OpenWriterAsync(source);
         await ExecuteAsync(writer, "PRAGMA journal_mode = DELETE;");
+        var beforeMain = await File.ReadAllBytesAsync(source);
         await ExecuteAsync(
             writer,
             "BEGIN EXCLUSIVE; " +
             "UPDATE Metadata SET Value = 'locked' WHERE Key = 'Title';");
-        var beforeMain = await File.ReadAllBytesAsync(source);
         var beforeFiles = ExistingSqliteFiles(source);
 
         var result = await new NotebookRepairService(busyTimeoutSeconds: 1).RepairAsync(
             new NotebookRepairRequest(source, output),
             CancellationToken.None);
+        var afterFiles = ExistingSqliteFiles(source);
+        await ExecuteAsync(writer, "ROLLBACK;");
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(result.Error, Is.EqualTo(NotebookRepairErrorCode.SourceBusy));
             Assert.That(File.Exists(output), Is.False);
             Assert.That(await File.ReadAllBytesAsync(source), Is.EqualTo(beforeMain));
-            Assert.That(ExistingSqliteFiles(source), Is.EqualTo(beforeFiles));
+            Assert.That(afterFiles, Is.EqualTo(beforeFiles));
             Assert.That(
                 Directory.EnumerateDirectories(directory.Path, ".mn-*"),
                 Is.Empty);
         }
-        await ExecuteAsync(writer, "ROLLBACK;");
     }
 
     /// <summary>Verifies derived defects are rebuilt from exact authoritative records.</summary>
