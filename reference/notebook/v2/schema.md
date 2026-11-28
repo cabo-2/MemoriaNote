@@ -2,10 +2,12 @@
 
 - notebook format version: `2`
 - specification revision: `1`
+- maintenance contract revision: `1`
 - release baseline: Memoria Note `v0.3.0`
+- maintenance release baseline: Memoria Note `v0.4.0`
 - release source commit: `5f0f92a3a30acb8e44483e759ae6c3b5af7acb49`
 - canonical DDL SHA-256: `070a59ea2ce61f4cf128124014bc7cac9871bcf881833bce401bdb8ae120d97e`
-- last updated: 2026-11-23
+- last updated: 2026-11-28
 
 ## 1. Purpose and compatibility promise
 
@@ -13,15 +15,15 @@ A Memoria Note format `2` notebook is one SQLite database, conventionally
 stored in a `.mnote` file. This document specifies its persisted format,
 authoritative values, derived data, and recognition contract.
 
-The notebook format, this prose specification revision, and the Memoria Note
-application version are independent. Specification revision `1` is not stored
-in the database. A correction that does not change persisted meaning may update
-this document without changing the notebook format. A change to identity, DDL,
-required values, or their meaning requires an explicit format-version decision.
+The notebook format, this prose specification revision, the maintenance contract revision, and the
+Memoria Note application version are independent. Neither specification revision `1` nor
+maintenance contract revision `1` is stored in the database. A correction that does not change
+persisted meaning may update this document without changing the notebook format. A change to
+identity, DDL, required values, or their meaning requires an explicit format-version decision.
 
 Format `1` remains defined by the
-[schema v1 specification](../v1/schema.md). Memoria Note `v0.3.0` does not open
-format `1` for ordinary commands; it accepts it only as an explicit
+[schema v1 specification](../v1/schema.md). Memoria Note `v0.3.0` and `v0.4.0` do not open format
+`1` for ordinary commands; they accept it only as an explicit
 [migration source](../../migration/schema-v1-to-v2.md).
 
 ## 2. Format identity and SQLite requirements
@@ -66,13 +68,13 @@ authoritative value, or derived-data mismatch prevents an ordinary open.
 
 Only `Metadata` and the logical values in `Pages` are portable notebook data.
 `PageTags` is required for a valid normal-open database but can be recreated
-from `Pages.Tags`. Body search in `v0.3.0` scans authoritative `Pages.Text`; it
+from `Pages.Tags`. Body search in `v0.3.0` and `v0.4.0` scans authoritative `Pages.Text`; it
 does not introduce a derived FTS object.
 
 ## 4. Canonical DDL
 
-The following UTF-8 text, including its final LF, is the fixed DDL embedded in
-the `v0.3.0` release source. Its SHA-256 is recorded in the header.
+The following UTF-8 text, including its final LF, is the fixed DDL embedded in the `v0.3.0`
+release source and retained unchanged by `v0.4.0`. Its SHA-256 is recorded in the header.
 
 ```sql
 PRAGMA application_id = 1782832723;
@@ -279,20 +281,116 @@ SQLite integrity, values, and logical equivalence, closes and reopens the file,
 and only then publishes it. See the
 [archive v1 specification](../../archive/v1/README.md).
 
-## 9. Validation boundary
+## 9. Validation and maintenance contract
 
-The release validator checks, in layers:
+Ordinary opening validates a format `2` notebook but never changes schema, repairs data, or rebuilds
+derived objects. Memoria Note `v0.4.0` additionally exposes the same release contract through
+explicit check and safe reconstruction operations:
 
-1. the two persisted identity values;
-2. schema objects, columns, constraints, indexes, foreign keys, and triggers;
-3. `PRAGMA integrity_check` and `PRAGMA foreign_key_check`;
-4. required and retired metadata, page value rules, and uniqueness;
-5. the exact `PageTags` projection.
+```text
+mn notebooks check <source>
+mn notebooks repair <source> --output <notebook>
+```
 
-Ordinary opening performs validation but never repair. The `v0.3.0` release
-does not publish `notebooks check` or `notebooks repair`; those commands and a
-public maintenance contract are follow-up work. Migration, native restore, and
-release rollback are the recovery operations documented for this release.
+Both commands accept a file path resolved from the process current directory and do not use or
+change workspace selection. They accept only format `2`; migration and archive restore remain
+separate operations.
+
+### 9.1 Layered check
+
+Check evaluates these layers in order:
+
+1. the application ID and user version (`identity`);
+2. non-trigger schema objects, columns, constraints, indexes, and foreign keys (`schema`);
+3. required trigger definitions and behavior (`triggers`);
+4. `PRAGMA integrity_check` and `PRAGMA foreign_key_check` (`integrity`);
+5. required and retired metadata, page values, and uniqueness (`authoritative-values`);
+6. the exact `PageTags` projection (`derived-data`).
+
+When an earlier failure makes a later query unsafe or meaningless, the later layer is `not
+evaluated`; it is not reported as a second inferred defect. A completed layer is `passed` or
+`failed`.
+
+The stable issue codes are:
+
+| Layer | Codes |
+| --- | --- |
+| identity | `identity-application-id-mismatch`, `identity-user-version-mismatch` |
+| schema | `schema-object-mismatch`, `schema-object-missing`, `schema-object-unexpected` |
+| triggers | `trigger-missing`, `trigger-mismatch` |
+| integrity | `sqlite-integrity-error`, `foreign-key-violation` |
+| authoritative-values | `metadata-missing`, `metadata-duplicate`, `metadata-invalid`, `metadata-retired`, `page-id-invalid`, `page-id-duplicate`, `page-name-duplicate`, `page-name-invalid`, `page-timestamp-invalid`, `page-revision-invalid`, `page-tags-invalid` |
+| derived-data | `derived-page-tags-missing`, `derived-page-tags-unexpected` |
+
+Each issue has a safe schema or value-category location and can include expected and summarized
+actual values. Reports do not reproduce page bodies or complete private metadata values.
+
+Check uses a consistent read-only snapshot. Success, detected issues, target failure, busy failure,
+and cancellation leave the main database and its WAL, SHM, and journal file set unchanged. A
+completed report records every layer, confirms that the source was not modified, and reports the
+issue count. A source that cannot be classified safely enough to produce this report is a fatal
+target error, not a check issue.
+
+Missing, invalid-path, format `1`, unsupported future-format, unreadable, busy, access, and storage
+results remain distinct. Format `1` receives migration guidance; an exact format `2` identity
+supplied to migration receives check guidance without migration invoking the layered check.
+
+### 9.2 Repairability and reconstruction
+
+Repair is not an in-place DDL operation and does not require normal validation to succeed. A
+dedicated preflight separates rebuildable defects from authoritative defects while holding the
+same consistent snapshot used for the copy.
+
+The source is repairable only when every authoritative table, column, metadata value, and page can
+be read completely and represented without transformation. Derived-data or other
+release-designated rebuildable defects can be accepted. Repair refuses these stable categories:
+
+| Code | Refusal condition |
+| --- | --- |
+| `authoritative-schema-mismatch` | A required authoritative table or column cannot be read exactly |
+| `authoritative-integrity-failure` | Integrity of authoritative storage cannot be established |
+| `authoritative-value-invalid` | One or more authoritative values violate this specification |
+
+Repair does not skip records, supply defaults, infer values, normalize text, or derive
+authoritative values from `PageTags`. It losslessly copies all managed and extension metadata and
+all logical page values. Stable Page IDs are preserved; SQLite-local `InternalId` values are
+allocated by the new database and are not part of equivalence.
+
+`--output` is mandatory. The normalized output must be new and distinct from the source; existing
+files, symbolic links, and other path conflicts are refused. A private database in the destination
+directory is created from the canonical DDL, populated from the snapshot, and has `PageTags`
+rebuilt. Counts, logical fingerprint, identity, schema, triggers, SQLite integrity, authoritative
+values, and derived data are validated before and after close/reopen. Atomic publication to the
+requested path occurs only after all validation succeeds.
+
+Failure, refusal, or cancellation does not modify the source or an existing output. A failed
+private output and its owned sidecars are removed, and no partial result is published. Repair never
+renames or deletes the source and never registers or selects the result in a workspace. A repaired
+output remains format `2`, specification revision `1`, and compatible with `v0.3.0`; maintenance
+does not create a new notebook format.
+
+### 9.3 Concurrency, reports, and process results
+
+Check and repair use a 30-second busy timeout. A writer that prevents a consistent snapshot yields
+a busy result, not a corruption issue. Cancellation is observed without changing the source or
+publishing a repair output.
+
+Maintenance contract revision `1` provides human-readable reports only. Report wording, labels,
+ordering, and whitespace are not a machine-readable interface. Stable issue/refusal codes,
+exit-status classification, and stream placement are the public automation contract:
+
+| Result | Exit status | Stream |
+| --- | ---: | --- |
+| Valid check or successfully published repair | `0` | Report on standard output |
+| Check issues or repair refusal | `2` | Complete report and guidance on standard output |
+| Invalid, legacy, unsupported, or unreadable source | `2` | Fatal diagnostic on standard error |
+| Missing source | `3` | Fatal diagnostic on standard error |
+| Busy source or output conflict | `4` | Fatal diagnostic on standard error |
+| Access, storage, or output-verification failure | `5` | Fatal diagnostic on standard error |
+| Cancellation | `130` | Cancellation diagnostic on standard error |
+
+Maintenance never publishes a partial output and never uses exit status `6`. See the
+[user guide](../../user-guide.md#notebook-maintenance) for workflows and next-action guidance.
 
 ## 10. Provenance
 
@@ -307,3 +405,7 @@ The canonical DDL hash above is the ECLI-1180 production value. The ECLI-1180
 squash commit is `5f0f92a3a30acb8e44483e759ae6c3b5af7acb49`. Supporting
 implementation resources and tests are not public format extensions; they
 provide traceability to this contract.
+
+Maintenance contract revision `1` was added for Memoria Note `v0.4.0` by ECLI-1185 and documented
+for release by ECLI-1195. It reuses the canonical DDL and authoritative-value contract above and
+does not change the format identity, schema specification revision, or DDL hash.

@@ -21,6 +21,8 @@ The smoke scenarios cover:
 - version, help, and parser-error process contracts;
 - a workspace path containing spaces and Unicode;
 - `create`, `use`, `new`, `ls`, and `cat` with an isolated editor helper;
+- `notebooks check`, schema v2 migration rejection, `notebooks repair`, and repaired-content
+  verification;
 - file-based archive v1 backup and restore;
 - zsh completion encoding and representative metadata;
 - self-contained host, runtime, and SQLite native dependencies.
@@ -70,14 +72,14 @@ verifying a release candidate:
 
 ```console
 python3 .github/scripts/package-release.py \
-  --tag v0.3.0 \
+  --tag v0.4.0 \
   --rid linux-x64
 
 python3 .github/scripts/verify-release-artifacts.py package \
-  --package-results artifacts/release/v0.3.0/package-results.json \
-  --publish-executable artifacts/release/v0.3.0/publish/linux-x64/mn \
+  --package-results artifacts/release/v0.4.0/package-results.json \
+  --publish-executable artifacts/release/v0.4.0/publish/linux-x64/mn \
   --rid linux-x64 \
-  --expected-version 0.3.0
+  --expected-version 0.4.0
 ```
 
 The local Linux run is authoritative only for `linux-x64`. A Linux host may
@@ -90,14 +92,14 @@ Run the following from PowerShell at the repository root:
 
 ```powershell
 python .github/scripts/package-release.py `
-  --tag v0.3.0 `
+  --tag v0.4.0 `
   --rid win-x64
 
 python .github/scripts/verify-release-artifacts.py package `
-  --package-results artifacts/release/v0.3.0/package-results.json `
-  --publish-executable artifacts/release/v0.3.0/publish/win-x64/mn.exe `
+  --package-results artifacts/release/v0.4.0/package-results.json `
+  --publish-executable artifacts/release/v0.4.0/publish/win-x64/mn.exe `
   --rid win-x64 `
-  --expected-version 0.3.0
+  --expected-version 0.4.0
 ```
 
 GitHub Actions provides the routine native Windows result. Before the initial
@@ -136,6 +138,8 @@ runtime:
 - [ ] Extract the archive into a new directory.
 - [ ] Run `mn --version` or `mn.exe --version` and verify the release version.
 - [ ] Run `--help` and the representative workspace workflow.
+- [ ] Check a format `2` notebook, repair it to a new output, check the output, and verify one
+      copied page body.
 - [ ] Confirm that no dependency is read from the repository checkout or a
       development build directory.
 
@@ -229,6 +233,7 @@ Windows runtime-free/manual result:
 
 Install/update/uninstall result:
 Completion result:
+Notebook check/repair result:
 Known limitations or deviations:
 Checked by and date:
 ```

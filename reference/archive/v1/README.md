@@ -4,7 +4,7 @@
 - archive format version: `1`
 - specification revision: `1`
 - release baseline: Memoria Note `v0.3.0`
-- last updated: 2026-11-22
+- last updated: 2026-11-28
 
 ## 1. Purpose and document map
 
@@ -105,7 +105,7 @@ checksum. ZIP CRC and strict manifest parsing detect ordinary manifest damage.
 
 The supported release tuples are:
 
-| Archive | Content model | Source notebook | `v0.3.0` operation |
+| Archive | Content model | Source notebook | `v0.3.0` and `v0.4.0` operation |
 | ---: | ---: | --- | --- |
 | `1` | `1` | `1` | Read only by `notebooks migrate` |
 | `1` | `2` | `2` | Native `notebooks backup` and `notebooks restore` |
@@ -163,9 +163,9 @@ modify the source or replace an existing destination.
 
 ## 8. Compatibility and navigation
 
-Memoria Note `v0.3.0` creates format `2` notebooks and CM2 archives. A format
-`1` notebook or CM1 archive is a supported migration source, not a normal
-notebook or native restore input. See the
+Memoria Note `v0.3.0` and `v0.4.0` create format `2` notebooks and CM2 archives. A format `1`
+notebook or CM1 archive is a supported migration source, not a normal notebook or native restore
+input. See the
 [schema v1 to v2 migration guide](../../migration/schema-v1-to-v2.md).
 
 An older application that supports only CM1 rejects CM2. Rollback therefore
@@ -176,4 +176,7 @@ automatic down-conversion.
 The [notebook format 2 specification](../../notebook/v2/schema.md) defines the
 native authoritative-data and derived-data boundary. The
 [user guide](../../user-guide.md#backup-restore-and-data-transfer) documents
-commands and operational workflows.
+backup, restore, and transfer workflows. If a format `2` notebook cannot pass normal validation,
+use the separate [notebook maintenance workflow](../../user-guide.md#notebook-maintenance) to
+check it or rebuild safely readable authoritative data into a new notebook. Maintenance does not
+modify this archive format or content model.
