@@ -34,11 +34,6 @@ the profile matching the host:
 | `v0.4.0` | Linux x64 | `performance/artifacts/v0.4.0-linux-x64.json` |
 | `v0.4.0` | Windows x64 | `performance/artifacts/v0.4.0-win-x64.json` |
 
-The `v0.4.0` profiles register the published maintenance release artifacts for reproducible future
-use. ECLI-1195 does not add a checkpoint session or report because the maintenance release does not
-change the measured `ls` and `find` paths. The `v0.3.0` checkpoint remains the Phase 11 performance
-baseline, and the prepare and run examples below intentionally continue to use it.
-
 ## Generate release artifact profiles
 
 After a release is published and its final assets are available, generate both host profiles from
