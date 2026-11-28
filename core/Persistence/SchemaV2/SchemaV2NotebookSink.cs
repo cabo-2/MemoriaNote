@@ -24,6 +24,26 @@ internal static class SchemaV2NotebookSink
                 transfer,
                 sourcePaths,
                 SchemaV2DatabaseValidator.ValidateAsync,
+                requiredFingerprint: null,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Creates and publishes only when the transfer matches a completed preflight.</summary>
+    internal static async Task<SchemaV2NotebookSinkResult> PublishAsync(
+        string destinationPath,
+        CurrentNotebookTransfer transfer,
+        IReadOnlyCollection<string> sourcePaths,
+        NotebookLogicalFingerprint requiredFingerprint,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(requiredFingerprint);
+        return await PublishAsync(
+                destinationPath,
+                transfer,
+                sourcePaths,
+                SchemaV2DatabaseValidator.ValidateAsync,
+                requiredFingerprint,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -35,6 +55,24 @@ internal static class SchemaV2NotebookSink
         IReadOnlyCollection<string> sourcePaths,
         Func<string, CancellationToken, Task<SchemaV2DatabaseValidation>> validateAsync,
         CancellationToken cancellationToken = default)
+    {
+        return await PublishAsync(
+                destinationPath,
+                transfer,
+                sourcePaths,
+                validateAsync,
+                requiredFingerprint: null,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static async Task<SchemaV2NotebookSinkResult> PublishAsync(
+        string destinationPath,
+        CurrentNotebookTransfer transfer,
+        IReadOnlyCollection<string> sourcePaths,
+        Func<string, CancellationToken, Task<SchemaV2DatabaseValidation>> validateAsync,
+        NotebookLogicalFingerprint requiredFingerprint,
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
         ArgumentNullException.ThrowIfNull(transfer);
@@ -54,6 +92,11 @@ internal static class SchemaV2NotebookSink
         using var output = PendingSqliteOutput.Create(fullDestinationPath);
         var expected = await LoadAsync(output.StagingPath, transfer, cancellationToken)
             .ConfigureAwait(false);
+        if (requiredFingerprint is not null && !requiredFingerprint.Matches(expected))
+        {
+            throw new InvalidDataException(
+                "The Schema V2 transfer differs from its completed preflight.");
+        }
 
         var validation = await validateAsync(output.StagingPath, cancellationToken)
             .ConfigureAwait(false);

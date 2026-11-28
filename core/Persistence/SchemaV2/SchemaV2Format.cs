@@ -12,4 +12,7 @@ internal static class SchemaV2Format
     /// <summary>Gets the schema v2 notebook format version.</summary>
     internal const int UserVersion = 2;
 
+    /// <summary>Determines whether persisted SQLite identity is exactly Schema V2.</summary>
+    internal static bool IsCurrentIdentity(int applicationId, int userVersion) =>
+        applicationId == ApplicationId && userVersion == UserVersion;
 }

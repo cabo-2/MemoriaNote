@@ -9,6 +9,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using MemoriaNote.Archive;
 using MemoriaNote.Persistence;
+using MemoriaNote.Persistence.SchemaV2;
 using Microsoft.Data.Sqlite;
 
 namespace MemoriaNote.NotebookMigration;
@@ -118,6 +119,8 @@ internal sealed class SqliteSchemaV1MigrationSource : ILegacyNotebookMigrationSo
                     cancellationToken)
                 .ConfigureAwait(false);
             transaction = connection.BeginTransaction(deferred: true);
+            await RejectCurrentSourceAsync(connection, transaction, cancellationToken)
+                .ConfigureAwait(false);
             await ValidateIdentityAsync(connection, transaction, cancellationToken)
                 .ConfigureAwait(false);
             await ValidateIntegrityAsync(connection, transaction, cancellationToken)
@@ -252,6 +255,35 @@ internal sealed class SqliteSchemaV1MigrationSource : ILegacyNotebookMigrationSo
             Invalid("The SQLite source is missing required schema v1 page columns.");
     }
 
+    private static async Task RejectCurrentSourceAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var applicationId = await ScalarInt64Async(
+                connection,
+                transaction,
+                "PRAGMA application_id;",
+                cancellationToken)
+            .ConfigureAwait(false);
+        var userVersion = await ScalarInt64Async(
+                connection,
+                transaction,
+                "PRAGMA user_version;",
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (applicationId is >= int.MinValue and <= int.MaxValue &&
+            userVersion is >= int.MinValue and <= int.MaxValue &&
+            SchemaV2Format.IsCurrentIdentity(
+                (int)applicationId.Value,
+                (int)userVersion.Value))
+        {
+            throw new LegacySourceException(
+                NotebookMigrationErrorCode.CurrentSource,
+                "The migration source is already a current schema v2 notebook.");
+        }
+    }
+
     private static async Task ValidateIntegrityAsync(
         SqliteConnection connection,
         SqliteTransaction transaction,
@@ -305,6 +337,21 @@ internal sealed class SqliteSchemaV1MigrationSource : ILegacyNotebookMigrationSo
         return value is null or DBNull
             ? null
             : Convert.ToString(value, CultureInfo.InvariantCulture);
+    }
+
+    private static async Task<long?> ScalarInt64Async(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string sql,
+        CancellationToken cancellationToken)
+    {
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = sql;
+        var value = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        return value is null or DBNull
+            ? null
+            : Convert.ToInt64(value, CultureInfo.InvariantCulture);
     }
 
     private static long? ReadInteger(

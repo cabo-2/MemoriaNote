@@ -75,7 +75,13 @@ public sealed class NotebookTargetIntegrationTests
         using var harness = new CliInProcessHarness();
         var path = Path.Combine(harness.WorkingDirectory, "legacy.mnote");
         using var legacy = new TemporaryNotebookDatabase();
-        legacy.CreateNotebook("legacy", "legacy", path);
+        legacy.CreateNotebook(
+            "legacy",
+            "legacy",
+            path,
+            useWriteAheadLogging: true);
+        var beforeFileSet = ExistingSqliteFiles(path);
+        Assert.That(beforeFileSet, Is.EqualTo([path]));
 
         var result = await harness.RunAsync("ls", "--notebook", "legacy");
 
@@ -85,6 +91,7 @@ public sealed class NotebookTargetIntegrationTests
             Assert.That(result.StandardOutput, Is.Empty);
             Assert.That(result.StandardError, Does.Contain("schema v1"));
             Assert.That(result.StandardError, Does.Contain("mn notebooks migrate"));
+            Assert.That(ExistingSqliteFiles(path), Is.EqualTo(beforeFileSet));
         }
     }
 
@@ -359,5 +366,18 @@ public sealed class NotebookTargetIntegrationTests
     static SchemaV2TestPageRepository CreatePageRepository()
     {
         return new SchemaV2TestPageRepository();
+    }
+
+    static IReadOnlyList<string> ExistingSqliteFiles(string databasePath)
+    {
+        return new[]
+            {
+                databasePath,
+                databasePath + "-journal",
+                databasePath + "-shm",
+                databasePath + "-wal"
+            }
+            .Where(File.Exists)
+            .ToArray();
     }
 }

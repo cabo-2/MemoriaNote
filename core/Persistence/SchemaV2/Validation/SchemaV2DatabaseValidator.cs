@@ -24,6 +24,21 @@ internal static class SchemaV2DatabaseValidator
         return await ValidateAsync(
                 databasePath,
                 includeDerivedData: true,
+                busyTimeoutSeconds: SchemaV2MaintenanceDefaults.BusyTimeoutSeconds,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Runs full validation with an explicit busy timeout for deterministic testing.</summary>
+    internal static async Task<SchemaV2DatabaseValidation> ValidateAsync(
+        string databasePath,
+        int busyTimeoutSeconds,
+        CancellationToken cancellationToken)
+    {
+        return await ValidateAsync(
+                databasePath,
+                includeDerivedData: true,
+                busyTimeoutSeconds: busyTimeoutSeconds,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -36,6 +51,7 @@ internal static class SchemaV2DatabaseValidator
         return await ValidateAsync(
                 databasePath,
                 includeDerivedData: false,
+                busyTimeoutSeconds: SchemaV2MaintenanceDefaults.BusyTimeoutSeconds,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -43,52 +59,74 @@ internal static class SchemaV2DatabaseValidator
     private static async Task<SchemaV2DatabaseValidation> ValidateAsync(
         string databasePath,
         bool includeDerivedData,
+        int busyTimeoutSeconds,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
+        if (busyTimeoutSeconds <= 0)
+            throw new ArgumentOutOfRangeException(nameof(busyTimeoutSeconds));
         cancellationToken.ThrowIfCancellationRequested();
 
         var contract = await SchemaV2ExpectedContract.LoadEmbeddedAsync(cancellationToken)
             .ConfigureAwait(false);
-        var observation = await DatabaseSchemaInspector
-            .InspectAsync(databasePath, cancellationToken)
+        await using var connection = await SqliteConnectionFactory.OpenAsync(
+                databasePath,
+                SqliteOpenMode.ReadOnly,
+                busyTimeoutSeconds,
+                cancellationToken)
             .ConfigureAwait(false);
+        await using var transaction = connection.BeginTransaction(deferred: true);
+        try
+        {
+            var observation = await DatabaseSchemaInspector
+                .InspectAsync(connection, transaction, cancellationToken)
+                .ConfigureAwait(false);
 
-        var identityIssues = ValidateIdentity(contract, observation);
-        var schemaIssues = SchemaV2ContractValidator.ValidateSchema(contract, observation);
-        var integrityIssues = await ValidateIntegrityAsync(databasePath, cancellationToken)
-            .ConfigureAwait(false);
-
-        var authoritativeValues = schemaIssues.Count == 0 && integrityIssues.Count == 0
-            ? SchemaV2ValidationLayerResult.Evaluated(
-                await ValidateAuthoritativeValuesAsync(
-                        databasePath,
-                        contract,
-                        observation,
-                        cancellationToken)
-                    .ConfigureAwait(false))
-            : SchemaV2ValidationLayerResult.NotEvaluated;
-
-        var derivedData = includeDerivedData &&
-                          schemaIssues.Count == 0 &&
-                          integrityIssues.Count == 0 &&
-                          authoritativeValues.IsValid
-            ? await SchemaV2DerivedDataValidator.ValidateAsync(
-                    databasePath,
-                    SchemaV2DerivedIndexSelection.PageTags,
+            var identityIssues = ValidateIdentity(contract, observation);
+            var schemaIssues = SchemaV2ContractValidator.ValidateSchema(contract, observation);
+            var integrityIssues = await ValidateIntegrityAsync(
+                    connection,
+                    transaction,
                     cancellationToken)
-                .ConfigureAwait(false)
-            : SchemaV2DerivedDataValidation.NotEvaluated;
+                .ConfigureAwait(false);
 
-        return new SchemaV2DatabaseValidation(
-            SchemaV2ValidationLayerResult.Evaluated(identityIssues),
-            SchemaV2ValidationLayerResult.Evaluated(schemaIssues),
-            SchemaV2ValidationLayerResult.Evaluated(integrityIssues),
-            authoritativeValues,
-            derivedData);
+            var authoritativeValues = schemaIssues.Count == 0 && integrityIssues.Count == 0
+                ? SchemaV2ValidationLayerResult.Evaluated(
+                    await ValidateAuthoritativeValuesAsync(
+                            connection,
+                            transaction,
+                            contract,
+                            observation,
+                            cancellationToken)
+                        .ConfigureAwait(false))
+                : SchemaV2ValidationLayerResult.NotEvaluated;
+
+            var derivedData = includeDerivedData &&
+                              schemaIssues.Count == 0 &&
+                              integrityIssues.Count == 0 &&
+                              authoritativeValues.IsValid
+                ? await SchemaV2DerivedDataValidator.ValidateAsync(
+                        connection,
+                        transaction,
+                        SchemaV2DerivedIndexSelection.PageTags,
+                        cancellationToken)
+                    .ConfigureAwait(false)
+                : SchemaV2DerivedDataValidation.NotEvaluated;
+
+            return new SchemaV2DatabaseValidation(
+                SchemaV2ValidationLayerResult.Evaluated(identityIssues),
+                SchemaV2ValidationLayerResult.Evaluated(schemaIssues),
+                SchemaV2ValidationLayerResult.Evaluated(integrityIssues),
+                authoritativeValues,
+                derivedData);
+        }
+        finally
+        {
+            await transaction.RollbackAsync(CancellationToken.None).ConfigureAwait(false);
+        }
     }
 
-    private static IReadOnlyList<string> ValidateIdentity(
+    internal static IReadOnlyList<string> ValidateIdentity(
         SchemaV2ExpectedContract contract,
         DatabaseSchemaObservation observation)
     {
@@ -110,19 +148,16 @@ internal static class SchemaV2DatabaseValidator
         return issues;
     }
 
-    private static async Task<IReadOnlyList<string>> ValidateIntegrityAsync(
-        string databasePath,
+    internal static async Task<IReadOnlyList<string>> ValidateIntegrityAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
         CancellationToken cancellationToken)
     {
-        await using var connection = await SqliteConnectionFactory.OpenAsync(
-                databasePath,
-                SqliteOpenMode.ReadOnly,
-                cancellationToken)
-            .ConfigureAwait(false);
         var issues = new List<string>();
 
         await using (var command = connection.CreateCommand())
         {
+            command.Transaction = transaction;
             command.CommandText = "PRAGMA integrity_check;";
             await using var reader = await command.ExecuteReaderAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -136,6 +171,7 @@ internal static class SchemaV2DatabaseValidator
 
         await using (var command = connection.CreateCommand())
         {
+            command.Transaction = transaction;
             command.CommandText = "PRAGMA foreign_key_check;";
             await using var reader = await command.ExecuteReaderAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -156,8 +192,9 @@ internal static class SchemaV2DatabaseValidator
         return issues;
     }
 
-    private static async Task<IReadOnlyList<string>> ValidateAuthoritativeValuesAsync(
-        string databasePath,
+    internal static async Task<IReadOnlyList<string>> ValidateAuthoritativeValuesAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
         SchemaV2ExpectedContract contract,
         DatabaseSchemaObservation observation,
         CancellationToken cancellationToken)
@@ -167,12 +204,8 @@ internal static class SchemaV2DatabaseValidator
             .ToList();
         ValidateMetadataCreateTime(observation, issues);
 
-        await using var connection = await SqliteConnectionFactory.OpenAsync(
-                databasePath,
-                SqliteOpenMode.ReadOnly,
-                cancellationToken)
-            .ConfigureAwait(false);
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = """
             SELECT InternalId, PageId, Name, CreateTime, UpdateTime, Revision, Tags
             FROM Pages
@@ -194,6 +227,7 @@ internal static class SchemaV2DatabaseValidator
 
         await AddDuplicateIssuesAsync(
                 connection,
+                transaction,
                 "PageId",
                 "Duplicate PageId",
                 issues,
@@ -201,6 +235,7 @@ internal static class SchemaV2DatabaseValidator
             .ConfigureAwait(false);
         await AddDuplicateIssuesAsync(
                 connection,
+                transaction,
                 "Name",
                 "Duplicate page Name",
                 issues,
@@ -307,12 +342,14 @@ internal static class SchemaV2DatabaseValidator
 
     private static async Task AddDuplicateIssuesAsync(
         SqliteConnection connection,
+        SqliteTransaction transaction,
         string column,
         string label,
         ICollection<string> issues,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = $"""
             SELECT {column}, COUNT(*)
             FROM Pages

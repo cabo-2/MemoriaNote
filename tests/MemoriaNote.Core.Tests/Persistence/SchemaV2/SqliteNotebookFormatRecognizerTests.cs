@@ -51,6 +51,64 @@ public sealed class SqliteNotebookFormatRecognizerTests
             before);
     }
 
+    /// <summary>Verifies sidecar-free WAL schema v1 recognition creates no sidecars.</summary>
+    [Test]
+    public async Task RecognizeAsync_SidecarFreeWalSchemaV1_ReturnsLegacyWithoutChanges()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook(
+            "work",
+            "Work",
+            database.DatabasePath,
+            useWriteAheadLogging: true);
+        var before = await CaptureAsync(database.DatabasePath, database.DirectoryPath);
+        Assert.That(before.DirectoryEntries, Is.EqualTo([database.DatabasePath]));
+
+        var result = await SqliteNotebookFormatRecognizer.RecognizeAsync(
+            database.DatabasePath);
+
+        AssertRecognition(
+            result,
+            NotebookFormatClassification.Legacy,
+            NotebookFormatRecognitionReason.SchemaV1Identity,
+            NotebookFormatRecommendedAction.Migrate,
+            "1");
+        await AssertUnchangedAsync(
+            database.DatabasePath,
+            database.DirectoryPath,
+            before);
+    }
+
+    /// <summary>Verifies committed WAL identity is read when sidecars already exist.</summary>
+    [Test]
+    public async Task RecognizeAsync_WalSchemaV1WithSidecars_ReadsCommittedState()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("work", "Work");
+        await using var writer = await SqliteConnectionFactory.OpenAsync(
+            database.DatabasePath,
+            SqliteOpenMode.ReadWrite);
+        await ExecuteAsync(
+            writer,
+            """
+            PRAGMA journal_mode = WAL;
+            PRAGMA wal_autocheckpoint = 0;
+            UPDATE Metadata SET Value = '2' WHERE Key = 'Version';
+            """);
+        Assert.That(File.Exists(database.DatabasePath + "-wal"), Is.True);
+        Assert.That(File.Exists(database.DatabasePath + "-shm"), Is.True);
+
+        var result = await SqliteNotebookFormatRecognizer.RecognizeAsync(
+            database.DatabasePath);
+
+        AssertRecognition(
+            result,
+            NotebookFormatClassification.Unsupported,
+            NotebookFormatRecognitionReason.NewerSchemaV1Version,
+            NotebookFormatRecommendedAction.None,
+            "2");
+    }
+
     /// <summary>Verifies the exact schema v2 identity is current and needs no action.</summary>
     [Test]
     public async Task RecognizeAsync_SchemaV2_ReturnsCurrentWithoutChanges()
@@ -90,6 +148,59 @@ public sealed class SqliteNotebookFormatRecognizerTests
             NotebookFormatRecognitionReason.NewerSchemaV2Version,
             NotebookFormatRecommendedAction.None,
             "3");
+    }
+
+    /// <summary>Verifies a positive schema v2 candidate observes newer identity in WAL.</summary>
+    [Test]
+    public async Task RecognizeAsync_SchemaV2Candidate_UsesNormalWalSnapshot()
+    {
+        using var directory = new TemporaryDirectory();
+        var databasePath = directory.GetPath("wal-current.mnote");
+        await SchemaV2DatabaseFactory.CreateAsync(databasePath, "Work");
+        await using var writer = await SqliteConnectionFactory.OpenAsync(
+            databasePath,
+            SqliteOpenMode.ReadWrite);
+        await ExecuteAsync(
+            writer,
+            """
+            PRAGMA journal_mode = WAL;
+            PRAGMA wal_autocheckpoint = 0;
+            PRAGMA user_version = 3;
+            """);
+        var header = await SqliteNotebookRecognitionSnapshot.CaptureAsync(
+            databasePath,
+            CancellationToken.None);
+        Assert.That(
+            header.Candidate,
+            Is.EqualTo(SqliteNotebookHeaderCandidate.SchemaV2));
+
+        var result = await SqliteNotebookFormatRecognizer.RecognizeAsync(databasePath);
+
+        AssertRecognition(
+            result,
+            NotebookFormatClassification.Unsupported,
+            NotebookFormatRecognitionReason.NewerSchemaV2Version,
+            NotebookFormatRecommendedAction.None,
+            "3");
+    }
+
+    /// <summary>Verifies an incomplete WAL pair is rejected before SQLite opens it.</summary>
+    [Test]
+    public async Task RecognizeAsync_IncompleteWalPair_ReturnsConcurrentChangeFailure()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook("work", "Work");
+        await File.WriteAllBytesAsync(database.DatabasePath + "-wal", []);
+        var before = await CaptureAsync(database.DatabasePath, database.DirectoryPath);
+
+        Assert.That(
+            async () => await SqliteNotebookFormatRecognizer.RecognizeAsync(
+                database.DatabasePath),
+            Throws.InstanceOf<NotebookRecognitionConcurrentChangeException>());
+        await AssertUnchangedAsync(
+            database.DatabasePath,
+            database.DirectoryPath,
+            before);
     }
 
     /// <summary>Verifies a newer version on the exact schema v1 lineage is unsupported.</summary>
@@ -198,6 +309,37 @@ public sealed class SqliteNotebookFormatRecognizerTests
             null);
     }
 
+    /// <summary>Verifies sidecar-free WAL SQLite recognition creates no sidecars.</summary>
+    [Test]
+    public async Task RecognizeAsync_SidecarFreeWalSqlite_ReturnsCorruptWithoutChanges()
+    {
+        using var directory = new TemporaryDirectory();
+        var databasePath = directory.GetPath("other-wal.sqlite");
+        await using (var writer = await SqliteConnectionFactory.OpenAsync(
+            databasePath,
+            SqliteOpenMode.ReadWriteCreate))
+        {
+            await ExecuteAsync(
+                writer,
+                """
+                PRAGMA journal_mode = WAL;
+                CREATE TABLE Arbitrary (Value TEXT NULL);
+                """);
+        }
+        var before = await CaptureAsync(databasePath, directory.Path);
+        Assert.That(before.DirectoryEntries, Is.EqualTo([databasePath]));
+
+        var result = await SqliteNotebookFormatRecognizer.RecognizeAsync(databasePath);
+
+        AssertRecognition(
+            result,
+            NotebookFormatClassification.Corrupt,
+            NotebookFormatRecognitionReason.UnrecognizedSqlite,
+            NotebookFormatRecommendedAction.None,
+            null);
+        await AssertUnchangedAsync(databasePath, directory.Path, before);
+    }
+
     /// <summary>Verifies a non-SQLite input is corrupt and remains unchanged.</summary>
     [Test]
     public async Task RecognizeAsync_NonSqliteInput_ReturnsCorruptWithoutChanges()
@@ -280,6 +422,15 @@ public sealed class SqliteNotebookFormatRecognizerTests
         await using var connection = await SqliteConnectionFactory.OpenAsync(
             databasePath,
             mode);
+        await using var command = connection.CreateCommand();
+        command.CommandText = commandText;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task ExecuteAsync(
+        SqliteConnection connection,
+        string commandText)
+    {
         await using var command = connection.CreateCommand();
         command.CommandText = commandText;
         await command.ExecuteNonQueryAsync();

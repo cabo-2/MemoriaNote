@@ -22,9 +22,13 @@ internal sealed class TemporaryNotebookDatabase : IDisposable
     internal string DirectoryPath { get; }
 
     internal void CreateNotebook(string name, string title) =>
-        CreateNotebook(name, title, DatabasePath);
+        CreateNotebook(name, title, DatabasePath, useWriteAheadLogging: false);
 
-    internal void CreateNotebook(string name, string title, string databasePath)
+    internal void CreateNotebook(
+        string name,
+        string title,
+        string databasePath,
+        bool useWriteAheadLogging = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
         if (File.Exists(databasePath))
@@ -34,9 +38,18 @@ internal sealed class TemporaryNotebookDatabase : IDisposable
         if (!string.IsNullOrEmpty(parent))
             Directory.CreateDirectory(parent);
 
-        using var connection = new SqliteConnection("Data Source=" + databasePath);
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = databasePath,
+            Pooling = false
+        }.ToString());
         connection.Open();
         using var command = connection.CreateCommand();
+        if (useWriteAheadLogging)
+        {
+            command.CommandText = "PRAGMA journal_mode = WAL;";
+            AssertWalMode(command.ExecuteScalar());
+        }
         command.CommandText = """
             CREATE TABLE "Contents" (
                 "Uuid" TEXT NOT NULL CONSTRAINT "PK_Contents" PRIMARY KEY,
@@ -110,6 +123,18 @@ internal sealed class TemporaryNotebookDatabase : IDisposable
         command.Parameters.AddWithValue("$name", name);
         command.Parameters.AddWithValue("$title", title);
         command.ExecuteNonQuery();
+    }
+
+    private static void AssertWalMode(object? value)
+    {
+        if (!string.Equals(
+                Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture),
+                "wal",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "The schema v1 fixture could not enable WAL mode.");
+        }
     }
 
     public void Dispose()

@@ -1,7 +1,9 @@
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using MemoriaNote.Core.Tests.Infrastructure;
 using MemoriaNote.NotebookMigration;
 using MemoriaNote.Persistence;
+using MemoriaNote.Persistence.SchemaV2;
 using MemoriaNote.Persistence.SchemaV2.Validation;
 using Microsoft.Data.Sqlite;
 using NUnit.Framework;
@@ -14,6 +16,97 @@ namespace MemoriaNote.Core.Tests.Migration;
 [NonParallelizable]
 public sealed class NotebookMigrationServiceTests
 {
+    /// <summary>Verifies exact schema v2 identity is classified before full source validation.</summary>
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task CurrentSchemaV2_IsClassifiedWithoutRunningFullValidation(
+        bool dryRun)
+    {
+        using var database = new TemporaryNotebookDatabase();
+        await SchemaV2DatabaseFactory.CreateAsync(database.DatabasePath, "Current");
+        Execute(database.DatabasePath, "DROP TABLE Metadata;");
+        var destination = Path.Combine(database.DirectoryPath, "unused.mnote");
+
+        var result = await new NotebookMigrationService().MigrateAsync(
+            new NotebookMigrationRequest(
+                database.DatabasePath,
+                destination,
+                dryRun: dryRun),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Error, Is.EqualTo(NotebookMigrationErrorCode.CurrentSource));
+            Assert.That(File.Exists(destination), Is.False);
+            Assert.That(
+                Directory.EnumerateDirectories(database.DirectoryPath, ".mn-*"),
+                Is.Empty);
+        }
+    }
+
+    /// <summary>Verifies migration observes exact schema v2 identity committed only in WAL.</summary>
+    [Test]
+    public async Task CurrentSchemaV2Identity_InWal_IsClassifiedFromReadSnapshot()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        database.CreateNotebook(
+            "wal-current",
+            "WAL current",
+            database.DatabasePath,
+            useWriteAheadLogging: true);
+        await using var writer = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = database.DatabasePath,
+            Mode = SqliteOpenMode.ReadWrite,
+            Pooling = false
+        }.ToString());
+        await writer.OpenAsync();
+        await using (var command = writer.CreateCommand())
+        {
+            command.CommandText = $"""
+                PRAGMA wal_autocheckpoint = 0;
+                PRAGMA application_id = {SchemaV2Format.ApplicationId};
+                PRAGMA user_version = {SchemaV2Format.UserVersion};
+                """;
+            await command.ExecuteNonQueryAsync();
+        }
+        var mainIdentity = ReadHeaderIdentity(database.DatabasePath);
+        var destination = Path.Combine(database.DirectoryPath, "unused.mnote");
+
+        var result = await new NotebookMigrationService().MigrateAsync(
+            new NotebookMigrationRequest(database.DatabasePath, destination),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(mainIdentity.ApplicationId, Is.Not.EqualTo(SchemaV2Format.ApplicationId));
+            Assert.That(mainIdentity.UserVersion, Is.Not.EqualTo(SchemaV2Format.UserVersion));
+            Assert.That(File.Exists(database.DatabasePath + "-wal"), Is.True);
+            Assert.That(result.Error, Is.EqualTo(NotebookMigrationErrorCode.CurrentSource));
+            Assert.That(File.Exists(destination), Is.False);
+        }
+    }
+
+    /// <summary>Verifies only the exact current identity receives current-source guidance.</summary>
+    [Test]
+    public async Task NonCurrentSqliteIdentity_RetainsInvalidSourceClassification()
+    {
+        using var database = new TemporaryNotebookDatabase();
+        await SchemaV2DatabaseFactory.CreateAsync(database.DatabasePath, "Future");
+        Execute(database.DatabasePath, "PRAGMA user_version = 3;");
+        var destination = Path.Combine(database.DirectoryPath, "unused.mnote");
+
+        var result = await new NotebookMigrationService().MigrateAsync(
+            new NotebookMigrationRequest(database.DatabasePath, destination),
+            CancellationToken.None);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.Error, Is.EqualTo(NotebookMigrationErrorCode.InvalidSource));
+            Assert.That(File.Exists(destination), Is.False);
+        }
+    }
+
     /// <summary>Verifies duplicate names are renamed and page-local errors are skipped.</summary>
     [Test]
     public async Task LiveNotebook_AutoRenamesDuplicatesAndPublishesPartialResult()
@@ -466,6 +559,34 @@ public sealed class NotebookMigrationServiceTests
         command.CommandText = "DELETE FROM Metadata WHERE Key = $key;";
         command.Parameters.AddWithValue("$key", key);
         command.ExecuteNonQuery();
+    }
+
+    private static void Execute(string databasePath, string commandText)
+    {
+        using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = databasePath,
+            Mode = SqliteOpenMode.ReadWrite,
+            Pooling = false
+        }.ToString());
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = commandText;
+        command.ExecuteNonQuery();
+    }
+
+    private static (int UserVersion, int ApplicationId) ReadHeaderIdentity(string path)
+    {
+        Span<byte> header = stackalloc byte[100];
+        using var input = new FileStream(
+            path,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete);
+        input.ReadExactly(header);
+        return (
+            BinaryPrimitives.ReadInt32BigEndian(header[60..64]),
+            BinaryPrimitives.ReadInt32BigEndian(header[68..72]));
     }
 
     private static string Hash(string path)

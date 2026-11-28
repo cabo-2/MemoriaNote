@@ -308,6 +308,23 @@ public sealed class NotebookApplicationTests
         AssertFailure(invalid, NotebookFailureCategory.Format, "format.schema_invalid");
     }
 
+    /// <summary>Verifies an incomplete WAL file set is classified as a busy open.</summary>
+    [Test]
+    public async Task OpenAsync_WithIncompleteWalPair_ReturnsBusy()
+    {
+        using var legacy = new TemporaryNotebookDatabase();
+        legacy.CreateNotebook("legacy", "Legacy");
+        await File.WriteAllBytesAsync(legacy.DatabasePath + "-wal", []);
+
+        var result = await NotebookApplication.OpenAsync(
+            new NotebookOpenRequest(legacy.DatabasePath));
+
+        AssertFailure(
+            result,
+            NotebookFailureCategory.AccessOrBusy,
+            "notebook.open.busy");
+    }
+
     /// <summary>Verifies derived content mismatch does not prevent authoritative operations.</summary>
     [Test]
     public async Task OpenAsync_WithDerivedMismatch_StillOpensApplicationSession()

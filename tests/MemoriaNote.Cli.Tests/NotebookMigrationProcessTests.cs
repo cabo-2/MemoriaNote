@@ -10,6 +10,33 @@ namespace MemoriaNote.Cli.Tests;
 [Category("Process")]
 public sealed class NotebookMigrationProcessTests
 {
+    /// <summary>Verifies published-process guidance for a current schema v2 input.</summary>
+    [Test]
+    public async Task Migrate_CurrentSchemaV2_ReturnsValidationAndCheckGuidance()
+    {
+        using var harness = new CliProcessHarness();
+        var create = await harness.RunAsync("create", "current");
+        Assert.That(create.ExitCode, Is.Zero, create.StandardError);
+
+        var result = await harness.RunAsync(
+            "notebooks",
+            "migrate",
+            "current.mnote",
+            "--output",
+            "unused.mnote");
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(result.ExitCode, Is.EqualTo((int)CliExitCode.Validation));
+            Assert.That(result.StandardOutput, Is.Empty);
+            Assert.That(result.StandardError, Does.Contain("schema v2 notebook"));
+            Assert.That(result.StandardError, Does.Contain("mn notebooks check"));
+            Assert.That(
+                File.Exists(Path.Combine(harness.WorkingDirectory, "unused.mnote")),
+                Is.False);
+        }
+    }
+
     /// <summary>Verifies a separate mn process migrates a schema v1 notebook.</summary>
     [Test]
     public async Task Migrate_ProcessBoundary_PublishesSchemaV2Notebook()

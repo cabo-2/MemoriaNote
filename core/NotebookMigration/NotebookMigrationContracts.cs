@@ -290,7 +290,10 @@ public enum NotebookMigrationErrorCode
     IoFailure,
 
     /// <summary>The generated schema v2 database failed verification.</summary>
-    IntegrityFailure
+    IntegrityFailure,
+
+    /// <summary>The input is already a current schema v2 notebook.</summary>
+    CurrentSource
 }
 
 /// <summary>Contains a migration report or a fatal classified error.</summary>

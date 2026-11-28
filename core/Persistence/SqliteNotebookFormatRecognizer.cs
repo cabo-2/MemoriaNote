@@ -26,7 +26,22 @@ internal static class SqliteNotebookFormatRecognizer
         string databasePath,
         CancellationToken cancellationToken = default)
     {
+        return await RecognizeAsync(
+                databasePath,
+                SchemaV2MaintenanceDefaults.BusyTimeoutSeconds,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Classifies a path with an explicit busy timeout for deterministic testing.</summary>
+    internal static async Task<NotebookFormatRecognition> RecognizeAsync(
+        string databasePath,
+        int busyTimeoutSeconds,
+        CancellationToken cancellationToken)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(databasePath);
+        if (busyTimeoutSeconds <= 0)
+            throw new ArgumentOutOfRangeException(nameof(busyTimeoutSeconds));
         cancellationToken.ThrowIfCancellationRequested();
 
         var fullPath = Path.GetFullPath(databasePath);
@@ -40,74 +55,150 @@ internal static class SqliteNotebookFormatRecognizer
 
         try
         {
-            await using var connection = await SqliteConnectionFactory.OpenAsync(
+            var sourceBefore = await SqliteNotebookRecognitionSnapshot.CaptureAsync(
                     fullPath,
-                    SqliteOpenMode.ReadOnly,
                     cancellationToken)
                 .ConfigureAwait(false);
-
-            var applicationId = await ReadPragmaInt32Async(
-                    connection,
-                    "application_id",
-                    cancellationToken)
-                .ConfigureAwait(false);
-            var userVersion = await ReadPragmaInt32Async(
-                    connection,
-                    "user_version",
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (applicationId == SchemaV2Format.ApplicationId &&
-                userVersion > SchemaV2Format.UserVersion)
+            if (sourceBefore.Candidate !=
+                SqliteNotebookHeaderCandidate.LegacyOrUnknown)
             {
-                return new NotebookFormatRecognition(
-                    NotebookFormatClassification.Unsupported,
-                    NotebookFormatRecognitionReason.NewerSchemaV2Version,
-                    NotebookFormatRecommendedAction.None,
-                    userVersion.ToString(CultureInfo.InvariantCulture));
+                return await RecognizeWithConnectionAsync(
+                        fullPath,
+                        immutable: false,
+                        busyTimeoutSeconds,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             }
 
-            if (applicationId == SchemaV2Format.ApplicationId &&
-                userVersion == SchemaV2Format.UserVersion)
+            if (sourceBefore.HasIncompleteWalPair)
+                throw new NotebookRecognitionConcurrentChangeException();
+
+            if (sourceBefore.HasSidecars)
             {
-                return new NotebookFormatRecognition(
-                    NotebookFormatClassification.Current,
-                    NotebookFormatRecognitionReason.SchemaV2Identity,
-                    NotebookFormatRecommendedAction.None,
-                    userVersion.ToString(CultureInfo.InvariantCulture));
+                return await RecognizeWithConnectionAsync(
+                        fullPath,
+                        immutable: false,
+                        busyTimeoutSeconds,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             }
 
-            var hasMetadata = await HasTableAsync(
-                    connection,
-                    "Metadata",
-                    cancellationToken)
-                .ConfigureAwait(false);
-            var hasMigrationHistory = await HasTableAsync(
-                    connection,
-                    "__EFMigrationsHistory",
-                    cancellationToken)
-                .ConfigureAwait(false);
-            var metadataVersion = hasMetadata
-                ? await ReadMetadataVersionAsync(connection, cancellationToken)
-                    .ConfigureAwait(false)
-                : null;
-            var migrations = hasMigrationHistory
-                ? await ReadMigrationsAsync(connection, cancellationToken)
-                    .ConfigureAwait(false)
-                : Array.Empty<string>();
-
-            return Classify(
-                applicationId,
-                userVersion,
-                metadataVersion,
-                migrations);
+            NotebookFormatRecognition recognition;
+            try
+            {
+                recognition = await RecognizeWithConnectionAsync(
+                        fullPath,
+                        immutable: true,
+                        busyTimeoutSeconds,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (SqliteException exception) when (IsUnreadableIdentity(exception))
+            {
+                recognition = UnreadableRecognition();
+            }
+            SqliteNotebookRecognitionSnapshot sourceAfter;
+            try
+            {
+                sourceAfter = await SqliteNotebookRecognitionSnapshot.CaptureAsync(
+                        fullPath,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (IOException exception)
+            {
+                throw new NotebookRecognitionConcurrentChangeException(exception);
+            }
+            if (!sourceBefore.HasSameSourceState(sourceAfter))
+                throw new NotebookRecognitionConcurrentChangeException();
+            return recognition;
         }
         catch (SqliteException exception) when (IsUnreadableIdentity(exception))
         {
-            return new NotebookFormatRecognition(
-                NotebookFormatClassification.Corrupt,
-                NotebookFormatRecognitionReason.UnreadableIdentity,
-                NotebookFormatRecommendedAction.None);
+            return UnreadableRecognition();
         }
+    }
+
+    private static NotebookFormatRecognition UnreadableRecognition()
+    {
+        return new NotebookFormatRecognition(
+            NotebookFormatClassification.Corrupt,
+            NotebookFormatRecognitionReason.UnreadableIdentity,
+            NotebookFormatRecommendedAction.None);
+    }
+
+    private static async Task<NotebookFormatRecognition> RecognizeWithConnectionAsync(
+        string fullPath,
+        bool immutable,
+        int busyTimeoutSeconds,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = immutable
+            ? await SqliteConnectionFactory.OpenImmutableReadOnlyAsync(
+                    fullPath,
+                    busyTimeoutSeconds,
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : await SqliteConnectionFactory.OpenAsync(
+                    fullPath,
+                    SqliteOpenMode.ReadOnly,
+                    busyTimeoutSeconds,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+        var applicationId = await ReadPragmaInt32Async(
+                connection,
+                "application_id",
+                cancellationToken)
+            .ConfigureAwait(false);
+        var userVersion = await ReadPragmaInt32Async(
+                connection,
+                "user_version",
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (applicationId == SchemaV2Format.ApplicationId &&
+            userVersion > SchemaV2Format.UserVersion)
+        {
+            return new NotebookFormatRecognition(
+                NotebookFormatClassification.Unsupported,
+                NotebookFormatRecognitionReason.NewerSchemaV2Version,
+                NotebookFormatRecommendedAction.None,
+                userVersion.ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (SchemaV2Format.IsCurrentIdentity(applicationId, userVersion))
+        {
+            return new NotebookFormatRecognition(
+                NotebookFormatClassification.Current,
+                NotebookFormatRecognitionReason.SchemaV2Identity,
+                NotebookFormatRecommendedAction.None,
+                userVersion.ToString(CultureInfo.InvariantCulture));
+        }
+
+        var hasMetadata = await HasTableAsync(
+                connection,
+                "Metadata",
+                cancellationToken)
+            .ConfigureAwait(false);
+        var hasMigrationHistory = await HasTableAsync(
+                connection,
+                "__EFMigrationsHistory",
+                cancellationToken)
+            .ConfigureAwait(false);
+        var metadataVersion = hasMetadata
+            ? await ReadMetadataVersionAsync(connection, cancellationToken)
+                .ConfigureAwait(false)
+            : null;
+        var migrations = hasMigrationHistory
+            ? await ReadMigrationsAsync(connection, cancellationToken)
+                .ConfigureAwait(false)
+            : Array.Empty<string>();
+
+        return Classify(
+            applicationId,
+            userVersion,
+            metadataVersion,
+            migrations);
     }
 
     private static NotebookFormatRecognition Classify(

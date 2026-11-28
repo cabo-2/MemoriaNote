@@ -18,11 +18,18 @@ internal static class DatabaseSchemaSemanticComparer
         var differences = new List<string>();
         AddValueDifference(differences, "application_id", expected.ApplicationId, actual.ApplicationId);
         AddValueDifference(differences, "user_version", expected.UserVersion, actual.UserVersion);
-        CompareSequence(
-            differences,
-            "schema objects",
-            expected.SchemaObjects.Select(ObjectSignature),
-            actual.SchemaObjects.Select(ObjectSignature));
+        foreach (var objectType in new[] { "table", "index", "trigger", "view" })
+        {
+            CompareSequence(
+                differences,
+                $"{objectType} schema objects",
+                expected.SchemaObjects
+                    .Where(candidate => candidate.Type == objectType)
+                    .Select(ObjectSignature),
+                actual.SchemaObjects
+                    .Where(candidate => candidate.Type == objectType)
+                    .Select(ObjectSignature));
+        }
         CompareSequence(
             differences,
             "metadata",
