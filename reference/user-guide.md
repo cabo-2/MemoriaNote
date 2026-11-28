@@ -1,6 +1,6 @@
 # Memoria Note user guide
 
-This guide documents the public command-line interface for Memoria Note `v0.3.0`. Use
+This guide documents the public command-line interface for Memoria Note `v0.4.0`. Use
 `mn --help` and `mn <command> --help` for concise syntax at the terminal. This guide is the
 maintained reference for installation, workflows, operations, recovery, and process behavior.
 
@@ -68,21 +68,21 @@ the expected tag and RID.
 On Windows, calculate the archive digest and compare it with the matching line in `SHA256SUMS`:
 
 ```powershell
-Get-FileHash .\mn-v0.3.0-win-x64.zip -Algorithm SHA256
-Select-String "mn-v0.3.0-win-x64.zip" .\SHA256SUMS
+Get-FileHash .\mn-v0.4.0-win-x64.zip -Algorithm SHA256
+Select-String "mn-v0.4.0-win-x64.zip" .\SHA256SUMS
 ```
 
 The hexadecimal values must be equal, ignoring letter case.
 
 ### Linux installation
 
-Install each release beside earlier versions and expose it through a symbolic link. For `v0.3.0`:
+Install each release beside earlier versions and expose it through a symbolic link. For `v0.4.0`:
 
 ```bash
-tar -xzf mn-v0.3.0-linux-x64.tar.gz
+tar -xzf mn-v0.4.0-linux-x64.tar.gz
 mkdir -p "$HOME/.local/lib/memoria-note" "$HOME/.local/bin"
-mv mn-v0.3.0-linux-x64 "$HOME/.local/lib/memoria-note/0.3.0"
-ln -s "$HOME/.local/lib/memoria-note/0.3.0/mn" "$HOME/.local/bin/mn"
+mv mn-v0.4.0-linux-x64 "$HOME/.local/lib/memoria-note/0.4.0"
+ln -s "$HOME/.local/lib/memoria-note/0.4.0/mn" "$HOME/.local/bin/mn"
 mn --version
 ```
 
@@ -94,7 +94,7 @@ only the `mn` executable out of its installed directory.
 Extract the ZIP, then move or rename its complete root directory to a versioned location such as:
 
 ```text
-%LOCALAPPDATA%\Programs\MemoriaNote\0.3.0
+%LOCALAPPDATA%\Programs\MemoriaNote\0.4.0
 ```
 
 Add that version directory—not just `mn.exe`—to the user `PATH`. Open a new terminal and verify the
@@ -118,8 +118,8 @@ For an application rollback, point the Linux link or Windows `PATH` entry back t
 intact version. Installing, updating, rolling back, or removing the application does not alter
 workspaces, notebook files, workspace selection, or user configuration.
 
-Before moving from a format `1` release to `v0.3.0`, keep the original notebook or a CM1 archive;
-`v0.3.0` migrates it to a separate format `2` notebook. For later updates, create a native CM2
+Before moving from a format `1` release to a format `2` release, keep the original notebook or a
+CM1 archive; migration creates a separate format `2` notebook. For later updates, create a native CM2
 backup with the currently working release. Keep the previous application and compatible backup
 until the new release has opened and backed up the data successfully.
 
@@ -267,6 +267,39 @@ mn notebooks list [-l|--long] [--workspace <directory>]
 Lists validly named lowercase `.mnote` entries directly beneath the workspace in ordinal file-name
 order. `--long` includes current-selection, validation, file-type, and format columns. Listing is
 read-only; exceptional entries remain visible and do not make an otherwise completed listing fail.
+
+### `notebooks check`
+
+```text
+mn notebooks check <source>
+```
+
+Checks one existing format `2` notebook without changing it. `<source>` is a file path resolved
+from the process current directory; it is not a workspace notebook name, and the command does not
+read or change workspace selection. The report covers format identity, schema, triggers, SQLite
+integrity, authoritative values, and derived data.
+
+A valid notebook returns `0`. A completed check that finds one or more issues writes its complete
+human-readable report and repair guidance to standard output and returns `2`. Fatal target,
+snapshot, access, or storage failures write a diagnostic to standard error instead of a report.
+See [Notebook check and repair](maintenance/notebook-check-and-repair.md) for issue codes, report
+interpretation, and recovery choices.
+
+### `notebooks repair`
+
+```text
+mn notebooks repair <source> --output <notebook>
+```
+
+Runs a repairability preflight and, only when all authoritative data is safely readable, copies it
+without transformation into a new format `2` notebook. It rebuilds derived data, validates the
+new notebook, closes and reopens it for complete validation, and then publishes it at `--output`.
+
+Both paths are resolved from the process current directory. `--output` is required and must be a
+new path; an existing file, symbolic link, or source/output conflict is rejected. There is no
+overwrite or `--force` mode. Repair does not replace the source, select the output, or change
+workspace state. See [Notebook check and repair](maintenance/notebook-check-and-repair.md) for
+refusal conditions, reporting, and how to select a repaired notebook.
 
 ### `notebooks backup`
 
@@ -567,13 +600,47 @@ Memoria Note waits for the editor process. A nonzero exit, unavailable executabl
 file, invalid UTF-8, validation failure, concurrent page change, or cancellation leaves notebook
 content unchanged.
 
+## Notebook maintenance
+
+`notebooks check` and `notebooks repair` operate only on current format `2` notebooks. They do not
+migrate format `1`, downgrade an unknown future format, restore an archive, replace a source, or
+change workspace selection. Use `notebooks migrate` for a format `1` notebook or CM1 archive and
+`notebooks restore` for a CM2 archive.
+
+Check reports format identity, schema, triggers, SQLite integrity, authoritative values, and
+derived data without changing the source or its sidecars. Run repair only after preserving the
+source file set. Repair copies safely readable authoritative data into a different new notebook,
+rebuilds derived data, validates the result, and never overwrites or replaces the source.
+
+```console
+mn notebooks check "work.mnote"
+mn notebooks repair "work.mnote" --output "work-repaired.mnote"
+```
+
+When repair succeeds, check the new file and select it explicitly from the workspace:
+
+```console
+mn notebooks check "work-repaired.mnote"
+mn notebooks list --long
+mn use work-repaired
+mn status
+```
+
+Do not replace or delete the source until the output has been reviewed and backed up. Source
+replacement and automatic workspace registration are not maintenance operations in this release.
+
+See [Notebook check and repair](maintenance/notebook-check-and-repair.md) for check layers and
+issue codes, repair refusal conditions, sidecar and concurrency safety, report interpretation,
+exit status, and recovery decisions.
+
 ## Backup, restore, and data transfer
 
 Archive v1 is a logical backup of every authoritative value in one notebook; it is not a copy of
 SQLite file bytes. It is validated before publication and fully validated before a restore target
 is created. Checksums detect corruption but do not authenticate the archive's source.
 
-The native `v0.3.0` tuple is archive format `1`, content model `2`, and source notebook format `2`.
+The native `v0.3.0` and `v0.4.0` tuple is archive format `1`, content model `2`, and source notebook
+format `2`.
 The legacy tuple `(1, 1, "1")` is read only by explicit migration. Mixed and unknown tuples are
 rejected rather than interpreted as a nearby version. The normative layout and compatibility
 matrix are in the [archive v1 specification](archive/v1/README.md).
@@ -655,6 +722,10 @@ detail on standard error. `mn config show` and `mn config validate` may likewise
 as `invalid`, `unsupported`, or `missing` to standard output before returning the classified
 failure and diagnostic.
 
+A completed `notebooks check` issue report and a completed `notebooks repair` refusal report also
+remain on standard output while returning `2`. Fatal maintenance errors that prevent a complete
+report use standard error instead.
+
 Scripts must check the exit status as well as consuming state-reporting output.
 
 ### Stability boundary
@@ -708,6 +779,17 @@ mn config validate
 
 `status`, notebook listing, and the config inspection commands do not repair or replace data. Use
 an explicit `--workspace` or `--notebook` override to isolate a saved-selection problem.
+
+To inspect a specific current-format notebook more deeply without changing it, provide its file
+path explicitly:
+
+```bash
+mn notebooks check "work.mnote"
+```
+
+If check finds issues, preserve the source and its sidecars before attempting repair. Repair to a
+different new path and review the output as described in
+[Notebook check and repair](maintenance/notebook-check-and-repair.md).
 
 ### Invalid workspace selection
 

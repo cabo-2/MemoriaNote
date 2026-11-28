@@ -1,8 +1,10 @@
 # Migrate notebook format 1 to format 2
 
-This guide applies to Memoria Note `v0.3.0`. Migration creates a new notebook.
-It never modifies, renames, deletes, or selects the source notebook or archive.
-Format `1` is not opened by ordinary `v0.3.0` commands.
+This guide applies to Memoria Note `v0.4.0`. Migration creates a new notebook.
+It never changes authoritative source content or main-database bytes and never renames, deletes,
+or selects the source notebook or archive. A live SQLite source can acquire runtime sidecars as
+described below.
+Format `1` is not opened by ordinary `v0.4.0` commands.
 
 ## 1. Before migrating
 
@@ -16,6 +18,16 @@ An archive without a manifest may receive legacy recovery guidance, but it is
 not CM1 and is not accepted by this command. CM2 is already native format `2`
 data and is restored with `notebooks restore`, not migrated.
 
+A format `2` notebook is also not a migration input. Supplying one returns exit status `2`, creates
+no output, and directs you to its complete read-only validation instead:
+
+```console
+mn notebooks check "current.mnote"
+```
+
+Migration performs only the identity check needed to classify this input; it does not run the
+schema, integrity, authoritative-value, or derived-data checks owned by `notebooks check`.
+
 Migration requires a separate output path:
 
 ```console
@@ -26,6 +38,36 @@ mn notebooks migrate "legacy.mnarchive" --output "migrated.mnote"
 `--output` is required even for `--dry-run`. The command rejects an existing
 output or SQLite sidecar, a symbolic-link output, a source/output conflict, and
 a resolution/output conflict. There is no overwrite or `--force` mode.
+
+### SQLite sidecars and manual maintenance
+
+A live SQLite notebook is a file set. In addition to `legacy.mnote`, it can include
+`legacy.mnote-wal`, `legacy.mnote-shm`, or `legacy.mnote-journal`. Keep the source database and
+every existing sidecar together when copying, backing up, restoring, or diagnosing the source.
+
+Migration reads a live format `1` database through a normal read-only SQLite snapshot so that it
+sees committed data in an existing WAL. It does not use an immutable main-file-only view. When a
+WAL-mode source has no sidecars at open time, SQLite can create `-wal` and `-shm` runtime files and
+can leave an empty WAL after the last read-only connection closes. This does not change the
+source's authoritative content or main-database bytes, but it means the source file set is not
+guaranteed to have identical entries before and after migration.
+
+`mn notebooks migrate` never deletes source sidecars. It cannot safely distinguish a sidecar it
+observed or caused from one owned by a concurrent writer or an interrupted earlier process. Never
+delete a sidecar individually while any reader or writer is running, and never delete a non-empty
+WAL: it may contain committed data not yet checkpointed into the main database.
+
+If sidecar cleanup is operationally necessary:
+
+1. Make an independent backup of the complete source file set.
+2. Verify that the backup can be read by an application compatible with schema v1.
+3. Stop every reader, writer, backup, migration, and synchronization process using the source.
+4. Open the source read-write with that schema v1-compatible application and close it cleanly.
+5. Let SQLite perform its own checkpoint and sidecar cleanup; do not substitute manual deletion.
+6. Verify the source remains readable before retrying migration.
+
+This procedure belongs to the compatible schema v1 application and SQLite lifecycle. Migration is
+not a checkpoint or cleanup command, and `notebooks check` applies only to format `2` notebooks.
 
 ## 2. Dry-run and report
 

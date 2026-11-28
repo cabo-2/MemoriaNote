@@ -2,10 +2,12 @@
 
 - notebook format version: `2`
 - specification revision: `1`
+- maintenance contract revision: `1`
 - release baseline: Memoria Note `v0.3.0`
+- maintenance release baseline: Memoria Note `v0.4.0`
 - release source commit: `5f0f92a3a30acb8e44483e759ae6c3b5af7acb49`
 - canonical DDL SHA-256: `070a59ea2ce61f4cf128124014bc7cac9871bcf881833bce401bdb8ae120d97e`
-- last updated: 2026-11-23
+- last updated: 2026-11-28
 
 ## 1. Purpose and compatibility promise
 
@@ -13,15 +15,15 @@ A Memoria Note format `2` notebook is one SQLite database, conventionally
 stored in a `.mnote` file. This document specifies its persisted format,
 authoritative values, derived data, and recognition contract.
 
-The notebook format, this prose specification revision, and the Memoria Note
-application version are independent. Specification revision `1` is not stored
-in the database. A correction that does not change persisted meaning may update
-this document without changing the notebook format. A change to identity, DDL,
-required values, or their meaning requires an explicit format-version decision.
+The notebook format, this prose specification revision, the maintenance contract revision, and the
+Memoria Note application version are independent. Neither specification revision `1` nor
+maintenance contract revision `1` is stored in the database. A correction that does not change
+persisted meaning may update this document without changing the notebook format. A change to
+identity, DDL, required values, or their meaning requires an explicit format-version decision.
 
 Format `1` remains defined by the
-[schema v1 specification](../v1/schema.md). Memoria Note `v0.3.0` does not open
-format `1` for ordinary commands; it accepts it only as an explicit
+[schema v1 specification](../v1/schema.md). Memoria Note `v0.3.0` and `v0.4.0` do not open format
+`1` for ordinary commands; they accept it only as an explicit
 [migration source](../../migration/schema-v1-to-v2.md).
 
 ## 2. Format identity and SQLite requirements
@@ -66,13 +68,13 @@ authoritative value, or derived-data mismatch prevents an ordinary open.
 
 Only `Metadata` and the logical values in `Pages` are portable notebook data.
 `PageTags` is required for a valid normal-open database but can be recreated
-from `Pages.Tags`. Body search in `v0.3.0` scans authoritative `Pages.Text`; it
+from `Pages.Tags`. Body search in `v0.3.0` and `v0.4.0` scans authoritative `Pages.Text`; it
 does not introduce a derived FTS object.
 
 ## 4. Canonical DDL
 
-The following UTF-8 text, including its final LF, is the fixed DDL embedded in
-the `v0.3.0` release source. Its SHA-256 is recorded in the header.
+The following UTF-8 text, including its final LF, is the fixed DDL embedded in the `v0.3.0`
+release source and retained unchanged by `v0.4.0`. Its SHA-256 is recorded in the header.
 
 ```sql
 PRAGMA application_id = 1782832723;
@@ -279,20 +281,34 @@ SQLite integrity, values, and logical equivalence, closes and reopens the file,
 and only then publishes it. See the
 [archive v1 specification](../../archive/v1/README.md).
 
-## 9. Validation boundary
+## 9. Validation and maintenance contract
 
-The release validator checks, in layers:
+Ordinary opening validates a format `2` notebook but never changes schema, repairs data, or rebuilds
+derived objects. Memoria Note `v0.4.0` additionally exposes the release validation boundary through
+explicit read-only check and safe reconstruction operations:
 
-1. the two persisted identity values;
-2. schema objects, columns, constraints, indexes, foreign keys, and triggers;
-3. `PRAGMA integrity_check` and `PRAGMA foreign_key_check`;
-4. required and retired metadata, page value rules, and uniqueness;
-5. the exact `PageTags` projection.
+```text
+mn notebooks check <source>
+mn notebooks repair <source> --output <notebook>
+```
 
-Ordinary opening performs validation but never repair. The `v0.3.0` release
-does not publish `notebooks check` or `notebooks repair`; those commands and a
-public maintenance contract are follow-up work. Migration, native restore, and
-release rollback are the recovery operations documented for this release.
+Both commands accept a file path resolved from the process current directory and do not use or
+change workspace selection. They accept only format `2`; migration and archive restore remain
+separate operations.
+
+Check covers identity, schema, triggers, SQLite integrity, the authoritative-value rules in this
+specification, and the exact `PageTags` projection. It uses a consistent read-only snapshot and
+does not modify the database or its sidecars. Repair accepts only authoritative data that can be
+read completely and represented without transformation. It creates and validates a new format `2`
+notebook, rebuilds derived data, and publishes the requested output only after complete validation.
+
+Maintenance does not change the format identity, canonical DDL, authoritative-data contract, or
+schema specification revision. A repaired output remains format `2` and compatible with `v0.3.0`.
+It never replaces the source, publishes a partial output, or registers the result in a workspace.
+
+The [Notebook check and repair guide](../../maintenance/notebook-check-and-repair.md) is the
+canonical maintenance contract for check layers and issue codes, repairability and refusal codes,
+source and sidecar invariance, concurrency, reports, streams, exit status, and recovery workflow.
 
 ## 10. Provenance
 
@@ -307,3 +323,7 @@ The canonical DDL hash above is the ECLI-1180 production value. The ECLI-1180
 squash commit is `5f0f92a3a30acb8e44483e759ae6c3b5af7acb49`. Supporting
 implementation resources and tests are not public format extensions; they
 provide traceability to this contract.
+
+Maintenance contract revision `1` was added for Memoria Note `v0.4.0` by ECLI-1185 and documented
+for release by ECLI-1195. It reuses the canonical DDL and authoritative-value contract above and
+does not change the format identity, schema specification revision, or DDL hash.

@@ -21,13 +21,13 @@ together; `mn` depends on the managed and native libraries beside it.
 ### Linux
 
 Extract the archive into a versioned application directory and link the executable from a directory
-on `PATH`. For release `v0.3.0`:
+on `PATH`. For release `v0.4.0`:
 
 ```bash
-tar -xzf mn-v0.3.0-linux-x64.tar.gz
+tar -xzf mn-v0.4.0-linux-x64.tar.gz
 mkdir -p "$HOME/.local/lib/memoria-note" "$HOME/.local/bin"
-mv mn-v0.3.0-linux-x64 "$HOME/.local/lib/memoria-note/0.3.0"
-ln -s "$HOME/.local/lib/memoria-note/0.3.0/mn" "$HOME/.local/bin/mn"
+mv mn-v0.4.0-linux-x64 "$HOME/.local/lib/memoria-note/0.4.0"
+ln -s "$HOME/.local/lib/memoria-note/0.4.0/mn" "$HOME/.local/bin/mn"
 mn --version
 ```
 
@@ -35,8 +35,8 @@ Ensure `$HOME/.local/bin` is on `PATH` before running `mn`.
 
 ### Windows
 
-Extract `mn-v0.3.0-win-x64.zip` into a versioned directory such as
-`%LOCALAPPDATA%\Programs\MemoriaNote\0.3.0`, add that complete directory to the user `PATH`, open a
+Extract `mn-v0.4.0-win-x64.zip` into a versioned directory such as
+`%LOCALAPPDATA%\Programs\MemoriaNote\0.4.0`, add that complete directory to the user `PATH`, open a
 new terminal, and run:
 
 ```powershell
@@ -48,9 +48,23 @@ update, rollback, and uninstall instructions.
 
 ## Migrating format 1 notebooks
 
-Memoria Note `v0.3.0` changes the notebook format from `1` to `2`. Existing notebooks must be
-migrated to format `2` before use. See
+Memoria Note `v0.3.0` introduced notebook format `2`, which remains the current format in `v0.4.0`.
+Existing format `1` notebooks must be migrated to format `2` before use. See
 [Schema v1 to v2 migration](reference/migration/schema-v1-to-v2.md) for details.
+
+## Check and repair notebooks
+
+Memoria Note `v0.4.0` can check a format `2` notebook without changing it and can rebuild safely
+readable authoritative data into a separate, fully validated notebook:
+
+```bash
+mn notebooks check work.mnote
+mn notebooks repair work.mnote --output work-repaired.mnote
+```
+
+Repair never replaces the source or an existing output. See the
+[notebook check and repair guide](reference/maintenance/notebook-check-and-repair.md) for issue reports,
+exit status, recovery choices, and workspace selection.
 
 ## Quick start
 
@@ -101,7 +115,10 @@ Restart zsh after changing the file. Regenerate `_mn` whenever `mn` is updated.
 
 - [User guide](reference/user-guide.md): concepts, every command, operations, migration, recovery,
   troubleshooting, and the CLI process contract
-- [Notebook schema v2](reference/notebook/v2/schema.md): format identity, DDL, values, and derived-data boundary
+- [Notebook check and repair](reference/maintenance/notebook-check-and-repair.md): maintenance
+  reports, safety rules, recovery choices, and exit status
+- [Notebook schema v2](reference/notebook/v2/schema.md): format identity, DDL, values, validation,
+  and the maintenance boundary
 - [Archive v1 format](reference/archive/v1/README.md): common container and CM1/CM2 compatibility
 - [Schema v1 to v2 migration](reference/migration/schema-v1-to-v2.md): upgrade, loss review, and rollback
 - [Release artifact verification](reference/release/artifact-verification.md): maintainer release
@@ -121,7 +138,7 @@ dotnet test MemoriaNote.sln --no-build
 ```
 
 Repository builds are development builds and display a version such as
-`0.3.0-dev+1a2b3c4`. Release archives display the corresponding release version without the
+`0.4.0-dev+1a2b3c4`. Release archives display the corresponding release version without the
 development suffix.
 
 ## Release limits
