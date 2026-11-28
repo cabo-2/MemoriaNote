@@ -63,7 +63,7 @@ mn notebooks repair work.mnote --output work-repaired.mnote
 ```
 
 Repair never replaces the source or an existing output. See the
-[notebook maintenance guide](reference/user-guide.md#notebook-maintenance) for issue reports,
+[notebook check and repair guide](reference/maintenance/notebook-check-and-repair.md) for issue reports,
 exit status, recovery choices, and workspace selection.
 
 ## Quick start
@@ -115,8 +115,10 @@ Restart zsh after changing the file. Regenerate `_mn` whenever `mn` is updated.
 
 - [User guide](reference/user-guide.md): concepts, every command, operations, migration, recovery,
   troubleshooting, and the CLI process contract
+- [Notebook check and repair](reference/maintenance/notebook-check-and-repair.md): maintenance
+  reports, safety rules, recovery choices, and exit status
 - [Notebook schema v2](reference/notebook/v2/schema.md): format identity, DDL, values, validation,
-  and the maintenance contract
+  and the maintenance boundary
 - [Archive v1 format](reference/archive/v1/README.md): common container and CM1/CM2 compatibility
 - [Schema v1 to v2 migration](reference/migration/schema-v1-to-v2.md): upgrade, loss review, and rollback
 - [Release artifact verification](reference/release/artifact-verification.md): maintainer release

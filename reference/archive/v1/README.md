@@ -177,6 +177,6 @@ The [notebook format 2 specification](../../notebook/v2/schema.md) defines the
 native authoritative-data and derived-data boundary. The
 [user guide](../../user-guide.md#backup-restore-and-data-transfer) documents
 backup, restore, and transfer workflows. If a format `2` notebook cannot pass normal validation,
-use the separate [notebook maintenance workflow](../../user-guide.md#notebook-maintenance) to
-check it or rebuild safely readable authoritative data into a new notebook. Maintenance does not
-modify this archive format or content model.
+use [Notebook check and repair](../../maintenance/notebook-check-and-repair.md) to check it or
+rebuild safely readable authoritative data into a new notebook. Maintenance does not modify this
+archive format or content model.

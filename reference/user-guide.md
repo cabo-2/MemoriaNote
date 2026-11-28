@@ -282,7 +282,8 @@ integrity, authoritative values, and derived data.
 A valid notebook returns `0`. A completed check that finds one or more issues writes its complete
 human-readable report and repair guidance to standard output and returns `2`. Fatal target,
 snapshot, access, or storage failures write a diagnostic to standard error instead of a report.
-See [Notebook maintenance](#notebook-maintenance) for the issue codes and safety contract.
+See [Notebook check and repair](maintenance/notebook-check-and-repair.md) for issue codes, report
+interpretation, and recovery choices.
 
 ### `notebooks repair`
 
@@ -297,8 +298,8 @@ new notebook, closes and reopens it for complete validation, and then publishes 
 Both paths are resolved from the process current directory. `--output` is required and must be a
 new path; an existing file, symbolic link, or source/output conflict is rejected. There is no
 overwrite or `--force` mode. Repair does not replace the source, select the output, or change
-workspace state. See [Notebook maintenance](#notebook-maintenance) for refusal conditions,
-reporting, and how to select a repaired notebook.
+workspace state. See [Notebook check and repair](maintenance/notebook-check-and-repair.md) for
+refusal conditions, reporting, and how to select a repaired notebook.
 
 ### `notebooks backup`
 
@@ -606,112 +607,17 @@ migrate format `1`, downgrade an unknown future format, restore an archive, repl
 change workspace selection. Use `notebooks migrate` for a format `1` notebook or CM1 archive and
 `notebooks restore` for a CM2 archive.
 
-### Check layers and issue codes
+Check reports format identity, schema, triggers, SQLite integrity, authoritative values, and
+derived data without changing the source or its sidecars. Run repair only after preserving the
+source file set. Repair copies safely readable authoritative data into a different new notebook,
+rebuilds derived data, validates the result, and never overwrites or replaces the source.
 
-Check evaluates layers in this order. A layer that cannot be evaluated safely because an earlier
-layer failed is reported as `not evaluated`, not as an additional failure:
+```console
+mn notebooks check "work.mnote"
+mn notebooks repair "work.mnote" --output "work-repaired.mnote"
+```
 
-1. `identity` — Memoria Note application ID and notebook format version;
-2. `schema` — tables, columns, constraints, indexes, and foreign keys;
-3. `triggers` — required trigger definitions and behavior;
-4. `integrity` — SQLite integrity and foreign keys;
-5. `authoritative-values` — metadata and page value contracts;
-6. `derived-data` — the exact `PageTags` projection of authoritative tags.
-
-Completed reports use the following stable issue codes. Location, expected value, and a safe
-actual summary may accompany a code; private page bodies and complete metadata values are not
-included.
-
-| Code | Layer | Meaning |
-| --- | --- | --- |
-| `identity-application-id-mismatch` | identity | SQLite application ID differs from format `2` |
-| `identity-user-version-mismatch` | identity | SQLite user version differs from format `2` |
-| `schema-object-mismatch` | schema | A non-trigger object differs from the release contract |
-| `schema-object-missing` | schema | A required non-trigger object is absent |
-| `schema-object-unexpected` | schema | An unexpected non-trigger object is present |
-| `trigger-missing` | triggers | A required trigger is absent |
-| `trigger-mismatch` | triggers | A trigger differs from the release contract |
-| `sqlite-integrity-error` | integrity | SQLite reports an integrity problem |
-| `foreign-key-violation` | integrity | SQLite reports a foreign-key violation |
-| `metadata-missing` | authoritative-values | A required metadata key is absent |
-| `metadata-duplicate` | authoritative-values | A metadata key occurs more than once |
-| `metadata-invalid` | authoritative-values | Stored metadata violates the value contract |
-| `metadata-retired` | authoritative-values | A retired metadata key is present |
-| `page-id-invalid` | authoritative-values | A Page ID violates the value contract |
-| `page-id-duplicate` | authoritative-values | Stable Page IDs are not unique |
-| `page-name-duplicate` | authoritative-values | Page names are not unique |
-| `page-name-invalid` | authoritative-values | A page name violates the value contract |
-| `page-timestamp-invalid` | authoritative-values | A page timestamp violates the value contract |
-| `page-revision-invalid` | authoritative-values | A page revision violates the value contract |
-| `page-tags-invalid` | authoritative-values | Authoritative page tags violate the value contract |
-| `derived-page-tags-missing` | derived-data | Required `PageTags` rows are absent |
-| `derived-page-tags-unexpected` | derived-data | `PageTags` contains rows not in authoritative tags |
-
-Check uses a read-only SQLite snapshot and leaves the main database and its WAL, SHM, and journal
-file set unchanged on success, issue, failure, or cancellation. A completed report states whether
-the notebook is valid, gives each layer's status, confirms `Source modified: no`, and reports the
-issue count. An issue report suggests repair as a possible next action but does not promise that
-the stricter repairability preflight will accept the source.
-
-Missing files, invalid paths, format `1`, unsupported future formats, unreadable input, busy
-snapshots, and access or storage failures are target-resolution errors rather than check issues.
-A format `1` source receives migration guidance. An unknown future format requires a compatible
-newer release. Unreadable or corrupt input receives backup or archive recovery guidance instead of
-an unsafe repair recommendation.
-
-### Repairability and publication
-
-Repair can accept a current format `2` notebook whose defect is limited to derived data or other
-release-defined rebuildable objects. It refuses to copy when the authoritative schema cannot be
-read exactly, SQLite integrity of authoritative storage cannot be established, or an authoritative
-value violates the release contract. Refusal reports use these stable codes:
-
-| Code | Meaning |
-| --- | --- |
-| `authoritative-schema-mismatch` | A required authoritative table or column cannot be read exactly |
-| `authoritative-integrity-failure` | Integrity of authoritative storage cannot be established |
-| `authoritative-value-invalid` | One or more authoritative values violate the release contract |
-
-Repair copies every required and extension metadata value and every logical page value. It does
-not infer missing values, normalize text, skip records, or copy SQLite-local `InternalId` values.
-The new notebook receives local internal IDs while preserving stable Page IDs. The successful
-report includes record counts, copied authoritative categories, rebuilt derived categories, a
-logical fingerprint, output validation, and publication status; it does not expose private page
-bodies or metadata values.
-
-The output is first built at a private path in the destination directory. It is published only
-after schema, integrity, value, derived-data, logical-equivalence, and close/reopen validation all
-succeed. Failure or cancellation removes the private output and its owned sidecars and never
-publishes a partial result. The source and any pre-existing destination remain unchanged.
-
-### Concurrency, reports, and exit status
-
-Check and repair wait up to 30 seconds for the read locks needed for a consistent snapshot. If a
-writer prevents a safe snapshot, close it and retry; busy is not reported as corruption. Repair
-holds one consistent authoritative snapshot across preflight and copy.
-
-The `v0.4.0` maintenance interface provides human-readable reports only. It does not provide JSON
-or another versioned machine-readable report schema. Stable issue/refusal codes, exit-status
-classification, and stream placement are the automation contract; scripts must not parse report
-labels, prose, ordering, or whitespace.
-
-| Result | Exit status | Output |
-| --- | ---: | --- |
-| Valid check or published repair | `0` | Human-readable report on standard output |
-| Check issues or repair refusal | `2` | Complete report and next-action guidance on standard output |
-| Invalid path, legacy/unsupported/unreadable source | `2` | Fatal diagnostic on standard error |
-| Missing source | `3` | Fatal diagnostic on standard error |
-| Busy snapshot or output conflict | `4` | Fatal diagnostic on standard error |
-| Access, storage, or output-verification failure | `5` | Fatal diagnostic on standard error |
-| Cancellation | `130` | Cancellation diagnostic on standard error |
-
-Maintenance never uses partial exit status `6`.
-
-### Using a repaired notebook
-
-Repair does not register or select its output. To use it, place the new file directly in the
-workspace root, keep the original and an independent backup during review, then select it
-explicitly:
+When repair succeeds, check the new file and select it explicitly from the workspace:
 
 ```console
 mn notebooks check "work-repaired.mnote"
@@ -722,6 +628,10 @@ mn status
 
 Do not replace or delete the source until the output has been reviewed and backed up. Source
 replacement and automatic workspace registration are not maintenance operations in this release.
+
+See [Notebook check and repair](maintenance/notebook-check-and-repair.md) for check layers and
+issue codes, repair refusal conditions, sidecar and concurrency safety, report interpretation,
+exit status, and recovery decisions.
 
 ## Backup, restore, and data transfer
 
@@ -879,7 +789,7 @@ mn notebooks check "work.mnote"
 
 If check finds issues, preserve the source and its sidecars before attempting repair. Repair to a
 different new path and review the output as described in
-[Notebook maintenance](#notebook-maintenance).
+[Notebook check and repair](maintenance/notebook-check-and-repair.md).
 
 ### Invalid workspace selection
 

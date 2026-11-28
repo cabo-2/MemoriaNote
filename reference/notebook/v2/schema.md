@@ -284,8 +284,8 @@ and only then publishes it. See the
 ## 9. Validation and maintenance contract
 
 Ordinary opening validates a format `2` notebook but never changes schema, repairs data, or rebuilds
-derived objects. Memoria Note `v0.4.0` additionally exposes the same release contract through
-explicit check and safe reconstruction operations:
+derived objects. Memoria Note `v0.4.0` additionally exposes the release validation boundary through
+explicit read-only check and safe reconstruction operations:
 
 ```text
 mn notebooks check <source>
@@ -296,101 +296,19 @@ Both commands accept a file path resolved from the process current directory and
 change workspace selection. They accept only format `2`; migration and archive restore remain
 separate operations.
 
-### 9.1 Layered check
+Check covers identity, schema, triggers, SQLite integrity, the authoritative-value rules in this
+specification, and the exact `PageTags` projection. It uses a consistent read-only snapshot and
+does not modify the database or its sidecars. Repair accepts only authoritative data that can be
+read completely and represented without transformation. It creates and validates a new format `2`
+notebook, rebuilds derived data, and publishes the requested output only after complete validation.
 
-Check evaluates these layers in order:
+Maintenance does not change the format identity, canonical DDL, authoritative-data contract, or
+schema specification revision. A repaired output remains format `2` and compatible with `v0.3.0`.
+It never replaces the source, publishes a partial output, or registers the result in a workspace.
 
-1. the application ID and user version (`identity`);
-2. non-trigger schema objects, columns, constraints, indexes, and foreign keys (`schema`);
-3. required trigger definitions and behavior (`triggers`);
-4. `PRAGMA integrity_check` and `PRAGMA foreign_key_check` (`integrity`);
-5. required and retired metadata, page values, and uniqueness (`authoritative-values`);
-6. the exact `PageTags` projection (`derived-data`).
-
-When an earlier failure makes a later query unsafe or meaningless, the later layer is `not
-evaluated`; it is not reported as a second inferred defect. A completed layer is `passed` or
-`failed`.
-
-The stable issue codes are:
-
-| Layer | Codes |
-| --- | --- |
-| identity | `identity-application-id-mismatch`, `identity-user-version-mismatch` |
-| schema | `schema-object-mismatch`, `schema-object-missing`, `schema-object-unexpected` |
-| triggers | `trigger-missing`, `trigger-mismatch` |
-| integrity | `sqlite-integrity-error`, `foreign-key-violation` |
-| authoritative-values | `metadata-missing`, `metadata-duplicate`, `metadata-invalid`, `metadata-retired`, `page-id-invalid`, `page-id-duplicate`, `page-name-duplicate`, `page-name-invalid`, `page-timestamp-invalid`, `page-revision-invalid`, `page-tags-invalid` |
-| derived-data | `derived-page-tags-missing`, `derived-page-tags-unexpected` |
-
-Each issue has a safe schema or value-category location and can include expected and summarized
-actual values. Reports do not reproduce page bodies or complete private metadata values.
-
-Check uses a consistent read-only snapshot. Success, detected issues, target failure, busy failure,
-and cancellation leave the main database and its WAL, SHM, and journal file set unchanged. A
-completed report records every layer, confirms that the source was not modified, and reports the
-issue count. A source that cannot be classified safely enough to produce this report is a fatal
-target error, not a check issue.
-
-Missing, invalid-path, format `1`, unsupported future-format, unreadable, busy, access, and storage
-results remain distinct. Format `1` receives migration guidance; an exact format `2` identity
-supplied to migration receives check guidance without migration invoking the layered check.
-
-### 9.2 Repairability and reconstruction
-
-Repair is not an in-place DDL operation and does not require normal validation to succeed. A
-dedicated preflight separates rebuildable defects from authoritative defects while holding the
-same consistent snapshot used for the copy.
-
-The source is repairable only when every authoritative table, column, metadata value, and page can
-be read completely and represented without transformation. Derived-data or other
-release-designated rebuildable defects can be accepted. Repair refuses these stable categories:
-
-| Code | Refusal condition |
-| --- | --- |
-| `authoritative-schema-mismatch` | A required authoritative table or column cannot be read exactly |
-| `authoritative-integrity-failure` | Integrity of authoritative storage cannot be established |
-| `authoritative-value-invalid` | One or more authoritative values violate this specification |
-
-Repair does not skip records, supply defaults, infer values, normalize text, or derive
-authoritative values from `PageTags`. It losslessly copies all managed and extension metadata and
-all logical page values. Stable Page IDs are preserved; SQLite-local `InternalId` values are
-allocated by the new database and are not part of equivalence.
-
-`--output` is mandatory. The normalized output must be new and distinct from the source; existing
-files, symbolic links, and other path conflicts are refused. A private database in the destination
-directory is created from the canonical DDL, populated from the snapshot, and has `PageTags`
-rebuilt. Counts, logical fingerprint, identity, schema, triggers, SQLite integrity, authoritative
-values, and derived data are validated before and after close/reopen. Atomic publication to the
-requested path occurs only after all validation succeeds.
-
-Failure, refusal, or cancellation does not modify the source or an existing output. A failed
-private output and its owned sidecars are removed, and no partial result is published. Repair never
-renames or deletes the source and never registers or selects the result in a workspace. A repaired
-output remains format `2`, specification revision `1`, and compatible with `v0.3.0`; maintenance
-does not create a new notebook format.
-
-### 9.3 Concurrency, reports, and process results
-
-Check and repair use a 30-second busy timeout. A writer that prevents a consistent snapshot yields
-a busy result, not a corruption issue. Cancellation is observed without changing the source or
-publishing a repair output.
-
-Maintenance contract revision `1` provides human-readable reports only. Report wording, labels,
-ordering, and whitespace are not a machine-readable interface. Stable issue/refusal codes,
-exit-status classification, and stream placement are the public automation contract:
-
-| Result | Exit status | Stream |
-| --- | ---: | --- |
-| Valid check or successfully published repair | `0` | Report on standard output |
-| Check issues or repair refusal | `2` | Complete report and guidance on standard output |
-| Invalid, legacy, unsupported, or unreadable source | `2` | Fatal diagnostic on standard error |
-| Missing source | `3` | Fatal diagnostic on standard error |
-| Busy source or output conflict | `4` | Fatal diagnostic on standard error |
-| Access, storage, or output-verification failure | `5` | Fatal diagnostic on standard error |
-| Cancellation | `130` | Cancellation diagnostic on standard error |
-
-Maintenance never publishes a partial output and never uses exit status `6`. See the
-[user guide](../../user-guide.md#notebook-maintenance) for workflows and next-action guidance.
+The [Notebook check and repair guide](../../maintenance/notebook-check-and-repair.md) is the
+canonical maintenance contract for check layers and issue codes, repairability and refusal codes,
+source and sidecar invariance, concurrency, reports, streams, exit status, and recovery workflow.
 
 ## 10. Provenance
 
