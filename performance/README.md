@@ -31,6 +31,8 @@ the profile matching the host:
 | `v0.2.1` | Windows x64 | `performance/artifacts/v0.2.1-win-x64.json` |
 | `v0.3.0` | Linux x64 | `performance/artifacts/v0.3.0-linux-x64.json` |
 | `v0.3.0` | Windows x64 | `performance/artifacts/v0.3.0-win-x64.json` |
+| `v0.4.0` | Linux x64 | `performance/artifacts/v0.4.0-linux-x64.json` |
+| `v0.4.0` | Windows x64 | `performance/artifacts/v0.4.0-win-x64.json` |
 
 ## Generate release artifact profiles
 
@@ -38,12 +40,12 @@ After a release is published and its final assets are available, generate both h
 the repository root:
 
 ```console
-bash performance/scripts/generate-release-artifact-profiles.sh v0.3.0 phase-11
+bash performance/scripts/generate-release-artifact-profiles.sh v0.4.0 phase-11
 ```
 
 The script rejects drafts and prereleases, validates the remote tag commit and tagged product
 version, downloads the two archives and `SHA256SUMS`, and verifies both archive checksums. Downloads
-are stored under `performance/.cache/artifacts/v0.3.0/download/`; the generated profiles are stored
+are stored under `performance/.cache/artifacts/v0.4.0/download/`; the generated profiles are stored
 under `performance/artifacts/`.
 
 The second argument is the explicit scenario support level recorded in both generated profiles.
